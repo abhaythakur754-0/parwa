@@ -472,6 +472,74 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("provider_configs_table_sql_fallback_failed: %s", str(exc)[:200])
 
+    # ── Direct SQL fallback for LLM + Superglue queue tables ──
+    # These tables support the DB-backed recovery loops (survive Render
+    # restarts). Without them, the recovery loops spam the logs every
+    # 30-60s with "relation does not exist" errors.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            # Create llm_request_queue table if not exists
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS llm_request_queue (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36),
+                    provider VARCHAR(50) NOT NULL,
+                    model VARCHAR(100) NOT NULL,
+                    messages TEXT NOT NULL,
+                    temperature FLOAT DEFAULT 0.1,
+                    max_tokens INTEGER DEFAULT 1000,
+                    call_id INTEGER,
+                    ticket_id VARCHAR(36),
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    retry_count INTEGER DEFAULT 0,
+                    max_retries INTEGER DEFAULT 3,
+                    next_retry_at TIMESTAMP,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    completed_at TIMESTAMP
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_llm_queue_status ON llm_request_queue (status)"
+            ))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_llm_queue_retry_at ON llm_request_queue (next_retry_at)"
+            ))
+
+            # Create superglue_call_queue table if not exists
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS superglue_call_queue (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36),
+                    tool_id VARCHAR(100) NOT NULL,
+                    input_data TEXT NOT NULL,
+                    ticket_id VARCHAR(36),
+                    agent_id VARCHAR(36),
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    retry_count INTEGER DEFAULT 0,
+                    max_retries INTEGER DEFAULT 2,
+                    error_message TEXT,
+                    result_data TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    completed_at TIMESTAMP
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_superglue_queue_status ON superglue_call_queue (status)"
+            ))
+            _db.commit()
+            _lg.info("queue_tables_ensured_via_sql_fallback (llm_request_queue + superglue_call_queue)")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("queue_tables_sql_fallback_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"

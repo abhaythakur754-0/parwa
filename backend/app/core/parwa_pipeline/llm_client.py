@@ -588,6 +588,9 @@ def parse_confidence(text: str, default: float = 0.7) -> float:
 # But their DB rows survive (status='rate_limited' or 'in_progress').
 # This function finds those stuck rows and retries them.
 
+# Track if we've already warned about the missing table (avoid log spam)
+_llm_queue_table_missing_warned = False
+
 async def _recover_stuck_llm_requests() -> None:
     """Find stuck LLM requests in DB and retry them.
 
@@ -598,15 +601,35 @@ async def _recover_stuck_llm_requests() -> None:
 
     Retries each via _call_nvidia_direct (which re-inserts + re-tries).
     On success → row deleted by the call. On failure → marked failed.
+
+    If the llm_request_queue table doesn't exist yet (fresh DB), this
+    function silently skips — no log spam. The table is created on first
+    LLM call that needs DB-backed queueing.
     """
+    global _llm_queue_table_missing_warned
     try:
         from database.base import SessionLocal
         from database.models.core import LLMRequestQueue
         from datetime import datetime, timezone
         import json as _json
+        from sqlalchemy import text as _sql_text
 
         _db = SessionLocal()
         try:
+            # Check if table exists first (avoid spamming errors every 30s)
+            try:
+                _db.execute(_sql_text("SELECT 1 FROM llm_request_queue LIMIT 1"))
+            except Exception as table_check_exc:
+                if "does not exist" in str(table_check_exc).lower():
+                    if not _llm_queue_table_missing_warned:
+                        logger.info(
+                            "llm_queue_recovery: table llm_request_queue not yet created — "
+                            "will be auto-created on first NVIDIA DB-backed call. Skipping recovery loop."
+                        )
+                        _llm_queue_table_missing_warned = True
+                    return  # Table doesn't exist yet — silent skip
+                raise  # Different error — re-raise
+
             # Find stuck rows (rate_limited with retry_at in past, OR in_progress for >5 min)
             now = datetime.now(timezone.utc)
             stuck_rows = _db.query(LLMRequestQueue).filter(
@@ -615,6 +638,9 @@ async def _recover_stuck_llm_requests() -> None:
 
             if not stuck_rows:
                 return  # nothing to recover
+
+            # Table exists now — reset the warned flag
+            _llm_queue_table_missing_warned = False
 
             logger.info("llm_queue_recovery: found %d stuck requests", len(stuck_rows))
 

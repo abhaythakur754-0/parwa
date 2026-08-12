@@ -355,26 +355,52 @@ def _mark_superglue_call_failed(call_id: str, error: str) -> None:
         logger.warning("superglue_call_mark_failed_error: %s", str(exc)[:200])
 
 
+# Track if we've already warned about the missing table (avoid log spam)
+_superglue_queue_table_missing_warned = False
+
 async def recover_stuck_superglue_calls() -> None:
     """Recovery worker: retry stuck Superglue calls after Render restart.
 
     Called by background loop in main.py (same as LLM recovery worker).
     Finds calls with status='in_progress' (Render died mid-call) and
     retries them.
+
+    If the superglue_call_queue table doesn't exist yet (fresh DB), this
+    function silently skips — no log spam. The table is created on first
+    Superglue call that needs DB-backed queueing.
     """
+    global _superglue_queue_table_missing_warned
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
         import json as _json
+        from sqlalchemy import text as _sql_text
 
         _db = SessionLocal()
         try:
+            # Check if table exists first (avoid spamming errors every 60s)
+            try:
+                _db.execute(_sql_text("SELECT 1 FROM superglue_call_queue LIMIT 1"))
+            except Exception as table_check_exc:
+                if "does not exist" in str(table_check_exc).lower():
+                    if not _superglue_queue_table_missing_warned:
+                        logger.info(
+                            "superglue_call_recovery: table superglue_call_queue not yet created — "
+                            "will be auto-created on first Superglue DB-backed call. Skipping recovery loop."
+                        )
+                        _superglue_queue_table_missing_warned = True
+                    return  # Table doesn't exist yet — silent skip
+                raise  # Different error — re-raise
+
             stuck_rows = _db.query(SuperglueCallQueue).filter(
                 SuperglueCallQueue.status == "in_progress"
             ).limit(5).all()  # cap at 5 per cycle
 
             if not stuck_rows:
                 return
+
+            # Table exists now — reset the warned flag
+            _superglue_queue_table_missing_warned = False
 
             logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
 
