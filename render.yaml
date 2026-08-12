@@ -59,10 +59,11 @@ services:
       # ticket creation when Celery can't connect to Redis.
       - key: FORCE_SYNC_PIPELINE
         value: "true"
-      # Concurrent pipeline workers (10 = safe on 512MB Starter plan).
-      # On 2GB Standard plan, set to 40.
+      # Concurrent pipeline workers (10 = assembly line model).
+      # Allows fast providers (Groq) to process light calls for tickets 6-10
+      # while slow providers (NVIDIA) work on hard calls for tickets 1-5.
       - key: MAX_CONCURRENT_PIPELINES
-        value: "4"
+        value: "10"
       # LLM Provider API Keys (3 providers for 11-model Smart Router)
       - key: GOOGLE_AI_API_KEY
         sync: false

@@ -57,67 +57,16 @@ import os
 import threading as _threading_mod
 import time as _time_mod
 
-# Configurable via env var so it can be tuned without code changes.
-# Default 4: one ticket per major LLM provider (NVIDIA, Groq, Mistral, Gemini).
-# Each ticket is assigned to a specific provider to avoid rate-limit collisions.
-# Rest queue in DB. Workers poll DB for 'open' tickets.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "4"))
+# Configurable via env var.
+# Default 10: allows tickets to flow through the pipeline like an assembly line.
+# Fast providers (Groq) can process light calls for tickets 6-10 while slow
+# providers (NVIDIA) are still working on hard calls for tickets 1-5.
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# TICKET-TO-PROVIDER ASSIGNMENT
-# ═══════════════════════════════════════════════════════════════════════
-# Each ticket is assigned to a MAJOR provider (NVIDIA, Groq, Mistral, Gemini).
-# All LLM calls for that ticket go to the assigned provider.
-# If the major provider returns 429 → switch to BACKUP (Cerebras, Aion).
-# After 60s (rate limit renews) → switch back to major provider.
-#
-# MAJOR PROVIDERS (primary — one ticket each):
-#   1. NVIDIA (40 RPM)     — deep reasoning tickets
-#   2. Groq (30 RPM)        — fast classification tickets
-#   3. Mistral (60 RPM)     — medium/hard tickets
-#   4. Gemini (30 RPM)      — chat/new request tickets
-#
-# BACKUP PROVIDERS (when major is 429'd):
-#   5. Cerebras (5 RPM)
-#   6. Aion Labs (15 RPM)
-# ═══════════════════════════════════════════════════════════════════════
 
-import threading as _t
-
-# Track which provider each ticket is assigned to
-# Key: ticket_id, Value: {"major": "nvidia", "current": "nvidia", "429_at": 0}
-_ticket_providers: dict = {}
-_ticket_providers_lock = _t.Lock()
-
-# Major providers in priority order (round-robin assignment)
-MAJOR_PROVIDERS = ["nvidia", "groq", "mistral", "gemini"]
-BACKUP_PROVIDERS = ["cerebras", "aion"]
-_provider_rr_index = 0
-
-
-def assign_provider_to_ticket(ticket_id: str) -> str:
-    """Assign a major provider to a ticket (round-robin).
-    
-    Called when a worker picks up a ticket.
-    Returns the provider name (e.g. "nvidia", "groq", "mistral", "gemini").
-    """
-    global _provider_rr_index
-    with _ticket_providers_lock:
-        if ticket_id in _ticket_providers:
-            return _ticket_providers[ticket_id]["major"]
-        
-        provider = MAJOR_PROVIDERS[_provider_rr_index % len(MAJOR_PROVIDERS)]
-        _provider_rr_index += 1
-        
-        _ticket_providers[ticket_id] = {
-            "major": provider,
-            "current": provider,
-            "429_at": 0,
-        }
-        return provider
 
 
 def get_current_provider(ticket_id: str) -> str:
@@ -264,13 +213,6 @@ def _start_pipeline_workers():
                     if claim:
                         ticket_id, company_id, channel = claim
                         
-                        # ── ASSIGN PROVIDER TO THIS TICKET ──
-                        assigned_provider = assign_provider_to_ticket(ticket_id)
-                        logger.info(
-                            "worker_%d ticket=%s assigned provider=%s",
-                            worker_id, ticket_id[:8], assigned_provider,
-                        )
-                        
                         # ── AWARE TICKET PICKUP ──────────────────────────
                         # Before processing, check if tenant has the agents/tools
                         # to solve this ticket. If not, mark 'review_needed' instead
@@ -296,8 +238,6 @@ def _start_pipeline_workers():
                                 awareness["agent_count"], awareness["tool_count"],
                             )
                             _run_pipeline_sync(ticket_id, company_id, channel)
-                            # ── RELEASE PROVIDER (ticket completed) ──
-                            release_provider(ticket_id)
                         except Exception as exc:
                             err_msg = str(exc)[:300]
                             logger.error(
@@ -305,9 +245,6 @@ def _start_pipeline_workers():
                                 worker_id, ticket_id[:8], err_msg[:200],
                             )
 
-                            # ── RELEASE PROVIDER (ticket failed) ──
-                            release_provider(ticket_id)
-                            
                             # ── Check if this is a rate-limit failure (retryable) ──
                             is_rate_limit = (
                                 "all providers exhausted" in err_msg.lower()

@@ -189,15 +189,16 @@ async def llm_call(
     step_type: str = "",
     ticket_id: str = "",
 ) -> str:
-    """Single LLM call — uses ticket-assigned provider with fallback.
-    
-    Each ticket is assigned to a MAJOR provider (NVIDIA, Groq, Mistral, Gemini).
-    All LLM calls for that ticket go to the assigned provider.
-    
-    If the major provider returns 429 → switch to BACKUP (Cerebras, Aion).
-    After 60s (rate limit renews) → switch back to major provider.
-    
-    If no ticket_id is provided → uses round-robin (legacy behavior).
+    """Single LLM call — Node-based routing (assembly line model).
+
+    Routes based on max_tokens (task size):
+      ≤150 tokens (Light)  → prefer Groq (fastest, 30 RPM)
+      151-300 tokens (Med) → prefer Mistral (1 RPS, good quality)
+      300+ tokens (Hard)   → prefer NVIDIA (GLM-5.2, 40 RPM, best reasoning)
+
+    If preferred provider is 429'd → tries next in fallback list.
+    ProviderPool handles cooldown automatically.
+    Tickets flow through like an assembly line — no waiting for other tickets.
     """
     global _call_count, _total_errors
 
@@ -211,108 +212,77 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── Determine which provider to use ──
-    provider_to_use = "groq"  # default
-    
-    if ticket_id:
-        # Get the assigned provider for this ticket
-        try:
-            from app.services.pipeline_dispatcher import get_current_provider, switch_to_backup
-            provider_to_use = get_current_provider(ticket_id)
-        except Exception:
-            pass  # fall through to default
+    # ── NODE-BASED ROUTING: pick provider based on token size ──
+    if max_tokens <= 150:
+        # Light task → Groq (fastest)
+        preferred_order = [
+            ("groq", _call_groq_direct),
+            ("mistral", _call_mistral_direct),
+            ("gemini", _call_gemini_direct),
+            ("nvidia", _call_nvidia_direct),
+            ("cerebras", _call_cerebras_direct),
+            ("aion", _call_aion_direct),
+        ]
+    elif max_tokens <= 300:
+        # Medium task → Mistral (good quality + speed)
+        preferred_order = [
+            ("mistral", _call_mistral_direct),
+            ("groq", _call_groq_direct),
+            ("nvidia", _call_nvidia_direct),
+            ("gemini", _call_gemini_direct),
+            ("cerebras", _call_cerebras_direct),
+            ("aion", _call_aion_direct),
+        ]
+    else:
+        # Hard task → NVIDIA (best reasoning, 82% accuracy)
+        preferred_order = [
+            ("nvidia", _call_nvidia_direct),
+            ("mistral", _call_mistral_direct),
+            ("cerebras", _call_cerebras_direct),
+            ("groq", _call_groq_direct),
+            ("gemini", _call_gemini_direct),
+            ("aion", _call_aion_direct),
+        ]
 
-    # Map provider name to function
-    provider_fns = {
-        "nvidia": _call_nvidia_direct,
-        "groq": _call_groq_direct,
-        "mistral": _call_mistral_direct,
-        "gemini": _call_gemini_direct,
-        "cerebras": _call_cerebras_direct,
-        "aion": _call_aion_direct,
-    }
-
-    # ── TRY: assigned provider first ──
-    fn = provider_fns.get(provider_to_use)
-    if fn:
-        try:
-            result = await fn(messages, temperature, max_tokens, call_id)
-            if result and len(result.strip()) > 0:
-                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_to_use, len(result), step_type)
-                return result
-        except RuntimeError as exc:
-            status_code = 0
-            for part in str(exc).split():
-                if part.isdigit():
-                    status_code = int(part)
-                    break
-            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_to_use, status_code, str(exc)[:100])
-            
-            # If 429 and we have a ticket_id → switch to backup
-            if status_code == 429 and ticket_id:
-                try:
-                    backup = switch_to_backup(ticket_id)
-                    if backup:
-                        logger.info("LLM call #%d: switched to backup=%s for ticket=%s", call_id, backup, ticket_id[:8])
-                        backup_fn = provider_fns.get(backup)
-                        if backup_fn:
-                            result = await backup_fn(messages, temperature, max_tokens, call_id)
-                            if result and len(result.strip()) > 0:
-                                logger.info("LLM call #%d: %s (backup) SUCCESS (%d chars)", call_id, backup, len(result))
-                                return result
-                except Exception as backup_exc:
-                    logger.warning("LLM call #%d: backup %s failed: %s", call_id, backup, str(backup_exc)[:100])
-        except Exception as exc:
-            logger.warning("LLM call #%d: %s error: %s", call_id, provider_to_use, str(exc)[:100])
-
-    # ── FALLBACK: try all other providers (round-robin) ──
+    # ── TRY: preferred provider first, then fallbacks ──
     pool = get_provider_pool()
-    all_providers = [
-        ("groq", _call_groq_direct),
-        ("mistral", _call_mistral_direct),
-        ("nvidia", _call_nvidia_direct),
-        ("gemini", _call_gemini_direct),
-        ("cerebras", _call_cerebras_direct),
-        ("aion", _call_aion_direct),
-    ]
-
-    tried = {provider_to_use}
-    for _attempt in range(len(all_providers)):
-        next_provider = pool.next_available(all_providers)
-        if not next_provider:
-            break
-        provider_name, provider_fn = next_provider
-        if provider_name in tried:
-            break
-        tried.add(provider_name)
-
+    
+    for provider_name, provider_fn in preferred_order:
+        # Check if provider is cooling down (429)
+        if not pool._is_available(provider_name, []):
+            continue
+            
         try:
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
                 pool.record_success(provider_name)
-                logger.info("LLM call #%d: %s FALLBACK SUCCESS (%d chars)", call_id, provider_name, len(result))
+                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s, tokens=%d)", 
+                           call_id, provider_name, len(result), step_type, max_tokens)
                 return result
             pool.record_failure(provider_name, status_code=0)
+            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
             status_code = 0
-            for part in str(exc).split():
+            msg = str(exc)
+            for part in msg.split():
                 if part.isdigit():
                     status_code = int(part)
                     break
             pool.record_failure(provider_name, status_code=status_code)
-            logger.warning("LLM call #%d: %s fallback failed (status=%d)", call_id, provider_name, status_code)
+            logger.warning("LLM call #%d: %s failed (status=%d): %s", 
+                          call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:
             pool.record_failure(provider_name, status_code=0)
-            logger.warning("LLM call #%d: %s fallback error: %s", call_id, provider_name, str(exc)[:100])
+            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
 
-    # ── LAST RESORT: Smart Router ──
+    # ── LAST RESORT: Smart Router (LiteLLM — 11 models) ──
     try:
         smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
         if smart_result and len(smart_result.strip()) > 0:
-            logger.info("LLM call #%d: Smart Router SUCCESS", call_id)
+            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
             return smart_result
     except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:150])
+        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
 
     _total_errors += 1
     logger.error("LLM call #%d FAILED: All providers exhausted", call_id)
@@ -320,13 +290,32 @@ async def llm_call(
 
 
 async def _call_mistral_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Mistral API call — 60 RPM free tier, 500K TPM."""
+    """Direct Mistral API call — 1 RPS (1 request per second), 500K TPM.
+    
+    Includes a 1-second delay between calls to respect the 1 RPS limit.
+    """
     import os
+    import time as _time
+    import asyncio
     import httpx
 
     api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
     if not api_key:
         return ""
+
+    # ── 1 RPS LIMITER: ensure 1 second gap between Mistral calls ──
+    global _last_mistral_call_time
+    if '_last_mistral_call_time' not in globals():
+        _last_mistral_call_time = 0.0
+    
+    now = _time.time()
+    elapsed = now - _last_mistral_call_time
+    if elapsed < 1.0:
+        wait_time = 1.0 - elapsed
+        logger.info("Mistral 1 RPS: waiting %.1fs (call #%d)", wait_time, call_id)
+        await asyncio.sleep(wait_time)
+    
+    _last_mistral_call_time = _time.time()
 
     payload = {
         "model": "mistral-small-latest",  # Mistral Small 4 (free tier)
