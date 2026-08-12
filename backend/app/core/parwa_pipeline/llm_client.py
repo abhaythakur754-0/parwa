@@ -187,492 +187,136 @@ async def llm_call(
     temperature: float = 0.3,
     system_prompt: str = "",
     step_type: str = "",
+    ticket_id: str = "",
 ) -> str:
-    """Single LLM call — Provider Pool (Groq + Cerebras + Mistral).
-
-    Uses round-robin across 3 cloud providers with automatic failover.
-    When a provider returns 429, it's cooled down for 60s and skipped.
+    """Single LLM call — uses ticket-assigned provider with fallback.
+    
+    Each ticket is assigned to a MAJOR provider (NVIDIA, Groq, Mistral, Gemini).
+    All LLM calls for that ticket go to the assigned provider.
+    
+    If the major provider returns 429 → switch to BACKUP (Cerebras, Aion).
+    After 60s (rate limit renews) → switch back to major provider.
+    
+    If no ticket_id is provided → uses round-robin (legacy behavior).
     """
     global _call_count, _total_errors
 
     await _wait_for_rate_limit()
-
     _call_count += 1
     call_id = _call_count
-
     _check_pipeline_timeout()
 
-    # Build messages
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── Provider Pool: Groq + Mistral + Cerebras ──
+    # ── Determine which provider to use ──
+    provider_to_use = "groq"  # default
+    
+    if ticket_id:
+        # Get the assigned provider for this ticket
+        try:
+            from app.services.pipeline_dispatcher import get_current_provider, switch_to_backup
+            provider_to_use = get_current_provider(ticket_id)
+        except Exception:
+            pass  # fall through to default
+
+    # Map provider name to function
+    provider_fns = {
+        "nvidia": _call_nvidia_direct,
+        "groq": _call_groq_direct,
+        "mistral": _call_mistral_direct,
+        "gemini": _call_gemini_direct,
+        "cerebras": _call_cerebras_direct,
+        "aion": _call_aion_direct,
+    }
+
+    # ── TRY: assigned provider first ──
+    fn = provider_fns.get(provider_to_use)
+    if fn:
+        try:
+            result = await fn(messages, temperature, max_tokens, call_id)
+            if result and len(result.strip()) > 0:
+                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_to_use, len(result), step_type)
+                return result
+        except RuntimeError as exc:
+            status_code = 0
+            for part in str(exc).split():
+                if part.isdigit():
+                    status_code = int(part)
+                    break
+            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_to_use, status_code, str(exc)[:100])
+            
+            # If 429 and we have a ticket_id → switch to backup
+            if status_code == 429 and ticket_id:
+                try:
+                    backup = switch_to_backup(ticket_id)
+                    if backup:
+                        logger.info("LLM call #%d: switched to backup=%s for ticket=%s", call_id, backup, ticket_id[:8])
+                        backup_fn = provider_fns.get(backup)
+                        if backup_fn:
+                            result = await backup_fn(messages, temperature, max_tokens, call_id)
+                            if result and len(result.strip()) > 0:
+                                logger.info("LLM call #%d: %s (backup) SUCCESS (%d chars)", call_id, backup, len(result))
+                                return result
+                except Exception as backup_exc:
+                    logger.warning("LLM call #%d: backup %s failed: %s", call_id, backup, str(backup_exc)[:100])
+        except Exception as exc:
+            logger.warning("LLM call #%d: %s error: %s", call_id, provider_to_use, str(exc)[:100])
+
+    # ── FALLBACK: try all other providers (round-robin) ──
     pool = get_provider_pool()
     all_providers = [
         ("groq", _call_groq_direct),
         ("mistral", _call_mistral_direct),
+        ("nvidia", _call_nvidia_direct),
+        ("gemini", _call_gemini_direct),
         ("cerebras", _call_cerebras_direct),
         ("aion", _call_aion_direct),
     ]
 
-    tried_providers = set()
+    tried = {provider_to_use}
     for _attempt in range(len(all_providers)):
         next_provider = pool.next_available(all_providers)
         if not next_provider:
             break
         provider_name, provider_fn = next_provider
-        if provider_name in tried_providers:
+        if provider_name in tried:
             break
-        tried_providers.add(provider_name)
+        tried.add(provider_name)
 
         try:
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
                 pool.record_success(provider_name)
-                logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s)", call_id, provider_name, len(result), step_type)
+                logger.info("LLM call #%d: %s FALLBACK SUCCESS (%d chars)", call_id, provider_name, len(result))
                 return result
             pool.record_failure(provider_name, status_code=0)
-            logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
             status_code = 0
-            msg = str(exc)
-            for part in msg.split():
+            for part in str(exc).split():
                 if part.isdigit():
                     status_code = int(part)
                     break
             pool.record_failure(provider_name, status_code=status_code)
-            logger.warning("LLM call #%d: %s failed (status=%d): %s", call_id, provider_name, status_code, str(exc)[:100])
+            logger.warning("LLM call #%d: %s fallback failed (status=%d)", call_id, provider_name, status_code)
         except Exception as exc:
             pool.record_failure(provider_name, status_code=0)
-            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
+            logger.warning("LLM call #%d: %s fallback error: %s", call_id, provider_name, str(exc)[:100])
 
-    # ── FALLBACK: Smart Router (LiteLLM — 11 models) ──
+    # ── LAST RESORT: Smart Router ──
     try:
         smart_result = await _call_smart_router(messages, temperature, max_tokens, call_id, step_type)
         if smart_result and len(smart_result.strip()) > 0:
-            logger.info("LLM call #%d: Smart Router SUCCESS (%d chars)", call_id, len(smart_result))
+            logger.info("LLM call #%d: Smart Router SUCCESS", call_id)
             return smart_result
     except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error (%s)", call_id, str(exc)[:150])
-
-    # ── LAST RESORT: Direct LiteLLM call ──
-    try:
-        direct_result = await _call_litellm_direct(messages, temperature, max_tokens, call_id)
-        if direct_result and len(direct_result.strip()) > 0:
-            logger.info("LLM call #%d: Direct LiteLLM SUCCESS (%d chars)", call_id, len(direct_result))
-            return direct_result
-    except Exception as exc:
-        logger.warning("LLM call #%d: Direct LiteLLM error (%s)", call_id, str(exc)[:150])
+        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:150])
 
     _total_errors += 1
     logger.error("LLM call #%d FAILED: All providers exhausted", call_id)
     raise RuntimeError("LLM call failed: all providers exhausted")
-
-
-async def _call_gemma_local(
-    messages: list,
-    temperature: float,
-    max_tokens: int,
-    call_id: int,
-) -> str:
-    """Call local Gemma 3 1B via sandbox API — WITH STREAMING to avoid timeout.
-    
-    Uses streaming mode so long responses (400+ tokens) don't timeout.
-    The sandbox API has a non-streaming timeout, but streaming keeps
-    the connection open until all tokens are generated.
-    
-    Config (env vars):
-      GEMMA_URL=https://preview-chat-xxx.space-z.ai/api/v1
-      GEMMA_API_KEY=parwa_xxx
-      GEMMA_MODEL=parwa-gemma3:1b
-    """
-    import os
-    import json as _json
-    import httpx
-
-    gemma_url = os.environ.get("GEMMA_URL", "").rstrip("/")
-    gemma_key = os.environ.get("GEMMA_API_KEY", "")
-    gemma_model = os.environ.get("GEMMA_MODEL", "parwa-gemma3:1b")
-
-    if not gemma_url or not gemma_key:
-        raise RuntimeError("GEMMA_URL or GEMMA_API_KEY not configured")
-
-    payload = {
-        "model": gemma_model,
-        "messages": messages,
-        "temperature": min(temperature, 0.3),
-        "max_tokens": min(max_tokens, 400),
-        "stream": True,  # ← STREAMING = no timeout on long responses
-    }
-
-    headers = {
-        "Authorization": f"Bearer {gemma_key}",
-        "Content-Type": "application/json",
-    }
-
-    try:
-        full_text = ""
-        
-        # Use streaming to read SSE response
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            async with client.stream(
-                "POST",
-                f"{gemma_url}/chat/completions",
-                json=payload,
-                headers=headers,
-            ) as response:
-                if response.status_code != 200:
-                    body = await response.aread()
-                    raise RuntimeError(f"Gemma API error {response.status_code}: {body.decode()[:200]}")
-                
-                async for line in response.aiter_lines():
-                    if not line:
-                        continue
-                    if line.startswith("data: "):
-                        data_str = line[6:]  # strip "data: " prefix
-                        if data_str.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = _json.loads(data_str)
-                            delta = chunk.get("choices", [{}])[0].get("delta", {})
-                            content_piece = delta.get("content", "")
-                            if content_piece:
-                                full_text += content_piece
-                        except _json.JSONDecodeError:
-                            continue
-        
-        if full_text.strip():
-            return full_text.strip()
-        raise RuntimeError("Gemma returned empty response")
-        
-    except httpx.TimeoutException:
-        raise RuntimeError(f"Gemma timeout after 300s (call #{call_id})")
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        raise RuntimeError(f"Gemma call failed: {str(exc)[:200]}")
-
-
-async def _call_smart_router(messages: list, temperature: float, max_tokens: int, call_id: int, step_type: str = "") -> str:
-    """Call Smart Router (LiteLLM with 11 models via 3 API keys).
-
-    Args:
-        step_type: Atomic step type string for tier selection.
-            If empty or unknown, defaults to DRAFT_RESPONSE_MODERATE.
-    """
-    try:
-        from app.core.smart_router import SmartRouter, AtomicStepType
-        router = SmartRouter()
-
-        # Resolve step type — map string to AtomicStepType enum
-        step_type_map = {e.value: e for e in AtomicStepType}
-        atomic_step = step_type_map.get(step_type, AtomicStepType.DRAFT_RESPONSE_MODERATE)
-
-        routing = router.route(
-            company_id="pipeline",
-            variant_type="parwa",
-            atomic_step=atomic_step,
-        )
-        result = await router.async_execute_llm_call(
-            company_id="pipeline",
-            routing_decision=routing,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        content = result.get("content", "")
-        model_used = result.get("model", "?")
-        provider = result.get("provider", "?")
-        fallback = result.get("fallback_used", False)
-        if content and len(content) > 0:
-            logger.info(
-                "LLM call #%d: SmartRouter %s/%s (%d chars, fallback=%s)",
-                call_id, provider, model_used, len(content), fallback,
-            )
-            return content.strip()
-        return ""
-    except ImportError:
-        logger.warning("Smart Router not available (import error) — falling back to direct LiteLLM")
-        return ""
-    except Exception as exc:
-        logger.warning("LLM call #%d: Smart Router error: %s", call_id, str(exc)[:200])
-        return ""
-
-
-async def _call_litellm_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct LiteLLM call using env-configured model (bypass Smart Router)."""
-    try:
-        import litellm
-
-        if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
-            os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
-
-        model = os.environ.get("AI_LIGHT_MODEL", "nvidia/z-ai/glm-5.2")
-
-        response = await litellm.acompletion(
-            model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            timeout=30,
-        )
-
-        if response and response.choices:
-            content = response.choices[0].message.content or ""
-            if response.usage:
-                global _total_tokens
-                _total_tokens += response.usage.total_tokens or 0
-            return content.strip()
-        return ""
-    except ImportError:
-        logger.warning("LiteLLM not installed — cannot use direct LiteLLM path")
-        return ""
-    except Exception as exc:
-        logger.warning("LLM call #%d: Direct LiteLLM failed: %s", call_id, str(exc)[:200])
-        return ""
-
-
-async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct NVIDIA API call — DB-BACKED QUEUE (survives Render restarts).
-
-    User vision: 'see u can keep that request or that queue in database ok
-    well dont keep that in ram ad here as that request get solved delete that
-    ok because here free render can erase the ram thats why i am saying there'
-
-    EVERY call gets persisted to DB before the HTTP request:
-      1. INSERT row (status='in_progress')
-      2. Call NVIDIA API
-      3. On success → DELETE row (queue drained)
-      4. On 429 → UPDATE row (status='rate_limited', next_retry_at=NOW+60s)
-         → sleep 60s in memory → retry (up to 3 times)
-      5. On Render restart during sleep:
-         - Row stays in DB with status='rate_limited'
-         - Recovery worker on startup finds stuck rows + retries them
-         - No lost work, no orphan requests
-
-    This is the same DB-backed queue pattern used for tickets.
-    """
-    import asyncio
-    import httpx
-    import json as _json
-    import uuid as _uuid
-    from datetime import datetime, timezone, timedelta
-
-    api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
-    if not api_key:
-        return ""
-
-    # ── Step 1: Persist request to DB (survives Render restart) ──
-    request_id = str(_uuid.uuid4())
-    try:
-        from database.base import SessionLocal
-        from database.models.core import LLMRequestQueue
-        _db = SessionLocal()
-        try:
-            _queue_row = LLMRequestQueue(
-                id=request_id,
-                provider="nvidia",
-                model="z-ai/glm-5.2",
-                messages=_json.dumps(messages),
-                temperature=temperature,
-                max_tokens=max_tokens,
-                call_id=call_id,
-                status="in_progress",
-                max_retries=3,
-            )
-            _db.add(_queue_row)
-            _db.commit()
-        finally:
-            _db.close()
-    except Exception as persist_exc:
-        # Don't fail the call if DB persistence fails — just log
-        logger.warning("llm_queue_persist_failed: %s", str(persist_exc)[:200])
-
-    payload = {
-        "model": "z-ai/glm-5.2",
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    MAX_RETRIES = 3
-    RATE_LIMIT_WAIT = 60  # seconds — NVIDIA rate limit renews every 60s
-
-    for attempt in range(MAX_RETRIES + 1):
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                r = await client.post(
-                    "https://integrate.api.nvidia.com/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                )
-
-            if r.status_code == 200:
-                data = r.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                global _total_tokens
-                _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-
-                # ── SUCCESS: delete from queue (user's vision) ──
-                _delete_llm_queue_row(request_id)
-                return content.strip()
-
-            if r.status_code == 429 and attempt < MAX_RETRIES:
-                # ── RATE LIMIT: update DB + wait + retry (don't terminate) ──
-                _update_llm_queue_rate_limited(request_id, attempt + 1, r.text[:200])
-                logger.warning(
-                    "NVIDIA 429 rate limit on call #%d (attempt %d/%d) — waiting %ds, then retrying",
-                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
-                )
-                await asyncio.sleep(RATE_LIMIT_WAIT)
-                # Mark back to in_progress before retry
-                _update_llm_queue_status(request_id, "in_progress")
-                continue
-
-            # Non-429 error OR out of retries → mark failed in DB (keep for audit)
-            _mark_llm_queue_failed(request_id, f"NVIDIA {r.status_code}: {r.text[:200]}")
-            raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
-
-        except httpx.TimeoutException:
-            if attempt < MAX_RETRIES:
-                _update_llm_queue_rate_limited(request_id, attempt + 1, "timeout")
-                logger.warning(
-                    "NVIDIA timeout on call #%d (attempt %d/%d) — waiting %ds, then retrying",
-                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
-                )
-                await asyncio.sleep(RATE_LIMIT_WAIT)
-                _update_llm_queue_status(request_id, "in_progress")
-                continue
-            _mark_llm_queue_failed(request_id, "timeout after 3 retries")
-            raise
-
-    # Exhausted retries — mark failed in DB
-    _mark_llm_queue_failed(request_id, f"exhausted {MAX_RETRIES} retries")
-    raise RuntimeError(f"NVIDIA API: exhausted {MAX_RETRIES} retries on rate limit")
-
-
-# ── DB queue helpers (small + surgical) ─────────────────────────────
-
-def _delete_llm_queue_row(request_id: str) -> None:
-    """Delete a completed request from the queue (user's vision: 'as that request
-    get solved delete that')."""
-    try:
-        from database.base import SessionLocal
-        from database.models.core import LLMRequestQueue
-        _db = SessionLocal()
-        try:
-            _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).delete()
-            _db.commit()
-        finally:
-            _db.close()
-    except Exception as exc:
-        logger.warning("llm_queue_delete_failed: %s", str(exc)[:200])
-
-
-def _update_llm_queue_rate_limited(request_id: str, retry_count: int, error: str) -> None:
-    """Mark a request as rate_limited with next_retry_at = NOW + 60s.
-
-    If Render restarts during the 60s sleep, the row stays here with
-    next_retry_at in the past. Recovery worker picks it up on startup.
-    """
-    try:
-        from database.base import SessionLocal
-        from database.models.core import LLMRequestQueue
-        from datetime import datetime, timezone, timedelta
-        _db = SessionLocal()
-        try:
-            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
-            if row:
-                row.status = "rate_limited"
-                row.retry_count = retry_count
-                row.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=60)
-                row.error_message = error[:500]
-                _db.commit()
-        finally:
-            _db.close()
-    except Exception as exc:
-        logger.warning("llm_queue_update_rate_limited_failed: %s", str(exc)[:200])
-
-
-def _update_llm_queue_status(request_id: str, status: str) -> None:
-    """Update status (e.g. back to in_progress before retry)."""
-    try:
-        from database.base import SessionLocal
-        from database.models.core import LLMRequestQueue
-        _db = SessionLocal()
-        try:
-            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
-            if row:
-                row.status = status
-                _db.commit()
-        finally:
-            _db.close()
-    except Exception as exc:
-        logger.warning("llm_queue_update_status_failed: %s", str(exc)[:200])
-
-
-def _mark_llm_queue_failed(request_id: str, error: str) -> None:
-    """Mark a request as failed (kept in DB for audit, not deleted)."""
-    try:
-        from database.base import SessionLocal
-        from database.models.core import LLMRequestQueue
-        from datetime import datetime, timezone
-        _db = SessionLocal()
-        try:
-            row = _db.query(LLMRequestQueue).filter(LLMRequestQueue.id == request_id).first()
-            if row:
-                row.status = "failed"
-                row.error_message = error[:500]
-                row.completed_at = datetime.now(timezone.utc)
-                _db.commit()
-        finally:
-            _db.close()
-    except Exception as exc:
-        logger.warning("llm_queue_mark_failed_failed: %s", str(exc)[:200])
-
-
-async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Cerebras API call (raw HTTP, no LiteLLM dependency)."""
-    import httpx
-
-    api_key = os.environ.get("CEREBRAS_API_KEY", "")
-    if not api_key:
-        return ""
-
-    payload = {
-        "model": "gpt-oss-120b",
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(
-            "https://api.cerebras.ai/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
-
-    if r.status_code == 200:
-        data = r.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        global _total_tokens
-        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-        return content.strip()
-    else:
-        raise RuntimeError(f"Cerebras API error {r.status_code}: {r.text[:200]}")
-
-
 
 
 async def _call_mistral_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
@@ -761,6 +405,56 @@ async def _call_aion_direct(messages: list, temperature: float, max_tokens: int,
         raise
     except Exception as exc:
         raise RuntimeError(f"Aion call failed: {str(exc)[:200]}")
+
+
+
+async def _call_gemini_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
+    """Direct Google Gemini Flash-Lite API call — 30 RPM, 1,500 RPD.
+    
+    Best for: chat/new request tickets (fast, multimodal).
+    """
+    import os
+    import httpx
+
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return ""
+
+    # Convert messages to Gemini format
+    contents = []
+    for msg in messages:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(url, json=payload)
+
+        if r.status_code == 200:
+            data = r.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text = "".join(p.get("text", "") for p in parts)
+                return text.strip()
+        else:
+            raise RuntimeError(f"Gemini API error {r.status_code}: {r.text[:200]}")
+    except httpx.TimeoutException:
+        raise RuntimeError(f"Gemini timeout (call #{call_id})")
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Gemini call failed: {str(exc)[:200]}")
 
 
 async def _call_groq_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:

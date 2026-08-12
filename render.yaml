@@ -62,7 +62,7 @@ services:
       # Concurrent pipeline workers (10 = safe on 512MB Starter plan).
       # On 2GB Standard plan, set to 40.
       - key: MAX_CONCURRENT_PIPELINES
-        value: "10"
+        value: "4"
       # LLM Provider API Keys (3 providers for 11-model Smart Router)
       - key: GOOGLE_AI_API_KEY
         sync: false
