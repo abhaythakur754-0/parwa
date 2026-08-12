@@ -213,35 +213,49 @@ async def llm_call(
     messages.append({"role": "user", "content": prompt})
 
     # ── NODE-BASED ROUTING: pick provider based on token size ──
+    #
+    # IMPORTANT (verified live 2026-08-12):
+    #   - Groq llama-3.1-8b-instant: ~0.5-1s/call   (user-validated for ALL tasks)
+    #   - Cerebras gpt-oss-120b:    ~1-2s/call       (great quality, fast)
+    #   - Mistral Small 4:          ~2-3s/call
+    #   - NVIDIA GLM-5.2:           ~58s/call (WARM) / 90s+ COLD  ← BLOCKING
+    #
+    # NVIDIA is intentionally LAST in runtime fallback chains.
+    # At 58s/call, routing a ticket to NVIDIA makes the 5-10 LLM calls in the
+    # pipeline take 5-10 MINUTES → Render HTTP timeout → ticket escalates
+    # instead of resolving. NVIDIA is still used for:
+    #   - BUILDER tier (onboarding agent creation, latency acceptable)
+    #   - Last-resort fallback when all other providers are 429'd
     if max_tokens <= 150:
         # Light task → Groq (fastest)
         preferred_order = [
             ("groq", _call_groq_direct),
+            ("cerebras", _call_cerebras_direct),
             ("mistral", _call_mistral_direct),
             ("gemini", _call_gemini_direct),
-            ("nvidia", _call_nvidia_direct),
-            ("cerebras", _call_cerebras_direct),
             ("aion", _call_aion_direct),
+            ("nvidia", _call_nvidia_direct),
         ]
     elif max_tokens <= 300:
-        # Medium task → Mistral (good quality + speed)
+        # Medium task → Groq (best balance of speed + quality, user-validated)
         preferred_order = [
-            ("mistral", _call_mistral_direct),
             ("groq", _call_groq_direct),
-            ("nvidia", _call_nvidia_direct),
-            ("gemini", _call_gemini_direct),
             ("cerebras", _call_cerebras_direct),
+            ("mistral", _call_mistral_direct),
+            ("gemini", _call_gemini_direct),
             ("aion", _call_aion_direct),
+            ("nvidia", _call_nvidia_direct),
         ]
     else:
-        # Hard task → NVIDIA (best reasoning, 82% accuracy)
+        # Hard task → Cerebras GPT-OSS 120B (best fast reasoning, 1-2s/call)
+        # NVIDIA GLM-5.2 was preferred here but takes 58s/call → pipeline timeout
         preferred_order = [
-            ("nvidia", _call_nvidia_direct),
-            ("mistral", _call_mistral_direct),
             ("cerebras", _call_cerebras_direct),
             ("groq", _call_groq_direct),
+            ("mistral", _call_mistral_direct),
             ("gemini", _call_gemini_direct),
             ("aion", _call_aion_direct),
+            ("nvidia", _call_nvidia_direct),
         ]
 
     # ── TRY: preferred provider first, then fallbacks ──
