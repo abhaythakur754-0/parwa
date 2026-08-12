@@ -382,13 +382,16 @@ async def send_message(
             # (Mini Parwa / Pro Parwa) instead of direct AI.
             try:
                 from app.core.variant_pipeline_bridge import (
-                    process_onboarding_message_sync,
+                    process_onboarding_message,
                 )
 
                 session_ctx = _parse_context(session.context_json) if session else {}
 
-                # Route through the correct variant pipeline
-                pipeline_result = process_onboarding_message_sync(
+                # Direct await — send_message is now async, so we use the
+                # async version instead of the sync wrapper (which spawned
+                # a new ThreadPoolExecutor + event loop per call, blocking
+                # concurrent Jarvis users).
+                pipeline_result = await process_onboarding_message(
                     query=user_message,
                     company_id=company_id or "",
                     session_context=session_ctx,
@@ -533,14 +536,17 @@ async def send_message(
         # industry were set during the handoff from Onboarding Jarvis.
         try:
             from app.core.variant_pipeline_bridge import (
-                process_customer_care_message_sync,
+                process_customer_care_message,
             )
 
             # Get session context (contains variant_tier, industry, instance_id)
             session_ctx = _parse_context(session.context_json) if session else {}
 
-            # Route through the correct variant pipeline
-            pipeline_result = process_customer_care_message_sync(
+            # Direct await — send_message is now async, so we use the
+            # async version instead of the sync wrapper (which spawned
+            # a new ThreadPoolExecutor + event loop per call, blocking
+            # concurrent Jarvis users).
+            pipeline_result = await process_customer_care_message(
                 query=user_message,
                 company_id=company_id or "",
                 session_context=session_ctx,
