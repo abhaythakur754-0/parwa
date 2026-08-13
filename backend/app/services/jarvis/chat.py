@@ -1570,13 +1570,27 @@ async def _call_ai_provider(
     return content, message_type, metadata, knowledge
 
 
-async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
-    """Try AI providers in order: Cerebras → Groq → Google. Returns content or None.
+# Semaphore to limit concurrent LLM calls from Jarvis.
+# Groq free tier has 30 RPM rate limit. If 3+ users chat simultaneously,
+# without this semaphore they all hit Groq at the same time → 429 cascade
+# → each falls back to Cerebras (30s timeout each) → server appears frozen.
+# With this semaphore, only 2 Jarvis LLM calls run at once; others wait
+# briefly in the async queue (cooperative multitasking, no thread blocking).
+import asyncio as _asyncio_mod
+_jarvis_llm_semaphore = _asyncio_mod.Semaphore(2)
+_jarvis_llm_timeout = 12.0  # 12s per provider (was 30s — too long for concurrent)
 
-    ASYNC: Uses httpx.AsyncClient so the event loop stays free during HTTP calls.
-    Groq is tried first (user-validated best model, ~1s/call). Cerebras and Google
-    are fallbacks. Each call has a 30s timeout — if one provider hangs, the next
-    is tried immediately.
+
+async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
+    """Try AI providers in order: Groq → Cerebras → Google. Returns content or None.
+
+    ASYNC + CONCURRENCY-LIMITED: Uses a semaphore (max 2 concurrent) so that
+    multiple Jarvis users don't all hit the LLM providers at the same time
+    (which causes 429 rate-limit cascades + 30s timeouts that freeze the
+    server). Each call has a 12s timeout — if one provider hangs or 429s,
+    the next is tried immediately.
+
+    Groq is tried first (user-validated best model, ~1s/call).
     """
     providers = [
         ("groq", "https://api.groq.com/openai/v1/chat/completions"),
@@ -1585,16 +1599,19 @@ async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     ]
 
     import httpx
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for provider_name, endpoint in providers:
-            try:
-                content = await _call_single_provider_async(
-                    client, provider_name, endpoint, messages,
-                )
-                if content:
-                    return content
-            except Exception:
-                continue
+    # Acquire semaphore — if 2 other Jarvis LLM calls are in progress,
+    # this waits (async, doesn't block the event loop) until one finishes.
+    async with _jarvis_llm_semaphore:
+        async with httpx.AsyncClient(timeout=_jarvis_llm_timeout) as client:
+            for provider_name, endpoint in providers:
+                try:
+                    content = await _call_single_provider_async(
+                        client, provider_name, endpoint, messages,
+                    )
+                    if content:
+                        return content
+                except Exception:
+                    continue
     return None
 
 
