@@ -330,22 +330,35 @@ async def _build_single_agent(
     Includes the KB context so the agent's instructions reflect the company's
     specific rules (not generic).
     """
-    from app.core.builder_agent.builder_pipeline import run_builder_pipeline
-    from app.core.builder_agent.builder_state import BuilderState
+    # ── REMOTE BUILDER (offloads to 2GB service, saves Render RAM) ──
+    # The local builder_pipeline.py is NOT deleted — kept as fallback.
+    # Set BUILDER_FALLBACK_LOCAL=true to use local on remote failure.
+    from app.core.remote_builder_client import build_agent_with_fallback
+    import asyncio
 
-    # Initial state for the Builder pipeline
-    state: BuilderState = {
-        "tenant_id": company_id,
-        "capability": capability,
-        "query": kb_context[:1000] if kb_context else f"Create {capability} agent based on connected integrations",
-        "force_rebuild": force_rebuild,
-        # Pass KB context so DESIGN stage can include company-specific rules
-        "kb_context": kb_context,
-        # Pass integrations so Superglue knows what APIs are available
-        "tenant_integrations": integrations,
-    }
+    # Extract integration names for the remote builder
+    integration_names = [i.get("name", "") for i in integrations if i.get("name")]
 
-    # Run the full 4-stage pipeline (EXPLORE → DESIGN → VERIFY → REFINE)
-    # The _finalize_agent step will also request Superglue tool generation
-    # (tenant-namespaced automatically via namespaced_tool_id())
-    await run_builder_pipeline(state)
+    # Call the remote builder service (30-60s, runs on separate machine)
+    result = await build_agent_with_fallback(
+        tenant_id=company_id,
+        kb_context=kb_context or f"Create {capability} agent",
+        integrations=integration_names,
+        capability=capability,
+    )
+
+    # Normalize: remote returns 'agent_config', local returns 'config'
+    if "agent_config" in result and "config" not in result:
+        result["config"] = result["agent_config"]
+
+    # --- LOCAL BUILDER (disabled — kept for fallback) ---
+    # To re-enable local building, set BUILDER_FALLBACK_LOCAL=true
+    # from app.core.builder_agent.builder_pipeline import run_builder_pipeline
+    # from app.core.builder_agent.builder_state import BuilderState
+    # state: BuilderState = {
+    #     "tenant_id": company_id, "capability": capability,
+    #     "query": kb_context[:1000] if kb_context else f"Create {capability} agent",
+    #     "force_rebuild": force_rebuild, "kb_context": kb_context,
+    #     "tenant_integrations": integrations,
+    # }
+    # await run_builder_pipeline(state)

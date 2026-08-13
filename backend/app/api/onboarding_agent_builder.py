@@ -269,27 +269,42 @@ Return ONLY a JSON array of unique capability strings."""
                     capability,
                 )
 
-                # ── Run the REAL 4-stage Builder ──────────────
+                # ── Run the Builder (REMOTE service — offloads to 2GB machine) ──
+                # The local builder_pipeline.py is NOT deleted — kept as fallback.
+                # Set BUILDER_FALLBACK_LOCAL=true to use local on remote failure.
                 try:
-                    from app.core.builder_agent.builder_pipeline import run_builder_pipeline
+                    from app.core.remote_builder_client import build_agent_with_fallback
 
-                    # Pick a representative ticket for this capability
-                    rep_query = ""
+                    # Build KB context from ticket texts for this capability
+                    kb_context = ""
                     for t in ticket_texts:
                         if capability.replace("_", " ") in t["text"].lower():
-                            rep_query = t["text"]
+                            kb_context = t["text"]
                             break
-                    if not rep_query:
-                        rep_query = ticket_texts[0]["text"] if ticket_texts else ""
+                    if not kb_context:
+                        kb_context = ticket_texts[0]["text"] if ticket_texts else ""
 
-                    builder_result = await run_builder_pipeline(
+                    builder_result = await build_agent_with_fallback(
                         tenant_id=company_id,
+                        kb_context=kb_context,
+                        integrations=connected_integrations,
                         capability=capability,
-                        query=rep_query,
-                        ticket_type=capability,
-                        complexity="medium",
-                        tier=tier,
                     )
+
+                    # Normalize: remote returns 'agent_config', local returns 'config'
+                    # Make both available so downstream code works unchanged
+                    if "agent_config" in builder_result and "config" not in builder_result:
+                        builder_result["config"] = builder_result["agent_config"]
+
+                    # --- LOCAL BUILDER (disabled — kept for fallback) ---
+                    # To re-enable local building, set BUILDER_FALLBACK_LOCAL=true
+                    # from app.core.builder_agent.builder_pipeline import run_builder_pipeline
+                    # rep_query = kb_context[:500]
+                    # builder_result = await run_builder_pipeline(
+                    #     tenant_id=company_id, capability=capability,
+                    #     query=rep_query, ticket_type=capability,
+                    #     complexity="medium", tier=tier,
+                    # )
 
                     if builder_result.get("status") == "complete":
                         agent_id = builder_result.get("agent_id")
