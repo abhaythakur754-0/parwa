@@ -1519,55 +1519,59 @@ async def _call_ai_provider(
     user_message: str,
     context: Dict[str, Any],
 ) -> Tuple[str, str, Dict[str, Any], List[Dict[str, Any]]]:
-    """Call AI provider for response generation (ASYNC).
+    """Call AI provider for response generation (ASYNC, lightweight pipeline).
 
-    Routes to Cerebras, Groq, or Google AI Studio based on availability.
-    Falls back to context-aware placeholder if all providers fail.
+    Uses the 3-step lightweight Jarvis pipeline:
+      1. KB FETCH (in-memory + tenant KB vector search, ~50ms)
+      2. GENERATE (1 LLM call, Groq, ~2s) — response with KB context
+      3. QUALITY CHECK (1 LLM call, Groq, ~1s) — hallucination check
 
-    ASYNC FIX (2026-08-12): Was sync `urllib` which blocked the FastAPI
-    event loop for up to 60s per call. When Jarvis chat ran concurrently
-    with the 10-worker ticket pipeline, the whole server stalled.
-    Now uses async httpx so the event loop stays free during LLM calls.
+    Total: ~3-4s per message (vs 20-30s with full 11-node pipeline).
+    Keeps KB grounding + quality check for accurate responses.
 
     Returns:
         Tuple of (content, message_type, metadata, knowledge_used)
     """
-    # Build messages for AI
-    messages = [{"role": "system", "content": system_prompt}]
-    # Map internal "jarvis" role to standard "assistant" role
-    # (AI APIs only accept system/user/assistant)
-    for msg in history:
-        role = msg.get("role", "user")
-        if role == "jarvis":
-            role = "assistant"
-        messages.append({"role": role, "content": msg.get("content", "")})
-    messages.append({"role": "user", "content": user_message})
+    # Extract company_id from context for tenant KB retrieval
+    company_id = context.get("company_id", "")
 
-    # Track which knowledge files were used
-    knowledge: List[Dict[str, Any]] = []
     try:
-        from app.services.jarvis_knowledge_service import search_knowledge
-        kb_results = search_knowledge(user_message, context.get("industry"))
-        if kb_results:
-            for r in kb_results[:3]:
-                knowledge.append({
-                    "file": r.get("source", "unknown"),
-                    "score": r.get("score", 0.5),
-                })
-    except Exception:
-        pass
+        from app.services.jarvis_lightweight_pipeline import (
+            run_lightweight_jarvis_pipeline,
+        )
+        return await run_lightweight_jarvis_pipeline(
+            user_message=user_message,
+            system_prompt=system_prompt,
+            history=history,
+            context=context,
+            company_id=company_id,
+        )
+    except ImportError:
+        # Fallback: direct LLM call without KB grounding (legacy path)
+        logger.warning("lightweight_pipeline_unavailable — using direct LLM")
+        messages = [{"role": "system", "content": system_prompt}]
+        for msg in history:
+            role = msg.get("role", "user")
+            if role == "jarvis":
+                role = "assistant"
+            messages.append({"role": role, "content": msg.get("content", "")})
+        messages.append({"role": "user", "content": user_message})
 
-    # Try real AI providers (Cerebras → Groq → Google) — ASYNC
-    content = await _try_ai_providers(messages)
-    if content is None:
-        # Fallback to context-aware placeholder
+        knowledge: List[Dict[str, Any]] = []
+        content = await _try_ai_providers(messages)
+        if content is None:
+            content = _get_stage_fallback(context)
+
+        stage = context.get("detected_stage", "welcome")
+        message_type, metadata = _determine_message_type(stage, context)
+        return content, message_type, metadata, knowledge
+    except Exception as exc:
+        logger.error("lightweight_pipeline_failed: %s", str(exc)[:200])
         content = _get_stage_fallback(context)
-
-    # Determine message type based on stage and context
-    stage = context.get("detected_stage", "welcome")
-    message_type, metadata = _determine_message_type(stage, context)
-
-    return content, message_type, metadata, knowledge
+        stage = context.get("detected_stage", "welcome")
+        message_type, metadata = _determine_message_type(stage, context)
+        metadata["error"] = str(exc)[:100]
+        return content, message_type, metadata, []
 
 
 # Semaphore to limit concurrent LLM calls from Jarvis.
