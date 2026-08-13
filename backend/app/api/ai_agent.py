@@ -101,6 +101,19 @@ def _serialize_agent(agent, company_id: Optional[str] = None) -> dict:
         "instructions": getattr(agent, "instructions", None),
         "restrictions": getattr(agent, "restrictions", None),
         "status": agent.status,
+        # ── Superglue tool linkage ──
+        # Shows whether this agent has a Superglue tool connected
+        # (for searching databases, calling APIs, processing refunds, etc.)
+        "superglue_tool_id": getattr(agent, "superglue_tool_id", None),
+        "superglue_tool_status": getattr(agent, "superglue_tool_status", "none"),
+        "superglue_tool_created_at": (
+            agent.superglue_tool_created_at.isoformat()
+            if getattr(agent, "superglue_tool_created_at", None) else None
+        ),
+        # ── Approval gates ──
+        # If True, tool execution requires admin approval before running
+        "approval_required": getattr(agent, "approval_required", False),
+        "approval_threshold_cents": getattr(agent, "approval_threshold_cents", 0),
         "created_at": (
             agent.created_at.isoformat()
             if agent.created_at else None
