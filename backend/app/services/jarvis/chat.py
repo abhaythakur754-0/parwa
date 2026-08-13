@@ -1577,14 +1577,17 @@ async def _call_ai_provider(
 # ── Jarvis LLM Configuration ────────────────────────────────────────
 #
 # Provider rate limits (free tiers):
-#   Groq llama-3.1-8b-instant: 30 RPM (primary — fastest, user-validated)
-#   Google Gemini Flash-Lite:  30 RPM (backup — 1,500 RPD)
+#   Google Gemini Flash-Lite:  30 RPM (primary — fast, 1,500 RPD)
 #   Aion Labs 3.0 Mini:        15 RPM (backup — 20K TPD, reasoning model)
 #   Cerebras llama-3.1-8b:     30 RPM (backup)
 #
-# Total: 105 RPM across 4 providers. With 2 LLM calls per Jarvis message,
-# theoretical max = 52 concurrent users. Semaphore(3) limits to 3 concurrent
+# Total: 75 RPM across 3 providers. With 2 LLM calls per Jarvis message,
+# theoretical max = 37 concurrent users. Semaphore(3) limits to 3 concurrent
 # LLM calls to prevent burst overload.
+#
+# Groq was removed per user request (2026-08-12). The 3 remaining providers
+# give enough capacity for 3 concurrent Jarvis users (the safe limit on
+# Render Starter 512MB).
 #
 # 429 HANDLING: If a provider returns 429, we IMMEDIATELY try the next
 # provider (no 10s wait). This prevents the cascade freeze that happened
@@ -1611,9 +1614,9 @@ async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     settings = get_settings()
 
     # Build provider list (only include providers with API keys configured)
+    # NOTE: Groq removed per user request (2026-08-12) — use Google + Aion + Cerebras
+    # These 3 providers give 75 RPM combined (plenty for 3 concurrent Jarvis users)
     providers = []
-    if settings.GROQ_API_KEY:
-        providers.append(("groq", "https://api.groq.com/openai/v1/chat/completions"))
     if settings.GOOGLE_AI_API_KEY:
         providers.append(("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"))
     if os.environ.get("AION_API_KEY", "").strip():
