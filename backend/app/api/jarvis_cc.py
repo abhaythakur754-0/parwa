@@ -203,14 +203,17 @@ async def send_cc_message(
     Response includes pipeline metadata for dashboard display:
     quality_score, technique_used, latency, billing_tokens, etc.
     """
+    # Limit concurrent Jarvis CC requests (same as jarvis.py)
+    global _jarvis_cc_request_semaphore
     try:
-        # Offload send_cc_message to a thread — same pattern as jarvis.py
-        # send_cc_message does sync DB work that blocks the event loop.
-        import asyncio
-        import functools
-        user_msg, ai_msg, pipeline_metadata = await asyncio.to_thread(
-            functools.partial(
-                _send_cc_message_sync_wrapper,
+        _jarvis_cc_request_semaphore
+    except NameError:
+        import asyncio as _aio
+        _jarvis_cc_request_semaphore = _aio.Semaphore(1)
+
+    async with _jarvis_cc_request_semaphore:
+        try:
+            user_msg, ai_msg, pipeline_metadata = await jarvis_cc_service.send_cc_message(
                 db=db,
                 session_id=body.session_id,
                 user_id=str(user.id),
@@ -219,17 +222,16 @@ async def send_cc_message(
                 ticket_id=body.ticket_id,
                 channel=body.channel,
             )
-        )
-        return _ai_message_to_response(ai_msg, pipeline_metadata)
-    except ParwaBaseError:
-        raise
-    except Exception as exc:
-        return _error_response(
-            "INTERNAL_ERROR",
-            "Failed to process customer care message",
-            500,
-            details={"error": str(exc)},
-        )
+            return _ai_message_to_response(ai_msg, pipeline_metadata)
+        except ParwaBaseError:
+            raise
+        except Exception as exc:
+            return _error_response(
+                "INTERNAL_ERROR",
+                "Failed to process customer care message",
+                500,
+                details={"error": str(exc)},
+            )
 
 
 # ========================================================================
@@ -1428,23 +1430,3 @@ def _error_response(
             "details": details,
         }
     }
-
-
-def _send_cc_message_sync_wrapper(db, session_id, user_id, company_id, user_message, ticket_id, channel):
-    """Sync wrapper that runs send_cc_message in its own event loop.
-
-    Called via asyncio.to_thread from the async API endpoint.
-    Each call gets its own thread + event loop, so sync DB calls
-    don't block the main FastAPI event loop.
-    """
-    import asyncio
-    from app.services.jarvis_cc_service import send_cc_message
-    return asyncio.run(send_cc_message(
-        db=db,
-        session_id=session_id,
-        user_id=user_id,
-        company_id=company_id,
-        user_message=user_message,
-        ticket_id=ticket_id,
-        channel=channel,
-    ))

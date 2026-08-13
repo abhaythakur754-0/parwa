@@ -158,30 +158,33 @@ async def send_message(
         )
         session_id = session.id
 
+    # Limit concurrent Jarvis requests to prevent server freeze.
+    # Render Starter has WEB_CONCURRENCY=1 (single worker). Without this
+    # semaphore, 3+ concurrent users all hit the sync DB calls + LLM
+    # simultaneously, exhausting the DB pool and freezing the event loop.
+    # With this semaphore, only 1 Jarvis request runs at a time; others
+    # wait briefly in the async queue (cooperative, no thread blocking).
+    # This matches Groq's 30 RPM limit (1 concurrent × 2s/call = 30 RPM).
+    global _jarvis_request_semaphore
     try:
-        # Offload send_message to a thread — it does sync DB work
-        # (db.query, db.flush, db.add) which blocks the event loop.
-        # Running it in a thread lets concurrent requests proceed.
-        # The LLM calls inside are async, but the sync DB wrapper
-        # forces the whole thing into sync mode. asyncio.to_thread
-        # runs the sync function in a worker thread, freeing the
-        # event loop for other requests.
-        import asyncio
-        import functools
-        user_msg, ai_msg, knowledge = await asyncio.to_thread(
-            functools.partial(
-                _send_message_sync_wrapper,
+        _jarvis_request_semaphore
+    except NameError:
+        import asyncio as _aio
+        _jarvis_request_semaphore = _aio.Semaphore(1)
+
+    async with _jarvis_request_semaphore:
+        try:
+            user_msg, ai_msg, knowledge = await jarvis_service.send_message(
                 db=db,
                 session_id=session_id,
-                user_id=str(user.id),
+                user_id=user.id,
                 user_message=body.content,
             )
-        )
-    except ParwaBaseError:
-        raise
-    except Exception as exc:
-        error_info = jarvis_service.handle_error(db, session_id, exc)
-        raise  # Re-raise after logging
+        except ParwaBaseError:
+            raise
+        except Exception as exc:
+            error_info = jarvis_service.handle_error(db, session_id, exc)
+            raise  # Re-raise after logging
 
     response = _message_to_response(ai_msg)
     response.knowledge_used = [
@@ -189,24 +192,6 @@ async def send_message(
         for ku in knowledge
     ]
     return response
-
-
-def _send_message_sync_wrapper(db, session_id, user_id, user_message):
-    """Sync wrapper that runs send_message in its own event loop.
-
-    This is called via asyncio.to_thread from the async API endpoint.
-    Each call gets its own thread + event loop, so sync DB calls don't
-    block the main FastAPI event loop.
-    """
-    import asyncio
-    from app.services.jarvis_service import send_message
-    # send_message is async — run it in a fresh event loop in this thread
-    return asyncio.run(send_message(
-        db=db,
-        session_id=session_id,
-        user_id=user_id,
-        user_message=user_message,
-    ))
 
 
 # ── Context Endpoints ──────────────────────────────────────────────
