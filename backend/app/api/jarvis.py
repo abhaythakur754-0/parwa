@@ -159,11 +159,23 @@ async def send_message(
         session_id = session.id
 
     try:
-        user_msg, ai_msg, knowledge = await jarvis_service.send_message(
-            db=db,
-            session_id=session_id,
-            user_id=user.id,
-            user_message=body.content,
+        # Offload send_message to a thread — it does sync DB work
+        # (db.query, db.flush, db.add) which blocks the event loop.
+        # Running it in a thread lets concurrent requests proceed.
+        # The LLM calls inside are async, but the sync DB wrapper
+        # forces the whole thing into sync mode. asyncio.to_thread
+        # runs the sync function in a worker thread, freeing the
+        # event loop for other requests.
+        import asyncio
+        import functools
+        user_msg, ai_msg, knowledge = await asyncio.to_thread(
+            functools.partial(
+                _send_message_sync_wrapper,
+                db=db,
+                session_id=session_id,
+                user_id=str(user.id),
+                user_message=body.content,
+            )
         )
     except ParwaBaseError:
         raise
@@ -177,6 +189,24 @@ async def send_message(
         for ku in knowledge
     ]
     return response
+
+
+def _send_message_sync_wrapper(db, session_id, user_id, user_message):
+    """Sync wrapper that runs send_message in its own event loop.
+
+    This is called via asyncio.to_thread from the async API endpoint.
+    Each call gets its own thread + event loop, so sync DB calls don't
+    block the main FastAPI event loop.
+    """
+    import asyncio
+    from app.services.jarvis_service import send_message
+    # send_message is async — run it in a fresh event loop in this thread
+    return asyncio.run(send_message(
+        db=db,
+        session_id=session_id,
+        user_id=user_id,
+        user_message=user_message,
+    ))
 
 
 # ── Context Endpoints ──────────────────────────────────────────────
