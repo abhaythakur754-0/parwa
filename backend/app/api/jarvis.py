@@ -75,7 +75,15 @@ router = APIRouter(prefix="/api/jarvis", tags=["Jarvis"])
 # Like MAX_CONCURRENT_PIPELINES=10 for tickets.
 import asyncio as _asyncio_mod
 import os as _os
-MAX_CONCURRENT_JARVIS = int(_os.environ.get("MAX_CONCURRENT_JARVIS", "5"))
+# Only 2 Jarvis chats run at once — rest wait in async queue (3-5s).
+# Each chat = 1 LLM call (~2-4s). With 2 concurrent:
+#   - 2 users: complete in ~2-4s each
+#   - 3rd-4th users: wait ~2-4s, then complete (~4-8s total)
+#   - 5th-6th users: wait ~4-8s, then complete (~6-12s total)
+#   - 7th-8th users: wait ~6-12s, then complete (~8-16s total)
+# This keeps DB contention low (only 2 concurrent sync DB sessions)
+# so the event loop stays responsive — no more freeze.
+MAX_CONCURRENT_JARVIS = int(_os.environ.get("MAX_CONCURRENT_JARVIS", "2"))
 _JARVIS_SEMAPHORE = _asyncio_mod.Semaphore(MAX_CONCURRENT_JARVIS)
 
 logger = logging.getLogger("parwa.api.jarvis")

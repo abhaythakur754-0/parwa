@@ -1593,7 +1593,7 @@ async def _call_ai_provider(
 # provider (no 10s wait). This prevents the cascade freeze that happened
 # when 5 users all hit Groq simultaneously.
 import asyncio as _asyncio_mod
-_jarvis_llm_semaphore = _asyncio_mod.Semaphore(3)  # max 3 concurrent LLM calls
+_jarvis_llm_semaphore = _asyncio_mod.Semaphore(2)  # max 2 concurrent LLM calls (matches Semaphore(2) at API level)
 _jarvis_llm_timeout = 8.0  # 8s per provider (fail fast)
 
 
