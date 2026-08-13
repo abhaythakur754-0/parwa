@@ -1571,26 +1571,24 @@ async def _call_ai_provider(
 
 
 # Semaphore to limit concurrent LLM calls from Jarvis.
-# Groq free tier has 30 RPM rate limit. If 3+ users chat simultaneously,
-# without this semaphore they all hit Groq at the same time → 429 cascade
-# → each falls back to Cerebras (30s timeout each) → server appears frozen.
-# With this semaphore, only 2 Jarvis LLM calls run at once; others wait
-# briefly in the async queue (cooperative multitasking, no thread blocking).
+# Groq free tier has 30 RPM rate limit. With Semaphore(1), only 1 LLM
+# call runs at a time — others wait in async queue. This prevents:
+#   - 429 rate-limit cascades (2+ calls hit Groq simultaneously)
+#   - Fallback storms (each 429'd call tries Cerebras, then Google)
+#   - Server freeze (all timeouts firing at once)
+# 1 concurrent × 2s/call = 30 RPM — exactly matches Groq's limit.
 import asyncio as _asyncio_mod
-_jarvis_llm_semaphore = _asyncio_mod.Semaphore(2)
-_jarvis_llm_timeout = 12.0  # 12s per provider (was 30s — too long for concurrent)
+_jarvis_llm_semaphore = _asyncio_mod.Semaphore(1)
+_jarvis_llm_timeout = 10.0  # 10s per provider (fail fast on 429/hang)
 
 
 async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     """Try AI providers in order: Groq → Cerebras → Google. Returns content or None.
 
-    ASYNC + CONCURRENCY-LIMITED: Uses a semaphore (max 2 concurrent) so that
-    multiple Jarvis users don't all hit the LLM providers at the same time
-    (which causes 429 rate-limit cascades + 30s timeouts that freeze the
-    server). Each call has a 12s timeout — if one provider hangs or 429s,
-    the next is tried immediately.
-
-    Groq is tried first (user-validated best model, ~1s/call).
+    ASYNC + SERIALIZED: Semaphore(1) ensures only 1 LLM call runs at a time.
+    This prevents Groq 429 cascades and keeps the server responsive under
+    concurrent load. Each call has a 10s timeout — if a provider hangs or
+    429s, the next is tried immediately.
     """
     providers = [
         ("groq", "https://api.groq.com/openai/v1/chat/completions"),
@@ -1599,8 +1597,6 @@ async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     ]
 
     import httpx
-    # Acquire semaphore — if 2 other Jarvis LLM calls are in progress,
-    # this waits (async, doesn't block the event loop) until one finishes.
     async with _jarvis_llm_semaphore:
         async with httpx.AsyncClient(timeout=_jarvis_llm_timeout) as client:
             for provider_name, endpoint in providers:
