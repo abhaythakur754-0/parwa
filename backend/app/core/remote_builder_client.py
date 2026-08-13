@@ -39,7 +39,11 @@ DEFAULT_BUILDER_URL = "https://preview-chat-ac11d6a7-6c3d-42a0-acb8-a37ecf9e8dea
 
 
 def get_builder_url() -> str:
-    """Get the Builder service URL from env or default."""
+    """Get the Builder service URL.
+
+    Uses BUILDER_SERVICE_URL env var if set, otherwise defaults to the
+    hardcoded public URL (user doesn't need to add env var on Render).
+    """
     return os.environ.get("BUILDER_SERVICE_URL", DEFAULT_BUILDER_URL).rstrip("/")
 
 
