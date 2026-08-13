@@ -72,6 +72,10 @@ from database.models.core import User
 
 router = APIRouter(prefix="/api/jarvis/cc", tags=["Jarvis Customer Care"])
 
+# Semaphore to serialize Jarvis CC chat requests (same pattern as jarvis.py)
+import asyncio as _asyncio_mod
+_JARVIS_CC_SEMAPHORE = _asyncio_mod.Semaphore(1)
+
 
 # ========================================================================
 # SESSION ENDPOINTS
@@ -204,14 +208,7 @@ async def send_cc_message(
     quality_score, technique_used, latency, billing_tokens, etc.
     """
     # Limit concurrent Jarvis CC requests (same as jarvis.py)
-    global _jarvis_cc_request_semaphore
-    try:
-        _jarvis_cc_request_semaphore
-    except NameError:
-        import asyncio as _aio
-        _jarvis_cc_request_semaphore = _aio.Semaphore(1)
-
-    async with _jarvis_cc_request_semaphore:
+    async with _JARVIS_CC_SEMAPHORE:
         try:
             user_msg, ai_msg, pipeline_metadata = await jarvis_cc_service.send_cc_message(
                 db=db,

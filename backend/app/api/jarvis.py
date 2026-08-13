@@ -62,6 +62,15 @@ from database.models.core import User
 
 router = APIRouter(prefix="/api/jarvis", tags=["Jarvis"])
 
+# Semaphore to serialize Jarvis chat requests.
+# Render Starter has WEB_CONCURRENCY=1 (single worker). Without this,
+# 3+ concurrent Jarvis users all hit sync DB calls simultaneously,
+# exhausting the DB pool and freezing the event loop.
+# With Semaphore(1), only 1 Jarvis request runs at a time; others wait
+# briefly in the async queue. This matches Groq's 30 RPM limit.
+import asyncio as _asyncio_mod
+_JARVIS_SEMAPHORE = _asyncio_mod.Semaphore(1)
+
 logger = logging.getLogger("parwa.api.jarvis")
 
 
@@ -164,15 +173,7 @@ async def send_message(
     # simultaneously, exhausting the DB pool and freezing the event loop.
     # With this semaphore, only 1 Jarvis request runs at a time; others
     # wait briefly in the async queue (cooperative, no thread blocking).
-    # This matches Groq's 30 RPM limit (1 concurrent × 2s/call = 30 RPM).
-    global _jarvis_request_semaphore
-    try:
-        _jarvis_request_semaphore
-    except NameError:
-        import asyncio as _aio
-        _jarvis_request_semaphore = _aio.Semaphore(1)
-
-    async with _jarvis_request_semaphore:
+    async with _JARVIS_SEMAPHORE:
         try:
             user_msg, ai_msg, knowledge = await jarvis_service.send_message(
                 db=db,
