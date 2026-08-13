@@ -41,7 +41,7 @@ router = APIRouter(prefix="/api/builder-agent", tags=["Builder Agent"])
 
 
 class ScanAndBuildRequest(BaseModel):
-    max_tickets_to_scan: int = 50
+    max_tickets_to_scan: int = 50  # DEPRECATED — now scans ALL last month's tickets (no limit)
     force_rebuild: bool = False
 
 
@@ -134,14 +134,17 @@ async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
             company = db.query(Company).filter(Company.id == company_id).first()
             tier = getattr(company, "plan", "parwa") if company else "parwa"
 
-            # ── Step 1: Scan recent tickets ──────────────────────
+            # ── Step 1: Scan ALL tickets from last 30 days ─────
+            # No limit — scan every ticket from the last month.
+            # User request (2026-08-12): "just last month there is no limit
+            # on number of ticket just last month tickets"
             from datetime import datetime, timezone, timedelta
             cutoff = datetime.now(timezone.utc) - timedelta(days=30)
 
             tickets = db.query(Ticket).filter(
                 Ticket.company_id == company_id,
                 Ticket.created_at >= cutoff,
-            ).limit(max_scan).all()
+            ).all()  # NO LIMIT — scan all last month's tickets
 
             if not tickets:
                 return ScanAndBuildResponse(
@@ -190,14 +193,25 @@ async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
                 company_id, len(ticket_texts), connected_integrations,
             )
 
-            # ── Step 4: NVIDIA classifies capabilities ───────────
+            # ── Step 4: Groq classifies capabilities (ALL tickets) ──
+            # Process tickets in chunks of 50 to handle large volumes.
+            # Each chunk = 1 LLM call. Aggregates all capabilities.
             capabilities_detected = []
 
             if os.environ.get("GROQ_API_KEY"):
                 from app.core.parwa_pipeline.llm_client import _call_groq_direct
                 import re
 
-                classify_prompt = f"""Analyze these {len(ticket_texts)} customer support tickets.
+                # Chunk tickets (50 per chunk) to fit in LLM context window
+                CHUNK_SIZE = 50
+                all_chunks = [ticket_texts[i:i+CHUNK_SIZE] for i in range(0, len(ticket_texts), CHUNK_SIZE)]
+                logger.info(
+                    "onboarding_builder: classifying %d tickets in %d chunks (chunk_size=%d)",
+                    len(ticket_texts), len(all_chunks), CHUNK_SIZE,
+                )
+
+                for chunk_idx, chunk in enumerate(all_chunks):
+                    classify_prompt = f"""Analyze these {len(chunk)} customer support tickets (batch {chunk_idx+1} of {len(all_chunks)}).
 Identify what CAPABILITIES are needed to handle them.
 
 Common capabilities:
@@ -213,24 +227,28 @@ Common capabilities:
 - faq_general (general questions)
 
 Tickets:
-{json.dumps(ticket_texts[:20], indent=2)[:3000]}
+{json.dumps(chunk, indent=2)[:4000]}
 
 Connected integrations: {connected_integrations}
 
 Return ONLY a JSON array of unique capability strings."""
 
-                try:
-                    result = await _call_groq_direct(
-                        messages=[{"role": "user", "content": classify_prompt}],
-                        temperature=0.1,
-                        max_tokens=200,
-                        call_id=0,
-                    )
-                    json_match = re.search(r'\[.*?\]', result, re.DOTALL)
-                    if json_match:
-                        capabilities_detected = json.loads(json_match.group())
-                except Exception as exc:
-                    logger.warning("Groq classification failed: %s", str(exc)[:200])
+                    try:
+                        result = await _call_groq_direct(
+                            messages=[{"role": "user", "content": classify_prompt}],
+                            temperature=0.1,
+                            max_tokens=200,
+                            call_id=0,
+                        )
+                        json_match = re.search(r'\[.*?\]', result, re.DOTALL)
+                        if json_match:
+                            chunk_caps = json.loads(json_match.group())
+                            capabilities_detected.extend(chunk_caps)
+                    except Exception as exc:
+                        logger.warning("chunk %d classification failed: %s", chunk_idx, str(exc)[:200])
+
+                # Deduplicate
+                capabilities_detected = list(set(capabilities_detected))
 
             # Fallback: keyword detection
             if not capabilities_detected:
