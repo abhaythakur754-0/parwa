@@ -63,6 +63,7 @@ from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
 from app.api.builder_agent import router as builder_agent_router  # Builder Agent: 4-stage agent creation pipeline
 from app.api.jarvis import router as jarvis_router
+from app.api.jarvis_queue import router as jarvis_queue_router
 from app.api.jarvis_cc import router as jarvis_cc_router
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
@@ -540,6 +541,52 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("queue_tables_sql_fallback_failed: %s", str(exc)[:200])
 
+    # ── Direct SQL fallback for Jarvis message queue ──
+    # DB-backed queue for Jarvis chat — same pattern as tickets.
+    # Survives Render restarts, handles unlimited concurrent users.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS jarvis_message_queue (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36),
+                    user_id VARCHAR(36) NOT NULL,
+                    session_id VARCHAR(36) NOT NULL,
+                    message_content TEXT NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    queue_position INTEGER,
+                    queued_at TIMESTAMP DEFAULT NOW(),
+                    processing_started_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    response_content TEXT,
+                    response_metadata TEXT,
+                    knowledge_used TEXT,
+                    error_message TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    max_retries INTEGER DEFAULT 1,
+                    worker_id VARCHAR(50)
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_jarvis_queue_status ON jarvis_message_queue (status)"
+            ))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_jarvis_queue_session ON jarvis_message_queue (session_id)"
+            ))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_jarvis_queue_queued_at ON jarvis_message_queue (queued_at)"
+            ))
+            _db.commit()
+            _lg.info("jarvis_message_queue_table_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("jarvis_queue_table_sql_fallback_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"
@@ -705,6 +752,14 @@ async def lifespan(app: FastAPI):
         from app.services.pipeline_dispatcher import _start_pipeline_workers
         _start_pipeline_workers()
         logger.info("pipeline_worker_pool_started_on_startup")
+
+        # Start Jarvis DB-backed queue workers (same pattern as ticket workers)
+        try:
+            from app.services.jarvis_queue_worker import start_jarvis_queue_workers
+            start_jarvis_queue_workers()
+            logger.info("jarvis_queue_workers_started")
+        except Exception as exc:
+            logger.warning("jarvis_queue_workers_start_failed: %s", str(exc)[:200])
     except Exception as exc:
         logger.warning("pipeline_worker_pool_start_failed: %s", str(exc)[:200])
 
@@ -1138,6 +1193,7 @@ app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(builder_agent_router)  # Builder Agent: 4-stage agent creation + custom categories
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
+app.include_router(jarvis_queue_router)  # DB-backed Jarvis queue
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)

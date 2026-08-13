@@ -272,3 +272,89 @@ class JarvisActionTicket(Base):
         ),
         {"schema": None},
     )
+
+
+# ── DB-Backed Jarvis Message Queue ─────────────────────────────────
+# Stores incoming Jarvis chat messages for processing by background workers.
+# Same pattern as ticket pipeline — survives Render restarts, handles
+# unlimited concurrent users (INSERT is instant, workers poll at their own pace).
+
+
+class JarvisMessageQueue(Base):
+    """DB-backed queue for Jarvis chat messages.
+
+    Why this exists:
+      The in-memory semaphore approach froze when 3+ users chatted
+      concurrently because sync DB calls in send_message() blocked the
+      FastAPI event loop.
+
+      This DB-backed queue solves it by:
+      1. API endpoint INSERTs message (instant, ~5ms, no blocking)
+      2. Returns queue position + message_id immediately
+      3. Background workers (separate threads) poll the queue
+      4. Workers process 2 at a time (configurable)
+      5. Worker calls send_message() + saves response
+      6. Client polls GET /jarvis/queue/{message_id} for the response
+
+    This is the SAME architecture as the ticket pipeline
+    (MAX_CONCURRENT_PIPELINES=10 workers polling DB), which handles
+    10 concurrent tickets without freezing.
+
+    User vision (2026-08-12): 'it can handle unlimited number of request
+    as its storing in the database'
+    """
+    __tablename__ = "jarvis_message_queue"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(__import__("uuid").uuid4()))
+    company_id = Column(String(36), nullable=True, index=True)
+    user_id = Column(String(36), nullable=False, index=True)
+    session_id = Column(String(36), nullable=False, index=True)
+
+    # The user's message
+    message_content = Column(Text, nullable=False)
+
+    # Queue status
+    # pending:     in queue, waiting for worker
+    # processing:   worker is handling it
+    # completed:    response is ready (in response_content)
+    # failed:      error occurred (in error_message)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+
+    # Queue ordering
+    queue_position = Column(Integer, nullable=True)  # 1 = next to process
+    queued_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    processing_started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    # Response (filled when status='completed')
+    response_content = Column(Text, nullable=True)
+    response_metadata = Column(Text, nullable=True)  # JSON: pipeline info, latency, quality
+    knowledge_used = Column(Text, nullable=True)  # JSON: list of KB sources
+
+    # Error tracking
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=1)
+
+    # Worker tracking
+    worker_id = Column(String(50), nullable=True)  # which worker processed this
+
+    def __repr__(self):
+        return f"<JarvisMessageQueue id={self.id[:8]} status={self.status} user={self.user_id[:8]}>"
+
+    def to_dict(self):
+        """Serialize for API response."""
+        import json as _json
+        return {
+            "id": self.id,
+            "status": self.status,
+            "queue_position": self.queue_position,
+            "queued_at": self.queued_at.isoformat() if self.queued_at else None,
+            "processing_started_at": self.processing_started_at.isoformat() if self.processing_started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "response": self.response_content if self.status == "completed" else None,
+            "metadata": _json.loads(self.response_metadata) if self.response_metadata else None,
+            "knowledge_used": _json.loads(self.knowledge_used) if self.knowledge_used else None,
+            "error": self.error_message,
+            "worker_id": self.worker_id,
+        }
