@@ -402,15 +402,37 @@ Return JSON:
                                     )
 
                                 # Create new agent in Render's database
+                                # Save Superglue tool linkage so Node 5 can
+                                # execute tools (search DB, call APIs, etc.)
+                                # when this agent handles a ticket.
                                 agent = AIAgentAssignment(
                                     id=agent_id,
                                     company_id=company_id,
                                     agent_name=config.get("agent_name", capability),
                                     agent_role="onboarding_built",
+                                    domain=config.get("domain", "auto"),
                                     capabilities=json.dumps(config.get("capabilities", [capability])),
                                     instructions=(config.get("instructions", "") + tool_info)[:5000],
                                     restrictions=config.get("restrictions", ""),
                                     status="active",
+                                    # ── Superglue tool linkage ──
+                                    # The external builder creates Superglue tools
+                                    # (multi-step API chains for searching databases,
+                                    # processing refunds, etc.) and returns the tool_id.
+                                    # Node 5 calls execute_tool(superglue_tool_id)
+                                    # when a ticket routes to this agent.
+                                    superglue_tool_id=builder_result.get("superglue_tool_id"),
+                                    superglue_tool_status=builder_result.get("superglue_tool_status", "none"),
+                                    # ── Approval gates ──
+                                    # Risky capabilities (refund, cancel sub) require
+                                    # admin approval before tool executes.
+                                    approval_required=capability in [
+                                        "refund_processing",
+                                        "subscription_management",
+                                        "account_management",
+                                        "order_cancellation",
+                                    ],
+                                    approval_threshold_cents=100000 if capability == "refund_processing" else 0,
                                 )
                                 db.add(agent)
                                 db.commit()
