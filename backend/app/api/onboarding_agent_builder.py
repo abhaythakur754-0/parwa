@@ -375,12 +375,51 @@ Return JSON:
                             except Exception as exc:
                                 logger.warning("Groq tool mapping failed for %s: %s", capability, str(exc)[:200])
 
-                        # Update agent with dynamic tool mapping
+                        # Save agent to Render database (per tenant)
+                        # The remote builder creates the agent config, but we need
+                        # to store it in OUR database so Node 1 can find it.
                         if agent_id:
                             agent = db.query(AIAgentAssignment).filter(
                                 AIAgentAssignment.id == agent_id,
                             ).first()
-                            if agent:
+
+                            if not agent:
+                                # Agent doesn't exist in Render DB — CREATE it
+                                # (remote builder returned the config, we save locally)
+                                tool_info = ""
+                                if tool_mapping and has_integration:
+                                    tool_info = (
+                                        f"\n\nTOOL MAPPING (determined by AI): "
+                                        f"Use {tool_mapping.get('tool', '?')}.{tool_mapping.get('action', '?')} "
+                                        f"via {tool_mapping.get('integration', '?')} integration. "
+                                        f"Reason: {tool_mapping.get('reasoning', '')}"
+                                    )
+                                elif tool_mapping and not has_integration:
+                                    tool_info = (
+                                        f"\n\nTOOL MAPPING (determined by AI): No matching integration "
+                                        f"connected for this capability. Escalate to human if action needed. "
+                                        f"Reason: {tool_mapping.get('reasoning', '')}"
+                                    )
+
+                                # Create new agent in Render's database
+                                agent = AIAgentAssignment(
+                                    id=agent_id,
+                                    company_id=company_id,
+                                    agent_name=config.get("agent_name", capability),
+                                    agent_role="onboarding_built",
+                                    capabilities=json.dumps(config.get("capabilities", [capability])),
+                                    instructions=(config.get("instructions", "") + tool_info)[:5000],
+                                    restrictions=config.get("restrictions", ""),
+                                    status="active",
+                                )
+                                db.add(agent)
+                                db.commit()
+                                logger.info(
+                                    "onboarding_builder: agent SAVED to DB capability=%s agent_id=%s",
+                                    capability, str(agent_id)[:8],
+                                )
+                            else:
+                                # Agent exists — update with tool mapping
                                 tool_info = ""
                                 if tool_mapping and has_integration:
                                     tool_info = (
