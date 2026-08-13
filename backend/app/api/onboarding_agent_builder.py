@@ -103,6 +103,22 @@ async def scan_and_build(
     }
 
 
+@router.post("/scan-and-build-sync")
+async def scan_and_build_sync(
+    request: ScanAndBuildRequest,
+    current_user=Depends(get_current_user),
+) -> Any:
+    """Synchronous version of scan-and-build — runs _do_build directly.
+
+    Same as scan-and-build but runs in the request thread (not background).
+    Use this for debugging — you'll see the actual response/errors instead
+    of waiting for a background task that might fail silently.
+    """
+    company_id = str(current_user.company_id)
+    result = await _do_build(company_id, request.max_tickets_to_scan, request.force_rebuild)
+    return result
+
+
 async def _do_build(company_id: str, max_scan: int, force_rebuild: bool):
     """Actual building logic — runs in background thread."""
     try:
