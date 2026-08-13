@@ -132,32 +132,44 @@ def _process_message(db, queue_row):
 
     Calls send_message() to generate the response, then saves it.
     Runs in a worker thread — does NOT block the FastAPI event loop.
+
+    TIMEOUT: 30s max per message. If send_message hangs (e.g. LLM
+    provider is down), the worker marks the message as failed and
+    moves on to the next one. This ensures the queue never gets
+    stuck — all messages eventually get processed.
     """
     import json as _json
 
-    # Create a new event loop for this thread (send_message is async)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     try:
-        # Get the session
-        from app.services.jarvis_service import get_session, build_system_prompt
+        from app.services.jarvis_service import get_session
         from app.services.jarvis.chat import send_message, _parse_context
-        session = get_session(db, queue_row.session_id, queue_row.user_id)
 
-        # Build context
-        ctx = _parse_context(session.context_json) if session else {}
-        company_id = queue_row.company_id or ""
-
-        # Call send_message (async — run in this thread's event loop)
-        user_msg, ai_msg, knowledge = loop.run_until_complete(
-            send_message(
-                db=db,
-                session_id=queue_row.session_id,
-                user_id=queue_row.user_id,
-                user_message=queue_row.message_content,
+        # Run send_message with a 30s timeout
+        try:
+            user_msg, ai_msg, knowledge = loop.run_until_complete(
+                asyncio.wait_for(
+                    send_message(
+                        db=db,
+                        session_id=queue_row.session_id,
+                        user_id=queue_row.user_id,
+                        user_message=queue_row.message_content,
+                    ),
+                    timeout=30.0,  # 30s max per message
+                )
             )
-        )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "jarvis_queue_worker_timeout message_id=%s (30s exceeded)",
+                queue_row.id[:8],
+            )
+            queue_row.status = "failed"
+            queue_row.error_message = "Processing timed out (30s). Please try again."
+            queue_row.completed_at = datetime.now(timezone.utc)
+            db.commit()
+            return
 
         # Save response to queue row
         queue_row.status = "completed"

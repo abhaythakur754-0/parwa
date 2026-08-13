@@ -716,7 +716,9 @@ async def send_message(
 
     session.context_json = json.dumps(ctx)
 
-    db.flush()
+    # Batch: single commit instead of multiple flushes
+    # (reduces ~4 DB roundtrips to 1)
+    db.commit()
     return user_msg, ai_msg, knowledge_records
 
 
