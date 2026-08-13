@@ -1574,31 +1574,56 @@ async def _call_ai_provider(
         return content, message_type, metadata, []
 
 
-# Semaphore to limit concurrent LLM calls from Jarvis.
-# Groq free tier has 30 RPM rate limit. With Semaphore(1), only 1 LLM
-# call runs at a time — others wait in async queue. This prevents:
-#   - 429 rate-limit cascades (2+ calls hit Groq simultaneously)
-#   - Fallback storms (each 429'd call tries Cerebras, then Google)
-#   - Server freeze (all timeouts firing at once)
-# 1 concurrent × 2s/call = 30 RPM — exactly matches Groq's limit.
+# ── Jarvis LLM Configuration ────────────────────────────────────────
+#
+# Provider rate limits (free tiers):
+#   Groq llama-3.1-8b-instant: 30 RPM (primary — fastest, user-validated)
+#   Google Gemini Flash-Lite:  30 RPM (backup — 1,500 RPD)
+#   Aion Labs 3.0 Mini:        15 RPM (backup — 20K TPD, reasoning model)
+#   Cerebras llama-3.1-8b:     30 RPM (backup)
+#
+# Total: 105 RPM across 4 providers. With 2 LLM calls per Jarvis message,
+# theoretical max = 52 concurrent users. Semaphore(3) limits to 3 concurrent
+# LLM calls to prevent burst overload.
+#
+# 429 HANDLING: If a provider returns 429, we IMMEDIATELY try the next
+# provider (no 10s wait). This prevents the cascade freeze that happened
+# when 5 users all hit Groq simultaneously.
 import asyncio as _asyncio_mod
-_jarvis_llm_semaphore = _asyncio_mod.Semaphore(1)
-_jarvis_llm_timeout = 10.0  # 10s per provider (fail fast on 429/hang)
+_jarvis_llm_semaphore = _asyncio_mod.Semaphore(3)  # max 3 concurrent LLM calls
+_jarvis_llm_timeout = 8.0  # 8s per provider (fail fast)
 
 
 async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
-    """Try AI providers in order: Groq → Cerebras → Google. Returns content or None.
+    """Try AI providers in order. Returns content or None.
 
-    ASYNC + SERIALIZED: Semaphore(1) ensures only 1 LLM call runs at a time.
-    This prevents Groq 429 cascades and keeps the server responsive under
-    concurrent load. Each call has a 10s timeout — if a provider hangs or
-    429s, the next is tried immediately.
+    Provider order (spread load to avoid 429 on any single provider):
+      1. Groq (30 RPM, ~1s, user-validated best)
+      2. Google Gemini (30 RPM, ~1s)
+      3. Aion Labs (15 RPM, ~2s, reasoning model)
+      4. Cerebras (30 RPM, ~1s)
+
+    429 HANDLING: On 429, immediately try next provider (no wait).
+    This prevents the cascade freeze where multiple 429'd calls all
+    fall back to the same next provider simultaneously.
     """
-    providers = [
-        ("groq", "https://api.groq.com/openai/v1/chat/completions"),
-        ("cerebras", "https://api.cerebras.ai/v1/chat/completions"),
-        ("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"),
-    ]
+    from app.config import get_settings
+    settings = get_settings()
+
+    # Build provider list (only include providers with API keys configured)
+    providers = []
+    if settings.GROQ_API_KEY:
+        providers.append(("groq", "https://api.groq.com/openai/v1/chat/completions"))
+    if settings.GOOGLE_AI_API_KEY:
+        providers.append(("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"))
+    if os.environ.get("AION_API_KEY", "").strip():
+        providers.append(("aion", "https://api.aionlabs.ai/v1/chat/completions"))
+    if settings.CEREBRAS_API_KEY:
+        providers.append(("cerebras", "https://api.cerebras.ai/v1/chat/completions"))
+
+    if not providers:
+        logger.warning("jarvis_no_providers_configured")
+        return None
 
     import httpx
     async with _jarvis_llm_semaphore:
@@ -1610,7 +1635,13 @@ async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
                     )
                     if content:
                         return content
-                except Exception:
+                except Exception as exc:
+                    # Log 429s but continue to next provider immediately
+                    exc_str = str(exc)[:100]
+                    if "429" in exc_str or "rate" in exc_str.lower():
+                        logger.info("jarvis_provider_429 provider=%s — trying next", provider_name)
+                    else:
+                        logger.debug("jarvis_provider_failed provider=%s err=%s", provider_name, exc_str)
                     continue
     return None
 
@@ -1625,12 +1656,19 @@ async def _call_single_provider_async(
 
     Args:
         client: An open httpx.AsyncClient (caller manages lifecycle).
-        provider_name: 'groq' | 'cerebras' | 'google'
+        provider_name: 'groq' | 'cerebras' | 'google' | 'aion'
         endpoint: Full API endpoint URL.
         messages: OpenAI-format messages list.
 
     Returns:
-        Response content string, or None if provider returned empty/failed.
+        Response content string, or None if provider returned empty.
+
+    Raises:
+        RuntimeError with "429" in message if rate-limited (for fast-fail).
+
+    429 HANDLING: If provider returns 429, raises RuntimeError immediately
+    (no retry, no wait). The caller (_try_ai_providers) catches this and
+    tries the next provider instantly.
     """
     from app.config import get_settings
 
@@ -1642,6 +1680,8 @@ async def _call_single_provider_async(
         api_key = settings.GROQ_API_KEY
     elif provider_name == "google":
         api_key = settings.GOOGLE_AI_API_KEY
+    elif provider_name == "aion":
+        api_key = os.environ.get("AION_API_KEY", "").strip()
     else:
         return None
 
@@ -1651,10 +1691,19 @@ async def _call_single_provider_async(
     if provider_name == "google":
         return await _call_google_api_async(client, endpoint, api_key, messages)
 
-    # OpenAI-compatible: Cerebras and Groq
-    # Groq uses llama-3.1-8b-instant (user-validated best model)
-    # Cerebras uses llama-3.1-8b
-    model = "llama-3.1-8b-instant" if provider_name == "groq" else "llama-3.1-8b"
+    # OpenAI-compatible: Groq, Cerebras, Aion
+    # Groq: llama-3.1-8b-instant (user-validated best, ~1s)
+    # Cerebras: llama-3.1-8b (~1s)
+    # Aion: aion-3.0-mini (reasoning model, ~2s)
+    if provider_name == "groq":
+        model = "llama-3.1-8b-instant"
+    elif provider_name == "cerebras":
+        model = "llama-3.1-8b"
+    elif provider_name == "aion":
+        model = "aion-3.0-mini"
+    else:
+        model = "llama-3.1-8b-instant"
+
     payload = {
         "model": model,
         "messages": messages,
@@ -1668,6 +1717,11 @@ async def _call_single_provider_async(
     }
 
     r = await client.post(endpoint, json=payload, headers=headers)
+
+    # 429 = rate limited — raise immediately for fast-fail to next provider
+    if r.status_code == 429:
+        raise RuntimeError(f"429 rate_limited provider={provider_name}")
+
     if r.status_code != 200:
         return None
     data = r.json()
