@@ -18,6 +18,7 @@ import {
 } from '@/lib/integration-catalog';
 import { CustomIntegrationForm } from './CustomIntegrationForm';
 import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
+import { RecommendationsPanel } from './RecommendationsPanel';
 import { useAuth } from '@/hooks/useAuth';
 
 // ── Props ────────────────────────────────────────────────────────────
@@ -304,6 +305,11 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
         <p className="text-sm text-zinc-500 mt-1">
           Choose the tools your team uses. Enter credentials and verify to connect.
         </p>
+      </div>
+
+      {/* ── AI Analysis Panel (CRM + tickets + agents + health) ── */}
+      <div className="mb-6 rounded-xl border border-purple-500/20 bg-purple-500/[0.04] p-4">
+        <RecommendationsPanel />
       </div>
 
       {/* ── Smart Recommendations (powered by CRMAnalyzerService — uses NVIDIA GLM-5.2 LLM) ── */}

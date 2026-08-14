@@ -63,6 +63,7 @@ from app.api.ai_engine import router as ai_engine_router
 from app.api.ai_agent import router as ai_agent_router
 from app.api.builder_agent import router as builder_agent_router  # Builder Agent: 4-stage agent creation pipeline
 from app.api.jarvis import router as jarvis_router
+from app.api.onboarding_recommendations import router as onboarding_recs_router
 from app.api.jarvis_queue import router as jarvis_queue_router
 from app.api.jarvis_cc import router as jarvis_cc_router
 from app.api.onboarding import router as onboarding_router
@@ -1193,6 +1194,7 @@ app.include_router(ai_engine_router)  # Week 8: AI Engine endpoints
 app.include_router(ai_agent_router)  # SG-21/SG-22: AI agent assignments
 app.include_router(builder_agent_router)  # Builder Agent: 4-stage agent creation + custom categories
 app.include_router(jarvis_router)  # Week 6: Jarvis onboarding chat
+app.include_router(onboarding_recs_router)  # Onboarding recommendations + health check
 app.include_router(jarvis_queue_router)  # DB-backed Jarvis queue
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
