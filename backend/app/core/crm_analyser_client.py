@@ -238,16 +238,16 @@ def collect_tenant_tickets(db, company_id: str, days: int = 30) -> List[Dict[str
 
         result.append({
             "id": str(t.id),
-            "subject": t.subject or "",
+            "subject": getattr(t, "subject", "") or "",
             "description": description[:1000],
-            "status": t.status or "open",
-            "priority": t.priority or "medium",
+            "status": getattr(t, "status", "open") or "open",
+            "priority": getattr(t, "priority", "medium") or "medium",
             "type": "problem",
             "tags": [],
             "created_at": t.created_at.isoformat() if t.created_at else "",
             "requester": {
-                "name": t.customer_name or "",
-                "email": t.customer_email or "",
+                "name": getattr(t, "customer_name", "") or getattr(t, "name", "") or "",
+                "email": getattr(t, "customer_email", "") or getattr(t, "email", "") or "",
             },
         })
 
