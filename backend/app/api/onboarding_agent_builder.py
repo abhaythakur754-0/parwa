@@ -521,6 +521,7 @@ Return JSON:
                             "tool_mapping": tool_mapping,
                             "has_integration": has_integration,
                             "builder_stages": builder_result.get("stage_iterations", {}),
+                            "is_new_template": builder_result.get("is_new_template", False),
                         })
 
                         logger.info(
