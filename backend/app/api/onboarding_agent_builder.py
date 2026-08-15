@@ -538,11 +538,13 @@ Return JSON:
                         )
 
                 except Exception as exc:
+                    error_msg = str(exc)[:200]
                     logger.error(
                         "onboarding_builder: FAILED capability=%s err=%s",
-                        capability, str(exc)[:200],
+                        capability, error_msg,
                     )
-                    agents_skipped.append(f"{capability} (error)")
+                    agents_skipped.append(f"{capability} (error: {error_msg[:50]})")
+                    errors.append(f"{capability}: {error_msg}")
 
                 # ── Wait between agents (NVIDIA rate limit: 30 RPM) ──
                 time.sleep(3)
