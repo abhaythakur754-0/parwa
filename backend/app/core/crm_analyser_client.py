@@ -28,11 +28,10 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("parwa.crm_analyser_client")
 
-# Default URL — can be overridden by env var CRM_ANALYSER_URL
-DEFAULT_CRM_ANALYSER_URL = os.environ.get(
-    "CRM_ANALYSER_URL",
-    ""  # User must set this env var or pass URL to constructor
-)
+# Hardcoded URL — the CRM Analyser service (no env var needed).
+# Uses NVIDIA llama-3.1-8b-instruct for deep analysis (25-30 LLM calls).
+# Render does NOT use its own LLM — just calls this API.
+DEFAULT_CRM_ANALYSER_URL = "https://preview-chat-448c1694-61bf-48c8-bac4-d207abd37b73.space-z.ai"
 
 
 def get_crm_analyser_url() -> str:
