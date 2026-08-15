@@ -73,7 +73,7 @@ async def start_crm_analysis(
         # Get connected integrations
         from app.services.integration_service import IntegrationService
         integration_service = IntegrationService(db)
-        connected = integration_service.get_connected_integrations(company_id)
+        connected = integration_service.get_active_integrations(company_id)
         connected_names = [i.get("name", i.get("type", "")) for i in connected]
 
         # Enqueue to external CRM Analyser (just the enqueue, not the full poll)
@@ -195,7 +195,7 @@ async def get_recommendations(
     try:
         from app.services.integration_service import IntegrationService
         integration_service = IntegrationService(db)
-        connected = integration_service.get_connected_integrations(company_id)
+        connected = integration_service.get_active_integrations(company_id)
 
         crm_result = {
             "connected_integrations": connected,
@@ -329,7 +329,7 @@ async def check_integration_health(
     try:
         from app.services.integration_service import IntegrationService
         integration_service = IntegrationService(db)
-        connected = integration_service.get_connected_integrations(company_id)
+        connected = integration_service.get_active_integrations(company_id)
 
         for integ in connected:
             integ_name = integ.get("name", integ.get("type", "unknown"))
