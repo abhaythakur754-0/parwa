@@ -303,11 +303,18 @@ Return ONLY a JSON array of unique capability strings."""
                     capability,
                 )
 
-                # ── Run the Builder (REMOTE service — offloads to 2GB machine) ──
-                # The local builder_pipeline.py is NOT deleted — kept as fallback.
-                # Set BUILDER_FALLBACK_LOCAL=true to use local on remote failure.
+                # ── TEMPLATE-BASED BUILDING (saves 99% of LLM calls) ──
+                # 1. Check if template exists for this capability
+                # 2. If yes → CLONE (0.1s, 0 LLM calls) ✅
+                # 3. If no → BUILD via external Builder (12 LLM calls) → save template
+                #
+                # User vision: "verify if it's in database, if yes don't
+                # make it again, if not present then make it"
                 try:
-                    from app.core.remote_builder_client import build_agent_with_fallback
+                    from app.services.agent_template_manager import (
+                        get_or_create_template,
+                        clone_template_to_tenant,
+                    )
 
                     # Build KB context from ticket texts for this capability
                     kb_context = ""
@@ -318,19 +325,46 @@ Return ONLY a JSON array of unique capability strings."""
                     if not kb_context:
                         kb_context = ticket_texts[0]["text"] if ticket_texts else ""
 
-                    builder_result = await build_agent_with_fallback(
-                        tenant_id=company_id,
+                    # Step 1: Get or create template (checks DB first!)
+                    template = await get_or_create_template(
+                        db=db,
+                        capability=capability,
                         kb_context=kb_context,
                         integrations=connected_integrations,
-                        capability=capability,
                     )
 
-                    # Normalize: remote returns 'agent_config', local returns 'config'
-                    # Make both available so downstream code works unchanged
-                    if "agent_config" in builder_result and "config" not in builder_result:
-                        builder_result["config"] = builder_result["agent_config"]
+                    is_new_template = template.get("is_new", False)
 
-                    # --- LOCAL BUILDER (disabled — kept for fallback) ---
+                    # Step 2: Clone template to this tenant (instant, 0 LLM calls)
+                    agent_id = clone_template_to_tenant(
+                        db=db,
+                        template=template,
+                        company_id=company_id,
+                        superglue_tool_id=template.get("superglue_tool_id"),
+                        superglue_tool_status=template.get("superglue_tool_status", "none"),
+                        kb_context=kb_context,
+                    )
+
+                    # Build result dict (for compatibility with existing code)
+                    builder_result = {
+                        "status": "complete",
+                        "agent_id": agent_id,
+                        "config": {
+                            "agent_name": template.get("agent_name"),
+                            "agent_role": "onboarding_built",
+                            "domain": template.get("domain"),
+                            "capabilities": template.get("capabilities", [capability]),
+                            "instructions": template.get("instructions"),
+                            "restrictions": template.get("restrictions"),
+                        },
+                        "quality_score": template.get("quality_score", 0.85),
+                        "stage_iterations": template.get("stage_iterations", {}),
+                        "superglue_tool_id": template.get("superglue_tool_id"),
+                        "superglue_tool_status": template.get("superglue_tool_status", "none"),
+                        "is_new_template": is_new_template,  # ← NEW: tells if built or reused
+                    }
+
+                    # --- OLD LOCAL BUILDER (disabled — kept for fallback) ---
                     # To re-enable local building, set BUILDER_FALLBACK_LOCAL=true
                     # from app.core.builder_agent.builder_pipeline import run_builder_pipeline
                     # rep_query = kb_context[:500]

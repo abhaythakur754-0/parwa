@@ -680,3 +680,87 @@ class PipelineStateSnapshot(Base):
             "company_id", "ticket_id", "created_at",
         ),
     )
+
+
+# ── Agent Templates (shared across tenants — saves LLM cost) ──────
+# Built ONCE per capability, reused by ALL tenants.
+# Saves 99% of LLM calls (was 12 calls × N tenants = 12N, now 12 calls total).
+#
+# User vision (2026-08-12): "verify if it's in database, if yes don't
+# make it again, if not present then make it"
+#
+# What's shared (template):
+#   - base_instructions: "Handle refunds professionally..."
+#   - base_restrictions: "Never refund > $1000..."
+#   - capabilities: ["refund_processing", "billing_inquiry"]
+#   - default_approval_threshold: 100000 ($1000)
+#
+# What's per-tenant (instance in AIAgentAssignment):
+#   - company_id (tenant scoping — security)
+#   - superglue_tool_id (tenant's OWN Stripe/Shopify API)
+#   - kb_context (tenant's OWN refund policy docs)
+#   - approval_threshold_cents (tenant's custom limit)
+
+class AgentTemplate(Base):
+    """Shared agent template — built once, cloned per tenant.
+
+    When CRM analysis recommends "refund_processing":
+      1. Check: does template exist? → YES → clone to AIAgentAssignment (0.1s)
+      2. Check: does template exist? → NO → build via external Builder (12 LLM calls)
+         → save as template → clone to AIAgentAssignment
+
+    This saves 99% of LLM calls when multiple tenants need the same capability.
+    """
+    __tablename__ = "agent_templates"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+
+    # The capability this template handles (unique — one template per capability)
+    capability = Column(String(100), nullable=False, unique=True, index=True)
+
+    # Template content (shared across all tenants)
+    agent_name = Column(String(100), nullable=False)
+    agent_role = Column(String(100), default="template")
+    domain = Column(String(100), nullable=True)
+    capabilities = Column(Text, default="[]")  # JSON array
+    instructions = Column(Text, nullable=True)  # base instructions
+    restrictions = Column(Text, nullable=True)  # base restrictions
+
+    # Default approval settings (tenants can override in their instance)
+    default_approval_required = Column(Boolean, default=False)
+    default_approval_threshold_cents = Column(Integer, default=0)
+
+    # Metadata about the template creation
+    quality_score = Column(Float, default=0.85)
+    stage_iterations = Column(Text, nullable=True)  # JSON: {"explore":3,"design":4,"verify":5}
+    created_by_build = Column(String(100), nullable=True)  # "external_builder" or "local"
+
+    # Cache info
+    times_used = Column(Integer, default=0)  # how many tenants cloned this
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    def __repr__(self):
+        return f"<AgentTemplate capability={self.capability} used={self.times_used}>"
+
+    def to_dict(self):
+        """Serialize for API response."""
+        import json as _json
+        return {
+            "id": self.id,
+            "capability": self.capability,
+            "agent_name": self.agent_name,
+            "agent_role": self.agent_role,
+            "domain": self.domain,
+            "capabilities": _json.loads(self.capabilities) if self.capabilities else [],
+            "instructions": self.instructions,
+            "restrictions": self.restrictions,
+            "default_approval_required": self.default_approval_required,
+            "default_approval_threshold_cents": self.default_approval_threshold_cents,
+            "quality_score": self.quality_score,
+            "times_used": self.times_used,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

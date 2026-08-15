@@ -588,6 +588,44 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("jarvis_queue_table_sql_fallback_failed: %s", str(exc)[:200])
 
+    # ── Agent Templates table (shared templates — saves 99% LLM calls) ──
+    # Built once per capability, cloned per tenant.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS agent_templates (
+                    id VARCHAR(36) PRIMARY KEY,
+                    capability VARCHAR(100) NOT NULL UNIQUE,
+                    agent_name VARCHAR(100) NOT NULL,
+                    agent_role VARCHAR(100) DEFAULT 'template',
+                    domain VARCHAR(100),
+                    capabilities TEXT DEFAULT '[]',
+                    instructions TEXT,
+                    restrictions TEXT,
+                    default_approval_required BOOLEAN DEFAULT FALSE,
+                    default_approval_threshold_cents INTEGER DEFAULT 0,
+                    quality_score FLOAT DEFAULT 0.85,
+                    stage_iterations TEXT,
+                    created_by_build VARCHAR(100),
+                    times_used INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_agent_templates_capability ON agent_templates (capability)"
+            ))
+            _db.commit()
+            _lg.info("agent_templates_table_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("agent_templates_table_sql_fallback_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"
