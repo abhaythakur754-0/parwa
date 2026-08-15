@@ -62,11 +62,56 @@ async def get_recommendations(
     """
     company_id = str(user.company_id)
 
-    # ── Step 1: CRM Analysis (existing service) ──
+    # ── Step 1: CRM Analysis (EXTERNAL service — no Render LLM) ──
+    # Old crm_analyzer_service.py is NOT deleted — just not called.
+    # The external service does deep analysis (25-30 LLM calls) on its
+    # own machine with NVIDIA llama-3.1-8b-instruct.
     try:
-        from app.services.crm_analyzer_service import CRMAnalyzerService
-        crm_service = CRMAnalyzerService(db)
-        crm_result = await crm_service.analyze_company_crm(company_id)
+        from app.core.crm_analyser_client import (
+            analyze_crm_external,
+            collect_tenant_tickets,
+            get_crm_analyser_url,
+        )
+
+        # Check if CRM Analyser URL is configured
+        if get_crm_analyser_url():
+            # Collect tenant's tickets from DB
+            tickets = collect_tenant_tickets(db, company_id, days=30)
+
+            # Get connected integrations
+            from app.services.integration_service import IntegrationService
+            integration_service = IntegrationService(db)
+            connected = integration_service.get_connected_integrations(company_id)
+            connected_names = [i.get("name", i.get("type", "")) for i in connected]
+
+            # Call external CRM Analyser (async, polls for result)
+            crm_result_external = await analyze_crm_external(
+                tickets=tickets,
+                company_name=getattr(user, "company_name", "Unknown"),
+                connected_integrations=connected_names,
+            )
+
+            # Convert external format to our format
+            crm_result = {
+                "connected_integrations": connected,
+                "recommendations": [
+                    {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
+                    for name in crm_result_external.get("integrations", [])
+                ],
+                "analysis_summary": (
+                    f"Analyzed {crm_result_external.get('tickets_scanned', 0)} tickets. "
+                    f"Found {len(crm_result_external.get('integrations', []))} integrations needed, "
+                    f"{len(crm_result_external.get('agents', []))} agents to build."
+                ),
+                "work_order": crm_result_external,
+            }
+        else:
+            # Fallback: no external URL configured — use keyword scan only
+            crm_result = {
+                "connected_integrations": [],
+                "recommendations": [],
+                "analysis_summary": "CRM analysis not configured. Using ticket scan only.",
+            }
     except Exception as exc:
         logger.warning("crm_analysis_failed: %s", str(exc)[:200])
         crm_result = {
