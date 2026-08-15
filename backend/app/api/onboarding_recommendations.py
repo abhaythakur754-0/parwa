@@ -43,29 +43,20 @@ class HealthCheckResponse(BaseModel):
     all_healthy: bool
 
 
-@router.get("/recommendations", response_model=RecommendationResponse)
-async def get_recommendations(
+@router.post("/crm-analysis/start")
+async def start_crm_analysis(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> RecommendationResponse:
-    """Get unified recommendations for onboarding Step 2.
+) -> Dict[str, Any]:
+    """Start CRM analysis (async — returns immediately with request_id).
 
-    Combines:
-    1. CRM analysis (what integrations the tenant needs)
-    2. Ticket scan (what capabilities → what agents to build)
-    3. Integration health check (are connected ones working?)
-
-    Returns everything the UI needs to show:
-    - "Connect Stripe" (60% of tickets need it)
-    - "Build Refund Agent" (40% of tickets are refunds)
-    - "✅ Shopify connected and working"
+    The external CRM Analyser takes 10-30s to process.
+    This endpoint enqueues the request and returns immediately.
+    Client polls GET /api/onboarding/crm-analysis/status?id=<request_id>
+    until status='completed'.
     """
     company_id = str(user.company_id)
 
-    # ── Step 1: CRM Analysis (EXTERNAL service — no Render LLM) ──
-    # Old crm_analyzer_service.py is NOT deleted — just not called.
-    # The external service does deep analysis (25-30 LLM calls) on its
-    # own machine with NVIDIA llama-3.1-8b-instruct.
     try:
         from app.core.crm_analyser_client import (
             analyze_crm_external,
@@ -73,51 +64,153 @@ async def get_recommendations(
             get_crm_analyser_url,
         )
 
-        # Check if CRM Analyser URL is configured
-        if get_crm_analyser_url():
-            # Collect tenant's tickets from DB
-            tickets = collect_tenant_tickets(db, company_id, days=30)
+        if not get_crm_analyser_url():
+            return {"status": "error", "message": "CRM_ANALYSER_URL not configured"}
 
-            # Get connected integrations
-            from app.services.integration_service import IntegrationService
-            integration_service = IntegrationService(db)
-            connected = integration_service.get_connected_integrations(company_id)
-            connected_names = [i.get("name", i.get("type", "")) for i in connected]
+        # Collect tickets
+        tickets = collect_tenant_tickets(db, company_id, days=30)
 
-            # Call external CRM Analyser (async, polls for result)
-            crm_result_external = await analyze_crm_external(
-                tickets=tickets,
-                company_name=getattr(user, "company_name", "Unknown"),
-                connected_integrations=connected_names,
+        # Get connected integrations
+        from app.services.integration_service import IntegrationService
+        integration_service = IntegrationService(db)
+        connected = integration_service.get_connected_integrations(company_id)
+        connected_names = [i.get("name", i.get("type", "")) for i in connected]
+
+        # Enqueue to external CRM Analyser (just the enqueue, not the full poll)
+        import httpx
+        from datetime import datetime, timezone
+        base_url = get_crm_analyser_url()
+
+        snapshot = {
+            "source": "upload",
+            "company_name": getattr(user, "company_name", "Unknown"),
+            "fetched_at": datetime.now(timezone.utc).isoformat() + "Z",
+            "tickets": tickets,
+            "contacts": [],
+            "deals": [],
+            "orders": [],
+            "data_profile": {
+                "total_tickets": len(tickets),
+                "total_contacts": 0, "total_deals": 0, "total_orders": 0,
+                "has_products": False, "has_shipping_addresses": False,
+                "has_payment_data": False, "has_email_campaigns": False,
+                "has_ticket_data": len(tickets) > 0,
+                "industries_detected": [], "payment_methods_seen": [],
+            },
+            "connected_integrations": connected_names,
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"{base_url}/api/crm-analyser/analyze",
+                json={"source": "upload", "data": snapshot},
             )
+            r.raise_for_status()
+            enqueue_resp = r.json()
 
-            # Convert external format to our format
-            crm_result = {
-                "connected_integrations": connected,
-                "recommendations": [
-                    {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
-                    for name in crm_result_external.get("integrations", [])
-                ],
-                "analysis_summary": (
-                    f"Analyzed {crm_result_external.get('tickets_scanned', 0)} tickets. "
-                    f"Found {len(crm_result_external.get('integrations', []))} integrations needed, "
-                    f"{len(crm_result_external.get('agents', []))} agents to build."
-                ),
-                "work_order": crm_result_external,
-            }
-        else:
-            # Fallback: no external URL configured — use keyword scan only
-            crm_result = {
-                "connected_integrations": [],
-                "recommendations": [],
-                "analysis_summary": "CRM analysis not configured. Using ticket scan only.",
-            }
+        request_id = enqueue_resp.get("request_id")
+        return {
+            "status": "started",
+            "request_id": request_id,
+            "tickets_sent": len(tickets),
+            "poll_url": f"/api/onboarding/crm-analysis/status?id={request_id}",
+            "message": f"Sent {len(tickets)} tickets for analysis. Poll for results.",
+        }
+
     except Exception as exc:
-        logger.warning("crm_analysis_failed: %s", str(exc)[:200])
+        logger.warning("crm_analysis_start_failed: %s", str(exc)[:200])
+        return {"status": "error", "message": str(exc)[:200]}
+
+
+@router.get("/crm-analysis/status")
+async def get_crm_analysis_status(
+    id: str,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Poll for CRM analysis status.
+
+    Returns:
+    - status='processing' (still running)
+    - status='completed' (result ready in work_order)
+    - status='failed' (error)
+    """
+    try:
+        from app.core.crm_analyser_client import get_crm_analyser_url
+        import httpx
+
+        base_url = get_crm_analyser_url()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(
+                f"{base_url}/api/crm-analyser/analyze",
+                params={"id": id},
+            )
+            r.raise_for_status()
+            status_resp = r.json()
+
+        status = status_resp.get("status", {})
+        state = status.get("status", "unknown")
+
+        if state == "completed":
+            result = status.get("result", {})
+            work_order = result.get("work_order", {})
+            return {
+                "status": "completed",
+                "tickets_scanned": result.get("tickets_scanned", 0),
+                "integrations": work_order.get("integrations", []),
+                "agents": work_order.get("agents", []),
+                "tools": work_order.get("tools", []),
+                "full_result": result,
+            }
+        elif state == "failed":
+            return {"status": "failed", "error": status.get("error_message", "Unknown")}
+        else:
+            return {
+                "status": "processing",
+                "batches_done": status.get("batches_done", 0),
+                "total_batches": status.get("total_batches", 0),
+                "llm_calls": status.get("llm_calls_made", 0),
+            }
+
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)[:200]}
+
+
+@router.get("/recommendations", response_model=RecommendationResponse)
+async def get_recommendations(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RecommendationResponse:
+    """Get unified recommendations for onboarding Step 2.
+
+    Uses ticket keyword scan (fast, no external call) for the basic
+    recommendations. For deep CRM analysis, client should call:
+      POST /api/onboarding/crm-analysis/start
+      GET  /api/onboarding/crm-analysis/status?id=<request_id>
+    """
+    company_id = str(user.company_id)
+
+    # ── Step 1: Connected integrations + keyword scan (fast) ──
+    # For deep CRM analysis, client calls POST /crm-analysis/start
+    # (the external service takes 10-30s — too slow for this endpoint)
+    try:
+        from app.services.integration_service import IntegrationService
+        integration_service = IntegrationService(db)
+        connected = integration_service.get_connected_integrations(company_id)
+
+        crm_result = {
+            "connected_integrations": connected,
+            "recommendations": [],  # filled by deep analysis (async endpoint)
+            "analysis_summary": (
+                f"{len(connected)} integration(s) connected. "
+                "Click 'Analyze' for deep AI analysis."
+            ),
+        }
+    except Exception as exc:
+        logger.warning("integration_fetch_failed: %s", str(exc)[:200])
         crm_result = {
             "connected_integrations": [],
             "recommendations": [],
-            "analysis_summary": "Analysis unavailable. You can still connect integrations manually.",
+            "analysis_summary": "Analysis unavailable.",
         }
 
     # ── Step 2: Ticket scan (detect capabilities) ──
