@@ -292,6 +292,7 @@ Return ONLY a JSON array of unique capability strings."""
             # ── Step 6: Build agents using REAL Builder pipeline ─
             agents_created = []
             agents_skipped = []
+            errors = []
 
             for capability in capabilities_detected:
                 if capability in existing_caps and not force_rebuild:
