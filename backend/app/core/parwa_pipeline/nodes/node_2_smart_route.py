@@ -873,12 +873,195 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     n2_esc3 = "no_escalation" if n2_esc1 == "no_escalation" and n2_esc2 == "no_escalation" else "escalation_flagged"
     logs.append({"node": 2, "technique": "Escalation.depth3", "duration_ms": 0, "result_summary": n2_esc3})
 
+    # ══════════════════════════════════════════════════════════════════
+    # AGENT + TOOL VERIFICATION LAYER (Node 2 = decision gate)
+    # ══════════════════════════════════════════════════════════════════
+    # User vision (2026-08-12):
+    #   "verify we have agents — if not, create. verify we have tools —
+    #    if not, create. if can't create → send back (escalate)"
+    #
+    # This layer checks BEFORE routing:
+    #   1. Does an agent exist for this capability?
+    #      → YES → use it
+    #      → NO → create via template system (check template → clone or build)
+    #   2. Does that agent have a tool linked?
+    #      → YES → use it
+    #      → NO → create via Superglue API
+    #   3. If creation fails → escalate to human (send back)
+    #
+    # This is the VERIFICATION layer — Node 2 decides "go forward" or
+    # "send back" based on whether agent + tool are ready.
+
+    detected_capability = state.get("ticket_type", "general")
+    verified_agent_id = state.get("builder_agent_id")  # may have been set by Node 1
+    verified_tool_id = None
+    agent_verification_status = "exists"  # exists | created | failed
+    tool_verification_status = "exists"   # exists | created | failed | not_needed
+
+    try:
+        from database.base import SessionLocal
+        from database.models.variant_engine import AIAgentAssignment
+        import json as _n2_json
+
+        _v_db = SessionLocal()
+        try:
+            # ── Step 1: Verify agent exists ──
+            agent = None
+            if verified_agent_id:
+                # Node 1 already created one — verify it exists
+                agent = _v_db.query(AIAgentAssignment).filter(
+                    AIAgentAssignment.id == verified_agent_id,
+                ).first()
+
+            if not agent:
+                # Search by capability
+                all_agents = _v_db.query(AIAgentAssignment).filter(
+                    AIAgentAssignment.company_id == tenant_id,
+                    AIAgentAssignment.status == "active",
+                ).all()
+                for a in all_agents:
+                    try:
+                        caps = _n2_json.loads(a.capabilities or "[]")
+                        if detected_capability in caps:
+                            agent = a
+                            verified_agent_id = a.id
+                            break
+                    except Exception:
+                        pass
+
+            if agent:
+                # Agent found ✅
+                agent_verification_status = "exists"
+                logs.append({
+                    "node": 2, "technique": "AgentVerification",
+                    "duration_ms": 0,
+                    "result_summary": f"capability={detected_capability} agent_id={str(verified_agent_id)[:8]} status=exists",
+                })
+
+                # ── Step 2: Verify tool exists ──
+                if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                    verified_tool_id = agent.superglue_tool_id
+                    tool_verification_status = "exists"
+                    logs.append({
+                        "node": 2, "technique": "ToolVerification",
+                        "duration_ms": 0,
+                        "result_summary": f"tool_id={verified_tool_id[:20]} status=exists",
+                    })
+                else:
+                    # Tool missing — does this action need one?
+                    needs_tool = action in ("refund", "cancel_subscription", "process_payment",
+                                           "apply_credit", "cancel_order", "update_shipping")
+                    if needs_tool:
+                        tool_verification_status = "missing_needs_creation"
+                        logs.append({
+                            "node": 2, "technique": "ToolVerification",
+                            "duration_ms": 0,
+                            "result_summary": f"action={action} NEEDS tool but none linked — will create in Node 5",
+                        })
+                        # Tool creation deferred to Node 5 (when action executes)
+                        # Node 5 will: check → create → execute, or escalate if can't
+                    else:
+                        tool_verification_status = "not_needed"
+                        logs.append({
+                            "node": 2, "technique": "ToolVerification",
+                            "duration_ms": 0,
+                            "result_summary": f"action={action} does not need a tool",
+                        })
+            else:
+                # Agent NOT found → try to create via template system
+                logs.append({
+                    "node": 2, "technique": "AgentVerification",
+                    "duration_ms": 0,
+                    "result_summary": f"capability={detected_capability} agent NOT FOUND → will create",
+                })
+
+                try:
+                    from app.services.agent_template_manager import (
+                        get_or_create_template,
+                        clone_template_to_tenant,
+                    )
+                    # Get or create template (checks DB first, builds if missing)
+                    template = await get_or_create_template(
+                        db=_v_db,
+                        capability=detected_capability,
+                        kb_context=state.get("query", "")[:500],
+                        integrations=tenant_connected_integrations if 'tenant_connected_integrations' in dir() else [],
+                    )
+                    # Clone to this tenant (instant, 0 LLM calls)
+                    verified_agent_id = clone_template_to_tenant(
+                        db=_v_db,
+                        template=template,
+                        company_id=tenant_id,
+                        kb_context=state.get("query", "")[:500],
+                    )
+                    agent_verification_status = "created"
+                    tool_verification_status = "not_linked"  # tool created later in Node 5
+                    logs.append({
+                        "node": 2, "technique": "AgentCreation",
+                        "duration_ms": 0,
+                        "result_summary": f"capability={detected_capability} agent CREATED via template (is_new={template.get('is_new')})",
+                    })
+                except Exception as create_exc:
+                    agent_verification_status = "failed"
+                    tool_verification_status = "failed"
+                    logger.error(
+                        "Node 2: agent creation FAILED capability=%s err=%s",
+                        detected_capability, str(create_exc)[:200],
+                    )
+                    logs.append({
+                        "node": 2, "technique": "AgentCreation",
+                        "duration_ms": 0,
+                        "result_summary": f"FAILED: {str(create_exc)[:100]}",
+                    })
+
+        finally:
+            _v_db.close()
+
+    except Exception as exc:
+        logger.warning("Node 2: verification layer error: %s", str(exc)[:200])
+        agent_verification_status = "error"
+        tool_verification_status = "error"
+
+    # ── DECISION: go forward or send back ──
+    if agent_verification_status == "failed":
+        # Can't create agent → ESCALATE (send back)
+        logs.append({
+            "node": 2, "technique": "RouteDecision",
+            "duration_ms": 0,
+            "result_summary": "ESCALATE: agent creation failed → send to human",
+        })
+        return {
+            "route_decision": "simple_path",
+            "current_path": "simple_path",
+            "variant_tier": selected_tier_db,
+            "quota_remaining": quota_remaining,
+            "variant_capabilities": capabilities,
+            "status": "escalated",
+            "escalation_reason": "agent_creation_failed",
+            "final_response": (
+                "We're unable to automatically handle this request at the moment. "
+                "An agent for this type of request could not be created. "
+                "A human team member will review and respond shortly."
+            ),
+            "technique_log": logs,
+            "total_token_usage": state.get("total_token_usage", 0),
+        }
+
+    # Agent ready → continue to Node 3
+    logs.append({
+        "node": 2, "technique": "RouteDecision",
+        "duration_ms": 0,
+        "result_summary": f"CONTINUE: agent={agent_verification_status} tool={tool_verification_status} → Node 3",
+    })
+
     elapsed = int((time.time() - start) * 1000)
     logger.info(
-        "Node 2 complete: ticket=%s tier=%s(%s) path=%s source=%s [%dms]",
+        "Node 2 complete: ticket=%s tier=%s(%s) path=%s source=%s agent=%s tool=%s [%dms]",
         state.get("ticket_id", "?"),
         selected_tier_short, selected_tier_db,
-        path, source, elapsed,
+        path, source,
+        agent_verification_status, tool_verification_status,
+        elapsed,
     )
 
     # ── P2 Notification: emit ticket:routed when routing is surprising ──
@@ -934,4 +1117,9 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         "current_path": path,
         "variant_capabilities": capabilities,
         "technique_log": logs,
+        # ── Verification layer output ──
+        "verified_agent_id": verified_agent_id,
+        "verified_tool_id": verified_tool_id,
+        "agent_verification_status": agent_verification_status,
+        "tool_verification_status": tool_verification_status,
     }

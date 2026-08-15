@@ -372,7 +372,8 @@ THOUGHT:"""
             # a linked Superglue tool, skip the LLM tool-selection step
             # entirely and call the agent's pre-assigned tool directly.
             # This is the fast path: 0 LLM calls, ~5-7s per ticket.
-            routed_agent_id = state.get("builder_agent_id")
+            # Use verified_agent_id from Node 2 (falls back to builder_agent_id from Node 1)
+            routed_agent_id = state.get("verified_agent_id") or state.get("builder_agent_id")
             if routed_agent_id:
                 try:
                     from database.base import SessionLocal
@@ -383,6 +384,7 @@ THOUGHT:"""
                             AIAgentAssignment.id == routed_agent_id,
                         ).first()
                         if _agent and _agent.superglue_tool_id and _agent.superglue_tool_status == "active":
+                            # Tool exists and active — use it
                             # Initialize variables that might be used in approval gate
                             _tool_id = _agent.superglue_tool_id
                             _tool_input = _extract_tool_inputs(details, action, knowledge)
