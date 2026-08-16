@@ -914,7 +914,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                 ).first()
 
             if not agent:
-                # Search by capability
+                # Search by capability (use FIRST match only — no duplicates)
                 all_agents = _v_db.query(AIAgentAssignment).filter(
                     AIAgentAssignment.company_id == tenant_id,
                     AIAgentAssignment.status == "active",
@@ -925,7 +925,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                         if detected_capability in caps:
                             agent = a
                             verified_agent_id = a.id
-                            break
+                            break  # found — STOP searching (no duplicates)
                     except Exception:
                         pass
 

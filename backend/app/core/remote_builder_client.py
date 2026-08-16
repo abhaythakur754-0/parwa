@@ -128,33 +128,44 @@ async def build_agent_with_fallback(
     kb_context: str,
     integrations: Optional[List[str]] = None,
     capability: str = "general_assistant",
+    max_retries: int = 2,
 ) -> Dict[str, Any]:
-    """Build an agent, falling back to local builder if remote fails.
+    """Build an agent, with retry + fallback.
 
-    If BUILDER_FALLBACK_LOCAL=true and the remote service fails, this
-    falls back to the local builder_pipeline.py (uses Render's RAM).
-    Default is false (fail, don't risk OOM on Render).
-
-    Returns:
-        Same dict as call_remote_builder(), or from local builder.
+    1. Try remote Builder (with up to max_retries attempts)
+    2. If all retries fail → check BUILDER_FALLBACK_LOCAL
+    3. If fallback enabled → use local builder
+    4. If no fallback → raise (caller escalates to human)
     """
-    try:
-        return await call_remote_builder(
-            tenant_id=tenant_id,
-            kb_context=kb_context,
-            integrations=integrations,
-            capability=capability,
-        )
-    except RuntimeError as exc:
-        fallback = os.environ.get("BUILDER_FALLBACK_LOCAL", "false").lower() == "true"
-        if not fallback:
-            raise
+    import asyncio
 
-        logger.warning(
-            "remote_builder_failed_falling_back_to_local err=%s",
-            str(exc)[:200],
-        )
-        # Fall back to local builder (uses Render RAM — risky on 512MB)
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            return await call_remote_builder(
+                tenant_id=tenant_id,
+                kb_context=kb_context,
+                integrations=integrations,
+                capability=capability,
+            )
+        except RuntimeError as exc:
+            last_error = exc
+            if attempt < max_retries:
+                logger.warning(
+                    "remote_builder_retry attempt=%d/%d capability=%s err=%s",
+                    attempt + 1, max_retries, capability, str(exc)[:100],
+                )
+                await asyncio.sleep(3)  # wait 3s before retry
+            else:
+                logger.error(
+                    "remote_builder_failed_after_retries capability=%s err=%s",
+                    capability, str(exc)[:200],
+                )
+
+    # All retries failed → check fallback
+    fallback = os.environ.get("BUILDER_FALLBACK_LOCAL", "false").lower() == "true"
+    if fallback:
+        logger.warning("remote_builder_failed_falling_back_to_local")
         from app.core.builder_agent.builder_pipeline import run_builder_pipeline
         return await run_builder_pipeline(
             tenant_id=tenant_id,
@@ -164,3 +175,5 @@ async def build_agent_with_fallback(
             complexity="medium",
             tier="parwa",
         )
+
+    raise last_error

@@ -427,7 +427,12 @@ THOUGHT:"""
                                     # The rest of Node 5 will route this to the approval queue
                                 else:
                                     # Amount below threshold → execute immediately
-                                    result = await execute_tool(_tool_id, _tool_input)
+                                    # ── IDEMPOTENCY: prevent double execution ──
+                                    _ticket_id_5 = state.get("ticket_id", "")
+                                    _idem_key = f"{_ticket_id_5}:{_tool_id}:{action}"
+                                    result = await _execute_with_idempotency(
+                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id
+                                    )
                             else:
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
                                 # _tool_id and _tool_input already initialized above
@@ -452,7 +457,11 @@ THOUGHT:"""
                                     observation = None
                                     tool_executed = None
                                 else:
-                                    result = await execute_tool(_tool_id, _tool_input, tenant_id=tenant_id)
+                                    result = await _execute_with_idempotency(
+                                        _tool_id, _tool_input,
+                                        f"{state.get('ticket_id','')}:{_tool_id}:{action}",
+                                        state.get("ticket_id",""), action, tenant_id
+                                    )
 
                             # If approval was required, result is undefined — skip the success check
                             # (observation is already set above, tool_executed = pending_approval:...)
@@ -1765,3 +1774,52 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
         "sufficiency": sufficiency.get("sufficient", True),
         "meta_confidence_adjustment": meta.get("confidence_adjustment", 0.0),
     }
+
+
+async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
+    """Execute a Superglue tool with idempotency protection.
+
+    Checks if this tool was already executed for this ticket+action.
+    If yes → skip (prevents double refund).
+    If no → execute + record.
+    """
+    from app.core.superglue_client import execute_tool
+    from database.base import SessionLocal
+    from sqlalchemy import text as _sql_text
+
+    try:
+        _idb = SessionLocal()
+        try:
+            # Check if already executed
+            _existing = _idb.execute(_sql_text(
+                "SELECT 1 FROM ticket_tool_executions "
+                "WHERE idempotency_key = :key LIMIT 1"
+            ), {"key": idempotency_key}).fetchone()
+
+            if _existing:
+                logger.warning(
+                    "IDEMPOTENCY_BLOCK: ticket=%s tool=%s action=%s already executed — SKIP",
+                    ticket_id[:8], tool_id[:20], action,
+                )
+                return {"success": False, "error": "already_executed", "skipped": True}
+
+            # Not executed → execute now
+            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+
+            # Record execution (prevent future duplicates)
+            if result.get("success"):
+                _idb.execute(_sql_text(
+                    "INSERT INTO ticket_tool_executions "
+                    "(idempotency_key, ticket_id, tool_id, action, executed_at) "
+                    "VALUES (:key, :tid, :tool, :action, NOW()) "
+                    "ON CONFLICT (idempotency_key) DO NOTHING"
+                ), {"key": idempotency_key, "tid": ticket_id, "tool": tool_id, "action": action})
+                _idb.commit()
+
+            return result
+        finally:
+            _idb.close()
+    except Exception as exc:
+        # Table doesn't exist yet — just execute (backward compat)
+        logger.debug("idempotency_check_skipped: %s", str(exc)[:100])
+        return await execute_tool(tool_id, tool_input, tenant_id=tenant_id)

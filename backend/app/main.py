@@ -626,6 +626,32 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("agent_templates_table_sql_fallback_failed: %s", str(exc)[:200])
 
+    # ── Idempotency table (prevents double tool execution / double refund) ──
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS ticket_tool_executions (
+                    idempotency_key VARCHAR(200) PRIMARY KEY,
+                    ticket_id VARCHAR(36) NOT NULL,
+                    tool_id VARCHAR(200) NOT NULL,
+                    action VARCHAR(100),
+                    executed_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_tte_ticket_id ON ticket_tool_executions (ticket_id)"
+            ))
+            _db.commit()
+            _lg.info("ticket_tool_executions_table_ensured (idempotency protection)")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("idempotency_table_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"

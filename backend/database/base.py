@@ -66,8 +66,8 @@ if _db_url.startswith("sqlite"):
 else:
     _engine_kwargs.update({
         "pool_pre_ping": True,
-        "pool_size": 10,
-        "max_overflow": 20,
+        "pool_size": 20,
+        "max_overflow": 30,
     })
 
 engine = create_engine(_db_url, **_engine_kwargs)

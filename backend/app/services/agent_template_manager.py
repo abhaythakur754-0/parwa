@@ -63,7 +63,17 @@ async def get_or_create_template(
     """
     from database.models.variant_engine import AgentTemplate
 
-    # ── Step 1: Check if template exists ──
+    # ── Step 1: Check if template exists (with advisory lock to prevent race) ──
+    # Advisory lock prevents two tenants from building the same template
+    # simultaneously (which would waste 12 LLM calls).
+    from sqlalchemy import text as _advisory_text
+    try:
+        # Lock on capability hash (deterministic, prevents race)
+        _lock_key = abs(hash(capability)) % (2**31)
+        db.execute(_advisory_text(f"SELECT pg_advisory_lock({_lock_key})"))
+    except Exception:
+        pass  # SQLite doesn't support advisory locks — skip silently
+
     template = db.query(AgentTemplate).filter(
         AgentTemplate.capability == capability
     ).first()
@@ -78,6 +88,12 @@ async def get_or_create_template(
         # Increment usage count
         template.times_used = (template.times_used or 0) + 1
         db.commit()
+
+        # Release advisory lock
+        try:
+            db.execute(_advisory_text(f"SELECT pg_advisory_unlock({_lock_key})"))
+        except Exception:
+            pass
 
         return {
             "template_id": template.id,
@@ -142,6 +158,12 @@ async def get_or_create_template(
             "template_created capability=%s quality=%.2f — saved for reuse",
             capability, template.quality_score,
         )
+
+        # Release advisory lock
+        try:
+            db.execute(_advisory_text(f"SELECT pg_advisory_unlock({_lock_key})"))
+        except Exception:
+            pass
 
         return {
             "template_id": template.id,
