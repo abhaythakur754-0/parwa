@@ -206,7 +206,7 @@ class Settings(BaseSettings):
     AI_FAILOVER_MODEL: str = "groq/llama-3.1-8b"
 
     # ── Email (Brevo) ────────────────────────────────────────────
-    BREVO_API_KEY: str = ""
+    BREVO_API_KEY: str = ""  # Set via env var on Render
     FROM_EMAIL: str = "noreply@parwa.buzz"
     # Comma-separated CIDR ranges for Brevo inbound webhook IP allowlist.
     # Falls back to DEFAULT_BREVO_IPS in hmac_verification.py if empty.

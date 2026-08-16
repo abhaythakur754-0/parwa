@@ -309,23 +309,38 @@ def send_otp(
     """
     import traceback
     try:
-        result = jarvis_service.send_business_otp(
-            db=db,
-            session_id=session_id,
-            user_id=str(user.id),
-            email=body.email,
+        # Debug: test send_email directly
+        from app.services.email_service import send_email
+        from app.core.email_renderer import render_email_template
+        from app.config import get_settings
+        settings = get_settings()
+        
+        # Check if key is set
+        has_key = bool(settings.BREVO_API_KEY)
+        
+        # Try sending a test email
+        test_html = render_email_template(
+            "business_email_otp.html",
+            {"otp_code": "123456", "expires_minutes": 10, "user_name": "Test"},
         )
-        return JarvisOtpResponse(
-            message=result["message"],
-            status=result["status"],
-            attempts_remaining=result.get("attempts_remaining"),
-            expires_at=result.get("expires_at"),
+        email_result = send_email(
+            to=body.email,
+            subject="PARWA Verification Code: 123456",
+            html_content=test_html,
         )
+        
+        return {
+            "debug": True,
+            "has_brevo_key": has_key,
+            "brevo_key_prefix": settings.BREVO_API_KEY[:20] if has_key else "EMPTY",
+            "email_result": str(email_result)[:200] if email_result else "None",
+            "email_result_type": str(type(email_result)),
+        }
     except Exception as exc:
-        logger.error("send_otp_failed: %s\n%s", str(exc), traceback.format_exc()[:500])
+        logger.error("send_otp_debug_failed: %s\n%s", str(exc), traceback.format_exc()[:500])
         raise HTTPException(
             status_code=500,
-            detail=f"OTP send failed: {str(exc)[:200]}",
+            detail=f"OTP debug failed: {str(exc)[:200]}",
         )
 
 
