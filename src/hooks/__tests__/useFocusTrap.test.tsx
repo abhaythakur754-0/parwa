@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA Day 7 Unit Tests — useFocusTrap Hook
  *

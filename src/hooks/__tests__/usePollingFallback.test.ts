@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA Day 6 Unit Tests — Polling Fallback Hook
  *

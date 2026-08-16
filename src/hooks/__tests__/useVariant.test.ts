@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA useVariant Hook — Unit Tests
  *

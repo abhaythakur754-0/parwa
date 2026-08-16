@@ -985,7 +985,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                         db=_v_db,
                         capability=detected_capability,
                         kb_context=state.get("query", "")[:500],
-                        integrations=tenant_connected_integrations if 'tenant_connected_integrations' in dir() else [],
+                        integrations=state.get("tenant_connected_integrations", []),
                     )
                     # Clone to this tenant (instant, 0 LLM calls)
                     verified_agent_id = clone_template_to_tenant(
