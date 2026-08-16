@@ -295,7 +295,7 @@ def demo_pack_status(
 # ── OTP Verification Endpoints ─────────────────────────────────────
 
 
-@router.post("/verify/send-otp", response_model=JarvisOtpResponse)
+@router.post("/verify/send-otp")
 def send_otp(
     body: JarvisOtpRequest,
     user: User = Depends(get_current_user),
