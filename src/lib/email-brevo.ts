@@ -11,10 +11,11 @@
  * SECURITY: API key is server-side only, never exposed to client
  */
 
+// Hardcoded Brevo config (no env vars needed on Vercel)
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_API_URL = 'https://api.brevo.com/v3';
-const FROM_EMAIL = process.env.EMAIL_FROM_EMAIL || 'noreply@flexpay.com';
-const FROM_NAME = process.env.EMAIL_FROM_NAME || 'FlexPay';
+const FROM_EMAIL = process.env.EMAIL_FROM_EMAIL || 'thakurabhaychowhan@parwa.buzz';
+const FROM_NAME = process.env.EMAIL_FROM_NAME || 'PARWA';
 
 interface EmailPayload {
   to: string | string[];
@@ -102,7 +103,7 @@ interface OtpEmailOptions {
 export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult> {
   const { to, otpCode, userName, expiryMinutes = 10 } = options;
 
-  const subject = `Your FlexPay Verification Code: ${otpCode}`;
+  const subject = `Your PARWA Verification Code: ${otpCode}`;
   
   const htmlContent = `
 <!DOCTYPE html>
@@ -118,8 +119,8 @@ export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult
     <!-- Header -->
     <tr>
       <td style="background:linear-gradient(135deg,#f97316,#f59e0b); padding:30px; border-radius:16px 16px 0 0; text-align:center;">
-        <h1 style="margin:0; color:white; font-size:28px;">🚀 FlexPay</h1>
-        <p style="margin:8px 0 0; color:rgba(255,255,255,0.9);">Verify your email address</p>
+        <h1 style="margin:0; color:white; font-size:28px;">🚀 PARWA</h1>
+        <p style="margin:8px 0 0; color:rgba(255,255,255,0.9);">Verify your business email</p>
       </td>
     </tr>
     
