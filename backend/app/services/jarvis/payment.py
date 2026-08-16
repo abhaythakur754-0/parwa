@@ -5,7 +5,7 @@ Contains 12 functions related to payment.
 """
 
 from app.services.jarvis._shared import *
-from app.services.jarvis.chat import get_session
+from app.services.jarvis.chat import get_session, _parse_context
 
 def send_business_otp(
     db: Session,
