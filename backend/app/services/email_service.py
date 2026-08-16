@@ -180,11 +180,10 @@ def _get_brevo_client():
     global _brevo_api_client
     if not _BREVO_SDK_AVAILABLE:
         return None
-    if _brevo_api_client is not None:
-        return _brevo_api_client
+    # Always create fresh client (don't cache — key might change via env var)
     try:
         settings = get_settings()
-        configuration = Configuration(api_key={"api-key": settings.BREVO_API_KEY})
+        configuration = Configuration(api_key={"api-key": settings.BREVO_API_KEY.strip()})
         api_client = sib_api_v3_sdk.ApiClient(configuration)
         _brevo_api_client = TransactionalEmailsApi(api_client)
         return _brevo_api_client
@@ -417,7 +416,7 @@ def _do_send_email(
         payload["attachment"] = brevo_attachments
 
     headers = {
-        "api-key": settings.BREVO_API_KEY,
+        "api-key": settings.BREVO_API_KEY.strip(),
         "Content-Type": "application/json",
     }
 
