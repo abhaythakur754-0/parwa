@@ -46,6 +46,7 @@ const PUBLIC_PATHS = [
   "/api/pricing",
   "/api/send-email",
   "/api/send-sms",
+  "/api/verification",
   "/api/forgot-password",
   "/api/channel-status",
   "/api/ticket-solve",
