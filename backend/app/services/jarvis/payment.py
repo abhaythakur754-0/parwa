@@ -60,15 +60,7 @@ def send_business_otp(
         otp_html = render_email_template(
             "business_email_otp.html",
             {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES, "user_name": "there"},
-        ) if hasattr(render_email_template, '__call__') else f"""
-        <html><body>
-        <h2>Your PARWA Verification Code</h2>
-        <p>Your business email verification code is:</p>
-        <h1 style="font-size:32px;letter-spacing:8px;color:#10b981;">{otp_code}</h1>
-        <p>This code expires in {OTP_EXPIRY_MINUTES} minutes.</p>
-        <p>If you didn't request this, ignore this email.</p>
-        </body></html>
-        """
+        )
         email_result = send_email(
             to=email,
             subject=f"PARWA Verification Code: {otp_code}",
