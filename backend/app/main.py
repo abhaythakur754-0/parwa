@@ -652,6 +652,35 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("idempotency_table_failed: %s", str(exc)[:200])
 
+    # ── Jarvis action tickets table (for OTP verification tickets) ──
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS jarvis_action_tickets (
+                    id VARCHAR(36) PRIMARY KEY,
+                    session_id VARCHAR(36) NOT NULL,
+                    ticket_type VARCHAR(50) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    metadata_json TEXT,
+                    result_json TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_jarvis_action_tickets_session ON jarvis_action_tickets (session_id)"
+            ))
+            _db.commit()
+            _lg.info("jarvis_action_tickets_table_ensured")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("jarvis_action_tickets_table_failed: %s", str(exc)[:200])
+
     # Hide OpenAPI schema when not in debug mode (BC-011)
     if settings.DEBUG:
         app.docs_url = "/docs"
