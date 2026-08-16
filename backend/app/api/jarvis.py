@@ -318,23 +318,28 @@ def send_otp(
         # Check if key is set
         has_key = bool(settings.BREVO_API_KEY)
         
-        # Try sending a test email
+        # Try sending a test email — call _do_send_email directly to see error
+        from app.services.email_service import _do_send_email
         test_html = render_email_template(
             "business_email_otp.html",
             {"otp_code": "123456", "expires_minutes": 10, "user_name": "Test"},
         )
-        email_result = send_email(
+        email_result = _do_send_email(
             to=body.email,
             subject="PARWA Verification Code: 123456",
             html_content=test_html,
         )
         
+        from app.services.email_service import _BREVO_SDK_AVAILABLE
         return {
             "debug": True,
             "has_brevo_key": has_key,
             "brevo_key_prefix": settings.BREVO_API_KEY[:20] if has_key else "EMPTY",
-            "email_result": str(email_result)[:200] if email_result else "None",
-            "email_result_type": str(type(email_result)),
+            "from_email": settings.FROM_EMAIL,
+            "email_success": email_result.get("success"),
+            "email_error": email_result.get("error"),
+            "email_message_id": email_result.get("message_id"),
+            "sdk_available": _BREVO_SDK_AVAILABLE,
         }
     except Exception as exc:
         logger.error("send_otp_debug_failed: %s\n%s", str(exc), traceback.format_exc()[:500])
