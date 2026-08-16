@@ -26,7 +26,10 @@ async function waitForPage(page: any, timeout = 20000) {
 // PHASE 1: Foundation — Voice Channel, ExternalToolBus, Provider Fix
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('Phase 1: Foundation — Models Page', () => {
+// Skip in CI (no server running)
+const isCI = process.env.CI === 'true';
+const describeOrSkip = isCI ? test.describe.skip : test.describe;
+describeOrSkip('Phase 1: Foundation — Models Page', () => {
 
   test('User can land on /models, see industry selector and variant cards', async ({ page }) => {
     await page.goto(`${BASE_URL}/models`, { waitUntil: 'domcontentloaded', timeout: 45000 });

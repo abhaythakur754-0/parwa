@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * FlexPay Integration Tests — Full Payment Flow
  * ═══════════════════════════════════════════════════════════════════

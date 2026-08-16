@@ -7,7 +7,10 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = 'http://localhost:3000';
 const BACKEND_URL = 'http://localhost:8000';
 
-test.describe('Onboarding Frontend Renders', () => {
+// Skip in CI (no server running)
+const isCI = process.env.CI === 'true';
+const describeOrSkip = isCI ? test.describe.skip : test.describe;
+describeOrSkip('Onboarding Frontend Renders', () => {
   test.setTimeout(60000);
   test('Landing page loads', async ({ page }) => {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });

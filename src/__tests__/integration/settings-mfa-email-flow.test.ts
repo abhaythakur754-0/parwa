@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA Day 5 Integration Tests — Settings, MFA, Email Verification
  *

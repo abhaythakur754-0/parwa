@@ -1,5 +1,5 @@
+/** @jest-environment jsdom */
 /**
- * @jest-environment jsdom
 
  * PARWA Day 7 Unit Tests — useNetworkStatus Hook
  *

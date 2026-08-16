@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA Integration Test: Billing + Variant Sync
  *

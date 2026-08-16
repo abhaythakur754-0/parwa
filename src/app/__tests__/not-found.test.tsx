@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 /**
  * PARWA Day 5 Unit Tests — 404 Not Found Page
  */
