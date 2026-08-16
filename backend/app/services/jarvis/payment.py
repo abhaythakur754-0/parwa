@@ -58,8 +58,8 @@ def send_business_otp(
     try:
         from app.services.email_service import send_email
         otp_html = render_email_template(
-            "otp_email.html",
-            {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES},
+            "business_email_otp.html",
+            {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES, "user_name": "there"},
         ) if hasattr(render_email_template, '__call__') else f"""
         <html><body>
         <h2>Your PARWA Verification Code</h2>
