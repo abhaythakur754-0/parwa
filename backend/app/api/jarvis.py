@@ -331,16 +331,39 @@ def send_otp(
         )
         
         from app.services.email_service import _BREVO_SDK_AVAILABLE
+        # Raw httpx test — bypass all code, just call Brevo directly
+        import httpx as _httpx
+        raw_key = settings.BREVO_API_KEY.strip()
+        try:
+            raw_resp = _httpx.post(
+                "https://api.brevo.com/v3/smtp/email",
+                json={
+                    "sender": {"name": "PARWA", "email": settings.FROM_EMAIL},
+                    "to": [{"email": body.email}],
+                    "subject": "PARWA Verification Code: 123456",
+                    "htmlContent": "<p>Your code: 123456</p>",
+                },
+                headers={
+                    "api-key": raw_key,
+                    "Content-Type": "application/json",
+                },
+                timeout=15.0,
+            )
+            raw_status = raw_resp.status_code
+            raw_body = raw_resp.text[:200]
+        except Exception as raw_exc:
+            raw_status = f"error: {str(raw_exc)[:100]}"
+            raw_body = ""
+        
         return {
             "debug": True,
             "has_brevo_key": has_key,
-            "brevo_key_full": settings.BREVO_API_KEY[:60] if has_key else "EMPTY",
             "brevo_key_len": len(settings.BREVO_API_KEY) if has_key else 0,
-            "brevo_key_ends_with": settings.BREVO_API_KEY[-10:] if has_key else "EMPTY",
             "from_email": settings.FROM_EMAIL,
             "email_success": email_result.get("success"),
             "email_error": email_result.get("error"),
-            "email_message_id": email_result.get("message_id"),
+            "raw_httpx_status": raw_status,
+            "raw_httpx_body": raw_body,
             "sdk_available": _BREVO_SDK_AVAILABLE,
         }
     except Exception as exc:
