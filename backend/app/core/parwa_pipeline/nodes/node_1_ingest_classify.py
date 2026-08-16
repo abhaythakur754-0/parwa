@@ -2082,7 +2082,8 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             if has_kb:
                 # ── Try Builder Agent (full 4-stage pipeline) ───────────
                 try:
-                    from app.core.builder_agent.builder_pipeline import run_builder_pipeline
+                    # ── REMOTE BUILDER (uses external service, not local code) ──
+                    from app.core.remote_builder_client import build_agent_with_fallback
 
                     # Get tenant tier for Builder context
                     try:
@@ -2096,14 +2097,15 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                         _tier = "parwa"
 
                     builder_t0 = time.time()
-                    builder_result = await run_builder_pipeline(
+                    builder_result = await build_agent_with_fallback(
                         tenant_id=tenant_id,
+                        kb_context=query[:500],
+                        integrations=[],
                         capability=detected_capability,
-                        query=query,
-                        ticket_type=ticket_type,
-                        complexity=complexity,
-                        tier=_tier,
                     )
+                    # Normalize: remote returns 'agent_config', local returns 'config'
+                    if "agent_config" in builder_result and "config" not in builder_result:
+                        builder_result["config"] = builder_result["agent_config"]
                     builder_ms = int((time.time() - builder_t0) * 1000)
 
                     if builder_result.get("status") == "complete":

@@ -1183,12 +1183,44 @@ async def api_analyze_integrations(
 
     BC-001: Scoped to authenticated user's company_id.
     """
-    from app.services.crm_analyzer_service import CRMAnalyzerService
+    # ── EXTERNAL CRM ANALYSER (not local code) ──
+    from app.core.crm_analyser_client import (
+        analyze_crm_external,
+        collect_tenant_tickets,
+        get_crm_analyser_url,
+    )
 
-    service = CRMAnalyzerService(db)
-    result = await service.analyze_company_crm(user.company_id)
+    if not get_crm_analyser_url():
+        return AnalyzeIntegrationsResponse(
+            company_id=str(user.company_id),
+            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            connected_integrations=[],
+            data_profile={},
+            detected_gaps=[],
+            recommendations=[],
+            analysis_summary="CRM analyser not configured.",
+        )
 
-    return AnalyzeIntegrationsResponse(**result)
+    # Collect tickets + send to external analyser
+    tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
+    result = await analyze_crm_external(
+        tickets=tickets,
+        company_name=getattr(user, "company_name", "Unknown"),
+    )
+
+    # Convert to response format
+    return AnalyzeIntegrationsResponse(
+        company_id=str(user.company_id),
+        analyzed_at=datetime.now(timezone.utc).isoformat(),
+        connected_integrations=[],
+        data_profile={"total_tickets": result.get("tickets_scanned", 0)},
+        detected_gaps=[],
+        recommendations=[
+            {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
+            for name in result.get("integrations", [])
+        ],
+        analysis_summary=result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed.",
+    )
 
 
 @router.get(
@@ -1205,10 +1237,21 @@ async def api_get_stored_analysis(
     
     BC-001: Scoped to authenticated user's company_id.
     """
-    from app.services.crm_analyzer_service import CRMAnalyzerService
-    
-    service = CRMAnalyzerService(db)
-    result = service.get_stored_analysis(user.company_id)
+    # ── EXTERNAL: get stored analysis from DB (saved by external analyser) ──
+    from database.base import SessionLocal
+    from database.models.core import CRMAnalysisResult
+    _db = SessionLocal()
+    try:
+        result = _db.query(CRMAnalysisResult).filter(
+            CRMAnalysisResult.company_id == str(user.company_id),
+        ).order_by(CRMAnalysisResult.created_at.desc()).first()
+        if result:
+            import json as _json
+            result = _json.loads(result.analysis_json) if result.analysis_json else {}
+        else:
+            result = {}
+    finally:
+        _db.close()
     
     if not result:
         return {

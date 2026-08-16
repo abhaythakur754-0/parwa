@@ -195,6 +195,8 @@ class Settings(BaseSettings):
     # ── Superglue (universal integration layer) ──────────────────
     SUPERGLUE_API_URL: str = ""
     SUPERGLUE_AUTH_TOKEN: str = ""
+    # NOTE: Mistral key is on the EXTERNAL Superglue service, NOT on Render.
+    # Render just calls the Superglue API (enqueue + status) — no LLM keys needed.
 
     LLM_PRIMARY_PROVIDER: str = "google"
     LLM_FALLBACK_PROVIDER: str = "groq"
