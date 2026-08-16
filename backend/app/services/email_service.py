@@ -360,8 +360,8 @@ def _do_send_email(
                 "content": content,
             })
 
-    # --- SDK path (preferred) ---
-    if _BREVO_SDK_AVAILABLE:
+    # --- SDK path (DISABLED — use httpx directly, SDK has auth issue) ---
+    if False and _BREVO_SDK_AVAILABLE:
         try:
             client = _get_brevo_client()
             if client:
