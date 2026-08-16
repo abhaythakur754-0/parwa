@@ -307,18 +307,26 @@ def send_otp(
     Generates a 6-digit code valid for 10 minutes.
     Max 3 attempts allowed.
     """
-    result = jarvis_service.send_business_otp(
-        db=db,
-        session_id=session_id,
-        user_id=user.id,
-        email=body.email,
-    )
-    return JarvisOtpResponse(
-        message=result["message"],
-        status=result["status"],
-        attempts_remaining=result.get("attempts_remaining"),
-        expires_at=result.get("expires_at"),
-    )
+    import traceback
+    try:
+        result = jarvis_service.send_business_otp(
+            db=db,
+            session_id=session_id,
+            user_id=str(user.id),
+            email=body.email,
+        )
+        return JarvisOtpResponse(
+            message=result["message"],
+            status=result["status"],
+            attempts_remaining=result.get("attempts_remaining"),
+            expires_at=result.get("expires_at"),
+        )
+    except Exception as exc:
+        logger.error("send_otp_failed: %s\n%s", str(exc), traceback.format_exc()[:500])
+        raise HTTPException(
+            status_code=500,
+            detail=f"OTP send failed: {str(exc)[:200]}",
+        )
 
 
 @router.post("/verify/verify-otp", response_model=JarvisOtpResponse)
