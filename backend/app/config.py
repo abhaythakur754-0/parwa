@@ -207,7 +207,7 @@ class Settings(BaseSettings):
 
     # ── Email (Brevo) ────────────────────────────────────────────
     BREVO_API_KEY: str = ""  # Set via env var on Render
-    FROM_EMAIL: str = "noreply@parwa.buzz"
+    FROM_EMAIL: str = "thakurabhaychowhan@parwa.buzz"
     # Comma-separated CIDR ranges for Brevo inbound webhook IP allowlist.
     # Falls back to DEFAULT_BREVO_IPS in hmac_verification.py if empty.
     BREVO_INBOUND_IPS: str = ""
