@@ -74,12 +74,11 @@ def send_business_otp(
             subject=f"PARWA Verification Code: {otp_code}",
             html_content=otp_html,
         )
-        # Check if email actually sent
-        if not email_result or not email_result.get("success"):
-            email_error = email_result.get("error", "unknown") if email_result else "no_response"
+        # send_email returns bool (True=success, False=failure)
+        if not email_result:
             logger.error(
-                "business_otp_email_failed session_id=%s error=%s",
-                session_id, email_error,
+                "business_otp_email_failed session_id=%s — send_email returned False",
+                session_id,
             )
             # Update OTP status to 'email_failed'
             otp_data["status"] = "email_failed"
@@ -87,7 +86,7 @@ def send_business_otp(
             session.context_json = json.dumps(ctx)
             db.flush()
             return {
-                "message": f"OTP generated but email failed to send: {email_error}. Please contact support.",
+                "message": "OTP generated but email failed to send. Please check your email service configuration or contact support.",
                 "status": "email_failed",
                 "attempts_remaining": MAX_OTP_ATTEMPTS,
                 "expires_at": expires_at,
