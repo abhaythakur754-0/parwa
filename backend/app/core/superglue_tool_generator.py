@@ -87,36 +87,70 @@ async def generate_tool_for_agent(
     instruction = _build_tool_instruction(
         agent_name, agent_instructions, agent_capabilities, sample_ticket, tenant_integrations
     )
-    payload = {
-        "agentId": "main",
-        "userMessage": instruction,
-        "messages": [
-            {"role": "user", "content": instruction}
-        ],
-    }
+    # ── NEW Superglue: enqueue + poll flow ──
+    # Step 1: POST /enqueue?XTransformPort=3003 → get request_id
+    # Step 2: GET /status/{request_id}?XTransformPort=3003 → poll until done
+    import asyncio as _aio
+    from app.core.superglue_client import (
+        _get_queue_url, _get_status_url,
+        SUPERGLUE_QUEUE_PORT,
+    )
+
+    queue_url = _get_queue_url()
+    status_url = _get_status_url()
 
     try:
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            # Try Superglue's Agent generate-tool endpoint (if it exists)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Step 1: Enqueue tool generation request
             res = await client.post(
-                f"{url}/api/agent/chat",
+                f"{queue_url}?XTransformPort={SUPERGLUE_QUEUE_PORT}",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
                 },
-                json=payload,
+                json={"instruction": instruction},
             )
 
         if res.status_code in (200, 201):
-            # /api/agent/chat returns Server-Sent Events (SSE stream)
-            # Each line: data: {"type":"...", ...}
-            # We need to parse the stream to find the tool_id
-            # For now: if response has toolId in any line, extract it
-            response_text = res.text
-            import re as _re
-            tool_id_match = _re.search(r'"toolId":\s*"([^"]+)"', response_text)
-            if tool_id_match:
-                tool_id = tool_id_match.group(1)
+            # Enqueue response: {id: "req-123", status: "pending"}
+            enqueue_resp = res.json()
+            request_id = enqueue_resp.get("id")
+
+            if not request_id:
+                return {
+                    "success": False,
+                    "error": "No request_id from enqueue",
+                    "tool_id": None,
+                    "tool_definition": None,
+                }
+
+            # Step 2: Poll for result (up to 120s)
+            tool_id = None
+            tool_definition = None
+            for _poll in range(24):  # 24 × 5s = 120s max
+                await _aio.sleep(5)
+                try:
+                    poll_res = await client.get(
+                        f"{status_url}/{request_id}?XTransformPort={SUPERGLUE_QUEUE_PORT}",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if poll_res.status_code == 200:
+                        poll_data = poll_res.json()
+                        poll_status = poll_data.get("status", "")
+                        if poll_status == "done":
+                            result = poll_data.get("result", {})
+                            tool_id = result.get("id") or result.get("toolId")
+                            tool_definition = result
+                            break
+                        elif poll_status == "failed":
+                            return {
+                                "success": False,
+                                "error": f"Tool generation failed: {poll_data.get('error', 'unknown')}",
+                                "tool_id": None,
+                                "tool_definition": None,
+                            }
+                except Exception:
+                    pass
                 logger.info("superglue_agent_generated_tool: agent=%s tool_id=%s", agent_name, tool_id)
                 return {
                     "success": True,

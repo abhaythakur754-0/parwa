@@ -41,11 +41,44 @@ logger = logging.getLogger("parwa.superglue_client")
 HTTP_TIMEOUT = 30.0
 
 
+# ── Hardcoded Superglue config (no env var needed on Render) ──
+# Same pattern as Builder + CRM Analyser — URL hardcoded.
+# User request (2026-08-12): "connect this also same way"
+DEFAULT_SUPERGLUE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai"
+DEFAULT_SUPERGLUE_TOKEN = "sg-test-token"
+DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/enqueue"
+DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/status"
+DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/v1/tools"
+
+# XTransformPort values for the gateway
+SUPERGLUE_QUEUE_PORT = 3003   # enqueue + status
+SUPERGLUE_CORE_PORT = 3002    # /v1/tools (run tools)
+
+
 def _get_config() -> tuple[str, str]:
-    """Get Superglue URL + token from env vars."""
-    url = os.environ.get("SUPERGLUE_API_URL", "").strip().rstrip("/")
-    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", "").strip()
+    """Get Superglue URL + token.
+
+    Uses hardcoded defaults (no env var needed on Render).
+    Env vars still work if set (overrides default).
+    """
+    url = os.environ.get("SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL).strip().rstrip("/")
+    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN).strip()
     return url, token
+
+
+def _get_queue_url() -> str:
+    """Get the queue service URL (for tool generation)."""
+    return os.environ.get("SUPERGLUE_QUEUE_URL", DEFAULT_SUPERGLUE_QUEUE_URL)
+
+
+def _get_status_url() -> str:
+    """Get the status polling URL."""
+    return os.environ.get("SUPERGLUE_STATUS_URL", DEFAULT_SUPERGLUE_STATUS_URL)
+
+
+def _get_core_url() -> str:
+    """Get the core API URL (for running tools)."""
+    return os.environ.get("SUPERGLUE_CORE_URL", DEFAULT_SUPERGLUE_CORE_URL)
 
 
 def is_configured() -> bool:
@@ -243,8 +276,9 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         payload = {"inputs": input_data}
 
         async with httpx.AsyncClient(timeout=120.0) as client:
+            # Use XTransformPort=3002 for the Superglue core API (gateway routing)
             res = await client.post(
-                f"{url}/v1/tools/{actual_tool_id}/run",
+                f"{_get_core_url()}/{actual_tool_id}/run?XTransformPort={SUPERGLUE_CORE_PORT}",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
@@ -464,7 +498,7 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
         payload = {"inputs": input_data}
         async with httpx.AsyncClient(timeout=120.0) as client:
             res = await client.post(
-                f"{url}/v1/tools/{actual_tool_id}/run",
+                f"{_get_core_url()}/{actual_tool_id}/run?XTransformPort={SUPERGLUE_CORE_PORT}",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
