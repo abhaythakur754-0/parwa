@@ -334,7 +334,9 @@ def send_otp(
         return {
             "debug": True,
             "has_brevo_key": has_key,
-            "brevo_key_prefix": settings.BREVO_API_KEY[:20] if has_key else "EMPTY",
+            "brevo_key_full": settings.BREVO_API_KEY[:60] if has_key else "EMPTY",
+            "brevo_key_len": len(settings.BREVO_API_KEY) if has_key else 0,
+            "brevo_key_ends_with": settings.BREVO_API_KEY[-10:] if has_key else "EMPTY",
             "from_email": settings.FROM_EMAIL,
             "email_success": email_result.get("success"),
             "email_error": email_result.get("error"),
