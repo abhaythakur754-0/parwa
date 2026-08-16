@@ -26,7 +26,7 @@ from typing import Optional
 
 import json
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
