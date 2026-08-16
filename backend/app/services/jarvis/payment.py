@@ -51,8 +51,11 @@ def send_business_otp(
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
-    # Create action ticket
-    _create_ticket(db, session_id, "otp_verification", {"email": email})
+    # Create action ticket (non-critical — don't fail OTP if table missing)
+    try:
+        _create_ticket(db, session_id, "otp_verification", {"email": email})
+    except Exception as ticket_exc:
+        logger.warning("otp_action_ticket_failed: %s", str(ticket_exc)[:200])
 
     # Send OTP via Brevo email
     try:
