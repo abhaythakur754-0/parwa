@@ -25,10 +25,7 @@ const TEST_PASSWORD = 'TestPhase9!2024';
 const TEST_NAME = 'Phase9 Tester';
 const TEST_COMPANY = 'Phase9 Test Corp';
 
-// Skip in CI (no server running)
-const isCI = process.env.CI === 'true';
-const describeOrSkip = isCI ? test.describe.skip : test.describe;
-describeOrSkip('Phase 9: Audit Trail & Action Logging', () => {
+test.describe('Phase 9: Audit Trail & Action Logging', () => {
 
   test.beforeAll(async () => {
     // Register a test user via the backend

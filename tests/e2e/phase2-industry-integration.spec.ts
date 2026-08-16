@@ -20,10 +20,7 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = (process.env.BASE_URL || 'https://parwa.vercel.app').replace('localhost', '127.0.0.1');
 
-// Skip in CI (no server running)
-const isCI = process.env.CI === 'true';
-const describeOrSkip = isCI ? test.describe.skip : test.describe;
-describeOrSkip('Phase 2: Industry & Integration — E2E Tests', () => {
+test.describe('Phase 2: Industry & Integration — E2E Tests', () => {
 
   // ── 1. Onboarding Integration Step ──────────────────────────────────────
 

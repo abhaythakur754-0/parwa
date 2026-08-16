@@ -54,10 +54,7 @@ async function screenshotStep(page: Page, stepName: string): Promise<void> {
   });
 }
 
-// Skip in CI (no server running)
-const isCI = process.env.CI === 'true';
-const describeOrSkip = isCI ? test.describe.skip : test.describe;
-describeOrSkip('Onboarding Flow — Complete 7 Steps', () => {
+test.describe('Onboarding Flow — Complete 7 Steps', () => {
   test.beforeEach(async ({ page }) => {
     // Set viewport
     await page.setViewportSize({ width: 1280, height: 800 });

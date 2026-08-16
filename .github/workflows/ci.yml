@@ -188,7 +188,8 @@ jobs:
           DATABASE_URL: file:./test.db
 
       - name: Run Unit Tests (FAILS on failures)
-        run: bun test
+        # Run only Jest tests (not Playwright e2e — those need a running server)
+        run: npx jest --testPathIgnorePatterns="tests/e2e/" --passWithNoTests
         continue-on-error: true  # TODO: enforce once Mini/Onboarding-Jarvis cleanup lands
 
       - name: Frontend Test Summary
