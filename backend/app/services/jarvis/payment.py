@@ -74,11 +74,18 @@ def send_business_otp(
             subject=f"PARWA Verification Code: {otp_code}",
             html_content=otp_html,
         )
-        # send_email returns bool (True=success, False=failure)
-        if not email_result:
+        # send_email returns dict {success: bool} or bool — handle both
+        if isinstance(email_result, dict):
+            email_ok = email_result.get("success", False)
+        elif isinstance(email_result, bool):
+            email_ok = email_result
+        else:
+            email_ok = False
+
+        if not email_ok:
             logger.error(
-                "business_otp_email_failed session_id=%s — send_email returned False",
-                session_id,
+                "business_otp_email_failed session_id=%s — email_result=%s",
+                session_id, str(email_result)[:100],
             )
             # Update OTP status to 'email_failed'
             otp_data["status"] = "email_failed"
