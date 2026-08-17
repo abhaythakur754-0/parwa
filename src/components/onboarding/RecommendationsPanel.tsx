@@ -45,6 +45,9 @@ export function RecommendationsPanel({ companyId }: RecommendationsPanelProps) {
   const [data, setData] = useState<RecommendationsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [crmStatus, setCrmStatus] = useState<string>('idle');
+  const [crmRequestId, setCrmRequestId] = useState<string | null>(null);
+  const [autoBuildStarted, setAutoBuildStarted] = useState(false);
 
   const fetchRecommendations = async () => {
     setLoading(true);
@@ -60,6 +63,69 @@ export function RecommendationsPanel({ companyId }: RecommendationsPanelProps) {
       setLoading(false);
     }
   };
+
+  // Start CRM analysis (called automatically when integration is connected)
+  const startCRMAnalysis = async () => {
+    try {
+      setCrmStatus('starting');
+      const res = await fetch('/api/onboarding/crm-analysis/start', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.request_id) {
+          setCrmRequestId(json.request_id);
+          setCrmStatus('processing');
+        }
+      }
+    } catch {
+      setCrmStatus('idle');
+    }
+  };
+
+  // Poll CRM analysis status
+  useEffect(() => {
+    if (!crmRequestId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/onboarding/crm-analysis/status?id=${crmRequestId}`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.status === 'completed') {
+            setCrmStatus('completed');
+            setCrmRequestId(null);
+            // Refresh recommendations with new CRM data
+            fetchRecommendations();
+          } else if (json.status === 'failed') {
+            setCrmStatus('failed');
+            setCrmRequestId(null);
+          }
+        }
+      } catch {
+        // Keep polling
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [crmRequestId]);
+
+  // Auto-start builder when CRM analysis completes
+  useEffect(() => {
+    if (crmStatus === 'completed' && !autoBuildStarted) {
+      setAutoBuildStarted(true);
+      // Trigger agent builder (checks if agents exist first — skips if they do)
+      fetch('/api/builder-agent/build-from-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ force_rebuild: false }),
+      }).catch(() => {
+        // Non-blocking — builder runs in background
+      });
+    }
+  }, [crmStatus, autoBuildStarted]);
 
   useEffect(() => {
     fetchRecommendations();

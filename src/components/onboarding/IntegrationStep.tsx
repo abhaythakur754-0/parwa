@@ -218,6 +218,20 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
         const data = await refreshed.json();
         const items = Array.isArray(data) ? data : (data?.items || []);
         setExistingIntegrations(items);
+
+        // Auto-trigger CRM analysis when an integration is successfully connected
+        // CRM analyser scans tickets + recommends what agents/tools/integrations are needed
+        if (verifyResults[integration.key]?.verified) {
+          try {
+            await fetch('/api/onboarding/crm-analysis/start', {
+              method: 'POST',
+              credentials: 'include',
+            });
+            toast.success('Integration connected! Analyzing your data...');
+          } catch {
+            // Non-blocking — CRM analysis is optional
+          }
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save integration');

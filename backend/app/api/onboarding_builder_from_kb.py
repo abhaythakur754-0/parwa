@@ -351,6 +351,83 @@ async def _build_single_agent(
     if "agent_config" in result and "config" not in result:
         result["config"] = result["agent_config"]
 
+    # ── Save agent to DB (if not already exists) ──
+    config = result.get("config", {})
+    from database.base import SessionLocal
+    from database.models.variant_engine import AIAgentAssignment
+    _db = SessionLocal()
+    try:
+        # Check if agent already exists for this capability (skip if exists)
+        existing = _db.query(AIAgentAssignment).filter(
+            AIAgentAssignment.company_id == company_id,
+            AIAgentAssignment.status == "active",
+        ).all()
+        already_exists = False
+        for a in existing:
+            try:
+                caps = json.loads(a.capabilities or "[]")
+                if capability in caps:
+                    already_exists = True
+                    break
+            except Exception:
+                pass
+
+        if not already_exists:
+            # Create new agent
+            import uuid as _uuid
+            agent = AIAgentAssignment(
+                id=str(_uuid.uuid4()),
+                company_id=company_id,
+                agent_name=config.get("agent_name", capability.replace("_", " ").title()),
+                agent_role="onboarding_built",
+                capabilities=json.dumps(config.get("capabilities", [capability])),
+                instructions=config.get("instructions", "")[:5000],
+                restrictions=config.get("restrictions", ""),
+                status="active",
+                superglue_tool_status="none",
+            )
+            _db.add(agent)
+            _db.commit()
+            logger.info("onboarding_build: agent saved capability=%s", capability)
+
+            # ── Create Superglue tool for this agent ──
+            # Uses the external Superglue service (enqueue + poll)
+            # Includes KB context in the instruction so the tool knows
+            # the tenant's specific rules (refund policy, SOPs, etc.)
+            try:
+                from app.core.superglue_tool_generator import generate_tool_for_agent
+                tool_result = await generate_tool_for_agent(
+                    agent_name=config.get("agent_name", capability),
+                    agent_instructions=config.get("instructions", ""),
+                    agent_capabilities=capability,
+                    sample_ticket=kb_context[:500] if kb_context else "",
+                    tenant_integrations={i.get("type", ""): i.get("config", {}) for i in integrations},
+                )
+                if tool_result.get("success") and tool_result.get("tool_id"):
+                    agent.superglue_tool_id = tool_result["tool_id"]
+                    agent.superglue_tool_status = "active"
+                    _db.commit()
+                    logger.info(
+                        "onboarding_build: superglue tool created capability=%s tool_id=%s",
+                        capability, tool_result["tool_id"][:30],
+                    )
+                else:
+                    agent.superglue_tool_status = "failed"
+                    _db.commit()
+                    logger.warning(
+                        "onboarding_build: superglue tool failed capability=%s err=%s",
+                        capability, tool_result.get("error", "unknown")[:100],
+                    )
+            except Exception as sg_exc:
+                logger.warning("onboarding_build: superglue failed capability=%s err=%s",
+                               capability, str(sg_exc)[:200])
+                agent.superglue_tool_status = "failed"
+                _db.commit()
+        else:
+            logger.info("onboarding_build: agent already exists capability=%s — skipping", capability)
+    finally:
+        _db.close()
+
     # --- LOCAL BUILDER (disabled — kept for fallback) ---
     # To re-enable local building, set BUILDER_FALLBACK_LOCAL=true
     # from app.core.builder_agent.builder_pipeline import run_builder_pipeline
