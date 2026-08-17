@@ -487,14 +487,4 @@ async def _build_single_agent(
     finally:
         _db.close()
 
-    # --- LOCAL BUILDER (disabled — kept for fallback) ---
-    # To re-enable local building, set BUILDER_FALLBACK_LOCAL=true
-    # from app.core.builder_agent.builder_pipeline import run_builder_pipeline
-    # from app.core.builder_agent.builder_state import BuilderState
-    # state: BuilderState = {
-    #     "tenant_id": company_id, "capability": capability,
-    #     "query": kb_context[:1000] if kb_context else f"Create {capability} agent",
-    #     "force_rebuild": force_rebuild, "kb_context": kb_context,
-    #     "tenant_integrations": integrations,
-    # }
-    # await run_builder_pipeline(state)
+    # --- LOCAL BUILDER (deleted — using remote builder only) ---

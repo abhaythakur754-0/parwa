@@ -162,18 +162,5 @@ async def build_agent_with_fallback(
                     capability, str(exc)[:200],
                 )
 
-    # All retries failed → check fallback
-    fallback = os.environ.get("BUILDER_FALLBACK_LOCAL", "false").lower() == "true"
-    if fallback:
-        logger.warning("remote_builder_failed_falling_back_to_local")
-        from app.core.builder_agent.builder_pipeline import run_builder_pipeline
-        return await run_builder_pipeline(
-            tenant_id=tenant_id,
-            capability=capability,
-            query=kb_context[:500],
-            ticket_type=capability,
-            complexity="medium",
-            tier="parwa",
-        )
-
+    # All retries failed — no local fallback (local builder code deleted)
     raise last_error

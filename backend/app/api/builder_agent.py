@@ -85,28 +85,18 @@ async def create_agent_via_builder(
         company_id, body.capability,
     )
 
-    from app.core.builder_agent.builder_pipeline import run_builder_pipeline
+    # ── REMOTE BUILDER (uses external service, not local code) ──
+    from app.core.remote_builder_client import build_agent_with_fallback
 
-    # Get tenant tier
-    tier = "parwa"
-    try:
-        from database.base import SessionLocal
-        from database.models.core import Company
-        db = SessionLocal()
-        co = db.query(Company).filter(Company.id == company_id).first()
-        tier = getattr(co, "plan", "parwa") if co else "parwa"
-        db.close()
-    except Exception:
-        pass
-
-    result = await run_builder_pipeline(
+    result = await build_agent_with_fallback(
         tenant_id=company_id,
+        kb_context=body.query or "",
+        integrations=[],
         capability=body.capability,
-        query=body.query or "",
-        ticket_type=body.ticket_type or "",
-        complexity=body.complexity or "",
-        tier=tier,
     )
+    # Normalize: remote returns 'agent_config', local returns 'config'
+    if "agent_config" in result and "config" not in result:
+        result["config"] = result["agent_config"]
 
     return {
         "status": result.get("status"),
@@ -137,8 +127,9 @@ async def builder_chat(
         company_id, body.session_id,
     )
 
-    from app.core.builder_agent.builder_llm import builder_llm_call
-    from app.core.builder_agent.builder_state import is_customer_care_request
+    # Local builder imports removed — using remote builder only
+    # from app.core.builder_agent.builder_llm import builder_llm_call
+    # from app.core.builder_agent.builder_state import is_customer_care_request
 
     # Scope check
     scope_ok, scope_reason = is_customer_care_request(body.message)

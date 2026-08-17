@@ -159,11 +159,10 @@ async def generate_tool_for_agent(
                     "error": None,
                     "generated_by": "superglue_agent",
                 }
-            # No toolId in response — agent might have asked a clarifying question
-            # or hit an error. Fall back to PARWA LLM.
+            # No toolId in response — fall back to PARWA LLM
             logger.warning(
-                "superglue_agent_no_tool_id: agent=%s — falling back to PARWA LLM. Response: %s",
-                agent_name, response_text[:200],
+                "superglue_agent_no_tool_id: agent=%s — falling back to PARWA LLM",
+                agent_name,
             )
             return await _generate_tool_via_parwa_llm(
                 agent_name=agent_name,
