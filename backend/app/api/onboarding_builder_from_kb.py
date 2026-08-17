@@ -149,16 +149,74 @@ async def _do_build_from_onboarding(company_id: str, force_rebuild: bool) -> Non
         logger.warning("onboarding_build_skip: no KB and no integrations company=%s", company_id)
         return
 
-    # ── Step 2: Ask NVIDIA LLM what agents are needed ────────────
-    # This is the KEY DIFFERENCE: we use KB + integrations, not tickets.
-    detected_capabilities = await _detect_capabilities_from_onboarding(
-        kb_context=kb_context,
-        integrations=integrations,
-    )
+    # ── Step 2: Get capabilities from CRM analyser output ──────
+    # The CRM analyser already analyzed the tenant's tickets and
+    # recommended what agents/tools/integrations are needed.
+    # We use THAT output directly — no need to re-detect with local LLM.
+    #
+    # If CRM analysis hasn't run yet, fall back to local detection.
+    detected_capabilities = []
+
+    # Try to get CRM analyser results from the status endpoint
+    try:
+        from app.core.crm_analyser_client import get_crm_analyser_url
+        import httpx as _httpx
+
+        crm_url = get_crm_analyser_url()
+        if crm_url:
+            # Check if there are any completed CRM analyses
+            async with _httpx.AsyncClient(timeout=10.0) as client:
+                # Get the latest completed analysis
+                r = await client.get(
+                    f"{crm_url}/api/crm-analyser/analyze",
+                    params={"limit": 1, "status": "completed"},
+                    timeout=10.0,
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    # Check if it's a list or single result
+                    results = data if isinstance(data, list) else data.get("items", [data])
+                    if results:
+                        latest = results[0]
+                        work_order = latest.get("work_order", {}) if isinstance(latest, dict) else {}
+                        crm_agents = work_order.get("agents", [])
+                        # Convert CRM agent names to capabilities
+                        # CRM returns: "refund-specialist" → "refund_processing"
+                        name_to_cap = {
+                            "refund": "refund_processing",
+                            "billing": "billing_inquiry",
+                            "auth": "account_management",
+                            "shipping": "shipping_delivery",
+                            "technical": "technical_support",
+                            "faq": "faq_general",
+                            "complaint": "complaint_handling",
+                            "fraud": "fraud_security",
+                            "subscription": "subscription_management",
+                            "order": "order_management",
+                            "product": "product_information",
+                            "appointment": "appointment_booking",
+                            "invoice": "invoice_request",
+                        }
+                        for agent_name in crm_agents:
+                            agent_lower = agent_name.lower()
+                            for key, cap in name_to_cap.items():
+                                if key in agent_lower and cap not in detected_capabilities:
+                                    detected_capabilities.append(cap)
+                                    break
+    except Exception as exc:
+        logger.warning("crm_result_fetch_failed: %s — using local detection", str(exc)[:200])
+
+    # Fallback: if CRM didn't return capabilities, use local detection
+    if not detected_capabilities:
+        detected_capabilities = await _detect_capabilities_from_onboarding(
+            kb_context=kb_context,
+            integrations=integrations,
+        )
 
     logger.info(
-        "onboarding_build_detected company=%s capabilities=%s",
+        "onboarding_build_detected company=%s capabilities=%s source=%s",
         company_id, detected_capabilities,
+        "crm" if detected_capabilities else "local_fallback",
     )
 
     # ── Step 3: For each capability, run full Builder pipeline ───
@@ -390,11 +448,12 @@ async def _build_single_agent(
             _db.commit()
             logger.info("onboarding_build: agent saved capability=%s", capability)
 
-            # ── Create Superglue tool for this agent ──
-            # Uses the external Superglue service (enqueue + poll)
-            # Includes KB context in the instruction so the tool knows
-            # the tenant's specific rules (refund policy, SOPs, etc.)
-            try:
+            # ── Create Superglue tool for this agent (if not already exists) ──
+            # Check if agent already has a tool linked
+            if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                logger.info("onboarding_build: tool already linked capability=%s — skipping", capability)
+            else:
+              try:
                 from app.core.superglue_tool_generator import generate_tool_for_agent
                 tool_result = await generate_tool_for_agent(
                     agent_name=config.get("agent_name", capability),
@@ -418,7 +477,7 @@ async def _build_single_agent(
                         "onboarding_build: superglue tool failed capability=%s err=%s",
                         capability, tool_result.get("error", "unknown")[:100],
                     )
-            except Exception as sg_exc:
+              except Exception as sg_exc:
                 logger.warning("onboarding_build: superglue failed capability=%s err=%s",
                                capability, str(sg_exc)[:200])
                 agent.superglue_tool_status = "failed"
