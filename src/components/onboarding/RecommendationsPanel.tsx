@@ -48,6 +48,7 @@ export function RecommendationsPanel({ companyId }: RecommendationsPanelProps) {
   const [crmStatus, setCrmStatus] = useState<string>('idle');
   const [crmRequestId, setCrmRequestId] = useState<string | null>(null);
   const [autoBuildStarted, setAutoBuildStarted] = useState(false);
+  const [crmResult, setCrmResult] = useState<{integrations: string[]; agents: string[]; tools: string[]} | null>(null);
 
   const fetchRecommendations = async () => {
     setLoading(true);
@@ -97,6 +98,12 @@ export function RecommendationsPanel({ companyId }: RecommendationsPanelProps) {
           if (json.status === 'completed') {
             setCrmStatus('completed');
             setCrmRequestId(null);
+            // Save CRM results to show in UI
+            setCrmResult({
+              integrations: json.integrations || [],
+              agents: json.agents || [],
+              tools: json.tools || [],
+            });
             // Refresh recommendations with new CRM data
             fetchRecommendations();
           } else if (json.status === 'failed') {
@@ -153,6 +160,77 @@ export function RecommendationsPanel({ companyId }: RecommendationsPanelProps) {
 
   return (
     <div className="space-y-4">
+      {/* CRM Analysis Results */}
+      {crmStatus === 'completed' && crmResult && (
+        <div className="rounded-lg bg-green-50 dark:bg-green-950/20 p-4 border border-green-200 dark:border-green-800">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                AI Analysis Complete — Recommended Setup
+              </p>
+              {crmResult.integrations.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                    Integrations to connect:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {crmResult.integrations.map((integ, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 capitalize">
+                        {integ.replace(/_/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {crmResult.agents.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                    AI Agents being built:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {crmResult.agents.map((agent, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 capitalize">
+                        {agent.replace(/-/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {crmResult.tools.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                    Superglue tools being created:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {crmResult.tools.map((tool, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 capitalize">
+                        {tool.replace(/-/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                ✅ Connect the recommended integrations above, then agents + tools build automatically.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CRM Processing */}
+      {crmStatus === 'processing' && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              AI is analyzing your tickets... Building recommendations...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Summary */}
       {data.analysis_summary && (
         <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 p-4 border border-blue-200 dark:border-blue-800">
