@@ -127,25 +127,24 @@ async def builder_chat(
         company_id, body.session_id,
     )
 
-    # Local builder imports removed — using remote builder only
-    # from app.core.builder_agent.builder_llm import builder_llm_call
-    # from app.core.builder_agent.builder_state import is_customer_care_request
-
-    # Scope check
-    scope_ok, scope_reason = is_customer_care_request(body.message)
+    # Simple inline scope check (replaces local is_customer_care_request)
+    care_keywords = ["customer", "support", "refund", "billing", "ticket",
+                     "account", "help", "agent", "faq", "complaint",
+                     "shipping", "order", "subscription", "onboarding"]
+    msg_lower = (body.message or "").lower()
+    scope_ok = any(kw in msg_lower for kw in care_keywords)
     if not scope_ok:
         return {
             "message": (
-                f"I'm sorry, I can only create customer care agents. "
-                f"{scope_reason} Could you describe a customer support "
-                f"or onboarding agent instead?"
+                "I'm sorry, I can only create customer care agents. "
+                "Could you describe a customer support or onboarding agent instead?"
             ),
             "session_id": body.session_id or "new",
             "stage": "rejected",
             "config_preview": None,
         }
 
-    # Builder chat response
+    # Use Groq for the chat response (replaces local builder_llm_call)
     chat_prompt = (
         f"You are the PARWA Agent Builder. A user wants to create a customer care agent.\n"
         f"User says: {body.message}\n\n"
@@ -157,12 +156,16 @@ async def builder_chat(
         f"Be conversational and helpful. Keep response under 3 sentences."
     )
 
-    response = await builder_llm_call(
-        prompt=chat_prompt,
-        stage="explore",
-        max_tokens=200,
-        temperature=0.3,
-    )
+    try:
+        from app.core.parwa_pipeline.llm_client import _call_groq_direct
+        response = await _call_groq_direct(
+            messages=[{"role": "user", "content": chat_prompt}],
+            temperature=0.3,
+            max_tokens=200,
+            call_id=0,
+        )
+    except Exception:
+        response = "Tell me more about what kind of customer care agent you need."
 
     return {
         "message": response or "Tell me more about what kind of customer care agent you need.",
