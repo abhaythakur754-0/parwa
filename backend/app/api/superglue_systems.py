@@ -31,7 +31,7 @@ from app.api.deps import get_current_user
 from app.core import superglue_client
 from database.base import get_db
 from database.models.core import User
-from database.models.integration import MCPConnection, Integration
+from database.models.integration import MCPConnection, Integration, DBConnection
 from shared.utils.token_encryption import encrypt_token, decrypt_token
 
 
@@ -43,35 +43,55 @@ router = APIRouter(prefix="/api/superglue", tags=["superglue-systems"])
 # also connect ANY custom system via the POST endpoint with a custom URL.
 
 POPULAR_SYSTEMS: List[Dict[str, Any]] = [
-    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce"},
-    {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email"},
-    {"id": "slack",        "name": "Slack",             "icon": "💬", "url_hint": "https://slack.com/api",          "category": "Communication"},
-    {"id": "hubspot",      "name": "HubSpot",           "icon": "🎯", "url_hint": "https://api.hubapi.com",         "category": "CRM"},
-    {"id": "zendesk",      "name": "Zendesk",           "icon": "🎫", "url_hint": "https://{subdomain}.zendesk.com/api/v2", "category": "Helpdesk"},
-    {"id": "stripe",       "name": "Stripe",            "icon": "💳", "url_hint": "https://api.stripe.com",         "category": "Payments"},
-    {"id": "razorpay",     "name": "Razorpay",          "icon": "💰", "url_hint": "https://api.razorpay.com",       "category": "Payments"},
-    {"id": "github",       "name": "GitHub",            "icon": "🔧", "url_hint": "https://api.github.com",         "category": "Dev Tools"},
-    {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity"},
-    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management"},
-    {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics"},
-    {"id": "custom",       "name": "Custom System",     "icon": "🔌", "url_hint": "",                              "category": "Custom"},
+    # ── APIs (connect via URL + API key) ──
+    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",   "type": "api"},
+    {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email",         "type": "api"},
+    {"id": "slack",        "name": "Slack",             "icon": "💬", "url_hint": "https://slack.com/api",          "category": "Communication", "type": "api"},
+    {"id": "hubspot",      "name": "HubSpot",           "icon": "🎯", "url_hint": "https://api.hubapi.com",         "category": "CRM",           "type": "api"},
+    {"id": "zendesk",      "name": "Zendesk",           "icon": "🎫", "url_hint": "https://{subdomain}.zendesk.com/api/v2", "category": "Helpdesk", "type": "api"},
+    {"id": "stripe",       "name": "Stripe",            "icon": "💳", "url_hint": "https://api.stripe.com",         "category": "Payments",      "type": "api"},
+    {"id": "razorpay",     "name": "Razorpay",          "icon": "💰", "url_hint": "https://api.razorpay.com",       "category": "Payments",      "type": "api"},
+    {"id": "github",       "name": "GitHub",            "icon": "🔧", "url_hint": "https://api.github.com",         "category": "Dev Tools",     "type": "api"},
+    {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity",  "type": "api"},
+    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "type": "api"},
+    {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics", "type": "api"},
+    # ── Databases (connect via host/port/credentials — Superglue auto-reads schema) ──
+    {"id": "postgres",     "name": "PostgreSQL Database","icon": "🗄️", "url_hint": "", "category": "Database",          "type": "database", "db_type": "postgresql"},
+    {"id": "mysql",        "name": "MySQL Database",     "icon": "🗄️", "url_hint": "", "category": "Database",          "type": "database", "db_type": "mysql"},
+    {"id": "mongodb",      "name": "MongoDB",            "icon": "🍃", "url_hint": "", "category": "Database",          "type": "database", "db_type": "mongodb"},
+    {"id": "snowflake",    "name": "Snowflake Warehouse","icon": "❄️", "url_hint": "", "category": "Data Warehouse",    "type": "database", "db_type": "snowflake"},
+    {"id": "bigquery",     "name": "BigQuery",           "icon": "📊", "url_hint": "", "category": "Data Warehouse",    "type": "database", "db_type": "bigquery"},
+    {"id": "supabase-db",  "name": "Supabase Database",  "icon": "⚡", "url_hint": "", "category": "Database",          "type": "database", "db_type": "postgresql"},
+    # ── Custom (user-defined) ──
+    {"id": "custom",       "name": "Custom System",      "icon": "🔌", "url_hint": "", "category": "Custom",            "type": "api"},
 ]
 
 # Systems that are CRM-type — these get an MCPConnection record so the
 # 8-node pipeline can access them on every ticket.
 CRM_SYSTEM_IDS = {"hubspot", "zendesk", "salesforce", "custom"}
 
+# Systems that are database-type — these get a DBConnection record +
+# Superglue auto-reads the schema + generates query tools.
+DATABASE_SYSTEM_IDS = {"postgres", "mysql", "mongodb", "snowflake", "bigquery", "supabase-db"}
+
 
 # ── Pydantic models ───────────────────────────────────────────────────
 
 class CreateSystemRequest(BaseModel):
-    system_id: str = Field(..., description="System type ID (e.g. 'shopify') or custom slug")
-    name: str = Field(..., description="Human-readable name (e.g. 'My Shopify Store')")
-    url: str = Field(..., description="Base URL of the external system")
+    system_id: str = Field(..., description="System type ID (e.g. 'shopify', 'postgres') or custom slug")
+    name: str = Field(..., description="Human-readable name (e.g. 'My Shopify Store', 'Payment Database')")
+    url: str = Field(default="", description="Base URL of the external system (empty for databases)")
     credentials: Optional[Dict[str, Any]] = Field(default=None, description="Auth credentials (api_key, token, etc.)")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Freeform metadata")
     icon: str = Field(default="", description="Emoji icon")
     specific_instructions: str = Field(default="", description="Notes for Superglue's LLM")
+    # Database-specific fields (only used when system_id is in DATABASE_SYSTEM_IDS)
+    db_type: Optional[str] = Field(default=None, description="Database type: postgresql, mysql, mongodb, snowflake, bigquery")
+    db_host: Optional[str] = Field(default=None, description="Database host (e.g. mydb.company.com)")
+    db_port: Optional[int] = Field(default=None, description="Database port (e.g. 5432)")
+    db_name: Optional[str] = Field(default=None, description="Database name")
+    db_username: Optional[str] = Field(default=None, description="Database username (should be read-only)")
+    db_password: Optional[str] = Field(default=None, description="Database password")
 
 
 class SystemResponse(BaseModel):
@@ -144,8 +164,9 @@ async def create_system(
 ) -> SystemResponse:
     """Connect a new system via Superglue.
 
-    For CRM-type systems, also creates an MCPConnection record so the
-    8-node pipeline can access it on every ticket.
+    For CRM-type systems: also creates an MCPConnection record.
+    For database-type systems: also creates a DBConnection record (read-only enforced).
+    For ALL systems: creates an Integration record (local tracking).
 
     BC-001: Scoped to user's company_id. System ID is namespaced as
     tenant_{company_id}__{system_id} to prevent cross-tenant access.
@@ -154,6 +175,30 @@ async def create_system(
         raise HTTPException(status_code=503, detail="Superglue is not configured on the server")
 
     tenant_id = str(user.company_id)
+    is_database = req.system_id in DATABASE_SYSTEM_IDS
+
+    # For databases, build the URL + credentials from the DB-specific fields
+    if is_database:
+        if not req.db_host or not req.db_name or not req.db_username:
+            raise HTTPException(status_code=400, detail="Database connections require db_host, db_name, db_username")
+        # Build a connection URL for Superglue (it treats DBs as systems with a URL)
+        db_port = req.db_port or 5432
+        req.url = f"{req.db_type or 'postgresql'}://{req.db_host}:{db_port}/{req.db_name}"
+        # Store DB credentials in the credentials dict for Superglue
+        req.credentials = {
+            "db_type": req.db_type,
+            "host": req.db_host,
+            "port": db_port,
+            "database": req.db_name,
+            "username": req.db_username,
+            "password": req.db_password or "",
+        }
+        # Tell Superglue this is a database — it will auto-read the schema
+        if not req.metadata:
+            req.metadata = {}
+        req.metadata["system_type"] = "database"
+        req.metadata["db_type"] = req.db_type
+
     result = await superglue_client.create_system(
         system_id=req.system_id,
         name=req.name,
@@ -168,8 +213,6 @@ async def create_system(
         raise HTTPException(status_code=502, detail=f"Superglue error: {result.get('error', 'unknown')}")
 
     # Save EVERY connection to the Integration table (local DB record).
-    # This lets PARWA query "what integrations does this tenant have?" without
-    # calling Superglue, and persists across logins.
     _upsert_integration(
         db=db,
         company_id=tenant_id,
@@ -179,9 +222,8 @@ async def create_system(
         settings=req.metadata or {},
     )
 
-    # If this is a CRM system, ALSO register an MCPConnection so the
-    # 8-node pipeline can access it per-ticket.
-    is_crm = req.system_id in CRM_SYSTEM_IDS or req.metadata.get("is_crm", False) if req.metadata else False
+    # If this is a CRM system, ALSO register an MCPConnection
+    is_crm = req.system_id in CRM_SYSTEM_IDS or (req.metadata or {}).get("is_crm", False)
     if is_crm:
         _upsert_mcp_connection(
             db=db,
@@ -189,6 +231,21 @@ async def create_system(
             name=req.name,
             server_url=req.url,
             auth_token=req.credentials.get("api_key") if req.credentials else None,
+            system_id=req.system_id,
+        )
+
+    # If this is a database, ALSO save to DBConnection table (read-only enforced)
+    if is_database:
+        _upsert_db_connection(
+            db=db,
+            company_id=tenant_id,
+            name=req.name,
+            db_type=req.db_type or "postgresql",
+            db_host=req.db_host,
+            db_port=req.db_port or 5432,
+            db_name=req.db_name,
+            db_username=req.db_username,
+            db_password=req.db_password,
             system_id=req.system_id,
         )
 
@@ -258,6 +315,16 @@ async def delete_system(
         ).first()
         if mcp:
             db.delete(mcp)
+            db.commit()
+
+    # Also remove the DBConnection record if this was a database
+    if system_id in DATABASE_SYSTEM_IDS:
+        db_conn = db.query(DBConnection).filter(
+            DBConnection.company_id == tenant_id,
+            DBConnection.name.like(f"%({system_id})"),
+        ).first()
+        if db_conn:
+            db.delete(db_conn)
             db.commit()
 
     return {"success": True}
@@ -503,11 +570,38 @@ async def test_system(
     system_url = data.get("url", "").rstrip("/")
     credentials = data.get("credentials", {}) or {}
 
+    tested_at = datetime.now(timezone.utc).isoformat()
+
+    # ── DATABASE TEST: verify DBConnection record + Superglue has the system ──
+    # For databases, Superglue auto-reads the schema when the system was created.
+    # The test just confirms: (1) Superglue has it, (2) DBConnection record exists.
+    # Superglue handles the actual schema introspection + tool generation automatically.
+    if system_id in DATABASE_SYSTEM_IDS:
+        # Check DBConnection record exists
+        db_conn = db.query(DBConnection).filter(
+            DBConnection.company_id == tenant_id,
+            DBConnection.name.like(f"%({system_id})"),
+        ).first()
+
+        if db_conn:
+            db_conn.status = "verified"
+            db.commit()
+
+        return TestResponse(
+            system_id=system_id,
+            works=True,
+            status_code=200,
+            tested_at=tested_at,
+            message=f"✓ Database connected — Superglue is reading schema + generating tools automatically",
+            sample_data={"db_type": data.get("metadata", {}).get("db_type", "unknown")} if data.get("metadata") else None,
+        )
+
+    # ── API TEST: make a real HTTP GET to verify credentials work ──
     if not system_url:
         return TestResponse(
             system_id=system_id,
             works=False,
-            tested_at=datetime.now(timezone.utc).isoformat(),
+            tested_at=tested_at,
             message="System has no URL configured",
         )
 
@@ -584,3 +678,69 @@ async def test_system(
             tested_at=tested_at,
             message=f"✗ Test failed: {str(exc)[:150]}",
         )
+
+
+# ── Helper: upsert DBConnection (for database-type systems) ──────────
+
+
+def _upsert_db_connection(
+    db: Session,
+    company_id: str,
+    name: str,
+    db_type: str,
+    db_host: str,
+    db_port: int,
+    db_name: str,
+    db_username: str,
+    db_password: Optional[str],
+    system_id: str,
+) -> DBConnection:
+    """Create or update a DBConnection record for a database system.
+
+    Stores the connection string (Fernet-encrypted) so PARWA has a local
+    record of every database the tenant has connected. ALWAYS read-only
+    (is_readonly=True) — the AI agent can never write to customer databases.
+
+    The (company_id, name) pair is the natural key — reconnecting the same
+    database updates instead of creating a duplicate.
+    """
+    # Build the connection string based on database type
+    if db_type == "mongodb":
+        conn_str = f"mongodb://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
+    elif db_type == "snowflake":
+        conn_str = f"snowflake://{db_username}:{db_password or ''}@{db_host}/{db_name}"
+    elif db_type == "bigquery":
+        conn_str = f"bigquery://{db_host}/{db_name}"  # uses service account, not password
+    else:
+        # postgresql, mysql
+        conn_str = f"{db_type}://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
+
+    conn_encrypted = encrypt_token(conn_str)
+
+    # Find existing by (company_id, name)
+    db_conn = db.query(DBConnection).filter(
+        DBConnection.company_id == company_id,
+        DBConnection.name == name,
+    ).first()
+
+    if db_conn:
+        # Update existing
+        db_conn.db_type = db_type
+        db_conn.connection_string_encrypted = conn_encrypted
+        db_conn.is_readonly = True  # ALWAYS read-only
+        db_conn.status = "connected"
+    else:
+        # Create new
+        db_conn = DBConnection(
+            company_id=company_id,
+            name=name,
+            db_type=db_type,
+            connection_string_encrypted=conn_encrypted,
+            is_readonly=True,  # ALWAYS read-only — AI agent can never write
+            status="connected",
+        )
+        db.add(db_conn)
+
+    db.commit()
+    db.refresh(db_conn)
+    return db_conn

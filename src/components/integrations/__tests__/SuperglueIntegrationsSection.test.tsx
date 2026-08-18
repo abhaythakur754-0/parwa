@@ -172,7 +172,7 @@ describe('SuperglueIntegrationsSection', () => {
 
   it('handles fetch errors gracefully', async () => {
     fetchMock.mockReset();
-    fetchMock.mockRejectedValue(new Error('Network error'));
+    fetchMock.mockRejectedValue(new Error('Network error') as never);
 
     render(<SuperglueIntegrationsSection />);
 

@@ -95,6 +95,14 @@ export function SuperglueOnboardingFlow() {
   const [formName, setFormName] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formApiKey, setFormApiKey] = useState('');
+  // Database-specific form fields
+  const [formDbType, setFormDbType] = useState('postgresql');
+  const [formDbHost, setFormDbHost] = useState('');
+  const [formDbPort, setFormDbPort] = useState('5432');
+  const [formDbName, setFormDbName] = useState('');
+  const [formDbUsername, setFormDbUsername] = useState('');
+  const [formDbPassword, setFormDbPassword] = useState('');
+  const [isDbForm, setIsDbForm] = useState(false); // true when connecting a database
   const [connecting, setConnecting] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -190,7 +198,7 @@ export function SuperglueOnboardingFlow() {
         // Runs in parallel while the user fills in their integrations.
         triggerAgentBuild();
       } else {
-        setAnalysisError(data.detail || 'Analysis failed');
+        setAnalysisError((data as any).detail || 'Analysis failed');
         setPhase('error');
       }
     } catch {
@@ -200,28 +208,96 @@ export function SuperglueOnboardingFlow() {
   };
 
   // ── Phase 3: Connect a recommended integration ────────────────────
+  // Opens a connect form (same modal as CRM) — detects if it's a database
+  // and shows DB-specific fields (host, port, db name, user, password)
   const connectRecommendation = async (rec: AnalysisRecommendation) => {
     const systemId = rec.name.toLowerCase().replace(/\s+/g, '-');
+    // Detect if this is a database recommendation
+    const dbKeywords = ['database', 'db', 'postgres', 'mysql', 'mongo', 'snowflake', 'bigquery', 'warehouse'];
+    const isDb = dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
+
+    // Open the connect form with the right mode
+    setSelectedCRM({ id: systemId, name: rec.name, icon: '🔌', url_hint: '' });
+    setFormName(rec.name);
+    setFormUrl('');
+    setFormApiKey('');
+    setFormDbType('postgresql');
+    setFormDbHost('');
+    setFormDbPort('5432');
+    setFormDbName('');
+    setFormDbUsername('');
+    setFormDbPassword('');
+    setIsDbForm(isDb);
+    setFormOpen(true);
+  };
+
+  // ── Phase 3: Submit the connect form (handles CRM + API + database) ──
+  const handleConnect = async () => {
+    if (!selectedCRM) return;
+    if (!formName.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (isDbForm) {
+      if (!formDbHost.trim() || !formDbName.trim() || !formDbUsername.trim()) {
+        toast.error('Host, database name, and username are required');
+        return;
+      }
+    } else {
+      if (!formUrl.trim()) {
+        toast.error('URL is required');
+        return;
+      }
+    }
+
     setConnecting(true);
     try {
+      // Detect if this is a CRM connection (Phase 1) vs recommendation (Phase 3)
+      const crmIds = ['hubspot', 'zendesk', 'custom'];
+      const isCrm = crmIds.includes(selectedCRM.id);
+
+      const payload: any = {
+        system_id: selectedCRM.id,
+        name: formName.trim(),
+        icon: selectedCRM.icon,
+        metadata: { is_crm: isCrm, recommendation_reason: '' },
+      };
+
+      if (isDbForm) {
+        // Database connection — send DB-specific fields
+        payload.db_type = formDbType;
+        payload.db_host = formDbHost.trim();
+        payload.db_port = parseInt(formDbPort) || 5432;
+        payload.db_name = formDbName.trim();
+        payload.db_username = formDbUsername.trim();
+        payload.db_password = formDbPassword;
+        payload.url = ''; // backend builds it from DB fields
+        payload.credentials = {};
+      } else {
+        // API connection — send URL + API key
+        payload.url = formUrl.trim();
+        payload.credentials = formApiKey.trim() ? { api_key: formApiKey.trim() } : {};
+      }
+
       const res = await fetch('/api/superglue/systems', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_id: systemId,
-          name: rec.name,
-          url: '', // user will need to fill this in a real flow
-          credentials: {},
-          icon: '🔌',
-          metadata: { recommendation_reason: rec.reason || '' },
-        }),
+        body: JSON.stringify(payload),
       });
+      const data = await res.json();
       if (res.ok) {
-        toast.success(`${rec.name} connected`);
-        setConnectedRecommendations((prev) => new Set(prev).add(rec.name));
+        toast.success(`${formName} connected`);
+        setFormOpen(false);
+
+        // If this was a CRM (Phase 1), auto-verify + trigger analysis
+        if (isCrm) {
+          await handleVerify(selectedCRM.id);
+        } else {
+          // Phase 3 recommendation — mark as connected
+          setConnectedRecommendations((prev) => new Set(prev).add(formName));
+        }
       } else {
-        const data = await res.json();
-        toast.error(data.detail || `Failed to connect ${rec.name}`);
+        toast.error(data.detail || 'Failed to connect');
       }
     } catch {
       toast.error('Network error');
@@ -741,10 +817,10 @@ export function SuperglueOnboardingFlow() {
         </div>
       )}
 
-      {/* ═══ Connect Form Modal (Phase 1) ═══ */}
+      {/* ═══ Connect Form Modal (Phase 1 + Phase 3) ═══ */}
       {formOpen && selectedCRM && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-white flex items-center gap-2">
                 <span className="text-xl">{selectedCRM.icon}</span>
@@ -759,37 +835,127 @@ export function SuperglueOnboardingFlow() {
             </div>
 
             <div className="space-y-3">
+              {/* Name field (always shown) */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1">CRM Name *</label>
+                <label className="block text-xs text-zinc-400 mb-1">
+                  {isDbForm ? 'Database Name *' : 'Name *'}
+                </label>
                 <input
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="My HubSpot Account"
+                  placeholder={isDbForm ? 'Payment Database' : 'My HubSpot Account'}
                   className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">CRM URL *</label>
-                <input
-                  type="text"
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  placeholder={selectedCRM.url_hint || 'https://api.yourcrm.com'}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">API Key / Token</label>
-                <input
-                  type="password"
-                  value={formApiKey}
-                  onChange={(e) => setFormApiKey(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
-                />
-                <p className="text-[10px] text-zinc-600 mt-1">Stored securely in Superglue + encrypted in MCP registry.</p>
-              </div>
+
+              {/* ── DATABASE FORM: show DB-specific fields ── */}
+              {isDbForm ? (
+                <>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Database Type *</label>
+                    <select
+                      value={formDbType}
+                      onChange={(e) => {
+                        setFormDbType(e.target.value);
+                        // Set default port based on type
+                        const ports: Record<string, string> = {
+                          postgresql: '5432', mysql: '3306', mongodb: '27017',
+                          snowflake: '443', bigquery: '443',
+                        };
+                        setFormDbPort(ports[e.target.value] || '5432');
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-violet-500/50"
+                    >
+                      <option value="postgresql" className="bg-zinc-900">PostgreSQL</option>
+                      <option value="mysql" className="bg-zinc-900">MySQL</option>
+                      <option value="mongodb" className="bg-zinc-900">MongoDB</option>
+                      <option value="snowflake" className="bg-zinc-900">Snowflake</option>
+                      <option value="bigquery" className="bg-zinc-900">BigQuery</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="block text-xs text-zinc-400 mb-1">Host *</label>
+                      <input
+                        type="text"
+                        value={formDbHost}
+                        onChange={(e) => setFormDbHost(e.target.value)}
+                        placeholder="mydb.company.com"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">Port</label>
+                      <input
+                        type="text"
+                        value={formDbPort}
+                        onChange={(e) => setFormDbPort(e.target.value)}
+                        placeholder="5432"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Database Name *</label>
+                    <input
+                      type="text"
+                      value={formDbName}
+                      onChange={(e) => setFormDbName(e.target.value)}
+                      placeholder="payments"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Username * (use read-only user)</label>
+                    <input
+                      type="text"
+                      value={formDbUsername}
+                      onChange={(e) => setFormDbUsername(e.target.value)}
+                      placeholder="readonly_user"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Password</label>
+                    <input
+                      type="password"
+                      value={formDbPassword}
+                      onChange={(e) => setFormDbPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                    />
+                    <p className="text-[10px] text-zinc-600 mt-1">
+                      🔒 Read-only enforced. Superglue auto-reads your schema + generates query tools.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                /* ── API FORM: show URL + API key ── */
+                <>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">URL *</label>
+                    <input
+                      type="text"
+                      value={formUrl}
+                      onChange={(e) => setFormUrl(e.target.value)}
+                      placeholder={selectedCRM.url_hint || 'https://api.yourcrm.com'}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">API Key / Token</label>
+                    <input
+                      type="password"
+                      value={formApiKey}
+                      onChange={(e) => setFormApiKey(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                    />
+                    <p className="text-[10px] text-zinc-600 mt-1">Stored securely in Superglue + encrypted in MCP registry.</p>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-2 mt-5">
@@ -800,12 +966,12 @@ export function SuperglueOnboardingFlow() {
                 Cancel
               </button>
               <button
-                onClick={handleConnectCRM}
-                disabled={connecting || !formName.trim() || !formUrl.trim()}
+                onClick={handleConnect}
+                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() || !formDbName.trim()) : !formUrl.trim())}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plug className="w-3.5 h-3.5" />}
-                {connecting ? 'Connecting...' : 'Connect & Verify'}
+                {connecting ? 'Connecting...' : (isDbForm ? 'Connect & Auto-Setup' : 'Connect & Verify')}
               </button>
             </div>
           </div>

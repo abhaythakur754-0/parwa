@@ -104,11 +104,22 @@ async function completePhase1And2() {
 }
 
 // Helper: connect + test a recommendation
+// Now connectRecommendation opens a form modal — need to fill it + submit
 async function connectAndTestRecommendation() {
   await completePhase1And2();
+  // Click Connect (opens the form modal)
   fireEvent.click(screen.getAllByText('Connect')[0]);
+  // Wait for the form modal to appear
+  await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
+  // Fill the URL field (API form, not database form)
+  fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
+  // Click "Connect & Verify" in the modal
+  fireEvent.click(screen.getByText('Connect & Verify'));
+  // Wait for the Test button to appear (means it's connected)
   await waitFor(() => expect(screen.getByText('Test')).toBeInTheDocument());
+  // Click Test
   fireEvent.click(screen.getByText('Test'));
+  // Wait for verified badge
   await waitFor(() => expect(screen.getByText('✓ Verified')).toBeInTheDocument());
 }
 
@@ -148,7 +159,13 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
 
   it('Phase 3: Verify button is disabled until all integrations tested', async () => {
     await completePhase1And2();
+    // Click Connect (opens form modal)
     fireEvent.click(screen.getAllByText('Connect')[0]);
+    await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
+    // Fill the URL + submit
+    fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
+    fireEvent.click(screen.getByText('Connect & Verify'));
+    // Wait for Test button to appear (means connected)
     await waitFor(() => expect(screen.getByText('Test')).toBeInTheDocument());
     // Verify button should be disabled (not all tested yet)
     const verifyBtn = screen.getByText('Verify All Connections').closest('button');
