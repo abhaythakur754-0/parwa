@@ -1262,6 +1262,23 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
     tenant_context = f"Company: {company_name}" if company_name else ""
     context_str = f"{tenant_context}\nCustomer: {customer_name}\n{str(crm_data)}"
 
+    # ── Connected Database Context ────────────────────────────────
+    # Inject connected database info so the LLM knows what data sources
+    # are available beyond the standard CRM/KB/ecommerce data.
+    connected_databases = state.get("connected_databases", [])
+    if connected_databases:
+        db_context_lines = ["Connected databases (can query via Superglue tools):"]
+        for db_info in connected_databases:
+            readonly = " (read-only)" if db_info.get("readonly", True) else ""
+            db_context_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+        db_context_str = "\n".join(db_context_lines)
+        context_str += f"\n{db_context_str}"
+        logs.append({
+            "node": 4, "technique": "ConnectedDBContext",
+            "duration_ms": 0,
+            "result_summary": f"dbs={len(connected_databases)} names={[d['name'] for d in connected_databases]}",
+        })
+
     # ── Phase 6: Wiki Pattern Enrichment (non-LLM) ─────────────
     wiki_patterns = state.get("wiki_patterns", [])
     wiki_a = state.get("wiki_section_a", [])

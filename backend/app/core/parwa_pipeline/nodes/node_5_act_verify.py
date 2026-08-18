@@ -493,14 +493,24 @@ THOUGHT:"""
                 # Step 1: Get available tools from Superglue
                 tools_desc = await get_available_tools_description()
 
-                # Step 2: Ask LLM which tool to call
+                # Step 2: Build context with connected database info
+                connected_dbs = state.get("connected_databases", [])
+                db_context = ""
+                if connected_dbs:
+                    db_lines = ["Connected databases:"]
+                    for db_info in connected_dbs:
+                        readonly = " (read-only)" if db_info.get("readonly", True) else ""
+                        db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+                    db_context = "\n".join(db_lines) + "\n\n"
+
+                # Step 3: Ask LLM which tool to call
                 tool_prompt = f"""You are deciding which tool to call for a customer support action.
 
 Action needed: {action}
 Details: {details}
 Ticket context: {knowledge[:500] if knowledge else str(details)}
 
-{tools_desc}
+{db_context}{tools_desc}
 
 Based on the ticket and available tools, which tool should you call?
 Respond with ONLY JSON:

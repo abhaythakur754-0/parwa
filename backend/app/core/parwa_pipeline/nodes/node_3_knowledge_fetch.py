@@ -2422,6 +2422,65 @@ async def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
     return result
 
 
+# ── Connected Database Discovery ──────────────────────────────────
+
+
+def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
+    """Fetch tenant's connected databases from DBConnection table.
+
+    During onboarding, when a tenant connects a database (PostgreSQL, MySQL,
+    MongoDB, Snowflake, BigQuery), a DBConnection record is created and
+    Superglue auto-reads the schema + generates query tools.
+
+    This function makes the pipeline AWARE of which databases exist,
+    so Node 4 (Reasoning) can reference them and Node 5 (Act+Verify)
+    can route to the correct Superglue tool.
+
+    Returns:
+        List of dicts with database info: name, db_type, id, readonly, status.
+        Empty list if DBConnection table doesn't exist or no connections found.
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.integration import DBConnection
+
+        db = SessionLocal()
+        try:
+            connections = db.query(DBConnection).filter(
+                DBConnection.company_id == tenant_id,
+                DBConnection.status == "connected",
+            ).all()
+
+            result = []
+            for conn in connections:
+                db_info = {
+                    "id": str(conn.id),
+                    "name": conn.name,
+                    "db_type": conn.db_type,
+                    "readonly": conn.is_readonly,  # always True — AI never writes to customer DB
+                    "status": conn.status,
+                }
+                result.append(db_info)
+
+            if result:
+                logger.info(
+                    "Connected databases for tenant %s: %s",
+                    tenant_id,
+                    [f"{r['name']}({r['db_type']})" for r in result],
+                )
+            return result
+        finally:
+            db.close()
+    except ImportError:
+        # DBConnection model not yet migrated — graceful degradation
+        logger.debug("DBConnection model not available — skipping connected database discovery")
+        return []
+    except Exception as exc:
+        # Non-fatal: pipeline should never break because of this
+        logger.warning("fetch_connected_databases_failed: %s", str(exc)[:200])
+        return []
+
+
 # ── Main Node Function ────────────────────────────────────────────
 
 
@@ -2987,6 +3046,12 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     logs.append({"node": 3, "technique": "DataRelevance", "duration_ms": 0,
                  "result_summary": f"needed={[k for k,v in data_relevance.items() if v]} skipped={[k for k,v in data_relevance.items() if not v]}"})
 
+    # ── Connected Database Discovery: make pipeline aware of tenant's DBs ─
+    connected_databases = _fetch_connected_databases(tenant_id)
+    if connected_databases:
+        logs.append({"node": 3, "technique": "ConnectedDBDiscovery", "duration_ms": 0,
+                     "result_summary": f"dbs={len(connected_databases)} types={[d['db_type'] for d in connected_databases]}"})
+
     # ── APIHealthCheck: check API health status ──────────────────────
     api_health = {}
     for itype in ("hubspot", "shopify", "fedex"):
@@ -3027,6 +3092,7 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
         logger.info("Node 3: Injected Jarvis guidance for ticket %s (%d chars)", ticket_id, len(jarvis_guidance))
 
     return {
+        "connected_databases": connected_databases,
         "knowledge_context": filtered,
         "wiki_section_a": wiki_a,
         "wiki_section_b": wiki_b,
