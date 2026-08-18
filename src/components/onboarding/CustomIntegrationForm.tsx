@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CustomIntegrationFormProps {
@@ -23,11 +23,55 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [testUrl, setTestUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [askingSuperglue, setAskingSuperglue] = useState(false);
+  const [superglueFields, setSuperglueFields] = useState<Array<{ key: string; label: string; type: string; required?: boolean; placeholder?: string }>>([]);
 
+  // If Superglue returned fields, use those. Otherwise use the selected auth type's fields.
   const selectedAuthType = AUTH_TYPES.find(a => a.value === authType) || AUTH_TYPES[0];
+  const activeFields = superglueFields.length > 0 ? superglueFields : selectedAuthType.fields;
 
   const handleFieldChange = (name: string, value: string) => {
     setCredentials((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // ── Ask Superglue for auth schema ────────────────────────────────────
+  // When user types a platform name, we ask Superglue "What auth does this
+  // need?" instead of making the user manually pick auth type + fields.
+  const handleAskSuperglue = async () => {
+    if (!integrationName.trim()) {
+      toast.error('Please enter the integration name first');
+      return;
+    }
+    setAskingSuperglue(true);
+    try {
+      const res = await fetch('/api/superglue/discover-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          platform_name: integrationName,
+          platform_type: 'integration',
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.fields && data.fields.length > 0) {
+        // Superglue returned auth schema → use it
+        setSuperglueFields(data.fields);
+        if (data.auth_type) setAuthType(data.auth_type);
+        if (data.url_hint && !baseUrl) setBaseUrl(data.url_hint);
+        toast.success(`Superglue found auth schema for "${integrationName}"`);
+      } else {
+        // Superglue doesn't know this platform → fallback to manual
+        setSuperglueFields([]);
+        toast(`Superglue doesn't know "${integrationName}" — select auth type manually`, { icon: 'ℹ️' });
+      }
+    } catch {
+      setSuperglueFields([]);
+      toast.error('Failed to ask Superglue. Select auth type manually.');
+    } finally {
+      setAskingSuperglue(false);
+    }
   };
 
   const handleSave = async () => {
@@ -35,8 +79,8 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
     if (!integrationName.trim()) { toast.error('Please enter an integration name'); return; }
     if (!baseUrl.trim()) { toast.error('Please enter a base URL'); return; }
 
-    const requiredFields = selectedAuthType.fields.filter(f => !f.name.startsWith('header') && !f.name.startsWith('param'));
-    const missing = requiredFields.filter(f => !credentials[f.name]?.trim());
+    const requiredFields = activeFields.filter(f => f.required && !f.name?.startsWith('header') && !f.name?.startsWith('param'));
+    const missing = requiredFields.filter(f => !credentials[f.name || f.key]?.trim());
     if (missing.length > 0) { toast.error(`Please fill in: ${missing.map(f => f.label).join(', ')}`); return; }
 
     setSaving(true);
@@ -56,7 +100,7 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
             category: categoryName,
             test_url: testUrl || baseUrl,
           },
-          settings: { custom: true, category: categoryName },
+          settings: { custom: true, category: categoryName, discovered_by_superglue: superglueFields.length > 0 },
         }),
       });
 
@@ -123,12 +167,51 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
         <input
           type="text"
           value={integrationName}
-          onChange={(e) => setIntegrationName(e.target.value)}
-          placeholder="e.g., BambooHR"
+          onChange={(e) => { setIntegrationName(e.target.value); setSuperglueFields([]); }}
+          placeholder="e.g., Zoho Inventory, Paddle, Chargebee"
           maxLength={100}
           className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
         />
       </div>
+
+      {/* Ask Superglue button — the key new feature */}
+      <button
+        type="button"
+        onClick={handleAskSuperglue}
+        disabled={askingSuperglue || !integrationName.trim()}
+        className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg bg-purple-500/20 text-purple-400 text-sm font-medium border border-purple-500/30 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+      >
+        {askingSuperglue ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Asking Superglue...</>
+        ) : (
+          <><Sparkles className="w-4 h-4" /> Ask Superglue for Auth Schema</>
+        )}
+      </button>
+      <p className="text-[10px] text-zinc-500 -mt-2">
+        Superglue will find the right auth type &amp; fields for this platform
+      </p>
+
+      {/* Show Superglue-discovered fields if available */}
+      {superglueFields.length > 0 && (
+        <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
+          <p className="text-xs text-purple-300 font-medium">Superglue discovered these fields:</p>
+          {superglueFields.map((field) => (
+            <div key={field.key}>
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
+                {field.label} {field.required && <span className="text-red-400">*</span>}
+              </label>
+              <input
+                type={field.type === 'password' ? 'password' : 'text'}
+                value={credentials[field.key] || ''}
+                onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                placeholder={field.placeholder || field.label}
+                maxLength={255}
+                className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Base URL */}
       <div>
@@ -139,42 +222,44 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
           type="text"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="https://api.bamboohr.com/v1"
+          placeholder="https://api.example.com/v1"
           maxLength={500}
           className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
         />
       </div>
 
-      {/* Auth type selector */}
-      <div>
-        <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
-          Authentication Type
-        </label>
-        <select
-          value={authType}
-          onChange={(e) => { setAuthType(e.target.value); setCredentials({}); }}
-          className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
-        >
-          {AUTH_TYPES.map(a => <option key={a.value} value={a.value} className="bg-[#1A1A1A]">{a.label}</option>)}
-        </select>
-      </div>
-
-      {/* Dynamic credential fields based on auth type */}
-      {selectedAuthType.fields.map((field) => (
-        <div key={field.name}>
+      {/* Auth type selector — only show if Superglue didn't find fields */}
+      {superglueFields.length === 0 && (
+        <div>
           <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
-            {field.label}
+            Authentication Type
           </label>
-          <input
-            type={field.type === 'password' ? 'password' : 'text'}
-            value={credentials[field.name] || ''}
-            onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            placeholder={field.name === 'header_name' ? 'X-API-Key' : field.name === 'param_name' ? 'api_key' : 'Enter value...'}
-            maxLength={255}
-            className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
-          />
+          <select
+            value={authType}
+            onChange={(e) => { setAuthType(e.target.value); setCredentials({}); }}
+            className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
+          >
+            {AUTH_TYPES.map(a => <option key={a.value} value={a.value} className="bg-[#1A1A1A]">{a.label}</option>)}
+          </select>
+
+          {/* Dynamic credential fields based on auth type */}
+          {activeFields.map((field) => (
+            <div key={field.name} className="mt-3">
+              <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
+                {field.label}
+              </label>
+              <input
+                type={field.type === 'password' ? 'password' : 'text'}
+                value={credentials[field.name] || ''}
+                onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                placeholder={field.name === 'header_name' ? 'X-API-Key' : field.name === 'param_name' ? 'api_key' : 'Enter value...'}
+                maxLength={255}
+                className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       {/* Test URL (optional) */}
       <div>
@@ -185,7 +270,7 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
           type="text"
           value={testUrl}
           onChange={(e) => setTestUrl(e.target.value)}
-          placeholder="https://api.bamboohr.com/v1/employees"
+          placeholder="https://api.example.com/v1/health"
           maxLength={500}
           className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
         />

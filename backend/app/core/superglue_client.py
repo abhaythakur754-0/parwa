@@ -786,3 +786,183 @@ async def list_tenant_systems(tenant_id: str) -> List[Dict[str, Any]]:
         return all_systems
     prefix = f"tenant_{tenant_id}__"
     return [s for s in all_systems if s.get("id", "").startswith(prefix)]
+
+
+# ── Superglue Catalog Discovery (for Custom integrations/databases) ─────
+# When a user wants to connect a platform NOT in our curated catalog,
+# we ask Superglue "what auth does this platform need?" and get back
+# the auth type + required fields. This is the "Ask Superglue" flow.
+
+async def discover_auth_schema(platform_name: str, platform_type: str = "integration") -> Dict[str, Any]:
+    """Ask Superglue for the auth schema of a platform.
+
+    Used when a user wants to connect a Custom integration or database
+    that's NOT in our curated POPULAR_SYSTEMS catalog. Instead of making
+    the user manually pick auth type and enter fields, we ask Superglue
+    what the platform needs.
+
+    Args:
+        platform_name: Name of the platform (e.g., "Zoho Inventory", "Paddle", "CockroachDB")
+        platform_type: "integration" or "database" — changes what Superglue looks for
+
+    Returns: {
+        "success": bool,
+        "auth_type": "oauth"|"api_key"|"basic_auth"|"database"|"smtp",
+        "fields": [{"key": str, "label": str, "type": str, "required": bool}],
+        "url_hint": str,  # optional base URL hint
+        "error": str
+    }
+
+    Note: If Superglue doesn't know this platform, we return a fallback
+    schema so the user can still connect manually.
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured", "auth_type": "api_key", "fields": []}
+
+    cfg_url, token = _get_config()
+
+    try:
+        # Ask Superglue to discover the auth schema for this platform
+        # Superglue may have its own catalog or can analyze the platform's API docs
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(
+                f"{cfg_url}/v1/discover/auth-schema",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={
+                    "platform_name": platform_name,
+                    "platform_type": platform_type,
+                },
+            )
+
+        if res.status_code == 200:
+            data = res.json().get("data", res.json())
+            return {
+                "success": True,
+                "auth_type": data.get("auth_type", "api_key"),
+                "fields": data.get("fields", []),
+                "url_hint": data.get("url_hint", ""),
+            }
+
+        # Superglue doesn't know this platform → return fallback
+        if platform_type == "database":
+            return {
+                "success": True,
+                "auth_type": "database",
+                "fields": [
+                    {"key": "host", "label": "Host", "type": "text", "required": True, "placeholder": "localhost"},
+                    {"key": "port", "label": "Port", "type": "text", "required": True, "placeholder": "5432"},
+                    {"key": "database", "label": "Database", "type": "text", "required": True},
+                    {"key": "username", "label": "Username", "type": "text", "required": True},
+                    {"key": "password", "label": "Password", "type": "password", "required": True},
+                ],
+                "url_hint": "",
+            }
+        return {
+            "success": True,
+            "auth_type": "api_key",
+            "fields": [
+                {"key": "base_url", "label": "API Base URL", "type": "text", "required": True, "placeholder": "https://api.example.com"},
+                {"key": "api_key", "label": "API Key / Token", "type": "password", "required": True},
+            ],
+            "url_hint": "",
+        }
+
+    except Exception as exc:
+        logger.warning("superglue_discover_auth_schema error: %s", str(exc)[:200])
+        # Fallback: return generic schema so user can still connect
+        if platform_type == "database":
+            return {
+                "success": True,
+                "auth_type": "database",
+                "fields": [
+                    {"key": "host", "label": "Host", "type": "text", "required": True},
+                    {"key": "port", "label": "Port", "type": "text", "required": True},
+                    {"key": "database", "label": "Database", "type": "text", "required": True},
+                    {"key": "username", "label": "Username", "type": "text", "required": True},
+                    {"key": "password", "label": "Password", "type": "password", "required": True},
+                ],
+                "url_hint": "",
+            }
+        return {
+            "success": True,
+            "auth_type": "api_key",
+            "fields": [
+                {"key": "base_url", "label": "API Base URL", "type": "text", "required": True},
+                {"key": "api_key", "label": "API Key / Token", "type": "password", "required": True},
+            ],
+            "url_hint": "",
+        }
+
+
+async def analyze_db_schema(
+    db_connection_id: str,
+    tenant_id: str,
+    db_type: str,
+    connection_config: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Ask Superglue to analyze a connected database's schema.
+
+    After a database is connected, Superglue's auto.read discovers the
+    tables, columns, types, and relationships. This schema is saved to
+    DBConnection.schema_analysis and used by the 8-node pipeline for
+    ticket solving context.
+
+    Args:
+        db_connection_id: The DBConnection record ID
+        tenant_id: Tenant UUID
+        db_type: Database type (postgresql, mongodb, etc.)
+        connection_config: Connection parameters (host, port, etc.)
+
+    Returns: {
+        "success": bool,
+        "schema": {"tables": [...], "summary": str},
+        "error": str
+    }
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+
+    cfg_url, token = _get_config()
+
+    try:
+        # Call Superglue's auto.read to discover the database schema
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            res = await client.post(
+                f"{cfg_url}/v1/discover/db-schema",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={
+                    "connection_id": namespaced_tool_id(db_connection_id, tenant_id),
+                    "db_type": db_type,
+                    "connection_config": connection_config,
+                },
+            )
+
+        if res.status_code == 200:
+            data = res.json().get("data", res.json())
+            return {"success": True, "schema": data}
+
+        # If Superglue can't analyze, return a basic schema based on DB type
+        return {
+            "success": True,
+            "schema": _fallback_schema(db_type),
+        }
+
+    except Exception as exc:
+        logger.warning("superglue_analyze_db_schema error: %s", str(exc)[:200])
+        return {"success": True, "schema": _fallback_schema(db_type)}
+
+
+def _fallback_schema(db_type: str) -> Dict[str, Any]:
+    """Fallback schema when Superglue can't analyze."""
+    base = {
+        "analyzed_at": datetime.now(timezone.utc).isoformat(),
+        "source": "fallback",
+        "database_type": db_type,
+    }
+    if db_type in ("postgresql", "mysql"):
+        return {**base, "tables": [], "summary": "Relational database. Schema analysis pending — will be discovered by Superglue auto.read."}
+    elif db_type == "mongodb":
+        return {**base, "collections": [], "summary": "Document store. Schema analysis pending — will be discovered by Superglue auto.read."}
+    elif db_type in ("snowflake", "bigquery"):
+        return {**base, "schemas": [], "summary": "Data warehouse. Schema analysis pending — will be discovered by Superglue auto.read."}
+    return {**base, "summary": "Custom database. Schema analysis pending."}

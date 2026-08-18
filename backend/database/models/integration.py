@@ -113,6 +113,9 @@ class DBConnection(Base):
     connection_string_encrypted = Column(Text)  # Fernet-encrypted DB connection string
     is_readonly = Column(Boolean, default=True)
     status = Column(String(50), default="disconnected")
+    # Schema analysis from Superglue auto.read — used by 8-node pipeline
+    # for ticket solving context. JSON: {"tables": [...], "summary": str, "analyzed_at": str}
+    schema_analysis = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

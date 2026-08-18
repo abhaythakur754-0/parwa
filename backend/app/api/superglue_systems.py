@@ -21,6 +21,7 @@ BC-001: All operations scoped to authenticated user's company_id (tenant isolati
 """
 
 import json
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -798,3 +799,90 @@ def _upsert_db_connection(
     db.commit()
     db.refresh(db_conn)
     return db_conn
+
+
+# ── Custom Integration/DB Discovery Endpoints ──────────────────────────
+# These are called by the frontend when a user wants to connect a Custom
+# platform (not in our curated catalog). We ask Superglue for the auth
+# schema and return it so the frontend can render the right form.
+
+class DiscoverAuthRequest(BaseModel):
+    platform_name: str = Field(..., description="Platform name (e.g. 'Zoho Inventory', 'Paddle', 'CockroachDB')")
+    platform_type: str = Field(default="integration", description="'integration' or 'database'")
+
+
+@router.post("/discover-auth")
+async def discover_auth(req: DiscoverAuthRequest, user: User = Depends(get_current_user)):
+    """Ask Superglue for the auth schema of a custom platform.
+
+    When a user types a platform name that's NOT in our curated catalog,
+    we ask Superglue: "What auth does this platform need?" and return
+    the auth type + required fields so the frontend can render the form.
+
+    If Superglue doesn't know the platform, we return a fallback schema.
+    """
+    result = await superglue_client.discover_auth_schema(
+        platform_name=req.platform_name,
+        platform_type=req.platform_type,
+    )
+    return result
+
+
+class AnalyzeDBSchemaRequest(BaseModel):
+    db_connection_id: str = Field(..., description="DBConnection record ID")
+    tenant_id: Optional[str] = Field(default=None, description="Tenant ID (uses auth user if not provided)")
+
+
+@router.post("/db/analyze-schema")
+async def analyze_db_schema(
+    req: AnalyzeDBSchemaRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Analyze a connected database's schema via Superglue auto.read.
+
+    After a database is connected, Superglue discovers the tables, columns,
+    types, and relationships. The schema is saved to DBConnection.schema_analysis
+    and used by the 8-node pipeline for ticket solving context.
+
+    Example: Node 3 (Knowledge Fetch) reads schema_analysis to understand
+    what data is available. Node 4 (Reasoning) uses this to decide which
+    Superglue query tools to call.
+    """
+    tenant_id = req.tenant_id or str(user.company_id)
+
+    # Find the DB connection
+    db_conn = db.query(DBConnection).filter(
+        DBConnection.id == req.db_connection_id,
+        DBConnection.company_id == tenant_id,
+    ).first()
+
+    if not db_conn:
+        raise HTTPException(status_code=404, detail="Database connection not found")
+
+    # Decrypt connection config to pass to Superglue
+    try:
+        from shared.utils.token_encryption import decrypt_token
+        config = json.loads(decrypt_token(db_conn.connection_string_encrypted)) if db_conn.connection_string_encrypted else {}
+    except Exception:
+        config = {}
+
+    # Call Superglue to analyze the schema
+    result = await superglue_client.analyze_db_schema(
+        db_connection_id=req.db_connection_id,
+        tenant_id=tenant_id,
+        db_type=db_conn.db_type,
+        connection_config=config,
+    )
+
+    if result.get("success") and result.get("schema"):
+        # Save the schema analysis to the DB connection record
+        db_conn.schema_analysis = json.dumps(result["schema"])
+        db_conn.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+    return {
+        "success": result.get("success", False),
+        "schema": result.get("schema"),
+        "error": result.get("error"),
+    }
