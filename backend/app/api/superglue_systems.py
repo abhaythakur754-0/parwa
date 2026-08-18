@@ -41,34 +41,88 @@ router = APIRouter(prefix="/api/superglue", tags=["superglue-systems"])
 # ── Curated catalog (replaces Nango's 6-provider list) ────────────────
 # These are popular systems PARWA customers commonly connect. Users can
 # also connect ANY custom system via the POST endpoint with a custom URL.
+#
+# Auth types:
+#   "oauth"    → Show "Connect with X" button (Superglue handles OAuth redirect)
+#   "api_key"  → Show URL + API Key form (+ optional extra_fields per system)
+#   "database" → Show host/port/db/user/pass form (+ optional extra_fields for Snowflake/BigQuery)
+#   "smtp"     → Show SMTP form (host + port + user + pass for custom email)
+#
+# auth_schema: list of extra fields to show BEFORE the standard API Key field.
+#   Each field: {"key": "field_name", "label": "Label", "type": "text|email|password", "required": bool, "placeholder": "..."}
 
 POPULAR_SYSTEMS: List[Dict[str, Any]] = [
-    # ── APIs (connect via URL + API key) ──
-    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",   "type": "api"},
-    {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email",         "type": "api"},
-    {"id": "slack",        "name": "Slack",             "icon": "💬", "url_hint": "https://slack.com/api",          "category": "Communication", "type": "api"},
-    {"id": "hubspot",      "name": "HubSpot",           "icon": "🎯", "url_hint": "https://api.hubapi.com",         "category": "CRM",           "type": "api"},
-    {"id": "zendesk",      "name": "Zendesk",           "icon": "🎫", "url_hint": "https://{subdomain}.zendesk.com/api/v2", "category": "Helpdesk", "type": "api"},
-    {"id": "stripe",       "name": "Stripe",            "icon": "💳", "url_hint": "https://api.stripe.com",         "category": "Payments",      "type": "api"},
-    {"id": "razorpay",     "name": "Razorpay",          "icon": "💰", "url_hint": "https://api.razorpay.com",       "category": "Payments",      "type": "api"},
-    {"id": "github",       "name": "GitHub",            "icon": "🔧", "url_hint": "https://api.github.com",         "category": "Dev Tools",     "type": "api"},
-    {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity",  "type": "api"},
-    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "type": "api"},
-    {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics", "type": "api"},
-    # ── Databases (connect via host/port/credentials — Superglue auto-reads schema) ──
-    {"id": "postgres",     "name": "PostgreSQL Database","icon": "🗄️", "url_hint": "", "category": "Database",          "type": "database", "db_type": "postgresql"},
-    {"id": "mysql",        "name": "MySQL Database",     "icon": "🗄️", "url_hint": "", "category": "Database",          "type": "database", "db_type": "mysql"},
-    {"id": "mongodb",      "name": "MongoDB",            "icon": "🍃", "url_hint": "", "category": "Database",          "type": "database", "db_type": "mongodb"},
-    {"id": "snowflake",    "name": "Snowflake Warehouse","icon": "❄️", "url_hint": "", "category": "Data Warehouse",    "type": "database", "db_type": "snowflake"},
-    {"id": "bigquery",     "name": "BigQuery",           "icon": "📊", "url_hint": "", "category": "Data Warehouse",    "type": "database", "db_type": "bigquery"},
-    {"id": "supabase-db",  "name": "Supabase Database",  "icon": "⚡", "url_hint": "", "category": "Database",          "type": "database", "db_type": "postgresql"},
-    # ── Custom (user-defined) ──
-    {"id": "custom",       "name": "Custom System",      "icon": "🔌", "url_hint": "", "category": "Custom",            "type": "api"},
+    # ── CRM (OAuth + API key mix) ──
+    {"id": "hubspot",      "name": "HubSpot",           "icon": "🎯", "url_hint": "https://api.hubapi.com",         "category": "CRM",           "auth_type": "oauth"},
+    {"id": "salesforce",   "name": "Salesforce",        "icon": "☁️", "url_hint": "https://login.salesforce.com",   "category": "CRM",           "auth_type": "oauth"},
+    {"id": "zendesk",      "name": "Zendesk",           "icon": "🎫", "url_hint": "https://{subdomain}.zendesk.com/api/v2", "category": "Helpdesk", "auth_type": "api_key",
+     "auth_schema": [
+         {"key": "subdomain", "label": "Subdomain", "type": "text", "required": True, "placeholder": "mycompany"},
+         {"key": "email", "label": "Email", "type": "email", "required": True, "placeholder": "admin@company.com"},
+     ]},
+    {"id": "freshdesk",    "name": "Freshdesk",         "icon": "🎫", "url_hint": "https://{domain}.freshdesk.com/api/v2", "category": "Helpdesk", "auth_type": "api_key",
+     "auth_schema": [
+         {"key": "domain", "label": "Domain", "type": "text", "required": True, "placeholder": "mycompany.freshdesk.com"},
+     ]},
+    {"id": "zoho",         "name": "Zoho CRM",          "icon": "🏢", "url_hint": "https://www.zohoapis.com/crm/v2", "category": "CRM",        "auth_type": "oauth"},
+    {"id": "pipedrive",    "name": "Pipedrive",         "icon": "🔄", "url_hint": "https://api.pipedrive.com",      "category": "CRM",           "auth_type": "api_key"},
+
+    # ── E-commerce ──
+    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",    "auth_type": "oauth"},
+
+    # ── Email (OAuth + API key + SMTP mix) ──
+    {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email",         "auth_type": "oauth"},
+    {"id": "brevo",        "name": "Brevo",             "icon": "📧", "url_hint": "https://api.brevo.com",          "category": "Email",         "auth_type": "api_key"},
+    {"id": "sendgrid",     "name": "SendGrid",          "icon": "📧", "url_hint": "https://api.sendgrid.com",       "category": "Email",         "auth_type": "api_key"},
+    {"id": "custom-smtp",  "name": "Custom SMTP",       "icon": "✉️", "url_hint": "",                               "category": "Email",         "auth_type": "smtp"},
+
+    # ── Payments ──
+    {"id": "stripe",       "name": "Stripe",            "icon": "💳", "url_hint": "https://api.stripe.com",         "category": "Payments",      "auth_type": "api_key"},
+    {"id": "razorpay",     "name": "Razorpay",          "icon": "💰", "url_hint": "https://api.razorpay.com",       "category": "Payments",      "auth_type": "api_key",
+     "auth_schema": [
+         {"key": "key_id", "label": "Key ID", "type": "text", "required": True, "placeholder": "rzp_live_xxx"},
+     ]},
+    {"id": "paypal",       "name": "PayPal",            "icon": "💳", "url_hint": "https://api.paypal.com",         "category": "Payments",      "auth_type": "oauth"},
+
+    # ── Communication ──
+    {"id": "slack",        "name": "Slack",             "icon": "💬", "url_hint": "https://slack.com/api",          "category": "Communication", "auth_type": "oauth"},
+    {"id": "twilio",       "name": "Twilio",            "icon": "📱", "url_hint": "https://api.twilio.com",         "category": "Communication", "auth_type": "api_key",
+     "auth_schema": [
+         {"key": "account_sid", "label": "Account SID", "type": "text", "required": True, "placeholder": "ACxxx"},
+     ]},
+
+    # ── Dev Tools / Productivity ──
+    {"id": "github",       "name": "GitHub",            "icon": "🐙", "url_hint": "https://api.github.com",         "category": "Dev Tools",     "auth_type": "oauth"},
+    {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity",  "auth_type": "oauth"},
+    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "auth_type": "oauth"},
+    {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics", "auth_type": "oauth"},
+
+    # ── Databases (standard host/port form) ──
+    {"id": "postgres",     "name": "PostgreSQL",        "icon": "🗄️", "url_hint": "", "category": "Database",       "auth_type": "database", "db_type": "postgresql"},
+    {"id": "mysql",        "name": "MySQL",             "icon": "🗄️", "url_hint": "", "category": "Database",       "auth_type": "database", "db_type": "mysql"},
+    {"id": "mongodb",      "name": "MongoDB",           "icon": "🍃", "url_hint": "", "category": "Database",       "auth_type": "database", "db_type": "mongodb"},
+    {"id": "supabase-db",  "name": "Supabase Database", "icon": "⚡", "url_hint": "", "category": "Database",       "auth_type": "database", "db_type": "postgresql"},
+
+    # ── Data Warehouses (database form + extra fields) ──
+    {"id": "snowflake",    "name": "Snowflake",         "icon": "❄️", "url_hint": "", "category": "Data Warehouse", "auth_type": "database", "db_type": "snowflake",
+     "auth_schema": [
+         {"key": "account", "label": "Account", "type": "text", "required": True, "placeholder": "xy12345.us-east-1"},
+         {"key": "warehouse", "label": "Warehouse", "type": "text", "required": True, "placeholder": "COMPUTE_WH"},
+         {"key": "schema", "label": "Schema", "type": "text", "required": False, "placeholder": "PUBLIC"},
+     ]},
+    {"id": "bigquery",     "name": "BigQuery",          "icon": "📊", "url_hint": "", "category": "Data Warehouse", "auth_type": "database", "db_type": "bigquery",
+     "auth_schema": [
+         {"key": "project_id", "label": "Project ID", "type": "text", "required": True, "placeholder": "my-gcp-project"},
+         {"key": "credentials_json", "label": "Service Account JSON", "type": "textarea", "required": True, "placeholder": "{...}"},
+     ]},
+
+    # ── Custom (user-defined — works for ANY system) ──
+    {"id": "custom",       "name": "Custom System",      "icon": "🔌", "url_hint": "", "category": "Custom",        "auth_type": "api_key"},
 ]
 
 # Systems that are CRM-type — these get an MCPConnection record so the
 # 8-node pipeline can access them on every ticket.
-CRM_SYSTEM_IDS = {"hubspot", "zendesk", "salesforce", "custom"}
+CRM_SYSTEM_IDS = {"hubspot", "zendesk", "salesforce", "freshdesk", "zoho", "pipedrive", "custom"}
 
 # Systems that are database-type — these get a DBConnection record +
 # Superglue auto-reads the schema + generates query tools.

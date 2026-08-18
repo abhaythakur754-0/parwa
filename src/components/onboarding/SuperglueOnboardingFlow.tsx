@@ -79,11 +79,32 @@ interface BuildStatus {
 }
 
 // ── CRM options (only CRM types shown in Phase 1) ────────────────────
+// auth_type: "oauth" = show Connect button, "api_key" = show form fields
+// auth_schema: extra fields per system (rendered before standard API Key field)
 
-const CRM_OPTIONS: CRMType[] = [
-  { id: 'hubspot',   name: 'HubSpot',      icon: '🎯', url_hint: 'https://api.hubapi.com' },
-  { id: 'zendesk',   name: 'Zendesk',      icon: '🎫', url_hint: 'https://{subdomain}.zendesk.com/api/v2' },
-  { id: 'custom',    name: 'Custom CRM',   icon: '🔌', url_hint: '' },
+interface AuthSchemaField {
+  key: string;
+  label: string;
+  type: 'text' | 'email' | 'password' | 'textarea';
+  required?: boolean;
+  placeholder?: string;
+}
+
+const CRM_OPTIONS: (CRMType & { auth_type?: string; auth_schema?: AuthSchemaField[] })[] = [
+  { id: 'hubspot',    name: 'HubSpot',      icon: '🎯', url_hint: 'https://api.hubapi.com',  auth_type: 'oauth' },
+  { id: 'salesforce',  name: 'Salesforce',   icon: '☁️', url_hint: 'https://login.salesforce.com', auth_type: 'oauth' },
+  { id: 'zendesk',    name: 'Zendesk',      icon: '🎫', url_hint: 'https://{subdomain}.zendesk.com/api/v2', auth_type: 'api_key',
+    auth_schema: [
+      { key: 'subdomain', label: 'Subdomain', type: 'text', required: true, placeholder: 'mycompany' },
+      { key: 'email', label: 'Email', type: 'email', required: true, placeholder: 'admin@company.com' },
+    ]},
+  { id: 'freshdesk',  name: 'Freshdesk',    icon: '🎫', url_hint: 'https://{domain}.freshdesk.com/api/v2', auth_type: 'api_key',
+    auth_schema: [
+      { key: 'domain', label: 'Domain', type: 'text', required: true, placeholder: 'mycompany.freshdesk.com' },
+    ]},
+  { id: 'zoho',       name: 'Zoho CRM',     icon: '🏢', url_hint: 'https://www.zohoapis.com/crm/v2', auth_type: 'oauth' },
+  { id: 'pipedrive',  name: 'Pipedrive',    icon: '🔄', url_hint: 'https://api.pipedrive.com', auth_type: 'api_key' },
+  { id: 'custom',     name: 'Custom CRM',   icon: '🔌', url_hint: '', auth_type: 'api_key' },
 ];
 
 // ── Component ────────────────────────────────────────────────────────
@@ -95,6 +116,8 @@ export function SuperglueOnboardingFlow() {
   const [formName, setFormName] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formApiKey, setFormApiKey] = useState('');
+  // Dynamic auth schema fields (keyed by field key from auth_schema)
+  const [formExtraFields, setFormExtraFields] = useState<Record<string, string>>({});
   // Database-specific form fields
   const [formDbType, setFormDbType] = useState('postgresql');
   const [formDbHost, setFormDbHost] = useState('');
@@ -115,20 +138,48 @@ export function SuperglueOnboardingFlow() {
   const [allTested, setAllTested] = useState(false);
 
   // ── Phase 1: Open CRM connect form ────────────────────────────────
-  const openCRMForm = (crm: CRMType) => {
+  const openCRMForm = (crm: any) => {
     setSelectedCRM(crm);
     setFormName(crm.name === 'Custom CRM' ? '' : crm.name);
     setFormUrl(crm.url_hint || '');
     setFormApiKey('');
+    setFormExtraFields({});
+    // For OAuth-type CRMs, skip the form and start OAuth flow
+    if (crm.auth_type === 'oauth') {
+      // Superglue handles OAuth redirect — for now show a simplified connect
+      setFormOpen(true);
+      return;
+    }
     setFormOpen(true);
   };
 
   // ── Phase 1: Connect CRM to Superglue ─────────────────────────────
   const handleConnectCRM = async () => {
-    if (!selectedCRM || !formName.trim() || !formUrl.trim()) {
-      toast.error('Name and URL are required');
+    if (!selectedCRM || !formName.trim()) {
+      toast.error('Name is required');
       return;
     }
+    // Build credentials from auth_schema fields + API key
+    const crmAny = selectedCRM as any;
+    const credentials: Record<string, string> = {};
+    // Add auth_schema fields first (subdomain, email, domain, etc.)
+    if (crmAny.auth_schema) {
+      for (const field of crmAny.auth_schema) {
+        if (formExtraFields[field.key]?.trim()) {
+          credentials[field.key] = formExtraFields[field.key].trim();
+        }
+      }
+    }
+    // Add API key (mapped to correct key per provider)
+    if (formApiKey.trim()) {
+      // HubSpot uses access_token, others use api_key
+      if (selectedCRM.id === 'hubspot') {
+        credentials.access_token = formApiKey.trim();
+      } else {
+        credentials.api_key = formApiKey.trim();
+      }
+    }
+    // For OAuth-type with no manual credentials, just send empty
     setConnecting(true);
     try {
       const res = await fetch('/api/superglue/systems', {
@@ -138,7 +189,7 @@ export function SuperglueOnboardingFlow() {
           system_id: selectedCRM.id,
           name: formName.trim(),
           url: formUrl.trim(),
-          credentials: formApiKey.trim() ? { api_key: formApiKey.trim() } : {},
+          credentials,
           icon: selectedCRM.icon,
           metadata: { is_crm: true },
         }),
@@ -943,8 +994,27 @@ export function SuperglueOnboardingFlow() {
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
                     />
                   </div>
+                  {/* Dynamic auth_schema fields (subdomain, email, domain, account_sid, etc.) */}
+                  {(selectedCRM as any)?.auth_schema?.map((field: AuthSchemaField) => (
+                    <div key={field.key}>
+                      <label className="block text-xs text-zinc-400 mb-1">
+                        {field.label}{field.required ? ' *' : ''}
+                      </label>
+                      <input
+                        type={field.type === 'password' ? 'password' : 'text'}
+                        value={formExtraFields[field.key] || ''}
+                        onChange={(e) => setFormExtraFields(prev => ({...prev, [field.key]: e.target.value}))}
+                        placeholder={field.placeholder || ''}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                      />
+                    </div>
+                  ))}
+                  {/* API Key field — only show for api_key auth type (not OAuth) */}
+                  {((selectedCRM as any)?.auth_type !== 'oauth') && (
                   <div>
-                    <label className="block text-xs text-zinc-400 mb-1">API Key / Token</label>
+                    <label className="block text-xs text-zinc-400 mb-1">
+                      API Key / Token{(selectedCRM as any)?.auth_type === 'api_key' ? ' *' : ''}
+                    </label>
                     <input
                       type="password"
                       value={formApiKey}
@@ -954,6 +1024,20 @@ export function SuperglueOnboardingFlow() {
                     />
                     <p className="text-[10px] text-zinc-600 mt-1">Stored securely in Superglue + encrypted in MCP registry.</p>
                   </div>
+                  )}
+                  {/* OAuth connect button — only for OAuth auth type */}
+                  {((selectedCRM as any)?.auth_type === 'oauth') && (
+                  <div>
+                    <button
+                      onClick={handleConnectCRM}
+                      disabled={connecting || !formName.trim()}
+                      className="w-full px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium disabled:opacity-50 transition"
+                    >
+                      {connecting ? 'Connecting...' : `Connect with ${selectedCRM.name}`}
+                    </button>
+                    <p className="text-[10px] text-zinc-600 mt-1">You'll be redirected to authorize via {selectedCRM.name}. Token stored securely in Superglue.</p>
+                  </div>
+                  )}
                 </>
               )}
             </div>
