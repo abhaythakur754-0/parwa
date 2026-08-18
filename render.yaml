@@ -93,10 +93,6 @@ services:
       - key: LLM_PROVIDER
         value: "litellm"
       - key: PARWA_SKIP_GLM
-      - key: NANGO_SECRET_KEY
-        sync: false
-      - key: NANGO_HOST
-        value: "https://api.nango.dev"
         value: "1"
     healthCheckPath: /health
 
