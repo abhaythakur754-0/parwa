@@ -122,17 +122,27 @@ def _claim_next_ticket():
         
         db = SessionLocal()
         try:
-            # ── Priority-based queue: process HIGH priority first ──
-            # Priority order: critical > high > medium > low
-            # Within same priority: oldest first (updated_at ASC)
-            # This ensures urgent tickets (refunds, account locked) are
-            # processed before low-priority ones (invoice requests, FAQs)
+            # ── Channel + Priority queue: live channels first, then by priority ──
+            # Channel order: phone(0) > chat(1) > web_widget(1) > sms(2) > email(3) > social(4)
+            # Priority order: critical(1) > high(2) > medium(3) > low(4)
+            # Within same channel+priority: oldest first (updated_at ASC)
+            # This ensures live customers (chat/phone) are served before async (email),
+            # because a chat customer will leave in 30s while email can wait hours.
             result = db.execute(text(
                 "UPDATE tickets SET status = 'processing', updated_at = NOW() "
                 "WHERE id = ("
                 "  SELECT id FROM tickets "
                 "  WHERE status = 'open' "
                 "  ORDER BY "
+                "    CASE channel "
+                "      WHEN 'phone' THEN 0 "
+                "      WHEN 'chat' THEN 1 "
+                "      WHEN 'web_widget' THEN 1 "
+                "      WHEN 'sms' THEN 2 "
+                "      WHEN 'email' THEN 3 "
+                "      WHEN 'social' THEN 4 "
+                "      ELSE 5 "
+                "    END, "
                 "    CASE priority "
                 "      WHEN 'critical' THEN 1 "
                 "      WHEN 'high' THEN 2 "
