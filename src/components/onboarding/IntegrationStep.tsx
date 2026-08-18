@@ -17,7 +17,7 @@ import {
   type AuthField,
 } from '@/lib/integration-catalog';
 import { CustomIntegrationForm } from './CustomIntegrationForm';
-import { NangoIntegrationsSection } from '@/components/integrations/NangoConnectButton';
+import { SuperglueOnboardingFlow } from './SuperglueOnboardingFlow';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -421,16 +421,16 @@ export function IntegrationStep({ onNext, industry, hideNextButton = false }: In
         );
       })()}
 
-      {/* OAuth Integrations (Nango) */}
+      {/* Superglue 3-Phase Onboarding Flow (CRM → Analyze → Recommendations) */}
       <div className="mb-6 rounded-xl border border-violet-500/10 bg-white/[0.01] p-4">
         <h3 className="text-xs font-medium text-violet-300 mb-3 flex items-center gap-2">
           <span className="text-violet-400">⚡</span>
-          Secure OAuth Integrations
+          Connect Your Integrations
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20">
-            One-click connect
+            Guided Setup
           </span>
         </h3>
-        <NangoIntegrationsSection userId={userId} />
+        <SuperglueOnboardingFlow />
       </div>
 
       {/* API Key Integrations Header */}

@@ -644,3 +644,145 @@ async def get_available_tools_description() -> str:
             lines.append(f"- {tool_id} — {name}\n    inputs:\n      {params}")
 
     return "Available Superglue tools (each is a multi-step workflow — pick ONE that matches the customer's intent):\n" + "\n".join(lines)
+
+
+# ── System (connection) management ────────────────────────────────────
+# These functions manage "systems" in Superglue = connected external apps
+# (Shopify, Gmail, Slack, etc.). Used by onboarding Step 2 to let users
+# connect their apps via Superglue instead of the removed Nango layer.
+#
+# Superglue /v1/systems API (verified live 2026-08-18):
+#   POST   /v1/systems          → create (requires id, name, url)
+#   GET    /v1/systems          → list all
+#   GET    /v1/systems/{id}     → get one (404 if not found)
+#   DELETE /v1/systems/{id}     → delete (200)
+#
+# Per-tenant isolation: system IDs are namespaced as
+#   tenant_{company_id}__{system_id}
+# so Tenant A cannot see/call Tenant B's connected systems.
+
+
+async def create_system(
+    system_id: str,
+    name: str,
+    url: str,
+    tenant_id: Optional[str] = None,
+    credentials: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    icon: str = "",
+    specific_instructions: str = "",
+) -> Dict[str, Any]:
+    """Create a system (connected app) in Superglue.
+
+    Args:
+        system_id: Raw system ID (e.g. "shopify-store"). Will be namespaced.
+        name: Human-readable name (e.g. "My Shopify Store").
+        url: Base URL of the external system (e.g. "https://mystore.myshopify.com").
+        tenant_id: Tenant UUID for namespacing. Strongly recommended.
+        credentials: Optional auth credentials (api_key, oauth_token, etc.).
+        metadata: Optional freeform metadata.
+        icon: Optional emoji/icon string.
+        specific_instructions: Optional notes for Superglue's LLM.
+
+    Returns: {"success": bool, "data": {...}, "error": str?}
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+
+    cfg_url, token = _get_config()
+    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
+
+    payload: Dict[str, Any] = {
+        "id": actual_id,
+        "name": name,
+        "url": url,
+        "icon": icon,
+        "specificInstructions": specific_instructions,
+        "credentials": credentials or {},
+        "metadata": metadata or {},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            res = await client.post(
+                f"{cfg_url}/v1/systems",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json=payload,
+            )
+        if res.status_code in (200, 201):
+            data = res.json()
+            return {"success": True, "data": data.get("data", data)}
+        return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
+    except Exception as exc:
+        logger.warning("superglue_create_system error: %s", str(exc)[:200])
+        return {"success": False, "error": str(exc)[:200]}
+
+
+async def get_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
+    """Get a single system from Superglue.
+
+    Returns: {"success": bool, "data": {...}, "error": str?}
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+
+    cfg_url, token = _get_config()
+    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.get(
+                f"{cfg_url}/v1/systems/{actual_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if res.status_code == 200:
+            data = res.json()
+            return {"success": True, "data": data.get("data", data)}
+        if res.status_code == 404:
+            return {"success": False, "error": "System not found"}
+        return {"success": False, "error": f"HTTP {res.status_code}"}
+    except Exception as exc:
+        logger.warning("superglue_get_system error: %s", str(exc)[:200])
+        return {"success": False, "error": str(exc)[:200]}
+
+
+async def delete_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
+    """Delete a system from Superglue (disconnect the app).
+
+    Returns: {"success": bool, "error": str?}
+    """
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+
+    cfg_url, token = _get_config()
+    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.delete(
+                f"{cfg_url}/v1/systems/{actual_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if res.status_code in (200, 204):
+            return {"success": True}
+        if res.status_code == 404:
+            return {"success": False, "error": "System not found"}
+        return {"success": False, "error": f"HTTP {res.status_code}"}
+    except Exception as exc:
+        logger.warning("superglue_delete_system error: %s", str(exc)[:200])
+        return {"success": False, "error": str(exc)[:200]}
+
+
+async def list_tenant_systems(tenant_id: str) -> List[Dict[str, Any]]:
+    """List all systems belonging to a specific tenant.
+
+    Filters the global system list by the tenant's namespace prefix
+    (tenant_{tenant_id}__) so each tenant only sees their own connections.
+
+    Returns: list of system dicts (empty list on error).
+    """
+    all_systems = await list_systems()
+    if not tenant_id:
+        return all_systems
+    prefix = f"tenant_{tenant_id}__"
+    return [s for s in all_systems if s.get("id", "").startswith(prefix)]

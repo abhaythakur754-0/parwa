@@ -20,7 +20,6 @@ Architecture
 - KnownIssueDetectorTool   — known bug database search (Day 3)
 - ConfigValidatorTool      — customer configuration validation (Day 3)
 - DiagnosticChainTool      — sequential diagnostic chains, High tier only (Day 3)
-- NangoTool               — OAuth integrations (Gmail, Slack, GitHub, Notion) via Nango
 
 GAP-004: Every execute() call is wrapped in asyncio.wait_for(timeout=10)
          and limited by asyncio.Semaphore(5). MAX_RETRIES=1.
@@ -55,7 +54,6 @@ from .service_health_checker import ServiceHealthCheckerTool
 from .known_issue_detector import KnownIssueDetectorTool
 from .config_validator import ConfigValidatorTool
 from .diagnostic_chain import DiagnosticChainTool
-from .nango_tool import NangoTool
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +227,6 @@ class ReActToolRegistry:
         await self.register_tool(BillingTool())
         await self.register_tool(CRMTool())
         await self.register_tool(TicketTool())
-        await self.register_tool(NangoTool())
 
         # Day 3 Diagnostic Tools — Pro tier and above
         if variant_tier in ("parwa", "parwa_high"):
@@ -261,7 +258,6 @@ class ReActToolRegistry:
         self.register_tool_sync(BillingTool())
         self.register_tool_sync(CRMTool())
         self.register_tool_sync(TicketTool())
-        self.register_tool_sync(NangoTool())
 
         # Day 3 Diagnostic Tools — Pro tier and above
         if variant_tier in ("parwa", "parwa_high"):
@@ -305,8 +301,6 @@ __all__ = [
     "KnownIssueDetectorTool",
     "ConfigValidatorTool",
     "DiagnosticChainTool",
-    # OAuth integration tool
-    "NangoTool",
     # Singleton
     "default_registry",
 ]

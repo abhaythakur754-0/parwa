@@ -1208,18 +1208,48 @@ async def api_analyze_integrations(
         company_name=getattr(user, "company_name", "Unknown"),
     )
 
+    # Build the response
+    recommendations = [
+        {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
+        for name in result.get("integrations", [])
+    ]
+    data_profile = {"total_tickets": result.get("tickets_scanned", 0)}
+    analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
+
+    # ── Save to CRMAnalysisResult table (persists across logins) ──
+    # Stores the full analysis so the user can see their recommendations
+    # on the dashboard later, not just during onboarding.
+    try:
+        from database.models.crm_analysis import CRMAnalysisResult
+        analysis_record = CRMAnalysisResult(
+            company_id=str(user.company_id),
+            data_profile=data_profile,
+            connected_integrations=[],
+            detected_gaps=[],
+            recommendations=recommendations,
+            analysis_summary=analysis_summary,
+            is_actioned=False,
+            recommendations_accepted=[],
+        )
+        db.add(analysis_record)
+        db.commit()
+    except Exception as exc:
+        # Don't fail the whole request if DB save fails — the analysis
+        # result is still returned to the frontend.
+        import logging
+        logging.getLogger("parwa.integrations").warning(
+            "Failed to save CRMAnalysisResult: %s", str(exc)[:200]
+        )
+
     # Convert to response format
     return AnalyzeIntegrationsResponse(
         company_id=str(user.company_id),
         analyzed_at=datetime.now(timezone.utc).isoformat(),
         connected_integrations=[],
-        data_profile={"total_tickets": result.get("tickets_scanned", 0)},
+        data_profile=data_profile,
         detected_gaps=[],
-        recommendations=[
-            {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
-            for name in result.get("integrations", [])
-        ],
-        analysis_summary=result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed.",
+        recommendations=recommendations,
+        analysis_summary=analysis_summary,
     )
 
 

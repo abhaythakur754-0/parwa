@@ -68,6 +68,8 @@ from app.api.jarvis_queue import router as jarvis_queue_router
 from app.api.jarvis_cc import router as jarvis_cc_router
 from app.api.onboarding import router as onboarding_router
 from app.api.integrations import router as integrations_router
+from app.api.superglue_systems import router as superglue_systems_router  # Superglue system connections (replaces Nango)
+from app.api.onboarding_build import router as onboarding_build_router  # Onboarding agent+tool build orchestrator
 from app.api.crm_actions import router as crm_actions_router  # CRM action endpoints (called by MCP crm_server)
 from app.api.ecommerce_actions import router as ecommerce_actions_router  # E-commerce action endpoints (called by MCP ecommerce_server)
 from app.api.carrier_actions import router as carrier_actions_router  # Carrier action endpoints (called by MCP carrier_server)
@@ -1292,6 +1294,8 @@ app.include_router(jarvis_queue_router)  # DB-backed Jarvis queue
 app.include_router(jarvis_cc_router)  # Phase 2+: Jarvis Customer Care (awareness + commands)
 app.include_router(onboarding_router)  # Week 6: Onboarding wizard (F-028 to F-035)
 app.include_router(integrations_router)  # Week 6: Integration management (F-030/F-031)
+app.include_router(superglue_systems_router)  # Superglue system connections (replaces Nango)
+app.include_router(onboarding_build_router)  # Onboarding agent+tool build orchestrator
 app.include_router(crm_actions_router)  # CRM action endpoints (called by MCP crm_server)
 app.include_router(ecommerce_actions_router)  # E-commerce action endpoints (called by MCP ecommerce_server)
 app.include_router(carrier_actions_router)  # Carrier action endpoints (called by MCP carrier_server)
