@@ -113,3 +113,6 @@ from database.models.langgraph_dlq import (  # noqa: F401
 from database.models.crm_analysis import (  # noqa: F401
     CRMAnalysisResult,
 )
+from database.models.superglue_action_safety import (  # noqa: F401
+    SuperglueActionSafety,
+)

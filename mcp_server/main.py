@@ -89,6 +89,7 @@ from mcp_server.tools.monitoring_server import monitoring_server
 from mcp_server.tools.notification_server import notification_server
 from mcp_server.tools.compliance_server import compliance_server
 from mcp_server.tools.sla_server import sla_server
+from mcp_server.integrations.superglue_adapter_server import superglue_adapter_server
 
 # ── All sub-servers to register at startup ─────────────────────
 ALL_SUB_SERVERS: list[MCPServerBase] = [
@@ -111,6 +112,8 @@ ALL_SUB_SERVERS: list[MCPServerBase] = [
     notification_server,
     compliance_server,
     sla_server,
+    # Superglue Universal Adapter
+    superglue_adapter_server,
 ]
 
 
@@ -546,6 +549,7 @@ app.include_router(monitoring_server.get_router())
 app.include_router(notification_server.get_router())
 app.include_router(compliance_server.get_router())
 app.include_router(sla_server.get_router())
+app.include_router(superglue_adapter_server.get_router())
 
 
 # ═══════════════════════════════════════════════════════════════════
