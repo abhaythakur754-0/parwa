@@ -463,26 +463,44 @@ THOUGHT:"""
                                         state.get("ticket_id",""), action, tenant_id
                                     )
 
-                            # If approval was required, result is undefined — skip the success check
-                            # (observation is already set above, tool_executed = pending_approval:...)
-                            if not state.get("pending_approval") and result.get("success"):
-                                observation = (
-                                    f"ACTION EXECUTED via agent '{_agent.agent_name}' "
-                                    f"Superglue tool '{_tool_id}': "
-                                    f"{str(result.get('data', ''))[:300]}"
-                                )
-                                tool_executed = f"agent:{routed_agent_id}:superglue:{_tool_id}"
-                                logs.append(
-                                    f"node5: agent-aware tool call succeeded "
-                                    f"(tool={_tool_id}, steps={len(result.get('step_results', []))})"
-                                )
-                            else:
-                                observation = (
-                                    f"Agent tool '{_tool_id}' failed: "
-                                    f"{result.get('error', 'unknown')}. Falling back to LLM selection."
-                                )
-                                tool_executed = None
-                                logs.append(f"node5: agent tool failed, falling back: {result.get('error', '')[:100]}")
+                            # If approval was required by agent config, observation is already set — skip result check
+                            # If safety gate blocked or requires approval, handle specially
+                            if not state.get("pending_approval"):
+                                if result.get("guardrail_blocked"):
+                                    observation = (
+                                        f"ACTION BLOCKED by safety guardrails: {result.get('error', '')}. "
+                                        f"Agent '{_agent.agent_name}' tool '{_tool_id}' not executed."
+                                    )
+                                    tool_executed = f"agent:{routed_agent_id}:superglue:{_tool_id} (guardrail_blocked)"
+                                    logs.append(f"node5: safety gate blocked agent tool={_tool_id}: {result.get('error', '')[:100]}")
+                                elif result.get("safety_approval_required"):
+                                    import json as _json_sg
+                                    state["pending_approval"] = True
+                                    state["pending_approval_reason"] = f"Safety gate: {result.get('error', '')}. Agent={_agent.agent_name}, Tool={_tool_id}"
+                                    state["pending_approval_tool_input"] = _json_sg.dumps(_tool_input) if isinstance(_tool_input, dict) else str(_tool_input)
+                                    state["pending_approval_agent_id"] = routed_agent_id
+                                    state["pending_approval_tool_id"] = _tool_id
+                                    observation = f"APPROVAL_REQUIRED: Safety gate classified tool '{_tool_id}' as {result.get('safety_level', 'unknown')}. Ticket moved to Pending Approval queue."
+                                    tool_executed = f"pending_approval:agent:{routed_agent_id}:superglue:{_tool_id}"
+                                    logs.append(f"node5: safety gate triggered approval for agent tool={_tool_id} level={result.get('safety_level', '')}")
+                                elif result.get("success"):
+                                    observation = (
+                                        f"ACTION EXECUTED via agent '{_agent.agent_name}' "
+                                        f"Superglue tool '{_tool_id}': "
+                                        f"{str(result.get('data', ''))[:300]}"
+                                    )
+                                    tool_executed = f"agent:{routed_agent_id}:superglue:{_tool_id}"
+                                    logs.append(
+                                        f"node5: agent-aware tool call succeeded "
+                                        f"(tool={_tool_id}, steps={len(result.get('step_results', []))})"
+                                    )
+                                else:
+                                    observation = (
+                                        f"Agent tool '{_tool_id}' failed: "
+                                        f"{result.get('error', 'unknown')}. Falling back to LLM selection."
+                                    )
+                                    tool_executed = None
+                                    logs.append(f"node5: agent tool failed, falling back: {result.get('error', '')[:100]}")
                     finally:
                         _db.close()
                 except Exception as agent_exc:
@@ -530,16 +548,51 @@ If no tool matches, respond with:
                     tool_id = decision.get("tool_id", "none")
 
                     if tool_id and tool_id != "none":
-                        # Step 3: Execute the tool via Superglue
+                        # Step 3: Run Action Safety Gate before execution
                         tool_input = decision.get("input", {})
-                        result = await execute_tool(tool_id, tool_input)
+                        variant_tier = state.get("variant_tier", "parwa")
+                        safety_gate = _run_action_safety_gate(
+                            tool_id, action, tool_input, tenant_id, variant_tier)
 
-                        if result.get("success"):
-                            observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
-                            tool_executed = f"superglue:{tool_id}"
+                        if safety_gate["blocked"]:
+                            # Guardrail blocked — do not execute
+                            observation = (
+                                f"ACTION BLOCKED by safety guardrails: {safety_gate['reason']}. "
+                                f"Tool '{tool_id}' not executed."
+                            )
+                            tool_executed = f"superglue:{tool_id} (guardrail_blocked)"
+                            logs.append(f"node5: safety gate blocked tool={tool_id}: {safety_gate['reason'][:100]}")
+                        elif safety_gate["needs_approval"]:
+                            # Safety classifier says FINANCIAL/DESTRUCTIVE → approval queue
+                            import json as _json_approval
+                            state["pending_approval"] = True
+                            state["pending_approval_reason"] = (
+                                f"Safety gate: {safety_gate['reason']}. Tool={tool_id}"
+                            )
+                            state["pending_approval_tool_input"] = _json_approval.dumps(tool_input)
+                            state["pending_approval_agent_id"] = None
+                            state["pending_approval_tool_id"] = tool_id
+                            observation = (
+                                f"APPROVAL_REQUIRED: Safety gate classified tool '{tool_id}' as "
+                                f"{safety_gate['safety_level']}. Reason: {safety_gate['reason']}. "
+                                f"Ticket moved to Pending Approval queue."
+                            )
+                            tool_executed = f"pending_approval:superglue:{tool_id}"
+                            logs.append(
+                                f"node5: safety gate triggered approval for tool={tool_id} "
+                                f"level={safety_gate['safety_level']}"
+                            )
                         else:
-                            observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
-                            tool_executed = f"superglue:{tool_id} (failed)"
+                            # Step 4: Execute the tool via Superglue
+                            result = await execute_tool(tool_id, tool_input)
+
+                            if result.get("success"):
+                                observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
+                                tool_executed = f"superglue:{tool_id}"
+                                logs.append(f"node5: safety gate passed (level={safety_gate['safety_level']}), tool executed")
+                            else:
+                                observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
+                                tool_executed = f"superglue:{tool_id} (failed)"
                 else:
                     observation = f"No matching Superglue tool for action '{action}'. LLM said: {decision.get('reasoning', '')}"
                     tool_executed = None
@@ -1786,17 +1839,79 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
     }
 
 
-async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
-    """Execute a Superglue tool with idempotency protection.
+def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
+                            tenant_id: str, variant_tier: str) -> dict:
+    """Run the Superglue Action Safety pipeline before tool execution.
 
-    Checks if this tool was already executed for this ticket+action.
-    If yes → skip (prevents double refund).
-    If no → execute + record.
+    Pipeline: classify_action → check_financial_guardrails → needs_approval check.
+
+    Returns dict with keys:
+      - blocked (bool): if True, do NOT execute the tool
+      - reason (str): human-readable explanation
+      - safety_level (str): the classified level
+      - needs_approval (bool): whether this action requires human approval
+      - guardrail_result (dict|None): raw guardrail result if applicable
+
+    BC-008: never crashes — returns {blocked: False} on any error so
+    execution proceeds as normal.
+    """
+    default = {"blocked": False, "reason": "", "safety_level": "read",
+               "needs_approval": False, "guardrail_result": None}
+    try:
+        from app.core.action_safety import classify_action, needs_approval as _needs_approval
+        from app.core.action_safety import ActionSafetyLevel
+        from app.core.regulatory_guardrails import check_financial_guardrails
+
+        # Step 1: Classify the action
+        safety = classify_action(tool_id, description)
+        logs_safe = []  # will be assigned by caller if needed
+
+        # Step 2: For FINANCIAL actions, check tier-based guardrails
+        guardrail_result = None
+        if safety.level == ActionSafetyLevel.FINANCIAL:
+            amount = float(tool_input.get("amount", 0)) if isinstance(tool_input, dict) else 0.0
+            gr = check_financial_guardrails(safety.level.value, amount, variant_tier, tool_id)
+            guardrail_result = {"allowed": gr.allowed, "reason": gr.reason,
+                                "limit": gr.limit, "remaining": gr.remaining}
+            if not gr.allowed:
+                return {"blocked": True, "reason": f"Guardrail blocked: {gr.reason}",
+                        "safety_level": safety.level.value, "needs_approval": True,
+                        "guardrail_result": guardrail_result}
+
+        # Step 3: Check if approval is required for this safety level
+        approval = _needs_approval(safety.level)
+        return {"blocked": False, "reason": safety.reasoning,
+                "safety_level": safety.level.value, "needs_approval": approval,
+                "guardrail_result": guardrail_result}
+    except Exception as exc:
+        logger.debug("action_safety_gate_error: %s", str(exc)[:150])
+        return default
+
+
+async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
+    """Execute a Superglue tool with idempotency + safety gate protection.
+
+    Pipeline: action safety gate → idempotency check → execute.
+    Returns special keys "guardrail_blocked" and "safety_approval_required" so
+    the caller can distinguish safety blocks from normal failures.
     """
     from app.core.superglue_client import execute_tool
     from database.base import SessionLocal
     from sqlalchemy import text as _sql_text
 
+    # ── ACTION SAFETY GATE (runs before idempotency check) ──
+    try:
+        _sg = _run_action_safety_gate(tool_id, action, tool_input or {}, tenant_id, "parwa")
+        if _sg["blocked"]:
+            return {"success": False, "error": _sg["reason"],
+                    "guardrail_blocked": True, "safety_level": _sg["safety_level"]}
+        if _sg["needs_approval"]:
+            return {"success": False, "error": f"Safety approval required: {_sg['reason']}",
+                    "safety_approval_required": True, "safety_level": _sg["safety_level"]}
+    except Exception as _sg_exc:
+        logger.debug("idempotency_safety_gate_error: %s", str(_sg_exc)[:100])
+
+    # ── IDEMPOTENCY CHECK ──
     try:
         _idb = SessionLocal()
         try:
