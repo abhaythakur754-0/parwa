@@ -561,12 +561,12 @@ async def test_connector_fetch(
 import os as _os
 import json as _json
 
-_SUPABASE_HOST = _os.environ.get("TEST_SUPABASE_HOST", "aws-1-ap-northeast-1.pooler.supabase.com")
-_SUPABASE_PORT = int(_os.environ.get("TEST_SUPABASE_PORT", "6543"))
-_SUPABASE_DB = _os.environ.get("TEST_SUPABASE_DB", "postgres")
-_SUPABASE_USER = _os.environ.get("TEST_SUPABASE_USER", "postgres.fmpibdauppnzfisodkhp")
-_SUPABASE_PASS = _os.environ.get("TEST_SUPABASE_PASS", "Durgamaa@754")
-_SUPABASE_API_KEY = "parwa-supabase-crm-2026"  # simple API key for testing
+_SUPABASE_HOST = _os.environ.get("TEST_SUPABASE_HOST", "")
+_SUPABASE_PORT = int(_os.environ.get("TEST_SUPABASE_PORT", "5432"))
+_SUPABASE_DB = _os.environ.get("TEST_SUPABASE_DB", "")
+_SUPABASE_USER = _os.environ.get("TEST_SUPABASE_USER", "")
+_SUPABASE_PASS = _os.environ.get("TEST_SUPABASE_PASS", "")
+_SUPABASE_API_KEY = _os.environ.get("SUPABASE_DEBUG_API_KEY", "")
 
 
 def _verify_supabase_key(authorization: Optional[str]) -> None:

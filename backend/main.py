@@ -36,11 +36,11 @@ logger = logging.getLogger(__name__)
 
 class DatabaseConfig:
     """Database configuration from .env or defaults"""
-    HOST = os.getenv('DB_HOST', 'aws-1-ap-northeast-1.pooler.supabase.com')
-    PORT = int(os.getenv('DB_PORT', '6543'))
-    DATABASE = os.getenv('DB_NAME', 'postgres')
-    USER = os.getenv('DB_USER', 'postgres.fmpibdauppnzfisodkhp')
-    PASSWORD = os.getenv('DB_PASSWORD', 'Durgamaa@754')
+    HOST = os.getenv('DB_HOST', '')
+    PORT = int(os.getenv('DB_PORT', '5432'))
+    DATABASE = os.getenv('DB_NAME', '')
+    USER = os.getenv('DB_USER', '')
+    PASSWORD = os.getenv('DB_PASSWORD', '')
 
 
 def get_db_connection():

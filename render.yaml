@@ -2,8 +2,11 @@
 # https://render.com/docs/blueprint-spec
 #
 # This file defines the Render deployment configuration.
-# It ensures the Docker build context is the repo root,
-# so requirements.txt and other shared files are available.
+# Build context is backend/ so COPY . . gets backend code.
+#
+# DATABASE: Supabase PostgreSQL (external) — NOT Render internal DB.
+# Set DATABASE_URL manually on Render Dashboard → parwa-backend → Environment.
+# The parwa-db Render service/database has been REMOVED (replaced by Supabase).
 
 services:
   # ── Backend API ──────────────────────────────────────────────
@@ -11,7 +14,6 @@ services:
     name: parwa-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
-    # Build context is backend/ so COPY . . gets backend code
     buildContext: ./backend
     plan: starter
     region: oregon
@@ -28,10 +30,18 @@ services:
         value: /app
       - key: PORT
         value: 8000
+      # ── Database: Supabase PostgreSQL ──
+      # IMPORTANT: Set this on Render Dashboard → parwa-backend → Environment
+      # Format: postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-REGION.pooler.supabase.com:6543/postgres
       - key: DATABASE_URL
-        fromDatabase:
-          name: parwa-db
-          property: connectionString
+        sync: false
+      # ── Supabase REST API (for Jarvis DB / Escalation Vault) ──
+      # Get from: Supabase Dashboard → Settings → API
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      # ── Redis (Render internal) ──
       - key: REDIS_URL
         fromService:
           name: parwa-redis
@@ -60,8 +70,6 @@ services:
       - key: FORCE_SYNC_PIPELINE
         value: "true"
       # Concurrent pipeline workers (10 = assembly line model).
-      # Allows fast providers (Groq) to process light calls for tickets 6-10
-      # while slow providers (NVIDIA) work on hard calls for tickets 1-5.
       - key: MAX_CONCURRENT_PIPELINES
         value: "10"
       # LLM Provider API Keys (3 providers for 11-model Smart Router)
@@ -110,10 +118,17 @@ services:
         value: production
       - key: PYTHONPATH
         value: /app
+      # ── Database: Supabase PostgreSQL ──
+      # IMPORTANT: Set this on Render Dashboard → parwa-worker → Environment
+      # Same value as parwa-backend DATABASE_URL
       - key: DATABASE_URL
-        fromDatabase:
-          name: parwa-db
-          property: connectionString
+        sync: false
+      # ── Supabase REST API ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      # ── Redis (Render internal) ──
       - key: REDIS_URL
         fromService:
           name: parwa-redis
@@ -144,17 +159,9 @@ services:
     plan: starter
     region: oregon
 
-  # ── PostgreSQL Database ─────────────────────────────────────
-  - type: pserv
-    name: parwa-db
-    runtime: docker
-    dockerfilePath: ./infra/docker/postgres.Dockerfile
-    buildContext: .
-    plan: starter
-    region: oregon
-
-databases:
-  - name: parwa-db
-    databaseName: parwa_db
-    plan: starter
-    region: oregon
+# NOTE: Render internal PostgreSQL (parwa-db) has been REMOVED.
+# PARWA now uses Supabase for PostgreSQL. Set DATABASE_URL env var
+# manually on Render Dashboard for both parwa-backend and parwa-worker.
+#
+# To fully clean up, delete the parwa-db service on Render Dashboard
+# if it still exists from a previous deployment.

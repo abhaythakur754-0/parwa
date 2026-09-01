@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # ── Supabase (external PostgreSQL + PostgREST) ──────────────
+    # Used by jarvis_db.py and vault_db.py for direct Supabase API access.
+    # When set, Jarvis storage and Escalation Vault use PostgREST instead of InMemory.
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:

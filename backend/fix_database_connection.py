@@ -18,12 +18,13 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timezone
 
 # ── SUPABASE PRODUCTION DATABASE CONFIG ──
+# Read from environment variables — NEVER hardcode credentials.
 SUPABASE_CONFIG = {
-    'host': 'aws-1-ap-northeast-1.pooler.supabase.com',
-    'port': 6543,
-    'dbname': 'postgres',
-    'user': 'postgres.fmpibdauppnzfisodkhp',
-    'password': 'Durgamaa@754'
+    'host': os.environ.get('SUPABASE_HOST', ''),
+    'port': int(os.environ.get('SUPABASE_PORT', '6543')),
+    'dbname': os.environ.get('SUPABASE_DB', 'postgres'),
+    'user': os.environ.get('SUPABASE_USER', ''),
+    'password': os.environ.get('SUPABASE_PASSWORD', ''),
 }
 
 def get_supabase_connection():

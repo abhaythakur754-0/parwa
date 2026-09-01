@@ -31,8 +31,16 @@ logger = logging.getLogger("parwa.escalation_vault")
 
 # ── Config ────────────────────────────────────────────────────
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+def _get_supabase_config():
+    """Get Supabase config from Settings (supports .env file loading)."""
+    try:
+        from app.config import get_settings
+        s = get_settings()
+        return s.SUPABASE_URL, s.SUPABASE_ANON_KEY
+    except Exception:
+        return os.environ.get("SUPABASE_URL", ""), os.environ.get("SUPABASE_ANON_KEY", "")
+
+SUPABASE_URL, SUPABASE_ANON_KEY = _get_supabase_config()
 
 TABLE_VAULT = "parwa_escalation_vault"
 
