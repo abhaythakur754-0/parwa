@@ -2249,6 +2249,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     # INSTANT lane tickets (gratitude, simple questions) can SKIP the
     # LLM call entirely (0 API cost, ~2s response time). If the LLM
     # call fails, INSTANT lane tickets still get their canned response.
+    conversation_summary = None  # initialized before try for BC-008 safety
     try:
         from app.core.lane_router import classify_lane, generate_instant_response, LANE_INSTANT
 
@@ -2270,6 +2271,52 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 db_hist.close()
         except Exception as hist_exc:
             logger.debug("ticket_history_load_failed (non-fatal): %s", hist_exc)
+
+        # Conversation Summarization (F-160): when the conversation has many
+        # messages, produce a compressed summary so downstream nodes can
+        # use it instead of the raw history (context window management).
+        # Non-blocking: failure is logged and swallowed (BC-008).
+        # BC-001: tenant_id passed as company_id.
+        conversation_summary = None
+        if len(ticket_history) > 5:
+            try:
+                from app.core.conversation_summarization import (
+                    ConversationSummarizationService,
+                    ConversationMessage,
+                )
+                _summ_svc = ConversationSummarizationService()
+                _conv_id = state["ticket_id"]
+                for _i, _msg in enumerate(ticket_history):
+                    _summ_svc.add_message(
+                        tenant_id,
+                        _conv_id,
+                        ConversationMessage(
+                            message_id=f"{_conv_id}_{_msg['role']}_{_i}",
+                            content=_msg.get("content", ""),
+                            role=_msg.get("role", "customer"),
+                        ),
+                    )
+                if _summ_svc.should_summarize(tenant_id, _conv_id, threshold=5):
+                    _sum_result = _summ_svc.summarize(tenant_id, _conv_id)
+                    if _sum_result.success and _sum_result.summary:
+                        conversation_summary = (
+                            _sum_result.summary.hybrid_summary
+                            or _sum_result.summary.extractive_summary
+                            or _sum_result.summary.abstractive_summary
+                        )
+                        logs.append({
+                            "node": 1, "technique": "ConversationSummarization",
+                            "duration_ms": 0,
+                            "result_summary": (
+                                f"summarized {len(ticket_history)} messages, "
+                                f"compression={_sum_result.summary.compression_ratio:.2f}"
+                            ),
+                        })
+            except Exception as _summ_exc:
+                logger.warning(
+                    "conversation_summarization_failed (BC-008): %s",
+                    str(_summ_exc)[:200],
+                )
 
         lane_result = classify_lane(query, ticket_history)
         message_type = lane_result["message_type"]
@@ -2319,6 +2366,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 "builder_agent_id": None,
                 "builder_used": False,
                 "builder_quality_score": 0.0,
+                "conversation_summary": conversation_summary,
             }
 
         logger.info(
@@ -2336,6 +2384,65 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     # Only reached for FULL and QUICK lanes (INSTANT returns above)
     confidence = await _uot_measure_confidence(query, ticket_type, complexity, required_action)
     logs.append({"node": 1, "technique": "UoT", "duration_ms": int((time.time() - start) * 1000), "result_summary": f"confidence={confidence:.2f}"})
+
+    # Graceful Escalation (Week 10 Day 5): when confidence is low or
+    # legal/abuse intent is detected, evaluate and create an escalation
+    # record with full context preservation. Non-blocking (BC-008).
+    # BC-001: tenant_id passed as company_id.
+    escalation_record = None
+    try:
+        from app.core.graceful_escalation import (
+            GracefulEscalationManager,
+            EscalationContext,
+            EscalationTrigger,
+            EscalationSeverity,
+        )
+        _esc_manager = GracefulEscalationManager()
+        _esc_trigger = None
+        _esc_severity = EscalationSeverity.MEDIUM.value
+        _esc_description = ""
+
+        if ticket_type == "legal_review" or "FORCE_ESCALATE" in esc1:
+            _esc_trigger = EscalationTrigger.LEGAL_SENSITIVE.value
+            _esc_severity = EscalationSeverity.HIGH.value
+            _esc_description = f"Legal/escalation keyword detected in node_1: {esc1}"
+        elif confidence < 0.3:
+            _esc_trigger = EscalationTrigger.CONFIDENCE_LOW.value
+            _esc_severity = EscalationSeverity.MEDIUM.value
+            _esc_description = f"Low classification confidence in node_1: {confidence:.2f}"
+
+        if _esc_trigger:
+            _esc_ctx = EscalationContext(
+                company_id=tenant_id,
+                ticket_id=state.get("ticket_id", ""),
+                trigger=_esc_trigger,
+                severity=_esc_severity,
+                description=_esc_description,
+                confidence_score=confidence,
+                conversation_turns=len(ticket_history) if 'ticket_history' in dir() else 0,
+                variant=state.get("variant_tier_short", "parwa"),
+                customer_tier=tier,
+            )
+            _should_esc, _matched_rules, _result_sev = _esc_manager.evaluate_escalation(
+                tenant_id, _esc_ctx,
+            )
+            if _should_esc:
+                escalation_record = _esc_manager.create_escalation(tenant_id, _esc_ctx)
+                if escalation_record:
+                    logs.append({
+                        "node": 1, "technique": "GracefulEscalation",
+                        "duration_ms": 0,
+                        "result_summary": (
+                            f"escalated trigger={_esc_trigger} "
+                            f"severity={_result_sev} "
+                            f"escalation_id={escalation_record.escalation_id}"
+                        ),
+                    })
+    except Exception as _esc_exc:
+        logger.warning(
+            "graceful_escalation_failed (BC-008): %s",
+            str(_esc_exc)[:200],
+        )
 
     # Phase 6: If wiki has seen similar tickets, boost confidence (AFTER LLM call)
     if ml_result.get("wiki_boosted") and ml_result.get("suggested_path"):
@@ -2432,4 +2539,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
         "builder_agent_id": builder_agent_id if 'builder_agent_id' in dir() else None,
         "builder_used": builder_agent_id is not None if 'builder_agent_id' in dir() else False,
         "builder_quality_score": 0.0,
+        # Conversation Summarization (F-160) + Graceful Escalation
+        "conversation_summary": conversation_summary,
+        "escalation_record": escalation_record,
     }

@@ -72,6 +72,11 @@ else:
 
 engine = create_engine(_db_url, **_engine_kwargs)
 
+# Register Row-Level Security tenant context hook (PostgreSQL only)
+if not _db_url.startswith("sqlite"):
+    from app.core.db_rls import register_rls_hooks
+    register_rls_hooks(engine)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()  # type: ignore[misc]

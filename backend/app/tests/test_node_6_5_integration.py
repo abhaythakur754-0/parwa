@@ -122,16 +122,17 @@ class TestGraphStructure:
         compiled = graph.compile()
         assert "node_6_5" in compiled.nodes
 
-    def test_graph_has_13_nodes_total(self):
-        """9 logical nodes + __start__ + increment_loop + finalize_simple + wiki_finalize = 13."""
+    def test_graph_has_14_nodes_total(self):
+        """9 logical nodes + node_3_5 + node_4_5 + jarvis_awareness + __start__ + increment_loop + finalize_simple + wiki_finalize = 15."""
         from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
 
         graph = build_parwa_pipeline()
         compiled = graph.compile()
         expected_nodes = {
             "__start__",
-            "node_1", "node_2", "node_3", "node_4", "node_5",
-            "node_6", "node_6_5", "node_7", "node_8",
+            "node_1", "node_2", "node_3", "node_3_5", "node_4", "node_4_5",
+            "node_5", "node_6", "node_6_5", "node_7", "node_8",
+            "jarvis_awareness",
             "increment_loop", "finalize_simple", "wiki_finalize",
         }
         actual_nodes = set(compiled.nodes.keys())

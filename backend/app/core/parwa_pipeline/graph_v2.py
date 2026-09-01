@@ -1,14 +1,18 @@
 """
 PARWA Pipeline V2 — Graph Definition (Phase 7: In-Graph Wiki Write-Back)
                               (Phase 8: Few-Shot + CoVe)
+                              (Phase 11: Jarvis Awareness Bridge)
 
-Wires all 10 nodes with LangGraph StateGraph.
+Wires all nodes with LangGraph StateGraph.
 Phase 7: Wiki write-back INSIDE the graph for both paths.
 Phase 8: Added Node 3.5 (Few-Shot Injection) and Node 4.5 (Chain-of-Verification)
          to make weak LLMs (Llama 3.1 8B) viable without paying for HEAVY models.
+Phase 11: Added Jarvis Awareness node between Node 1 and routing.
+          Reads Jarvis decisions (pause, red_alert, co-pilot) from Redis
+          and injects them into pipeline state BEFORE routing.
 
 Flow:
-  Node 1 (Ingest+Classify) → Node 2 (Smart Route)
+  Node 1 (Ingest+Classify) → Jarvis Awareness → routing
     ├── simple_path  → Node 3 (Knowledge)
     │                     → Node 3.5 (Few-Shot Injection)  ← Phase 8
     │                     → Node 7 (Simple Resolver)
@@ -104,23 +108,59 @@ from app.core.parwa_pipeline.state_v2 import PipelineV2State
 logger = logging.getLogger("parwa.pipeline.graph_v2")
 
 
+# ── Jarvis Awareness Bridge (Phase 11) ────────────────────────────
+# Async wrapper for the sync jarvis_awareness_injector_node.
+# This node sits between Node 1 and routing to inject Jarvis
+# decisions (pause AI, red alerts, co-pilot suggestions) into
+# pipeline state BEFORE the routing decision is made.
+
+
+async def _jarvis_awareness(state: PipelineV2State) -> dict:
+    """Read Jarvis awareness from Redis and inject into pipeline state.
+
+    Non-blocking: if Redis is unavailable or no Jarvis state exists,
+    returns an empty update dict so the pipeline continues normally.
+    """
+    try:
+        from app.services.jarvis_agents.nodes.jarvis_awareness_injector import (
+            jarvis_awareness_injector_node,
+        )
+        return jarvis_awareness_injector_node(state)
+    except Exception as exc:
+        logger.debug("jarvis_awareness_skipped: %s", str(exc)[:200])
+        return {}
+
+
 # ── Edge Functions ────────────────────────────────────────────────
 
 
-def _route_after_node_1(state: PipelineV2State) -> Literal["node_2", "node_7", "finalize_simple", "__end__"]:
-    """After Node 1: route based on status (rejected/paused) and lane.
+def _route_after_jarvis_awareness(state: PipelineV2State) -> Literal["node_2", "node_7", "finalize_simple", "__end__"]:
+    """After Jarvis Awareness: route based on status, lane, and Jarvis overrides.
 
     Commit 2: 3-Lane System
     - Lane FULL    → Node 2 (existing 8-node pipeline for new complex tickets)
     - Lane QUICK   → Node 7 (Simple Resolver, 0-3 LLM calls for follow-ups)
     - Lane INSTANT → finalize_simple (canned response, 0 LLM for gratitude)
 
+    Phase 11: Jarvis can override routing:
+    - If Jarvis set system_mode="paused" → early exit (human review)
+    - If Jarvis set urgency="critical" → force FULL lane
+
     All 16 non-LLM techniques have already run in Node 1 regardless of lane.
     """
     # Status-based early exit (rejected/paused tickets)
     status = state.get("status", "")
     if status in ("rejected", "paused"):
-        logger.info("Node 1 early exit: status=%s", status)
+        logger.info("Jarvis awareness early exit: status=%s", status)
+        return "__end__"
+
+    # Phase 11: Jarvis system_mode override
+    system_mode = state.get("system_mode", "")
+    if system_mode == "paused":
+        logger.info(
+            "Jarvis paused AI: ticket=%s → early exit (human review)",
+            state.get("ticket_id", "?"),
+        )
         return "__end__"
 
     # Lane-based routing (Commit 2)
@@ -394,16 +434,119 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
     compiled = graph.compile(checkpointer=get_checkpointer())
 
     async def _run():
-        # Pass thread_id so the checkpointer can save/restore state per ticket
+        # ── Session continuity: acquire lock (BC-008: non-blocking) ──
+        _scm = None
+        try:
+            from app.core.session_continuity import SessionContinuityManager
+            _scm = SessionContinuityManager()
+            _scm.acquire_lock(
+                company_id=initial_state.get("tenant_id", ""),
+                ticket_id=initial_state.get("ticket_id", ""),
+                agent_id="parwa_pipeline",
+            )
+        except Exception:
+            pass  # BC-008: never crash
+
+        # ── Call lifecycle: start (BC-008: non-blocking) ──
+        _lifecycle_id = None
+        _clm = None
+        try:
+            from app.core.call_lifecycle import CallLifecycleManager
+            _clm = CallLifecycleManager()
+            _lifecycle_id = _clm.start_lifecycle(
+                company_id=initial_state.get("tenant_id", ""),
+                ticket_id=initial_state.get("ticket_id", ""),
+                variant=initial_state.get("variant_tier", "parwa"),
+            )
+        except Exception:
+            pass  # BC-008: never crash
+
         config = {"configurable": {"thread_id": initial_state.get("ticket_id", "default")}}
-        result = await compiled.ainvoke(initial_state, config=config)
+        result = None
+        pipeline_exc = None
+
+        try:
+            result = await compiled.ainvoke(initial_state, config=config)
+        except Exception as exc:
+            # Don't swallow GraphInterrupt — let it propagate
+            try:
+                from langgraph.errors import GraphInterrupt
+                if isinstance(exc, GraphInterrupt):
+                    raise
+            except ImportError:
+                pass
+            if type(exc).__name__ in ("GraphInterrupt", "GraphBubbleUp"):
+                raise
+            pipeline_exc = exc
+
+        if pipeline_exc is not None:
+            # Call lifecycle: mark failed
+            try:
+                if _lifecycle_id and _clm:
+                    _clm.fail_lifecycle(
+                        company_id=initial_state.get("tenant_id", ""),
+                        lifecycle_id=_lifecycle_id,
+                        error=str(pipeline_exc)[:2000],
+                    )
+            except Exception:
+                pass  # BC-008
+
+            # Partial failure: return degraded response
+            try:
+                from app.core.partial_failure import PartialFailureHandler, PipelineContext
+                _pfh = PartialFailureHandler()
+                _pf_ctx = PipelineContext(
+                    company_id=initial_state.get("tenant_id", ""),
+                    ticket_id=initial_state.get("ticket_id", ""),
+                    variant=initial_state.get("variant_tier", "parwa"),
+                    intent=initial_state.get("ticket_type", "general"),
+                )
+                degraded = _pfh.generate_degraded_response(_pf_ctx)
+                logger.warning(
+                    "pipeline_failed_returning_degraded_response ticket=%s error=%s",
+                    initial_state.get("ticket_id", ""), str(pipeline_exc)[:200],
+                )
+                result = {
+                    "final_response": degraded,
+                    "status": "degraded",
+                    "errors": [{"node": "pipeline", "error": str(pipeline_exc), "type": type(pipeline_exc).__name__}],
+                    "degradation_level": _pfh.get_degradation_level(_pf_ctx),
+                }
+            except Exception:
+                logger.exception("partial_failure_handler_crashed ticket=%s", initial_state.get("ticket_id", ""))
+                result = {
+                    "final_response": "We're experiencing processing difficulties. A team member will assist you shortly.",
+                    "status": "error",
+                    "errors": [{"node": "pipeline", "error": str(pipeline_exc), "type": type(pipeline_exc).__name__}],
+                }
+        else:
+            # Call lifecycle: mark completed
+            try:
+                if _lifecycle_id and _clm:
+                    _clm.complete_lifecycle(
+                        company_id=initial_state.get("tenant_id", ""),
+                        lifecycle_id=_lifecycle_id,
+                    )
+            except Exception:
+                pass  # BC-008
+
+        # ── Session continuity: release lock (BC-008: non-blocking) ──
+        try:
+            if _scm:
+                _scm.release_lock(
+                    company_id=initial_state.get("tenant_id", ""),
+                    ticket_id=initial_state.get("ticket_id", ""),
+                    agent_id="parwa_pipeline",
+                )
+        except Exception:
+            pass  # BC-008: never crash
 
         # ── Handle interrupt (node paused to ask a question) ──────
         # When a node calls interrupt(), ainvoke returns a dict with
         # "__interrupt__" key. The pipeline is PAUSED — not finished.
         # We mark the ticket as awaiting_human so the escalations page
         # can show the question + guidance textarea.
-        if "__interrupt__" in result:
+        if isinstance(result, dict) and "__interrupt__" in result:
             interrupt_data = result["__interrupt__"]
             logger.info(
                 "pipeline_interrupted ticket=%s — node paused to ask a question",
@@ -424,7 +567,7 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
 
         # Phase 6: Wiki write-back for complex path resolutions
         # (simple path is handled in _finalize_simple)
-        quality_passed = result.get("quality_passed", False)
+        quality_passed = result.get("quality_passed", False) if result else False
         if quality_passed:
             _wiki_write_on_resolve(result)
 
@@ -484,6 +627,19 @@ def build_parwa_pipeline() -> StateGraph:
                     "%s CRASHED (%s): %s", node_name, type(exc).__name__, exc,
                     exc_info=True,
                 )
+                # DLQ: persist failure (BC-008: non-blocking)
+                try:
+                    from app.services.langgraph_dlq_service import LanggraphDLQService
+                    _dlq_svc = LanggraphDLQService()
+                    await _dlq_svc.record_failure(
+                        company_id=state.get("tenant_id", ""),
+                        thread_id=state.get("ticket_id", ""),
+                        error=exc,
+                        state_snapshot={"node": node_name, "status": state.get("status", "")},
+                        graph_id=state.get("ticket_id", ""),
+                    )
+                except Exception:
+                    pass  # BC-008: never crash
                 # Return a minimal safe state so downstream nodes don't KeyError
                 return {
                     "errors": [{"node": node_name, "error": str(exc), "type": type(exc).__name__}],
@@ -493,6 +649,7 @@ def build_parwa_pipeline() -> StateGraph:
         return wrapper
 
     graph.add_node("node_1", _safe_node(node_1_ingest_classify, "node_1"))
+    graph.add_node("jarvis_awareness", _jarvis_awareness)  # Phase 11: Jarvis bridge
     graph.add_node("node_2", _safe_node(node_2_smart_route, "node_2"))
     graph.add_node("node_3", _safe_node(node_3_knowledge_fetch, "node_3"))
     graph.add_node("node_3_5", _safe_node(node_3_5_few_shot_injection, "node_3_5"))  # Phase 8: Few-Shot
@@ -512,10 +669,13 @@ def build_parwa_pipeline() -> StateGraph:
     # Entry → Node 1
     graph.set_entry_point("node_1")
 
-    # Node 1 → SPLIT: rejected/paused → END, INSTANT → finalize, QUICK → node_7, FULL → node_2
+    # Node 1 → Jarvis Awareness (Phase 11: inject Jarvis decisions before routing)
+    graph.add_edge("node_1", "jarvis_awareness")
+
+    # Jarvis Awareness → SPLIT: rejected/paused → END, INSTANT → finalize, QUICK → node_7, FULL → node_2
     # Commit 2: 3-lane routing — Node 1 sets state["lane"] which controls
-    # which nodes run next.
-    graph.add_conditional_edges("node_1", _route_after_node_1, {
+    # which nodes run next. Jarvis can override via system_mode/urgency.
+    graph.add_conditional_edges("jarvis_awareness", _route_after_jarvis_awareness, {
         "node_2": "node_2",
         "node_7": "node_7",
         "finalize_simple": "finalize_simple",
@@ -578,8 +738,8 @@ def build_parwa_pipeline() -> StateGraph:
     graph.add_edge("node_6_5", "__end__")
 
     logger.info(
-        "PARWA Pipeline V2 built: 11 nodes (incl. Node 3.5 Few-Shot, Node 4.5 CoVe, Node 6.5 Deliver), "
-        "dual path, quality loop (max %d), Phase 7 in-graph wiki write-back, Phase 8 hallucination reduction",
+        "PARWA Pipeline V2 built: 12 nodes (incl. Node 3.5 Few-Shot, Node 4.5 CoVe, Node 6.5 Deliver, Jarvis Awareness), "
+        "dual path, quality loop (max %d), Phase 7 in-graph wiki write-back, Phase 8 hallucination reduction, Phase 11 Jarvis bridge",
         MAX_QUALITY_LOOPS,
     )
 

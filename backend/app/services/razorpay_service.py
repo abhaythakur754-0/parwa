@@ -237,6 +237,29 @@ async def _handle_payment_failed(db, payload):
     if row:
         row.status = "pending"
         db.commit()
+
+        # Wire payment_failure_service for Netflix-style immediate service stop
+        try:
+            from app.services.payment_failure_service import get_payment_failure_service
+            payment = payload.get("payment", {}).get("entity", {})
+            pfs = get_payment_failure_service()
+            pfs_result = await pfs.handle_payment_failure(
+                company_id=row.company_id,
+                paddle_transaction_id=payment.get("id", ""),
+                failure_code=payment.get("error_code", "razorpay_payment_failed"),
+                failure_reason=payment.get("error_description", "Razorpay payment failed"),
+                amount_attempted=Decimal(str(payment.get("amount", 0))) / Decimal("100"),
+                paddle_subscription_id=rzp_id,
+                currency=payment.get("currency", "USD").upper(),
+            )
+            logger.info(
+                "payment_failure_service_triggered company_id=%s failure_id=%s",
+                row.company_id, pfs_result.get("failure_id"))
+        except Exception as pfs_err:
+            logger.error(
+                "payment_failure_service_error company_id=%s error=%s",
+                row.company_id if row else "unknown", str(pfs_err)[:200])
+
     return {"status": "payment_failed", "subscription_id": rzp_id}
 
 

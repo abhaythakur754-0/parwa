@@ -167,6 +167,15 @@ def register_user(
     db.refresh(user)
     db.refresh(company)
 
+    # Ensure full tenant provisioning (CompanySetting + Agent) via client_factory
+    try:
+        from app.services.client_factory import _ensure_tenant_resources
+        _ensure_tenant_resources(str(company.id), company.name, company.subscription_tier)
+    except Exception as prov_err:
+        logger.warning(
+            "tenant_provisioning_error company_id=%s error=%s",
+            company.id, str(prov_err)[:200])
+
     # L19: Send verification email after registration
     try:
         from app.services.verification_service import (
@@ -548,6 +557,15 @@ def google_auth(
     db.commit()
     db.refresh(user)
     db.refresh(company)
+
+    # Ensure full tenant provisioning (CompanySetting + Agent) via client_factory
+    try:
+        from app.services.client_factory import _ensure_tenant_resources
+        _ensure_tenant_resources(str(company.id), company.name, company.subscription_tier)
+    except Exception as prov_err:
+        logger.warning(
+            "tenant_provisioning_error company_id=%s error=%s",
+            company.id, str(prov_err)[:200])
 
     logger.info(
         "google_registered user_id=%s company_id=%s email=%s",

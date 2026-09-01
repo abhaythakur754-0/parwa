@@ -391,3 +391,67 @@ def check_agent_limit(
     if max_agents == -1:
         return True
     return current_count < max_agents
+
+
+def _ensure_tenant_resources(
+    company_id: str,
+    company_name: str,
+    tier: str,
+) -> None:
+    """Ensure CompanySetting and default Agent exist for a tenant.
+
+    Called after registration to guarantee full tenant provisioning.
+    Creates CompanySetting and Agent only if they don't already exist.
+    Uses client_factory entitlements for tier-appropriate defaults.
+
+    BC-008: Never crashes — all errors caught and logged.
+
+    Args:
+        company_id: The company UUID.
+        company_name: Company display name (for Agent name).
+        tier: Subscription tier (for entitlement lookups).
+    """
+    try:
+        from database.base import SessionLocal
+        from database.models.core import Agent, Company, CompanySetting
+
+        db = SessionLocal()
+        try:
+            # 1. Ensure CompanySetting exists
+            setting = db.query(CompanySetting).filter(
+                CompanySetting.company_id == company_id,
+            ).first()
+            if not setting:
+                setting = CompanySetting(company_id=company_id)
+                db.add(setting)
+                db.commit()
+                logger.info(
+                    "tenant_setting_provisioned company_id=%s", company_id)
+
+            # 2. Ensure default Agent exists
+            agent = db.query(Agent).filter(
+                Agent.company_id == company_id,
+            ).first()
+            if not agent:
+                agent = Agent(
+                    id=str(uuid.uuid4()),
+                    company_id=company_id,
+                    name=f"{company_name} AI Agent",
+                    variant="general",
+                    status="active",
+                    capacity_used=0,
+                    capacity_max=0,
+                    accuracy_rate=0.0,
+                    tickets_resolved=0,
+                )
+                db.add(agent)
+                db.commit()
+                logger.info(
+                    "tenant_agent_provisioned company_id=%s", company_id)
+
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.error(
+            "ensure_tenant_resources_failed company_id=%s error=%s",
+            company_id, str(exc)[:200])

@@ -1427,15 +1427,53 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
         "result_summary": f"claims={ltm_result['claims_total']} verified={ltm_result['claims_verified']} score={ltm_result['score']:.2f}",
     })
 
-    # 16. Fake Voting: 3 voters rate the answer (non-LLM)
-    fake_vote = _fake_voting_score(
-        best_answer, query, knowledge_str,
-        zero_shot, structure_score, kb_score,
-    )
+    # 16. Fake Voting: multi-evaluator consensus (non-LLM, BC-008)
+    fake_vote = {"consensus": 0.0, "voters": {}, "agreed": False, "spread": 0.0}
+    try:
+        from app.core.fake_voting import FakeVotingEngine, get_fake_voting_config
+        _fv_config = get_fake_voting_config(state.get("variant_tier", "parwa"))
+        _fv_engine = FakeVotingEngine(config=_fv_config)
+        _fv_result = await _fv_engine.vote(
+            candidates=[{"solution": best_answer}],
+            query=query,
+            company_id=state.get("tenant_id", ""),
+            variant_type=state.get("variant_tier", "parwa"),
+        )
+        fake_vote = {
+            "consensus": _fv_result.get("consensus_score", 0.0),
+            "voters": _fv_result.get("winner", {}).get("score_breakdown", {}),
+            "agreed": _fv_result.get("voting_summary", {}).get("status") == "completed",
+            "spread": 0.0,
+        }
+    except Exception as exc:
+        logger.warning("node_6_fake_voting_engine_failed (BC-008), using inline: %s", str(exc)[:200])
+        fake_vote = _fake_voting_score(
+            best_answer, query, knowledge_str,
+            zero_shot, structure_score, kb_score,
+        )
     logs.append({
         "node": 6, "technique": "FakeVoting", "duration_ms": 0,
-        "result_summary": f"consensus={fake_vote['consensus']:.2f} agreed={fake_vote['agreed']} spread={fake_vote['spread']:.2f}",
+        "result_summary": f"consensus={fake_vote['consensus']:.2f} agreed={fake_vote['agreed']} spread={fake_vote.get('spread', 0.0):.2f}",
     })
+
+    # 16b. Hallucination Detection: 12-pattern check (non-LLM, BC-008)
+    hallucination_report = None
+    try:
+        from app.core.hallucination_detector import HallucinationDetector
+        _hall_detector = HallucinationDetector()
+        hallucination_report = _hall_detector.detect(
+            response=best_answer, query=query,
+            knowledge_context=knowledge_str or None,
+            company_id=state.get("tenant_id", ""),
+        )
+        logs.append({
+            "node": 6, "technique": "HallucinationDetection", "duration_ms": 0,
+            "result_summary": f"is_hallucination={hallucination_report.is_hallucination} "
+                             f"confidence={hallucination_report.overall_confidence:.2f} "
+                             f"recommendation={hallucination_report.recommendation}",
+        })
+    except Exception as exc:
+        logger.warning("node_6_hallucination_detection_failed (BC-008): %s", str(exc)[:200])
 
     # ══════════════════════════════════════════════════════════════
     # L4: AGGREGATION + GATES
@@ -1484,6 +1522,14 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
     # FakeVoting: voters disagree → reduce quality
     if not fake_vote["agreed"]:
         quality_score = max(0.0, quality_score - 0.03)
+        quality_passed = quality_score >= QUALITY_PASS_THRESHOLD
+
+    # HallucinationDetection: penalize based on recommendation
+    if hallucination_report is not None and hallucination_report.is_hallucination:
+        if hallucination_report.recommendation == "block":
+            quality_score = max(0.0, quality_score - 0.15)
+        elif hallucination_report.recommendation == "review":
+            quality_score = max(0.0, quality_score - 0.05)
         quality_passed = quality_score >= QUALITY_PASS_THRESHOLD
 
     # 18. ContradictionCheck: LLM vs non-LLM gap (non-LLM)

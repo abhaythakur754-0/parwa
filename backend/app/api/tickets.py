@@ -56,6 +56,9 @@ from app.schemas.ticket import (
     TicketAttachmentResponse,
 )
 
+import logging
+logger = logging.getLogger("parwa.api.tickets")
+
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -84,6 +87,37 @@ async def create_ticket(
     """
     company_id = current_user.company_id
     user_id = str(current_user.id)
+
+    # Burst protection check (BC-008: never crash)
+    try:
+        from app.services.usage_burst_protection import UsageBurstProtectionService
+        burst_svc = UsageBurstProtectionService()
+        variant_type = None
+        try:
+            from database.base import SessionLocal
+            from database.models.core import Company
+            _s = SessionLocal()
+            _company = _s.query(Company).filter(Company.id == str(company_id)).first()
+            if _company:
+                variant_type = _company.subscription_tier
+            _s.close()
+        except Exception:
+            pass
+        detection = burst_svc.check_burst(company_id=company_id, variant_type=variant_type)
+        if detection.action.value in ("block", "rate_limit"):
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "BURST_DETECTED",
+                    "message": "Abnormal usage pattern detected. Please slow down.",
+                    "severity": detection.severity.value,
+                    "reason": detection.reason,
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as burst_err:
+        logger.warning("burst_protection_check_error company_id=%s error=%s", company_id, str(burst_err)[:200])
 
     service = TicketService(db, company_id)
 

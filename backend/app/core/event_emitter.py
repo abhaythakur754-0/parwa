@@ -147,6 +147,20 @@ async def emit_event(
         logger.info(
             "event_emitted event_type=%s company_id=%s category=%s",
             event_type, company_id, et.category.value)
+
+        # Fire outbound webhooks for subscribed endpoints
+        try:
+            from app.services.outbound_webhook_service import fire_webhook_event
+            fire_webhook_event(
+                company_id=company_id,
+                event_type=event_type,
+                data=payload,
+            )
+        except Exception as wh_exc:
+            logger.error(
+                "outbound_webhook_fire_failed event_type=%s company_id=%s error=%s",
+                event_type, company_id, str(wh_exc)[:200])
+
         return True
     except Exception as exc:
         logger.error(

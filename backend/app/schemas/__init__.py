@@ -297,6 +297,16 @@ from app.schemas.pagination import PaginatedResponseSchema
 # Alias for backward compatibility
 PaginatedResponse = PaginatedResponseSchema
 
+# File storage schemas
+from app.schemas.file_storage import (  # noqa: F401
+    FileUploadRequest,
+    FileUploadResponse,
+    FileMetadataResponse,
+    FileListResponse,
+    FileDownloadResponse,
+    FileValidationResponse,
+)
+
 __all__ = [
     # Ticket
     "TicketCreate",
@@ -472,4 +482,11 @@ __all__ = [
     "APIKeyCreatedResponse",
     "APIKeyRotatedResponse",
     "APIKeyRevokedResponse",
+    # File storage
+    "FileUploadRequest",
+    "FileUploadResponse",
+    "FileMetadataResponse",
+    "FileListResponse",
+    "FileDownloadResponse",
+    "FileValidationResponse",
 ]

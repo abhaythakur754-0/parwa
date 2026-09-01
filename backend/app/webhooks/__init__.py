@@ -73,6 +73,11 @@ def get_handler(provider: str) -> Optional[Callable]:
 def dispatch_event(provider: str, event: dict) -> dict:
     """Dispatch a webhook event to the appropriate provider handler.
 
+    After the handler parses the event, the result is passed to
+    ``webhook_action_processor.process_webhook_action()`` which routes
+    any embedded actions (e.g. ``create_ticket_draft``) to the
+    appropriate service layer.
+
     Args:
         provider: Provider name.
         event: Full event dict from webhook_tasks.
@@ -88,7 +93,20 @@ def dispatch_event(provider: str, event: dict) -> dict:
         raise ValueError(
             f"No handler registered for provider: {provider}"
         )
-    return handler(event)
+    result = handler(event)
+
+    # Wire webhook_action_processor to route handler actions
+    try:
+        from app.services.webhook_action_processor import process_webhook_action
+        company_id = event.get("company_id", "")
+        if company_id and isinstance(result, dict):
+            process_webhook_action(company_id, provider, result)
+    except Exception as exc:
+        logger.error(
+            "webhook_action_processor_error provider=%s error=%s",
+            provider, str(exc)[:200])
+
+    return result
 
 
 def validate_event_type(
