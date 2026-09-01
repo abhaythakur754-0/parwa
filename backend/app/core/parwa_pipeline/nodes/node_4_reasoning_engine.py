@@ -53,6 +53,87 @@ from app.core.parwa_pipeline.state_v2 import PipelineV2State
 
 logger = logging.getLogger("parwa.pipeline.node_4")
 
+# ── LLM Technique System Bridge ──────────────────────────────────
+# Wires the full TechniqueExecutor (BC-013) into the V2 pipeline.
+# Runs for FULL-lane, parwa/high variant tickets only.
+# Tier 1 techniques always activate; Tier 2/3 gated by variant tier.
+
+
+def _build_query_signals(state: PipelineV2State):
+    """Convert PipelineV2State fields to technique router QuerySignals."""
+    from app.core.technique_router import QuerySignals
+    return QuerySignals(
+        query_complexity=float(state.get("complexity", "medium") == "complex" or state.get("complexity") == "hard"),
+        confidence_score=float(state.get("classification_confidence", 0.8)),
+        sentiment_score=float(state.get("sentiment_score", 0.7)),
+        customer_tier=state.get("customer_context", {}).get("tier", "free"),
+        monetary_value=float(state.get("action_details", {}).get("amount", 0)),
+        turn_count=int(state.get("turn_count", 0)),
+        intent_type=state.get("ticket_type", "general"),
+        external_data_required=bool(state.get("connected_databases")),
+        is_strategic_decision=state.get("required_action", "") in ("escalate", "execute_refund"),
+    )
+
+
+def _build_conversation_state(state: PipelineV2State):
+    """Convert PipelineV2State to technique executor ConversationState."""
+    from app.core.techniques.base_technique import ConversationState
+    return ConversationState(
+        query=state.get("query", ""),
+        signals=_build_query_signals(state),
+        ticket_id=state.get("ticket_id"),
+        company_id=state.get("tenant_id", ""),
+        token_usage=int(state.get("total_token_usage", 0)),
+        technique_token_budget=1500 if state.get("variant_tier_short") == "parwa" else 3000,
+    )
+
+
+async def run_llm_techniques(state: PipelineV2State) -> tuple:
+    """Run the LLM technique pipeline (BC-013) on the current state.
+
+    Returns (technique_log_entries, updated_tech_state, token_usage_delta).
+    Only activates for FULL-lane tickets on parwa/high variants.
+    """
+    from app.core.technique_executor import TechniqueExecutor, PipelineResult
+
+    lane = state.get("lane", "")
+    variant = state.get("variant_tier_short", "")
+
+    # Only run LLM techniques for complex FULL-lane tickets on paid variants
+    if lane != "FULL" or variant not in ("parwa", "high"):
+        return [], None, 0
+
+    try:
+        executor = TechniqueExecutor(
+            model_tier="medium",
+            variant_type=variant,
+            company_id=state.get("tenant_id", ""),
+        )
+        tech_state = _build_conversation_state(state)
+        updated_state, result = await executor.execute_pipeline(tech_state)
+
+        log_entries = []
+        for detail in result.details:
+            log_entries.append({
+                "node": 4,
+                "technique": f"LLM_{detail.technique_id}",
+                "duration_ms": round(detail.exec_time_ms, 1),
+                "result_summary": (
+                    f"status={detail.status} tokens={detail.tokens_used} "
+                    f"cached={detail.cached} fallback={detail.fallback_applied}"
+                ),
+            })
+
+        return log_entries, updated_state, result.total_tokens_used
+
+    except Exception as exc:
+        logger.warning("llm_techniques_failed error=%s", str(exc))
+        return [{"node": 4, "technique": "LLM_TECHNIQUES", "duration_ms": 0, "result_summary": f"error:{str(exc)[:80]}"}], None, 0
+
+
+# ── End LLM Technique System Bridge ──────────────────────────────
+
+
 # MAKER confidence thresholds
 MAKER_HIGH_CONFIDENCE = 0.85
 MAKER_MEDIUM_CONFIDENCE = 0.60
@@ -1251,6 +1332,18 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
 
     logs = []
     llm_calls = 0
+    extra_tokens = 0
+
+    # ── LLM Technique System (BC-013) ───────────────────────────
+    # Runs full technique pipeline (CoT, ToT, ReAct, GST, etc.)
+    # with caching, tier gating, and metrics. Only for FULL-lane paid variants.
+    llm_tech_logs, llm_tech_state, extra_tokens = await run_llm_techniques(state)
+    if llm_tech_logs:
+        logs.extend(llm_tech_logs)
+        if llm_tech_state and llm_tech_state.technique_results:
+            state["llm_technique_results"] = llm_tech_state.technique_results
+        if llm_tech_state and llm_tech_state.response_parts:
+            state["llm_technique_hints"] = llm_tech_state.response_parts
 
     knowledge_str = "\n".join(d.get("content", "") for d in knowledge_docs)
     if wiki_c:

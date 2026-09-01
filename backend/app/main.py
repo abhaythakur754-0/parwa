@@ -48,6 +48,7 @@ from app.middleware.activity_capture import ActivityCaptureMiddleware
 from app.middleware.ai_entitlement import (
     AIEntitlementMiddleware,
 )
+from app.middleware.variant_check import VariantCheckMiddleware
 from app.api.auth import router as auth_router
 from app.api.mfa import router as mfa_router
 from app.api.api_keys import router as api_keys_router
@@ -131,6 +132,11 @@ from app.api.shadow_mode import router as shadow_mode_router  # Shadow Mode vari
 from app.api.debug import router as debug_router  # Debug endpoints for LLM testing
 from app.api.onboarding_agent_builder import router as onboarding_agent_builder_router  # Onboarding agent scanner + builder
 from app.api.onboarding_builder_from_kb import router as onboarding_builder_from_kb_router  # Onboarding Builder: KB-driven agent creation
+from app.api.crm_webhooks import router as crm_webhooks_router  # CRM webhook receivers (Shopify, Stripe, etc.)
+from app.api.custom_connectors import router as custom_connectors_router  # Custom connector CRUD
+from app.api.flexpay import router as flexpay_router  # FlexPay scheduling + management
+from app.api.jarvis_chat import router as jarvis_chat_router  # Jarvis live chat endpoints
+from app.api.superglue_actions import router as superglue_actions_router  # Superglue action execution endpoints
 
 from app.api.deps import get_current_user
 from database.models.core import User
@@ -1260,6 +1266,7 @@ except Exception:
     # Fail closed: restrict to localhost rather than open wildcard
     _cors_origins = ["http://localhost:3000"]
 
+app.add_middleware(VariantCheckMiddleware)  # Variant tier enforcement (must be early)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -1393,6 +1400,11 @@ app.include_router(dlq_router, tags=["dlq"])
 app.include_router(shadow_mode_router, tags=["shadow-mode"])  # prefix: /api/shadow-mode
 app.include_router(onboarding_agent_builder_router)  # Onboarding: scan tickets + build agents
 app.include_router(onboarding_builder_from_kb_router)  # Onboarding: KB-driven agent creation (no waiting for tickets)
+app.include_router(crm_webhooks_router)  # CRM webhook receivers
+app.include_router(custom_connectors_router)  # Custom connector CRUD
+app.include_router(flexpay_router)  # FlexPay scheduling + management
+app.include_router(jarvis_chat_router)  # Jarvis live chat endpoints
+app.include_router(superglue_actions_router)  # Superglue action execution
 app.include_router(debug_router, prefix="/api/v1", tags=["debug"])  # prefix: /api/v1/debug
 
 

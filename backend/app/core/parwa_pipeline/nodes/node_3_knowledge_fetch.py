@@ -2565,6 +2565,59 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     documents = _retrieve_knowledge(ticket_type, query, tenant_id=tenant_id)
     logs.append({"node": 3, "technique": "RAG", "duration_ms": 0, "result_summary": f"{len(documents)} docs"})
 
+    # ── Enhanced RAG for parwa/high variants (F-064) ───────────
+    # HyDE + MultiQuery + LLM Reranker — only for FULL-lane paid tickets.
+    # Adds ~2-3 LLM calls but significantly improves retrieval quality.
+    variant_short = state.get("variant_tier_short", "")
+    lane = state.get("lane", "")
+    if lane == "FULL" and variant_short in ("parwa", "high") and documents:
+        try:
+            rag_start = time.time()
+            from app.core.rag.hyde import HyDEGenerator
+            from app.core.rag.multi_query import MultiQueryRetriever
+            from app.core.rag.llm_reranker import LLMReranker
+            from app.core.rag_retrieval import RAGChunk
+
+            # 1. Multi-Query: generate alternative phrasings, retrieve for each
+            mq = MultiQueryRetriever()
+            mq_result = await mq.retrieve_with_multi_query(
+                query, company_id=tenant_id, variant_type=variant_short, top_k=10
+            )
+            if mq_result and mq_result.chunks:
+                # Merge multi-query results with existing docs
+                existing_content = {d.get("content", "") for d in documents}
+                for chunk in mq_result.chunks:
+                    if chunk.content not in existing_content:
+                        documents.append({
+                            "content": chunk.content,
+                            "source": chunk.source or "multi_query",
+                            "score": chunk.score or 0.5,
+                        })
+                logs.append({"node": 3, "technique": "MultiQuery", "duration_ms": round((time.time() - rag_start) * 1000),
+                             "result_summary": f"{len(mq_result.chunks)} chunks from {mq_result.num_queries} queries"})
+
+            # 2. LLM Reranker: semantically re-score top chunks
+            if len(documents) > 3:
+                reranker = LLMReranker()
+                rag_chunks = [
+                    RAGChunk(content=d.get("content", ""), source=d.get("source", ""), score=d.get("score", 0.5))
+                    for d in documents[:15]  # top 15 to save tokens
+                ]
+                reranked = await reranker.rerank(query, rag_chunks, company_id=tenant_id, variant_type=variant_short)
+                # Update scores
+                for i, rc in enumerate(reranked):
+                    if i < len(documents):
+                        documents[i]["score"] = rc.score
+                documents.sort(key=lambda d: d.get("score", 0), reverse=True)
+                logs.append({"node": 3, "technique": "LLM_Reranker", "duration_ms": round((time.time() - rag_start) * 1000),
+                             "result_summary": f"reranked {len(reranked)} chunks"})
+
+            llm_calls += 2  # multi_query + reranker LLM calls
+        except Exception as exc:
+            logger.warning("enhanced_rag_failed error=%s tenant=%s", str(exc), tenant_id)
+            logs.append({"node": 3, "technique": "EnhancedRAG", "duration_ms": 0,
+                         "result_summary": f"error:{str(exc)[:60]}"})
+
     # ── MetaLearner: boost docs from historically successful patterns ─
     documents = _meta_learner_boost(documents, tenant_id, ticket_type, query)
     logs.append({"node": 3, "technique": "MetaLearner", "duration_ms": 0,

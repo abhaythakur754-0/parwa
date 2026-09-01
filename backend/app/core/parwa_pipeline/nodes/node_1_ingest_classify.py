@@ -2359,6 +2359,60 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     # are set. For INSTANT lane, we already returned early with the canned
     # response. For FULL/QUICK lanes, we continue here.)
 
+    # ── Enhancement Engines (parwa/high only) ────────────────
+    # Vertical-specific intelligence: billing, shipping, tech, churn, emotion
+    # These enrich the state for downstream nodes without extra LLM calls.
+    variant_short = state.get("variant_tier_short", "")
+    if variant_short in ("parwa", "high"):
+        try:
+            tenant_id = state.get("tenant_id", "")
+            enrichment = {}
+            if ticket_type == "billing":
+                from app.core.enhancements.billing_intelligence import BillingIntelligenceEngine
+                eng = BillingIntelligenceEngine()
+                anomaly = eng.detect_anomaly(tenant_id, query, state.get("customer_context", {}))
+                if anomaly.get("anomaly_detected"):
+                    enrichment["billing_anomaly"] = anomaly
+                    logs.append({"node": 1, "technique": "BillingIntel", "duration_ms": 0,
+                                 "result_summary": f"anomaly={anomaly.get('anomaly_type', 'none')}"})
+            elif ticket_type == "technical":
+                from app.core.enhancements.tech_diagnostics import TechDiagnosticsEngine
+                eng = TechDiagnosticsEngine()
+                known = eng.detect_known_issue(tenant_id, query)
+                if known.get("matched"):
+                    enrichment["known_issue"] = known
+                    logs.append({"node": 1, "technique": "TechDiagnostics", "duration_ms": 0,
+                                 "result_summary": f"matched={known.get('issue_id', '?')}"})
+            elif ticket_type in ("complaint", "general"):
+                from app.core.enhancements.emotional_intelligence import EmotionalIntelligenceEngine
+                eng = EmotionalIntelligenceEngine()
+                profile = eng.profile_emotion(tenant_id, query)
+                if profile.get("primary_emotion"):
+                    enrichment["emotion_profile"] = profile
+                    logs.append({"node": 1, "technique": "EmotionalIntel", "duration_ms": 0,
+                                 "result_summary": f"emotion={profile.get('primary_emotion')} intensity={profile.get('intensity')}"})
+            if ticket_type in ("shipping", "delivery", "returns"):
+                from app.core.enhancements.shipping_intelligence import ShippingIntelligenceEngine
+                eng = ShippingIntelligenceEngine()
+                tracking = eng.detect_tracking_number(query)
+                if tracking.get("tracking_number"):
+                    enrichment["tracking"] = tracking
+                    logs.append({"node": 1, "technique": "ShippingIntel", "duration_ms": 0,
+                                 "result_summary": f"tracking={tracking.get('carrier', '?')}/{tracking.get('tracking_number', '?')[:8]}"})
+            # Churn: check for cancellation intents across types
+            if any(kw in query.lower() for kw in ("cancel", "close", "unsubscribe", "delete account")):
+                from app.core.enhancements.churn_retention import ChurnRetentionEngine
+                eng = ChurnRetentionEngine()
+                churn = eng.score_churn_risk(tenant_id, query, state.get("customer_context", {}))
+                if churn.get("churn_probability", 0) > 0.3:
+                    enrichment["churn_risk"] = churn
+                    logs.append({"node": 1, "technique": "ChurnRetention", "duration_ms": 0,
+                                 "result_summary": f"risk={churn.get('churn_probability', 0):.2f} tier={churn.get('risk_tier', 'low')}"})
+            if enrichment:
+                state["enhancement_data"] = enrichment
+        except Exception as exc:
+            logger.warning("enhancement_engines_failed error=%s", str(exc))
+
     return {
         "ticket_type": ticket_type,
         "complexity": complexity,
