@@ -6,7 +6,9 @@
  * reconnection with exponential backoff, and event listener cleanup.
  *
  * Connection URL: NEXT_PUBLIC_API_URL || 'http://localhost:8000', path: '/ws'
- * JWT token: attached as auth.token from localStorage('parwa_access_token')
+ * Auth: httpOnly `parwa_at` cookie sent automatically (withCredentials: true)
+ * and verified by the backend handshake; an optional auth.token payload is
+ * kept as a fallback for non-cookie clients.
  * Tenant room: emitted as 'event:subscribe' with { room: `tenant_{companyId}` }
  */
 
@@ -40,7 +42,6 @@ export interface MissedEvent {
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const TOKEN_KEY = 'parwa_access_token';
 // Socket.io must connect directly to the backend (can't proxy WebSockets through Next.js API routes)
 // In production, use the backend URL; in development, fall back to localhost
 const DEFAULT_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -71,26 +72,6 @@ function devError(...args: unknown[]) {
   }
 }
 
-// ── Token Helper ─────────────────────────────────────────────────────
-
-/**
- * Retrieve the JWT access token from localStorage.
- * Falls back to checking for the httpOnly cookie parwa_at via a /me fetch
- * if localStorage key is not present (tokens may be httpOnly-only).
- */
-function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-
-  // Primary: localStorage token (as specified in task)
-  const lsToken = localStorage.getItem(TOKEN_KEY);
-  if (lsToken) return lsToken;
-
-  // Fallback: httpOnly cookie-based auth — the browser sends cookies
-  // automatically with withCredentials. For socket.io we need the raw token.
-  // In this case, return null and rely on cookie-based transport.
-  return null;
-}
-
 // ── Singleton Class ──────────────────────────────────────────────────
 
 class SocketClient {
@@ -119,10 +100,13 @@ class SocketClient {
 
   /**
    * Connect to the Socket.io server.
-   * @param token  - JWT access token (attached as auth.token)
+   * Authentication uses the httpOnly `parwa_at` cookie, which the browser
+   * sends on the handshake (withCredentials: true) and the backend verifies.
    * @param companyId - Tenant/company ID for room subscription
+   * @param token - Optional JWT access token (auth.token fallback for
+   *                non-cookie clients; the cookie path is preferred)
    */
-  connect(token: string | null, companyId: string): void {
+  connect(companyId: string, token?: string | null): void {
     if (typeof window === 'undefined') {
       devWarn('connect() called on server — ignoring');
       return;
@@ -138,24 +122,24 @@ class SocketClient {
     this.disconnect();
 
     this.companyId = companyId;
-    this.currentToken = token || getAccessToken();
+    this.currentToken = token || null;
     this.setConnectionState('connecting');
 
     devLog('Connecting to', this.config.url, 'path:', this.config.path);
 
     this.socket = io(this.config.url, {
       path: this.config.path,
-      auth: {
-        token: this.currentToken,
-      },
+      // Only attach an auth payload when a token was handed in — cookie
+      // auth is the primary path and needs no client-side token.
+      auth: this.currentToken ? { token: this.currentToken } : undefined,
       transports: ['websocket', 'polling'],
       reconnection: false, // We handle reconnection ourselves with exponential backoff
       timeout: 10_000,
       forceNew: true,
       // SECURITY: Send httpOnly cookies (parwa_at) on the WebSocket handshake.
       // This is the SECURE auth path — httpOnly cookies can't be stolen by XSS.
-      // The localStorage token (auth.token above) is a legacy fallback; if it's
-      // missing, the backend authenticates via the cookie instead.
+      // The auth.token payload (above) is a fallback for non-cookie clients;
+      // if it's missing, the backend authenticates via the cookie instead.
       // This de-risks the C-03 security finding (tokens in localStorage).
       withCredentials: true,
     });
@@ -194,9 +178,7 @@ class SocketClient {
       return;
     }
 
-    // Get a fresh token
-    const freshToken = getAccessToken() || this.currentToken;
-    this.connect(freshToken, this.companyId);
+    this.connect(this.companyId);
   }
 
   /**
@@ -370,14 +352,6 @@ class SocketClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
 
-      // Refresh token before reconnecting
-      const freshToken = getAccessToken() || this.currentToken;
-      if (!freshToken && !this.currentToken) {
-        devWarn('No token available — skipping reconnect');
-        this.scheduleReconnect(); // Try again later
-        return;
-      }
-
       // Create new socket connection
       if (this.socket) {
         this.socket.removeAllListeners();
@@ -388,13 +362,14 @@ class SocketClient {
 
       this.socket = io(this.config.url, {
         path: this.config.path,
-        auth: {
-          token: freshToken || this.currentToken,
-        },
+        auth: this.currentToken ? { token: this.currentToken } : undefined,
         transports: ['websocket', 'polling'],
         reconnection: false,
         timeout: 10_000,
         forceNew: true,
+        // Cookies must flow on reconnect too — the backend handshake
+        // authenticates the httpOnly parwa_at cookie (C-03 secure path).
+        withCredentials: true,
       });
 
       this.setupEventHandlers();
@@ -491,7 +466,7 @@ class SocketClient {
  *
  * Usage:
  *   import { socketClient } from '@/lib/socket-client';
- *   socketClient.connect(token, companyId);
+ *   socketClient.connect(companyId);
  *   socketClient.on('ticket:new', (data) => { ... });
  *   socketClient.disconnect();
  */

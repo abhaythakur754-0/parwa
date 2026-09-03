@@ -27,6 +27,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.pricing_config import normalize_variant_name
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
 
 logger = logging.getLogger("parwa.pipeline.node_2")
@@ -72,14 +73,31 @@ CAPABILITY_MATRIX: Dict[str, Dict[str, Any]] = {
     "high": dict(_FULL_CAPABILITIES),
 }
 
-# Execution limits — financial guardrails per tier.
-# parwa: limited refunds/credits (safety guardrail for the lower tier)
+# Execution limits — financial guardrails per tier (CLAUDE.md P-002).
+# parwa: $500 refund / $200 credit (safety guardrail for the lower tier)
 # high:  unlimited (full trust for the premium tier)
-# NOTE: Must match node_5_act_verify._EXEC_LIMITS exactly.
+# SINGLE SOURCE OF TRUTH: node_5_act_verify imports get_execution_limits()
+# from here, so the old "must match node_5_act_verify._EXEC_LIMITS exactly"
+# invariant now holds by construction — do NOT re-declare a copy elsewhere.
 EXECUTION_LIMITS: Dict[str, Dict[str, float]] = {
-    "parwa": {"max_refund": float("inf"), "max_credit": float("inf")},
+    "parwa": {"max_refund": 500.0, "max_credit": 200.0},
     "high": {"max_refund": float("inf"), "max_credit": float("inf")},
 }
+
+
+def get_execution_limits(tier: str) -> Dict[str, float]:
+    """Return the financial execution limits for a tier.
+
+    Legacy alias tiers (mini, mini_parwa, starter, growth) auto-upgrade
+    to parwa per CLAUDE.md P-002 via normalize_variant_name().
+    Unknown tiers fall back to the parwa limits (fail-closed).
+    """
+    key = (tier or "").strip().lower()
+    try:
+        key = normalize_variant_name(key)
+    except ValueError:
+        pass  # unknown tier — fall back to parwa limits below
+    return EXECUTION_LIMITS.get(key, EXECUTION_LIMITS["parwa"])
 
 
 # ── Test Override Registry ─────────────────────────────────────────
@@ -413,7 +431,7 @@ def _check_capability(
         if not caps["execute_refund"]:
             return False
         amount = action_details.get("amount", 0)
-        limits = EXECUTION_LIMITS.get(tier, {})
+        limits = get_execution_limits(tier)
         if amount > limits.get("max_refund", 0):
             return False
 
@@ -421,7 +439,7 @@ def _check_capability(
         if not caps["execute_credit"]:
             return False
         amount = action_details.get("amount", 0)
-        limits = EXECUTION_LIMITS.get(tier, {})
+        limits = get_execution_limits(tier)
         if amount > limits.get("max_credit", 0):
             return False
 

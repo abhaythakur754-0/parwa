@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
@@ -34,10 +35,34 @@ from app.exceptions import AuthenticationError
 # context is available.
 _BLACKLIST_PREFIX = "parwa:blacklist"
 
-# Flag to only log Redis fail-open once (avoids log spam on every request)
+# Flags to only log Redis fail-open / fail-closed once per process
+# (avoids log spam on every request during a Redis outage)
 class _FailOpenFlag:
     val = False
 _redis_fail_open_logged = _FailOpenFlag()
+_redis_fail_closed_logged = _FailOpenFlag()
+
+# ── C-02: last-known-good revocation cache ─────────────────────
+# Maps jti → time.monotonic() of the last *successful* Redis check
+# that found the jti NOT blacklisted. Gives a short grace window so
+# brief Redis blips don't instantly log every user out when the
+# production check fails closed. Entries older than the TTL are
+# treated as unknown and denied on Redis failure.
+_REVOCATION_CACHE_TTL_SECONDS = 60
+_REVOCATION_CACHE: dict[str, float] = {}
+_REVOCATION_CACHE_MAX_ENTRIES = 10_000
+
+
+def _remember_jti_valid(jti: str) -> None:
+    """Record a successful not-revoked check (C-02 grace cache)."""
+    now = time.monotonic()
+    if len(_REVOCATION_CACHE) >= _REVOCATION_CACHE_MAX_ENTRIES:
+        cutoff = now - _REVOCATION_CACHE_TTL_SECONDS
+        for k in [k for k, ts in _REVOCATION_CACHE.items() if ts < cutoff]:
+            _REVOCATION_CACHE.pop(k, None)
+        if len(_REVOCATION_CACHE) >= _REVOCATION_CACHE_MAX_ENTRIES:
+            _REVOCATION_CACHE.clear()
+    _REVOCATION_CACHE[jti] = now
 
 
 # L-02: JWT key rotation support.
@@ -325,19 +350,30 @@ async def is_token_revoked(jti: str) -> bool:
     CROSS-6: Queries Redis to determine whether a token has been
     explicitly revoked (logged out, password changed, etc.).
 
-    C-02 FIX: In production, this fails CLOSED on Redis errors — if
-    Redis is unavailable, the token is rejected rather than allowed.
-    This prevents an attacker from bypassing revocation by taking
-    Redis offline. In non-production environments, fails open for
-    developer convenience but logs a strong warning.
+    C-02 FIX: In production this fails CLOSED on Redis errors — if
+    Redis is unavailable and we cannot confirm the token is still
+    valid, the token is rejected rather than allowed. This prevents
+    an attacker from bypassing revocation by taking Redis offline.
+
+    Honest tradeoff note: a blanket fail-closed would brick the whole
+    API for the duration of a Redis outage. To soften that, every
+    successful "not revoked" check is remembered in-process for
+    _REVOCATION_CACHE_TTL_SECONDS (60s). On a Redis failure:
+      - jti confirmed valid within the TTL → allowed (last-known-good),
+      - otherwise                          → denied (fail-closed) + warning.
+    So during a hard outage, sessions checked in the previous 60s keep
+    working for one cache TTL and everyone else gets 401s until Redis
+    recovers — availability loses to revocation integrity. Known
+    limitation: a token revoked while Redis is down can slide through
+    on its cache entry for at most 60s. Dev/staging/test still fails
+    open for developer convenience, with a strong warning.
 
     Args:
         jti: The JWT ID to check.
 
     Returns:
-        True if the token has been revoked, False otherwise.
-        In production: True (reject) if Redis is unavailable.
-        In dev/staging/test: False (allow) if Redis is unavailable.
+        True if the token has been revoked (or cannot be confirmed
+        unrevoked in production), False otherwise.
     """
     if not jti:
         return False
@@ -351,19 +387,57 @@ async def is_token_revoked(jti: str) -> bool:
             logger.info(
                 "token_revocation_detected jti=%s", jti
             )
-        return bool(result)
-    except Exception as exc:
-        # FAIL OPEN: When Redis is unavailable, allow the token through.
-        # Only log once to avoid spamming logs on every request.
-        
-        if not _redis_fail_open_logged.val:
-            logger.warning(
-                "is_token_revoked_redis_failed_FAIL_OPEN "
-                "— token allowed because Redis is unavailable (fail-open for availability). "
-                "This message will not repeat. error=%s",
-                str(exc)[:200])
-            _redis_fail_open_logged.val = True
+            return True
+        # Successful check — remember as last-known-good for the C-02
+        # fail-closed grace window.
+        _remember_jti_valid(jti)
         return False
+    except Exception as exc:
+        settings = get_settings()
+        if not settings.is_production:
+            # FAIL OPEN (dev/staging/test only): availability over
+            # revocation integrity while developing. Only log once to
+            # avoid spamming logs on every request.
+            if not _redis_fail_open_logged.val:
+                logger.warning(
+                    "is_token_revoked_redis_failed_FAIL_OPEN "
+                    "— token allowed because Redis is unavailable "
+                    "(fail-open for developer convenience; production "
+                    "fails closed). This message will not repeat. error=%s",
+                    str(exc)[:200])
+                _redis_fail_open_logged.val = True
+            return False
+
+        # FAIL CLOSED (production): deny unless this jti was confirmed
+        # valid within the grace window (brief-blip protection).
+        checked_at = _REVOCATION_CACHE.get(jti)
+        if checked_at is not None and (
+            time.monotonic() - checked_at
+        ) < _REVOCATION_CACHE_TTL_SECONDS:
+            logger.warning(
+                "is_token_revoked_redis_failed_known_good "
+                "jti=%s — Redis unavailable; allowing token on "
+                "last-known-good cache entry (age=%.1fs, ttl=%ds)",
+                jti,
+                time.monotonic() - checked_at,
+                _REVOCATION_CACHE_TTL_SECONDS,
+            )
+            return False
+        if not _redis_fail_closed_logged.val:
+            logger.warning(
+                "is_token_revoked_redis_failed_FAIL_CLOSED "
+                "jti=%s — denying token because Redis is unavailable and "
+                "the jti has no recent known-good check (production "
+                "fail-closed, C-02). This message will not repeat "
+                "per-process. error=%s",
+                jti,
+                str(exc)[:200])
+            _redis_fail_closed_logged.val = True
+        else:
+            logger.debug(
+                "is_token_revoked_redis_failed_FAIL_CLOSED jti=%s", jti
+            )
+        return True
 
 
 def get_token_jti(token: str) -> str | None:

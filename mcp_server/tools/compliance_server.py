@@ -26,7 +26,7 @@ from mcp_server.models import (
 
 logger = get_logger("mcp.compliance_server")
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5100")
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 
 class ComplianceServer(MCPServerBase):

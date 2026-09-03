@@ -1,12 +1,34 @@
 /**
  * PARWA Database Utility - Supabase Direct
- * 
+ *
  * Uses Supabase REST API directly (no Prisma dependency)
  * All data persists to PostgreSQL in Supabase cloud
+ *
+ * SECURITY: the SERVICE ROLE key bypasses RLS — it must ONLY come from the
+ * SUPABASE_SERVICE_ROLE_KEY env var (server-side API routes). Never hardcode
+ * it in source (a previous hardcoded key was committed and had to be rotated)
+ * and never import this module from client components.
  */
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fmpibdauppnzfisodkhp.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtcGliZGF1cHBuemZpc29ka2hwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjQ5MjE3NCwiZXhwIjoyMDAyMDY4MTc0fQ.qBGnJkO4LWHtB7p7NBnS-6UQLkXjJvnvZ0wqYZGPJvI';
+
+/**
+ * Resolve the service role key at call time (NOT import time) so a missing
+ * env var surfaces as a loud request-time error instead of crashing builds.
+ */
+function getServiceKey(): string {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error(
+      '[supabase-db] SUPABASE_SERVICE_ROLE_KEY is not set. ' +
+        'Server-side Supabase access requires the service role key — set it ' +
+        'in the environment (.env / hosting secrets). ROTATE the old key if ' +
+        'you were affected by the previously committed key. NEVER hardcode ' +
+        'it in source.'
+    );
+  }
+  return key;
+}
 
 interface DbConfig {
   table: string;
@@ -27,14 +49,21 @@ interface QueryOptions {
  */
 export class SupabaseClient {
   private baseUrl: string;
-  private headers: HeadersInit;
 
   constructor() {
     this.baseUrl = `${SUPABASE_URL}/rest/v1`;
-    this.headers = {
+  }
+
+  /**
+   * Auth headers resolved lazily (per request) so a missing
+   * SUPABASE_SERVICE_ROLE_KEY fails loudly at call time, not import time.
+   */
+  private get headers(): HeadersInit {
+    const key = getServiceKey();
+    return {
       'Content-Type': 'application/json',
-      'apikey': SUPABASE_SERVICE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
       'Prefer': 'return=representation',
     };
   }

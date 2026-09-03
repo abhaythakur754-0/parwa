@@ -6,7 +6,7 @@
  * hamburger overlay on mobile.
  *
  * Day 4: Added SocketProvider, NotificationBell, RealtimeToast,
- * ApprovalWatcher, SystemHealthMonitor, ConnectionStatus.
+ * SystemHealthMonitor, ConnectionStatus.
  */
 
 'use client';

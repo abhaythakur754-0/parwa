@@ -1,7 +1,10 @@
 """
 AI Wiki Store — Phase 7 (T2→T1 Pattern Matching Fix)
 
-3-section per-tenant design (in-memory for now, DB-ready schema).
+3-section per-tenant design, write-through persisted to PostgreSQL
+(ai_wiki_entries table, see database.models.ai_pipeline.AIWikiEntry)
+with an in-memory overlay for read speed. On any DB failure the store
+degrades gracefully to the previous in-memory-only behavior.
 
   Section A: Ticket Patterns — PARWA writes on resolution, reads on Node 1/3/7
   Section B: Admin Behavior  — Jarvis writes (Phase 8), PARWA reads
@@ -241,14 +244,167 @@ class WikiEntry:
         return str(self.content)
 
 
+# ── DB Persistence (write-through with in-memory fallback) ────────
+# The wiki survives restarts via the ai_wiki_entries table
+# (database.models.ai_pipeline.AIWikiEntry). DB access is best-effort:
+# any failure falls back to the in-memory behavior so pipeline nodes
+# never crash on wiki errors (BC-008). A 60s retry cooldown keeps a
+# down database from spamming a warning on every ticket.
+
+_DB_RETRY_SECONDS = 60
+_db_state: Dict[str, Any] = {"available": True, "retry_after": 0.0}
+
+
+def _db_ready() -> bool:
+    """Return True if a DB persistence attempt should be made now."""
+    return _db_state["available"] or time.time() >= _db_state["retry_after"]
+
+
+def _db_mark_failed(exc: Exception) -> None:
+    """Record a DB failure and open the in-memory fallback window."""
+    _db_state["available"] = False
+    _db_state["retry_after"] = time.time() + _DB_RETRY_SECONDS
+    logger.warning(
+        "Wiki DB persistence failed — falling back to in-memory (retry in %ss): %s",
+        _DB_RETRY_SECONDS, str(exc)[:200],
+    )
+
+
+def _db_mark_ok() -> None:
+    """Record a successful DB round-trip."""
+    _db_state["available"] = True
+
+
+def _entry_to_row(entry: WikiEntry) -> Dict[str, Any]:
+    """Serialize a WikiEntry into AIWikiEntry column values."""
+    import json
+    return {
+        "id": entry.id,
+        "company_id": entry.tenant_id,
+        "section": entry.section,
+        "entry_key": entry.entry_key,
+        "title": entry.title,
+        "content": json.dumps(entry.content, default=str),
+        "metadata_json": json.dumps(
+            {"tags": entry.tags, "created_by": entry.created_by},
+            default=str,
+        ),
+        "version": entry.version,
+        "usage_count": entry.usage_count,
+        "success_count": entry.success_count,
+        "created_by": entry.created_by,
+    }
+
+
+def _row_to_entry(row: Any) -> WikiEntry:
+    """Rebuild a WikiEntry from an AIWikiEntry row."""
+    import json
+    try:
+        content = json.loads(row.content or "{}")
+    except (TypeError, ValueError):
+        content = {}
+    try:
+        meta = json.loads(row.metadata_json or "{}")
+    except (TypeError, ValueError):
+        meta = {}
+    entry = WikiEntry(
+        tenant_id=row.company_id,
+        section=row.section,
+        entry_key=row.entry_key,
+        title=row.title,
+        content=content,
+        created_by=meta.get("created_by", row.created_by or "parwa"),
+        tags=meta.get("tags", []),
+        version=row.version or 1,
+    )
+    entry.id = row.id
+    entry.usage_count = row.usage_count or 0
+    entry.success_count = row.success_count or 0
+    for attr, col in (("created_at", row.created_at), ("updated_at", row.updated_at)):
+        if col is not None and hasattr(col, "timestamp"):
+            setattr(entry, attr, col.timestamp())
+    return entry
+
+
+def _db_persist(entry: WikiEntry) -> bool:
+    """Upsert a wiki entry to the DB (short-lived session).
+
+    Returns True on success; on any failure logs a warning and returns
+    False so the caller keeps the in-memory state (graceful degradation).
+    """
+    if not _db_ready():
+        return False
+    try:
+        from database.base import get_db_context
+        from database.models.ai_pipeline import AIWikiEntry
+        values = _entry_to_row(entry)
+        with get_db_context() as db:
+            row = (
+                db.query(AIWikiEntry)
+                .filter(
+                    AIWikiEntry.company_id == entry.tenant_id,
+                    AIWikiEntry.section == entry.section,
+                    AIWikiEntry.entry_key == entry.entry_key,
+                )
+                .first()
+            )
+            if row is None:
+                db.add(AIWikiEntry(**values))
+            else:
+                for col, val in values.items():
+                    if col != "id":
+                        setattr(row, col, val)
+            # get_db_context commits on exit
+        _db_mark_ok()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        _db_mark_failed(exc)
+        return False
+
+
+def _db_load_tenant(tenant_id: str) -> Dict[str, Dict[str, WikiEntry]]:
+    """Load all wiki entries for a tenant from the DB (best-effort).
+
+    Returns an empty 3-section dict on any failure — the caller then
+    keeps the default in-memory state.
+    """
+    sections: Dict[str, Dict[str, WikiEntry]] = {"A": {}, "B": {}, "C": {}}
+    if not _db_ready():
+        return sections
+    try:
+        from database.base import get_db_context
+        from database.models.ai_pipeline import AIWikiEntry
+        with get_db_context() as db:
+            rows = (
+                db.query(AIWikiEntry)
+                .filter(AIWikiEntry.company_id == tenant_id)
+                .all()
+            )
+            # Build entries inside the session — rows expire after commit
+            for row in rows:
+                try:
+                    entry = _row_to_entry(row)
+                    sections.setdefault(row.section, {})[entry.entry_key] = entry
+                except Exception:  # noqa: BLE001 — skip corrupt rows
+                    continue
+        _db_mark_ok()
+        return sections
+    except Exception as exc:  # noqa: BLE001
+        _db_mark_failed(exc)
+        return sections
+
+
 # ── AI Wiki Store ──────────────────────────────────────────────────
 
 
 class AIWikiStore:
-    """In-memory AI Wiki store with 3-section design.
+    """AI Wiki store with 3-section design.
 
-    In production: this would be backed by PostgreSQL (see roadmap schema)
-    with row-level security per tenant_id.
+    Write-through persistence: entries are kept in an in-memory overlay
+    (read speed) and mirrored to PostgreSQL (ai_wiki_entries) so the
+    Phase 6/7 learning loop survives restarts and works across workers.
+    On any DB failure the store degrades to the previous in-memory-only
+    behavior and retries after a cooldown.
 
     Phase 7: search() rewritten with normalization + synonyms.
     """
@@ -262,9 +418,15 @@ class AIWikiStore:
     # ── Core CRUD ──────────────────────────────────────────────────
 
     def _ensure_tenant(self, tenant_id: str) -> Dict[str, Dict[str, WikiEntry]]:
-        """Ensure tenant has all 3 sections initialized."""
+        """Ensure tenant has all 3 sections initialized.
+
+        On first access after a restart the tenant's entries are
+        hydrated from the DB (best-effort) before falling back to
+        empty sections.
+        """
         if tenant_id not in self._store:
-            self._store[tenant_id] = {
+            loaded = _db_load_tenant(tenant_id)
+            self._store[tenant_id] = loaded if loaded else {
                 "A": {},  # Ticket Patterns
                 "B": {},  # Admin Behavior
                 "C": {},  # Company Knowledge
@@ -318,6 +480,9 @@ class AIWikiStore:
                 "Wiki CREATE: tenant=%s section=%s key=%s",
                 tenant_id, section, entry_key,
             )
+
+        # Write-through persistence (best-effort — memory is the fallback)
+        _db_persist(entry)
 
         return entry
 
@@ -486,6 +651,7 @@ class AIWikiStore:
         entry = tenant[section].get(entry_key)
         if entry:
             entry.success_count += 1
+            _db_persist(entry)  # best-effort counter sync
             logger.debug(
                 "Wiki SUCCESS: key=%s total_successes=%d",
                 entry_key, entry.success_count,
@@ -674,6 +840,17 @@ class AIWikiStore:
             del self._store[tenant_id]
         if tenant_id in self._policy_versions:
             del self._policy_versions[tenant_id]
+        # Best-effort DB cleanup so hydrated rows don't resurrect
+        try:
+            if _db_ready():
+                from database.base import get_db_context
+                from database.models.ai_pipeline import AIWikiEntry
+                with get_db_context() as db:
+                    db.query(AIWikiEntry).filter(
+                        AIWikiEntry.company_id == tenant_id
+                    ).delete()
+        except Exception as exc:  # noqa: BLE001
+            _db_mark_failed(exc)
 
 
 # ── Global Singleton ───────────────────────────────────────────────

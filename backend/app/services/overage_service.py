@@ -4,7 +4,7 @@ Overage Service (F-024, BC-002, BC-004, BC-006)
 Handles daily overage detection and charging:
 - Calculate ticket usage vs plan limits
 - Calculate overage charges at $0.10/ticket
-- Submit charges to Paddle
+- Record charges in the DB (added to next Razorpay invoice cycle)
 - Send email and Socket.io notifications
 - Maintain audit trail
 
@@ -90,7 +90,7 @@ class OverageService:
         2. Get ticket usage for the target date
         3. Calculate overage (if any)
         4. Create overage charge record
-        5. Submit charge to Paddle (if above minimum)
+        5. Record the charge in the DB (if above minimum)
         6. Send notifications
         7. Return result
 
@@ -629,9 +629,16 @@ class OverageService:
         """
         Retry overage charges that are in retry_pending or pending_provider status.
 
-        Intended to be called by a Celery periodic task. Picks up charges
-        that failed previously and re-submits them to Paddle, up to
-        MAX_RETRY_ATTEMPTS times.
+        Intended to be called by a Celery periodic task. Paddle is fully
+        removed, so there is no provider call to retry — a "retry" re-runs
+        the DB-only recording step used by process_daily_overage: a charge
+        whose company still has an active subscription is flipped to
+        status="recorded" and picked up by the next Razorpay invoice
+        cycle. Charges that fail again keep status="retry_pending" with
+        an incremented retry_count until MAX_RETRY_ATTEMPTS is reached,
+        then are marked "dead" with a structured error log for manual
+        reconciliation (reconciliation is DB-managed; there is no provider
+        auto-charge).
 
         Returns:
             Dict with retry summary (retried, succeeded, still_pending, dead).
@@ -677,7 +684,7 @@ class OverageService:
 
         pending_items = await asyncio.to_thread(_db_get_pending)
 
-        # ── Step 2: Process each charge (async Paddle + DB updates) ──
+        # ── Step 2: Process each charge (DB-only retry) ──
         for item in pending_items:
             charge = item["charge"]
             company = item["company"]
@@ -694,63 +701,28 @@ class OverageService:
                 continue
 
             try:
-                paddle = await self._get_paddle()
-                charge_result = await self._submit_paddle_charge(
-                    paddle=paddle,
-                    company=company,
-                    subscription=subscription,
-                    overage_charge=charge,
-                )
-
-                def _db_mark_succeeded(
-                    _charge_id=charge.id,
-                    _charge_result=charge_result,
-                ):
+                # Paddle is removed — re-run the DB-only recording step
+                # (same flow as process_daily_overage): the charge is
+                # marked "recorded" and added to the company's next
+                # Razorpay invoice cycle. No provider call is made.
+                def _db_mark_recorded(_charge_id=charge.id):
                     with SessionLocal() as db:
                         oc = db.query(OverageCharge).filter(
                             OverageCharge.id == _charge_id
                         ).first()
                         if oc:
-                            oc.status = "charged"
-                            oc.paddle_charge_id = _charge_result.get("charge_id")
+                            oc.status = "recorded"
                             oc.last_retry_at = datetime.now(timezone.utc)
                             db.commit()
 
-                await asyncio.to_thread(_db_mark_succeeded)
+                await asyncio.to_thread(_db_mark_recorded)
                 succeeded += 1
 
                 logger.info(
-                    "overage_retry_succeeded charge_id=%s company_id=%s",
+                    "overage_retry_recorded charge_id=%s company_id=%s",
                     charge.id,
                     charge.company_id,
                 )
-
-            except AttributeError as e:
-                # create_transaction still not available
-                logger.warning(
-                    "overage_retry_method_missing charge_id=%s error=%s",
-                    charge.id,
-                    str(e),
-                )
-
-                def _db_mark_attr_error(_charge_id=charge.id):
-                    with SessionLocal() as db:
-                        oc = db.query(OverageCharge).filter(
-                            OverageCharge.id == _charge_id
-                        ).first()
-                        if oc:
-                            oc.retry_count = (oc.retry_count or 0) + 1
-                            oc.last_retry_at = datetime.now(timezone.utc)
-                            if oc.retry_count >= self.MAX_RETRY_ATTEMPTS:
-                                oc.status = "dead"
-                            db.commit()
-                            return oc.retry_count
-
-                new_retry_count = await asyncio.to_thread(_db_mark_attr_error)
-                if new_retry_count >= self.MAX_RETRY_ATTEMPTS:
-                    dead += 1
-                else:
-                    still_pending += 1
 
             except Exception as e:
                 logger.error(
@@ -773,10 +745,19 @@ class OverageService:
                                 oc.status = "retry_pending"
                             db.commit()
                             return oc.retry_count
+                    return None
 
                 new_retry_count = await asyncio.to_thread(_db_mark_error)
-                if new_retry_count >= self.MAX_RETRY_ATTEMPTS:
+                if new_retry_count is not None and new_retry_count >= self.MAX_RETRY_ATTEMPTS:
                     dead += 1
+                    logger.error(
+                        "overage_retry_exhausted charge_id=%s company_id=%s "
+                        "attempts=%s — charge marked dead; reconcile manually "
+                        "(overage reconciliation is DB-managed)",
+                        charge.id,
+                        charge.company_id,
+                        new_retry_count,
+                    )
                 else:
                     still_pending += 1
 

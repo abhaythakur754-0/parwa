@@ -237,6 +237,15 @@ class Settings(BaseSettings):
     # ── Shopify (F-131) ─────────────────────────────────────────
     SHOPIFY_WEBHOOK_SECRET: str = ""
 
+    # ── CRM webhooks (Zendesk / HubSpot / generic) ──────────────
+    # Shared secrets for verifying inbound CRM webhook signatures
+    # (app.api.crm_webhooks.verify_crm_webhook). Unconfigured secret =
+    # production REJECTS the webhook (fail-closed, same convention as
+    # is_token_revoked C-02); non-production allows with a warning.
+    ZENDESK_WEBHOOK_SECRET: str = ""   # webhook token or HMAC secret
+    HUBSPOT_CLIENT_SECRET: str = ""    # HubSpot client secret (v2/v3 signature)
+    CRM_WEBHOOK_SECRET: str = ""       # X-PARWA-Signature HMAC for /generic
+
     # ── Compliance ───────────────────────────────────────────────
     GDPR_RETENTION_DAYS: int = 365
     AUDIT_LOG_RETENTION_DAYS: int = 2555

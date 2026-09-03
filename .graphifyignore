@@ -1,0 +1,10 @@
+# Exclude bundled virtualenv and build noise from the knowledge graph
+venv/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+*.pyo
+*.so
+bun.lock
+public/

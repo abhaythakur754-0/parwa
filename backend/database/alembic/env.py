@@ -11,6 +11,8 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Import all models for autogenerate
+# NOTE: this list must cover EVERY module in backend/database/models/ —
+# a module missing here is invisible to `alembic revision --autogenerate`.
 import database.models.core  # noqa: F401
 import database.models.billing  # noqa: F401
 import database.models.tickets  # noqa: F401
@@ -39,6 +41,18 @@ import database.models.ooo_detection  # noqa: F401
 import database.models.email_bounces  # noqa: F401
 import database.models.sms_channel  # noqa: F401
 import database.models.email_delivery_event  # noqa: F401
+# Previously-missing modules (autogenerate blind spots) — keep in sync
+# with the full backend/database/models/ directory listing:
+import database.models.activity_log  # noqa: F401
+import database.models.crm_analysis  # noqa: F401
+import database.models.flexpay  # noqa: F401
+import database.models.jarvis_activity  # noqa: F401
+import database.models.langgraph_dlq  # noqa: F401
+import database.models.outbound_webhook  # noqa: F401
+import database.models.provider_config  # noqa: F401
+import database.models.shadow_mode  # noqa: F401
+import database.models.superglue_action_safety  # noqa: F401
+import database.models.voice_channel  # noqa: F401
 
 from database.base import Base
 

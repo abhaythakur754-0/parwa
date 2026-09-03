@@ -174,28 +174,39 @@ def _register_handlers() -> None:
     """Register Socket.io connection lifecycle handlers."""
 
     @sio.event
-    async def connect(sid, environ):
+    async def connect(sid, environ, auth=None):
         """Handle new Socket.io connection.
 
         BC-011: Authentication is required. No anonymous connections.
-        S02: JWT token from query params is verified.
-        SECURITY (C-03 fix): JWT from httpOnly cookie is also accepted —
-        this is the SECURE path because httpOnly cookies can't be stolen by XSS.
+        S02: JWT tokens are verified (signature + expiry) before the
+        connection is accepted.
+        SECURITY (C-03 fix): the httpOnly `parwa_at` cookie is the PRIMARY
+        auth path — httpOnly cookies can't be stolen by XSS. The browser
+        sends the cookie automatically because the client connects with
+        withCredentials: true.
+        Fallbacks: the socket.io auth payload token (auth={token: ...} for
+        non-cookie clients) and the query-string token (legacy).
         Backward compat: socketio_auth dict still supported for tests.
         """
         company_id = None
         user_id = None
 
-        # S02: Try JWT from query params first (legacy localStorage path)
-        query_string = environ.get("QUERY_STRING", "")
-        token = _extract_token_from_qs(query_string)
+        # SECURITY (C-03): Primary path — the httpOnly cookie. The frontend
+        # sets withCredentials: true so the browser sends the parwa_at cookie
+        # on the WebSocket handshake automatically.
+        token = _extract_token_from_cookie(environ.get("HTTP_COOKIE", ""))
 
-        # SECURITY (C-03): Fall back to httpOnly cookie — XSS-safe auth path.
-        # The frontend sets withCredentials: true so the browser sends the
-        # parwa_at cookie on the WebSocket handshake automatically.
+        # Fallback 1: socket.io auth payload (clients that pass
+        # io(url, { auth: { token } }) instead of relying on cookies).
         if not token:
-            cookie_header = environ.get("HTTP_COOKIE", "")
-            token = _extract_token_from_cookie(cookie_header)
+            payload_token = auth.get("token") if isinstance(auth, dict) else None
+            if isinstance(payload_token, str) and payload_token:
+                token = payload_token
+
+        # Fallback 2: query-string token (legacy path)
+        if not token:
+            query_string = environ.get("QUERY_STRING", "")
+            token = _extract_token_from_qs(query_string)
 
         if token:
             try:

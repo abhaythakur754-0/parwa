@@ -216,7 +216,7 @@ class ChatServer(MCPServerBase):
             import httpx
             import os
 
-            backend_url = os.environ.get("BACKEND_URL", "http://localhost:5100")
+            backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     f"{backend_url}/api/v1/chat/conversations/{conversation_id}",
@@ -258,7 +258,7 @@ class ChatServer(MCPServerBase):
             import httpx
             import os
 
-            backend_url = os.environ.get("BACKEND_URL", "http://localhost:5100")
+            backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     f"{backend_url}/api/v1/chat/conversations",

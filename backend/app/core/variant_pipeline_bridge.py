@@ -73,10 +73,27 @@ def _get_parwa_pipeline_graph():
     global _parwa_pipeline_graph
     if _parwa_pipeline_graph is None:
         try:
-            from app.core.parwa_pipeline.graph_v2 import build_parwa_pipeline
+            from app.core.parwa_pipeline.graph_v2 import (
+                build_parwa_pipeline,
+                get_checkpointer,
+            )
             graph = build_parwa_pipeline()
-            _parwa_pipeline_graph = graph.compile()
-            logger.info("Unified 8-node PARWA pipeline compiled and ready")
+            # Compile WITH the global checkpointer (same wiring as
+            # run_parwa_pipeline) so bridge-launched runs (chat path +
+            # onboarding) get interrupt()/resume support. If checkpointer
+            # init fails (no DB), fall back to a plain compile.
+            try:
+                _parwa_pipeline_graph = graph.compile(
+                    checkpointer=get_checkpointer(),
+                )
+                logger.info("Unified 8-node PARWA pipeline compiled WITH checkpointer")
+            except Exception:
+                logger.warning(
+                    "PARWA pipeline checkpointer unavailable — compiling without "
+                    "it (no interrupt-resume for bridge-launched runs)",
+                    exc_info=True,
+                )
+                _parwa_pipeline_graph = graph.compile()
         except Exception:
             logger.exception("Failed to build/compile PARWA pipeline")
     return _parwa_pipeline_graph
@@ -636,8 +653,13 @@ async def _run_parwa_pipeline(
             "errors": [],
         }
 
-        # Run the pipeline
-        result = await graph.ainvoke(initial_state)
+        # Run the pipeline — thread_id is required now that the graph is
+        # compiled with the global checkpointer (same wiring as
+        # run_parwa_pipeline, which keys checkpoints by ticket_id).
+        result = await graph.ainvoke(
+            initial_state,
+            config={"configurable": {"thread_id": ticket_id}},
+        )
 
         # Extract response from pipeline result
         response_text = (

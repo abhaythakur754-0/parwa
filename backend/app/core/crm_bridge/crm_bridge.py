@@ -19,6 +19,7 @@ All CRM API calls are:
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -519,10 +520,37 @@ class ZendeskAdapter(CRMAdapter):
             return {"success": False, "error": str(e), "crm_ticket_id": ticket_id}
 
     def validate_webhook(self, payload: Dict[str, Any], headers: Dict[str, str]) -> bool:
-        """Validate Zendesk webhook token."""
+        """Validate Zendesk webhook token (constant-time, fail-closed in prod).
+
+        Defense-in-depth: the API layer (app.api.crm_webhooks
+        verify_crm_webhook) already verifies the raw request before
+        ingest; this repeat check protects non-HTTP callers that pass
+        headers in. Without a configured ZENDESK_WEBHOOK_SECRET,
+        production rejects and non-production accepts with a warning
+        (C-02 convention).
+        """
+        from app.config import get_settings
+
+        settings = get_settings()
+        secret = settings.ZENDESK_WEBHOOK_SECRET
+        if not secret:
+            if settings.is_production:
+                logger.warning(
+                    "Zendesk webhook rejected — ZENDESK_WEBHOOK_SECRET "
+                    "not configured (fail-closed)"
+                )
+                return False
+            logger.warning(
+                "Zendesk webhook secret not configured — accepting "
+                "unverified webhook (non-production)"
+            )
+            return True
         token = headers.get("X-Zendesk-Webhook-Token", "")
-        # In production, compare against stored token
-        return bool(token)
+        if not token:
+            return False
+        # Token compare only — the X-Zendesk-Signature raw-body HMAC is
+        # verified at the API layer, where the raw request body exists.
+        return hmac.compare_digest(token.encode("utf-8"), secret.encode("utf-8"))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -949,6 +977,9 @@ class HubSpotAdapter(CRMAdapter):
             return {"success": False, "error": str(e)}
 
     def validate_webhook(self, payload: Dict[str, Any], headers: Dict[str, str]) -> bool:
+        # Presence check only — the REAL HMAC verification happens at the
+        # API layer (app.api.crm_webhooks.verify_crm_webhook) where the raw
+        # request body is available.
         signature = headers.get("X-HubSpot-Signature", "")
         return bool(signature)
 
@@ -1099,7 +1130,10 @@ class GenericCRMAdapter(CRMAdapter):
             return {"success": False, "error": str(e), "crm_ticket_id": ticket_id}
 
     def validate_webhook(self, payload: Dict[str, Any], headers: Dict[str, str]) -> bool:
-        return True  # No validation for generic
+        # Generic callers have no provider signature — real verification is
+        # the shared-secret HMAC at the API layer
+        # (app.api.crm_webhooks.verify_crm_webhook, X-PARWA-Signature).
+        return True
 
 
 # ═══════════════════════════════════════════════════════════════

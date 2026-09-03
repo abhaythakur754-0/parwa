@@ -1,12 +1,18 @@
 # ════════════════════════════════════════════════════════════════
 # PARWA — MCP Server Production Dockerfile
 # Multi-stage build for minimal image size (<300MB)
+#
+# Build context is the REPO ROOT:
+#   docker build -f infra/docker/mcp.Dockerfile .
+# The MCP server delegates to backend modules (app.core.external_tool_bus,
+# app.services.voice_channel_service, database.*) so backend/ and its
+# requirements are included — same python base as backend/Dockerfile.
 # ════════════════════════════════════════════════════════════════
 
 # -----------------------------------------------------------------------------
 # Stage 1: Builder - Install dependencies
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -20,19 +26,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+WORKDIR /install
 
-# Install Python dependencies
-COPY backend-requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install -r backend-requirements.txt
+# Install Python dependencies (shared with the backend)
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # -----------------------------------------------------------------------------
 # Stage 2: Production - Minimal runtime image
 # -----------------------------------------------------------------------------
-FROM python:3.11-slim AS production
+FROM python:3.12-slim AS production
 
 # Labels for image metadata
 LABEL maintainer="PARWA Team"
@@ -40,10 +43,12 @@ LABEL version="1.0.0"
 LABEL description="PARWA MCP Server - Production"
 
 # Set environment variables
+# /app/backend on PYTHONPATH so `app.*` and `database.*` imports resolve
+# (mcp_server/integrations/external_tool_bus.py and voice_server.py import them)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
-    PATH="/opt/venv/bin:$PATH"
+    PYTHONPATH=/app:/app/backend \
+    PATH="/usr/local/bin:$PATH"
 
 # Install only runtime dependencies (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -55,16 +60,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user for security
 RUN groupadd -r parwa && useradd -r -g parwa parwa
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
+# Copy installed dependencies from builder
+COPY --from=builder /install /usr/local
 
 # Set working directory
 WORKDIR /app
 
-# Copy only MCP-specific source code
+# Copy the MCP server and the backend modules it delegates to
 COPY --chown=parwa:parwa mcp_server/ ./mcp_server/
-COPY --chown=parwa:parwa shared/ ./shared/
-COPY --chown=parwa:parwa database/ ./database/
+COPY --chown=parwa:parwa backend/ ./backend/
 
 # Switch to non-root user
 USER parwa

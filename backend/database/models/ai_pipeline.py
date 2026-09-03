@@ -1,7 +1,7 @@
 """
 AI Pipeline Models: gsd_sessions, confidence_scores, guardrail_blocks,
 guardrail_rules, prompt_templates, model_usage_logs, api_providers,
-service_configs.
+service_configs, ai_wiki_entries.
 
 Source: CORRECTED_PARWA_Complete_Backend_Documentation.md
 BC-001: Tables with company_data have company_id.
@@ -176,3 +176,35 @@ class ModelUsageLog(Base):
     status = Column(String(50), nullable=False)
     error_message = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AIWikiEntry(Base):
+    """AI Wiki persistent store (Phase 6/7 learning loop).
+
+    Backs AIWikiStore (app.core.parwa_pipeline.ai_wiki_store) with
+    durable per-tenant wiki entries — previously the wiki was an
+    in-memory dict, so the learning loop was lost on restart.
+
+    Sections: A = ticket patterns, B = admin behavior, C = company knowledge.
+    """
+
+    __tablename__ = "ai_wiki_entries"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    # "A" (ticket patterns), "B" (admin behavior), "C" (company knowledge)
+    section = Column(String(2), nullable=False, default="A")
+    entry_key = Column(String(255), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False, default="{}")
+    # tags, created_by, counters — everything not searchable as content
+    metadata_json = Column(Text, default="{}")
+    version = Column(Integer, default=1)
+    usage_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    created_by = Column(String(50), default="parwa")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -44,6 +44,24 @@ from app.logger import get_logger
 
 logger = get_logger("technique_executor")
 
+# ── Registry Gap Check (startup-only) ─────────────────────────────
+# CHOICE (Fix 20-c): techniques whose engines live OUTSIDE the BC-013
+# executor (CLARA → app.core.clara_quality_gate, GSD → app.core.gsd_engine)
+# are NOT given adapter nodes here — their logic already runs on other
+# pipeline paths, and a lightweight adapter would double-execute it.
+# Instead the executor filters unregistered techniques out of the
+# activation list (see execute_pipeline) so runs don't fail with
+# technique_node_not_found every time.
+_UNREGISTERED_TECHNIQUE_IDS: List[str] = [
+    t.value for t in TechniqueID if t not in TECHNIQUE_NODES
+]
+if _UNREGISTERED_TECHNIQUE_IDS:
+    logger.warning(
+        "technique_registry_gap configured_techniques_without_nodes=%s "
+        "(engines run outside BC-013 executor — skipped per run)",
+        _UNREGISTERED_TECHNIQUE_IDS,
+    )
+
 
 # ── Data Structures ──────────────────────────────────────────────────
 
@@ -127,9 +145,27 @@ class TechniqueExecutor:
                 str(exc), self.company_id)
             return state, pipeline_result
 
+        # 1b. Drop techniques that have no registered node (e.g. CLARA/GSD
+        # — their engines run outside this executor; see the registry gap
+        # check above). Without this filter the executor logged
+        # technique_node_not_found for them on every single run.
+        registered = [
+            a for a in router_result.activated_techniques
+            if TECHNIQUE_NODES.get(a.technique_id) is not None
+        ]
+        skipped_unregistered = [
+            a.technique_id.value
+            for a in router_result.activated_techniques
+            if TECHNIQUE_NODES.get(a.technique_id) is None
+        ]
+        if skipped_unregistered:
+            logger.debug(
+                "executor_unregistered_techniques_skipped techniques=%s company_id=%s",
+                skipped_unregistered, self.company_id)
+
         # 2. Filter by variant tier access
         filtered = self._filter_by_tier_access(
-            router_result.activated_techniques,
+            registered,
         )
 
         # 3. Sort by tier (T1 -> T2 -> T3) for execution order

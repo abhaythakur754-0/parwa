@@ -7,7 +7,9 @@ selects it.
 
 IMPORTANT: All variants have IDENTICAL AI capabilities.
 The only difference between tiers is ticket volume and agent limits.
-All 14 techniques are available on mini, parwa, and high.
+All 14 techniques are available on parwa and high. Legacy variant
+strings (mini, mini_parwa, starter, growth) auto-upgrade to parwa
+via normalize_variant_name() per CLAUDE.md P-002.
 
 GAP Fixes:
   W9-GAP-029 (HIGH): Cache tier access decisions for 60s
@@ -22,6 +24,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 from app.logger import get_logger
+from app.core.pricing_config import normalize_variant_name
 from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
@@ -60,8 +63,9 @@ _DOWNGRADE_FALLBACK: Dict[str, str] = {
     **_FALLBACK_T2_TO_T1,
 }
 
-# Known variant types
-VALID_VARIANTS = ("parwa", "parwa", "parwa_high")
+# Known variant types (canonical short keys — legacy aliases are
+# normalized to these before every lookup, see _canonical below).
+VALID_VARIANTS = ("parwa", "high")
 
 # Technique → tier mapping
 _TECHNIQUE_TO_TIER: Dict[str, str] = {
@@ -193,10 +197,12 @@ class TechniqueTierAccessChecker:
     # ── Config Builder ────────────────────────────────────────────
 
     def _build_variant_configs(self) -> None:
-        """Build tier configurations for all 3 variants.
+        """Build tier configurations for all canonical variants.
 
         All variants have IDENTICAL capabilities — all 14 techniques.
-        Only ticket volume and agent limits differ by tier.
+        Only ticket volume and agent limits differ by tier. Legacy
+        alias names are normalized to these canonical keys at lookup
+        time (see _canonical).
         """
         all_techniques = (
             _TIER_1_TECHNIQUES
@@ -204,7 +210,7 @@ class TechniqueTierAccessChecker:
             + _TIER_3_TECHNIQUES
         )
 
-        for variant_name in ("parwa", "parwa", "parwa_high"):
+        for variant_name in ("parwa", "high"):
             self._configs[variant_name] = VariantTierConfig(
                 variant_type=variant_name,
                 max_tier=3,
@@ -212,6 +218,23 @@ class TechniqueTierAccessChecker:
                 blocked_techniques=[],
                 fallback_map={},
             )
+
+    # ── Variant Normalization (P-002) ─────────────────────────────
+
+    def _canonical(self, variant_type: str) -> str:
+        """Normalize a variant string to its canonical name.
+
+        Legacy aliases (mini, mini_parwa, starter, growth, parwa_high)
+        auto-upgrade to their canonical variant BEFORE any config or
+        cache lookup — previously legacy subscribers hit the unknown-
+        variant path and were BLOCKED from every technique.
+        Unknown names are returned unchanged so callers can treat them
+        as restricted (BC-008).
+        """
+        try:
+            return normalize_variant_name(variant_type)
+        except ValueError:
+            return variant_type
 
     # ── Cache Helpers (W9-GAP-029) ────────────────────────────────
 
@@ -274,7 +297,7 @@ class TechniqueTierAccessChecker:
             )
 
         technique_id = technique_id.strip().lower()
-        variant_type = variant_type.strip().lower()
+        variant_type = self._canonical(variant_type.strip().lower())
 
         # Check cache first
         cached = self._get_cached(technique_id, variant_type)
@@ -462,7 +485,7 @@ class TechniqueTierAccessChecker:
         self, variant_type: str,
     ) -> List[str]:
         """Get all techniques a variant can use."""
-        config = self._configs.get(variant_type)
+        config = self._configs.get(self._canonical(variant_type))
         if config is None:
             return []
         return list(config.allowed_techniques)
@@ -471,7 +494,7 @@ class TechniqueTierAccessChecker:
         self, variant_type: str,
     ) -> List[str]:
         """Get all techniques blocked for a variant."""
-        config = self._configs.get(variant_type)
+        config = self._configs.get(self._canonical(variant_type))
         if config is None:
             return list(
                 _TIER_2_TECHNIQUES + _TIER_3_TECHNIQUES
@@ -610,7 +633,7 @@ class TechniqueTierAccessChecker:
 
         Returns None for unknown variants (BC-008).
         """
-        return self._configs.get(variant_type)
+        return self._configs.get(self._canonical(variant_type))
 
     # ── Utility Methods ───────────────────────────────────────────
 
@@ -620,20 +643,20 @@ class TechniqueTierAccessChecker:
 
     def get_max_tier(self, variant_type: str) -> int:
         """Return the max tier number for a variant."""
-        config = self._configs.get(variant_type)
+        config = self._configs.get(self._canonical(variant_type))
         if config is None:
             return 0
         return config.max_tier
 
     def is_variant_valid(self, variant_type: str) -> bool:
         """Check if a variant type is recognized."""
-        return variant_type in self._configs
+        return self._canonical(variant_type) in self._configs
 
     def get_technique_count_for_variant(
         self, variant_type: str,
     ) -> Dict[str, int]:
         """Return count of allowed/blocked techniques."""
-        config = self._configs.get(variant_type)
+        config = self._configs.get(self._canonical(variant_type))
         if config is None:
             return {"allowed": 0, "blocked": 0, "total": 0}
         return {
@@ -650,7 +673,7 @@ class TechniqueTierAccessChecker:
     ) -> Optional[str]:
         """Get the fallback technique for a blocked
         technique on a specific variant."""
-        config = self._configs.get(variant_type)
+        config = self._configs.get(self._canonical(variant_type))
         if config is None:
             return _DOWNGRADE_FALLBACK.get(
                 technique_id.strip().lower(),
@@ -665,8 +688,8 @@ class TechniqueTierAccessChecker:
         variant_b: str,
     ) -> Dict:
         """Compare two variants' tier access side by side."""
-        config_a = self._configs.get(variant_a)
-        config_b = self._configs.get(variant_b)
+        config_a = self._configs.get(self._canonical(variant_a))
+        config_b = self._configs.get(self._canonical(variant_b))
         if config_a is None or config_b is None:
             return {"error": "unknown_variant"}
 

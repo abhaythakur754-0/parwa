@@ -37,7 +37,7 @@ class MCPSettings(BaseSettings):
 
     # ── Backend Connection ───────────────────────────────────────
     # URL of the main PARWA backend API
-    BACKEND_URL: str = "http://localhost:5100"
+    BACKEND_URL: str = "http://localhost:8000"
     # Auth token for backend-to-MCP communication
     MCP_AUTH_TOKEN: str = ""
 

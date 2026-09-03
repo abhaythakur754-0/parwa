@@ -9,18 +9,37 @@ Provides REST endpoints for:
   - Vault statistics
 
 All endpoints are production-ready with proper error handling.
+
+Security (BC-001 / BC-011):
+  Every endpoint requires a valid JWT (Authorization: Bearer — injected
+  by the /api/escalations Next.js proxy from the parwa_at cookie, see
+  src/app/api/escalations/route.ts). The tenant for every operation is
+  derived from the authenticated user's company_id; tenant_id values
+  supplied via query string or request body are IGNORED. Record-level
+  endpoints additionally verify the escalation belongs to the caller's
+  company before reading or mutating it.
+
+  The main.py lifespan auto-resume loop calls the resume service
+  functions in-process (not via HTTP), so requiring auth here does not
+  affect scheduled resume processing.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
+from app.api.deps import get_company_id
 
 logger = logging.getLogger("parwa.escalation_api")
 
-router = APIRouter(prefix="/api/escalations", tags=["Escalation"])
+router = APIRouter(
+    prefix="/api/escalations",
+    tags=["Escalation"],
+    dependencies=[Depends(get_company_id)],  # BC-011: JWT required on all endpoints
+)
 
 
 # ── Request/Response Models ───────────────────────────────────
@@ -44,8 +63,11 @@ class ResumeRequest(BaseModel):
 
 
 class AutoResumeRequest(BaseModel):
-    """Request to auto-resume all eligible escalations."""
-    tenant_id: str = Field(..., description="Tenant ID")
+    """Request to auto-resume all eligible escalations.
+
+    BC-001: the tenant is taken from the authenticated user's
+    company_id — any tenant_id sent by the client is ignored.
+    """
 
 
 # ── Endpoints ────────────────────────────────────────────────
@@ -53,12 +75,12 @@ class AutoResumeRequest(BaseModel):
 
 @router.get("/list")
 async def list_escalations(
-    tenant_id: str,
     human_status: Optional[str] = None,
     reprocess_status: Optional[str] = None,
     limit: int = 50,
+    company_id: str = Depends(get_company_id),
 ) -> Dict[str, Any]:
-    """List escalations for a tenant.
+    """List escalations for the authenticated tenant.
 
     Filters:
       - human_status: "pending", "guidance_provided", "resolved"
@@ -67,7 +89,7 @@ async def list_escalations(
     from app.core.escalation_vault.vault_manager import VaultManager
 
     escalations = await VaultManager.list_escalations(
-        tenant_id=tenant_id,
+        tenant_id=company_id,
         human_status=human_status,
         reprocess_status=reprocess_status,
         limit=limit,
@@ -75,37 +97,42 @@ async def list_escalations(
 
     return {
         "success": True,
-        "tenant_id": tenant_id,
+        "tenant_id": company_id,
         "count": len(escalations),
         "escalations": escalations,
     }
 
 
 @router.get("/stats")
-async def vault_stats(tenant_id: str) -> Dict[str, Any]:
-    """Get escalation vault statistics."""
+async def vault_stats(company_id: str = Depends(get_company_id)) -> Dict[str, Any]:
+    """Get escalation vault statistics for the authenticated tenant."""
     from app.core.escalation_vault.vault_manager import VaultManager
 
-    stats = await VaultManager.get_vault_stats(tenant_id)
+    stats = await VaultManager.get_vault_stats(company_id)
     return {"success": True, **stats}
 
 
 @router.get("/pending")
-async def pending_resumes(tenant_id: str) -> Dict[str, Any]:
+async def pending_resumes(
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Get escalations awaiting resume (have guidance, not yet processed)."""
     from app.core.escalation_vault.vault_manager import VaultManager
 
-    pending = await VaultManager.get_pending_resumes(tenant_id)
+    pending = await VaultManager.get_pending_resumes(company_id)
     return {
         "success": True,
-        "tenant_id": tenant_id,
+        "tenant_id": company_id,
         "count": len(pending),
         "escalations": pending,
     }
 
 
 @router.get("/{escalation_id}")
-async def get_escalation(escalation_id: str) -> Dict[str, Any]:
+async def get_escalation(
+    escalation_id: str,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Get a specific escalation by ID (full detail with pipeline state)."""
     from app.core.escalation_vault.vault_manager import VaultManager
 
@@ -113,11 +140,16 @@ async def get_escalation(escalation_id: str) -> Dict[str, Any]:
     if not escalation:
         raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
 
+    _ensure_tenant(escalation, company_id)
+
     return {"success": True, "escalation": escalation}
 
 
 @router.get("/by-ticket/{ticket_id}")
-async def get_escalation_by_ticket(ticket_id: str) -> Dict[str, Any]:
+async def get_escalation_by_ticket(
+    ticket_id: str,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Get escalation by original PARWA ticket ID."""
     from app.core.escalation_vault.vault_manager import VaultManager
 
@@ -125,11 +157,16 @@ async def get_escalation_by_ticket(ticket_id: str) -> Dict[str, Any]:
     if not escalation:
         raise HTTPException(status_code=404, detail=f"No escalation for ticket {ticket_id}")
 
+    _ensure_tenant(escalation, company_id)
+
     return {"success": True, "escalation": escalation}
 
 
 @router.get("/by-notification/{notification_key}")
-async def get_escalation_by_notification(notification_key: str) -> Dict[str, Any]:
+async def get_escalation_by_notification(
+    notification_key: str,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Get escalation by PARWA-NFY notification key."""
     from app.core.escalation_vault.vault_manager import VaultManager
 
@@ -140,11 +177,17 @@ async def get_escalation_by_notification(notification_key: str) -> Dict[str, Any
             detail=f"No escalation for notification {notification_key}",
         )
 
+    _ensure_tenant(escalation, company_id)
+
     return {"success": True, "escalation": escalation}
 
 
 @router.post("/{escalation_id}/guidance")
-async def provide_guidance(escalation_id: str, req: GuidanceRequest) -> Dict[str, Any]:
+async def provide_guidance(
+    escalation_id: str,
+    req: GuidanceRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Provide human guidance for an escalated ticket.
 
     This is called by JARVIS when a human agent types guidance.
@@ -152,10 +195,12 @@ async def provide_guidance(escalation_id: str, req: GuidanceRequest) -> Dict[str
     """
     from app.core.escalation_vault.vault_manager import VaultManager
 
-    # Verify escalation exists
+    # Verify escalation exists and belongs to the caller's tenant
     existing = await VaultManager.get_escalation(escalation_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    _ensure_tenant(existing, company_id)
 
     if existing.get("human_status") == "resolved":
         raise HTTPException(
@@ -190,13 +235,26 @@ async def provide_guidance(escalation_id: str, req: GuidanceRequest) -> Dict[str
 
 
 @router.post("/guidance-by-notification")
-async def provide_guidance_by_notification(req: GuidanceByNotificationRequest) -> Dict[str, Any]:
+async def provide_guidance_by_notification(
+    req: GuidanceByNotificationRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Provide human guidance using PARWA-NFY notification key.
 
     Convenience endpoint — finds escalation by notification key,
     then adds guidance. Used when human clicks notification in JARVIS.
     """
     from app.core.escalation_vault.vault_manager import VaultManager
+
+    # Tenant check (BC-001) before saving guidance
+    existing = await VaultManager.get_escalation_by_notification(req.notification_key)
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No escalation found for notification {req.notification_key}",
+        )
+
+    _ensure_tenant(existing, company_id)
 
     record = await VaultManager.provide_guidance_by_notification(
         notification_key=req.notification_key,
@@ -220,7 +278,10 @@ async def provide_guidance_by_notification(req: GuidanceByNotificationRequest) -
 
 
 @router.post("/resume")
-async def resume_escalation(req: ResumeRequest) -> Dict[str, Any]:
+async def resume_escalation(
+    req: ResumeRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Resume an escalated ticket with human guidance.
 
     Runs the resume pipeline:
@@ -232,6 +293,17 @@ async def resume_escalation(req: ResumeRequest) -> Dict[str, Any]:
     Returns the improved response if quality passes.
     """
     from app.core.escalation_vault.resume_pipeline import resume_escalated_ticket
+    from app.core.escalation_vault.vault_manager import VaultManager
+
+    # Tenant check (BC-001) before triggering the LLM resume pipeline
+    escalation = await VaultManager.get_escalation(req.escalation_id)
+    if not escalation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Escalation {req.escalation_id} not found",
+        )
+
+    _ensure_tenant(escalation, company_id)
 
     result = await resume_escalated_ticket(req.escalation_id)
 
@@ -246,14 +318,19 @@ async def resume_escalation(req: ResumeRequest) -> Dict[str, Any]:
 
 
 @router.post("/auto-resume")
-async def auto_resume_all(req: AutoResumeRequest) -> Dict[str, Any]:
+async def auto_resume_all(
+    req: AutoResumeRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Auto-resume all escalations that have human guidance but haven't been processed.
 
     Typically called by a scheduled job (cron) every few minutes.
+    BC-001: the tenant is the authenticated user's company_id — the
+    lifespan auto-resume loop calls the service function directly.
     """
     from app.core.escalation_vault.resume_pipeline import auto_resume_pending
 
-    result = await auto_resume_pending(req.tenant_id)
+    result = await auto_resume_pending(company_id)
     return result
 
 
@@ -262,12 +339,20 @@ async def update_crm_status(
     escalation_id: str,
     crm_status: str,
     crm_ticket_id: Optional[str] = None,
+    company_id: str = Depends(get_company_id),
 ) -> Dict[str, Any]:
     """Manually update CRM push-back status for an escalation.
 
     Used when CRM push is done externally or for testing.
     """
     from app.core.escalation_vault.vault_manager import VaultManager
+
+    # Tenant check (BC-001) before mutating the record
+    escalation = await VaultManager.get_escalation(escalation_id)
+    if not escalation:
+        raise HTTPException(status_code=404, detail=f"Escalation {escalation_id} not found")
+
+    _ensure_tenant(escalation, company_id)
 
     record = await VaultManager.update_crm_push_back(
         escalation_id=escalation_id,
@@ -291,18 +376,52 @@ class GuidanceTicketRequest(BaseModel):
 
 
 class BatchGuidanceTicketRequest(BaseModel):
-    """Request to batch-process failed escalations as guidance tickets."""
-    tenant_id: str = Field(..., description="Tenant ID")
+    """Request to batch-process failed escalations as guidance tickets.
+
+    BC-001: the tenant is taken from the authenticated user's
+    company_id — any tenant_id sent by the client is ignored.
+    """
+
+
+def _ensure_tenant(escalation: Dict[str, Any], company_id: str) -> None:
+    """BC-001: verify an escalation record belongs to the caller's company.
+
+    Args:
+        escalation: Vault record dict (must contain tenant_id).
+        company_id: Authenticated caller's company id.
+
+    Raises:
+        HTTPException: 403 when the record is scoped to another tenant.
+    """
+    if str(escalation.get("tenant_id", "")) != company_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Escalation does not belong to your company",
+        )
 
 
 @router.post("/guidance-ticket")
-async def create_guidance_ticket_endpoint(req: GuidanceTicketRequest) -> Dict[str, Any]:
+async def create_guidance_ticket_endpoint(
+    req: GuidanceTicketRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Create a new ticket from human guidance when resume has failed.
 
     Alternative to resume pipeline: uses human guidance as the PRIMARY answer
     and validates it with LLM, rather than re-running the full reasoning pipeline.
     """
     from app.core.escalation_vault.guidance_ticket_flow import create_guidance_ticket
+    from app.core.escalation_vault.vault_manager import VaultManager
+
+    # Tenant check (BC-001) before triggering the LLM flow
+    escalation = await VaultManager.get_escalation(req.escalation_id)
+    if not escalation:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Escalation {req.escalation_id} not found",
+        )
+
+    _ensure_tenant(escalation, company_id)
 
     result = await create_guidance_ticket(req.escalation_id)
 
@@ -317,13 +436,17 @@ async def create_guidance_ticket_endpoint(req: GuidanceTicketRequest) -> Dict[st
 
 
 @router.post("/batch-guidance-tickets")
-async def batch_guidance_tickets_endpoint(req: BatchGuidanceTicketRequest) -> Dict[str, Any]:
+async def batch_guidance_tickets_endpoint(
+    req: BatchGuidanceTicketRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Batch-process all failed escalations as guidance tickets.
 
     For escalations where the resume pipeline failed but human guidance exists,
     this tries the lighter 'guidance-as-ticket' approach.
+    BC-001: scoped to the authenticated user's company_id.
     """
     from app.core.escalation_vault.guidance_ticket_flow import batch_guidance_tickets
 
-    result = await batch_guidance_tickets(req.tenant_id)
+    result = await batch_guidance_tickets(company_id)
     return result

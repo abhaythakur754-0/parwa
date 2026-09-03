@@ -38,23 +38,25 @@ from typing import Any, Dict, List
 
 from app.core.parwa_pipeline.llm_client import llm_call
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
+# Single source of truth for financial execution limits (P-002):
+# node_2_smart_route.EXECUTION_LIMITS — imported, never re-declared here.
+from app.core.parwa_pipeline.nodes.node_2_smart_route import get_execution_limits
 
 logger = logging.getLogger("parwa.pipeline.node_5")
 
 # Import execution limits from config
 # (defined in node_2 but referenced here for action verification)
-# NOTE: Must match node_2_smart_route.EXECUTION_LIMITS exactly.
-# Mini was removed 2026-07-26 — only parwa + high remain.
+# NOTE: Limits come from node_2_smart_route via get_execution_limits()
+# — single source of truth, cannot drift out of sync.
+# Mini was removed 2026-07-26 — legacy aliases (mini/starter/growth)
+# auto-upgrade to parwa per CLAUDE.md P-002.
 _CAPABILITY_MATRIX = {
     "parwa": {"execute_refund": True, "execute_credit": True, "account_change": True},
     "high": {"execute_refund": True, "execute_credit": True, "account_change": True},
 }
-# Refund/credit limits removed — both variants can execute any amount.
+# Refund/credit limits live in node_2_smart_route.EXECUTION_LIMITS
+# (parwa: $500 refund / $200 credit; high: unlimited).
 # Approval queue (BC-009) still enforces human approval for dangerous actions.
-_EXEC_LIMITS = {
-    "parwa": {"max_refund": float("inf"), "max_credit": float("inf")},
-    "high": {"max_refund": float("inf"), "max_credit": float("inf")},
-}
 
 
 # ── Agent-aware tool input extraction ─────────────────────────────
@@ -128,7 +130,7 @@ def _rule_based_check(
 ) -> Dict[str, Any]:
     """Check if action can be executed based on variant rules."""
     caps = _CAPABILITY_MATRIX.get(tier, _CAPABILITY_MATRIX["parwa"])
-    limits = _EXEC_LIMITS.get(tier, _EXEC_LIMITS["parwa"])
+    limits = get_execution_limits(tier)
 
     can_execute = True
     reason = ""

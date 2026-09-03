@@ -53,6 +53,10 @@ class PipelineV2State(TypedDict, total=False):
     classification_confidence: float     # 0.0-1.0
     routing_suggestion: str              # simple_medium_path, complex_path
     node_1_token_usage: int
+    system_flags: Dict[str, Any]         # Jarvis/system flags loaded at ingest
+    enhancement_data: Dict[str, Any]     # customer_context enrichment result
+    conversation_summary: Optional[str]  # F-160 rolling conversation summary
+    escalation_record: Optional[Any]     # EscalationRecord (graceful_escalation) or None
 
     # ── NODE 2: SMART ROUTE ────────────────────────────────────────
     variant_tier: str                    # mini_parwa, parwa, parwa_high (DB name)
@@ -60,6 +64,10 @@ class PipelineV2State(TypedDict, total=False):
     quota_remaining: Dict[str, int]      # {"mini": 347, "parwa": 0, "high": 1856}
     route_decision: str                  # simple_path, complex_path
     variant_capabilities: List[str]      # what this tier CAN do
+    verified_agent_id: Optional[str]     # Builder/Superglue agent verified by Node 2
+    verified_tool_id: Optional[str]      # linked Superglue tool id
+    agent_verification_status: str       # exists | created | failed | error
+    tool_verification_status: str        # exists | created | failed | not_needed | error
 
     # ── BUILDER AGENT (Node 1 → Builder) ───────────────────────────
     builder_agent_id: Optional[str]      # agent_id if Builder created an agent
@@ -79,6 +87,17 @@ class PipelineV2State(TypedDict, total=False):
     knowledge_sufficient: bool                 # CLARA gate: do we have enough?
     knowledge_contradictory: bool              # CLARA gate: contradictions found?
     node_3_token_usage: int
+    jarvis_guidance: str                       # Phase 11: Jarvis guidance for this ticket
+    intent_signals: Dict[str, Any]             # boosted intent signals
+    query_decomposition: Dict[str, Any]        # GSD decomposition of the query
+    completeness_tracker: Dict[str, Any]       # KB completeness tracking
+    context_signals: Dict[str, Any]            # UCB context signals
+    context_scores: Dict[str, Any]             # UCB context scores
+    wiki_diversity: Dict[str, Any]             # wiki pattern diversity metrics
+    wiki_conflict_resolution: Dict[str, Any]   # conflicting wiki pattern check
+    temporal_check: Dict[str, Any]             # temporal relevance of KB docs
+    version_tracker: Dict[str, Any]            # KB doc version tracking
+    partial_data: Dict[str, Any]               # partial CRM data handling result
 
     # ── NODE 3.5: FEW-SHOT INJECTION (Phase 8) ─────────────────────
     # 0 LLM calls. Pulls 2-3 past resolved tickets in the same category
@@ -98,6 +117,14 @@ class PipelineV2State(TypedDict, total=False):
     # Averages out Llama 3.1 8B's high variance (Wang et al. 2022).
     # 3x LLM calls instead of 1 (still 3x cheaper than 1 GLM call).
     self_consistency_candidates: List[Dict[str, Any]]  # [{index, response, score, verified_claims, total_claims}]
+    maker_bridges: List[Dict[str, Any]]  # MAKER bridges (sub-problem ↔ KB)
+    maker_confidences: List[Any]         # confidence per MAKER bridge
+    maker_flagged: bool                  # MAKER flagged ungrounded content
+    maker_zsv_removed: int               # bridges removed by the ZSV gate
+    maker_bridge_safe: bool              # final MAKER bridge safety check
+    query_decompose_hash: str            # idempotency hash of the decomposition
+    llm_technique_results: List[Dict[str, Any]]  # BC-013 TechniqueExecutor results
+    llm_technique_hints: List[Dict[str, Any]]    # hints extracted from LLM techniques
 
     # ── NODE 4.5: CHAIN-OF-VERIFICATION (Phase 8) ──────────────────
     # Verifies every claim in combined_answer against KB chunks.
@@ -122,6 +149,22 @@ class PipelineV2State(TypedDict, total=False):
     actions_verified: bool
     verification_result: str
     node_5_token_usage: int
+    # Approval queue (BC-009) — set via state mutation inside _react_execute;
+    # declared here so LangGraph keeps the fields instead of dropping them.
+    pending_approval: bool               # action queued for human approval
+    pending_approval_reason: str         # why approval is required
+    pending_approval_tool_input: str     # serialized tool input for the approval queue
+    pending_approval_agent_id: Optional[str]  # Builder agent awaiting approval
+    pending_approval_tool_id: Optional[str]   # Superglue tool awaiting approval
+    action_audit: Dict[str, Any]         # audit trail of executed actions
+    push_to_crm: bool                    # Jarvis guidance: push result to CRM
+    crm_reason: str                      # why the CRM push was requested
+    escalation_required: bool            # escalation decision (nodes 5/6)
+    escalation_reasons: List[str]        # why escalation was triggered
+    sufficiency: bool                    # knowledge sufficiency verdict
+    meta_confidence_adjustment: float    # MetaLearner confidence adjustment (node 5)
+    maker_final_block: bool              # final MAKER check blocked the answer (node 5)
+    policy_cited: bool                   # PolicyCitationChecker result (node 5)
 
     # ── NODE 6: QUALITY + FORMAT ───────────────────────────────────
     quality_score: float                 # 0.0-1.0
@@ -129,6 +172,17 @@ class PipelineV2State(TypedDict, total=False):
     formatted_response: str              # final customer-facing response
     quality_passed: bool                 # True if score > threshold
     node_6_token_usage: int
+    cove_verified: bool                  # CoVe verification passed (checked again in node 6)
+    contradiction_detected: bool         # contradiction check result
+    maker_gaps: List[Dict[str, Any]]     # MAKER gap report
+    rule_violations: List[Dict[str, Any]]  # rule-based check violations
+    meta_adjustment: float               # MetaLearner score adjustment (node 6)
+    guardrail_safe: bool                 # guardrail check passed
+    reverse_thinking_risks: int          # reverse-thinking risk count
+    step_back_passes: bool               # step-back abstraction check
+    least_to_most_score: float           # least-to-most decomposition score
+    theory_of_mind_addressed: bool       # theory-of-mind intent coverage
+    fake_voting_consensus: float         # fake voting consensus score
 
     # ── NODE 7: SIMPLE/MEDIUM RESOLVER ─────────────────────────────
     simple_answer: str                   # non-LLM generated answer

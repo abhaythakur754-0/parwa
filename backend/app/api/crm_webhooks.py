@@ -14,7 +14,11 @@ Endpoints:
   POST /api/crm/webhooks/generic   — Receive generic webhook
 
 All endpoints:
-  - Validate webhook signatures (non-blocking for generic)
+  - Verify webhook signatures (fail-closed in production — see
+    verify_crm_webhook below: zendesk/hubspot verify provider HMACs,
+    generic requires the X-PARWA-Signature HMAC; if the matching
+    secret is not configured, production REJECTS and non-production
+    accepts with a warning)
   - Parse provider-specific payloads
   - Run full PARWA pipeline
   - Push response back to CRM (if configured)
@@ -22,6 +26,8 @@ All endpoints:
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -29,9 +35,122 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.api.deps import get_company_id
+from app.config import get_settings
+
 logger = logging.getLogger("parwa.crm_webhook_api")
 
 router = APIRouter(prefix="/api/crm/webhooks", tags=["CRM Webhooks"])
+
+
+# ── Webhook Signature Verification (fail-closed in production) ──
+# Every inbound CRM webhook reaches the FULL pipeline: one forged POST
+# burns the tenant's LLM budget and can poison its ticket queue, so
+# verification runs BEFORE the payload is parsed.
+
+
+def _constant_time_equals(left: str, right: str) -> bool:
+    return hmac.compare_digest(left.encode("utf-8"), right.encode("utf-8"))
+
+
+def _hmac_sha256_hex(secret: str, message: bytes) -> str:
+    return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
+def _unverified_in_production(provider: str) -> bool:
+    """Return True when an unverified webhook must be rejected.
+
+    C-02 convention: without a configured secret, production fails
+    CLOSED (reject) and non-production fails OPEN with a warning so
+    local development keeps working.
+    """
+    settings = get_settings()
+    if not settings.is_production:
+        logger.warning(
+            "%s webhook secret not configured — accepting unverified webhook "
+            "(non-production only; set the secret before going live)",
+            provider,
+        )
+        return False
+    logger.error(
+        "%s webhook secret not configured — rejecting webhook (fail-closed)",
+        provider,
+    )
+    return True
+
+
+def _verify_webhook_signature(provider: str, request: Request, raw_body: bytes) -> None:
+    """Verify the inbound CRM webhook signature for one provider.
+
+    Raises HTTPException(401) on any verification failure.
+    """
+    headers = request.headers
+    settings = get_settings()
+
+    if provider == "zendesk":
+        secret = settings.ZENDESK_WEBHOOK_SECRET
+        if not secret:
+            if _unverified_in_production(provider):
+                raise HTTPException(status_code=401, detail="Webhook verification not configured")
+            return
+        token = headers.get("X-Zendesk-Webhook-Token", "")
+        signature = headers.get("X-Zendesk-Signature", "")
+        token_ok = bool(token) and _constant_time_equals(token, secret)
+        sig_ok = bool(signature) and _constant_time_equals(
+            signature, _hmac_sha256_hex(secret, raw_body)
+        )
+        if not (token_ok or sig_ok):
+            raise HTTPException(status_code=401, detail="Invalid webhook token")
+
+    elif provider == "hubspot":
+        secret = settings.HUBSPOT_CLIENT_SECRET
+        if not secret:
+            if _unverified_in_production(provider):
+                raise HTTPException(status_code=401, detail="Webhook verification not configured")
+            return
+        provided = headers.get("X-HubSpot-Signature-v3", "") or headers.get(
+            "X-HubSpot-Signature", ""
+        )
+        if not provided:
+            raise HTTPException(status_code=401, detail="Missing webhook signature")
+        # v2 signature = HMAC-SHA256(client secret, raw body)
+        body_digest = _hmac_sha256_hex(secret, raw_body)
+        # v3 signature = HMAC-SHA256(client secret, method + full URL + raw body)
+        v3_message = (
+            request.method + str(request.url) + raw_body.decode("utf-8", errors="replace")
+        ).encode("utf-8")
+        v3_digest = _hmac_sha256_hex(secret, v3_message)
+        if not (
+            _constant_time_equals(provided, body_digest)
+            or _constant_time_equals(provided, v3_digest)
+        ):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    else:  # generic
+        secret = settings.CRM_WEBHOOK_SECRET
+        if not secret:
+            if _unverified_in_production(provider):
+                raise HTTPException(status_code=401, detail="Webhook verification not configured")
+            return
+        provided = headers.get("X-PARWA-Signature", "")
+        if not provided:
+            raise HTTPException(status_code=401, detail="Missing webhook signature")
+        if not _constant_time_equals(provided, _hmac_sha256_hex(secret, raw_body)):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+
+async def verify_crm_webhook(request: Request) -> None:
+    """FastAPI dependency: verify provider webhook signatures before ingress.
+
+    Reads the raw request body first (Starlette caches it, so the
+    endpoint's request.json() still works) and dispatches to the
+    provider-specific HMAC check.
+    """
+    provider = request.url.path.rsplit("/", 1)[-1]
+    raw_body = await request.body()
+    if not raw_body:
+        raise HTTPException(status_code=400, detail="Empty webhook payload")
+    _verify_webhook_signature(provider, request, raw_body)
 
 
 # ── Response Models ──────────────────────────────────────────
@@ -52,7 +171,9 @@ class CRMIngestRequest(BaseModel):
     """Direct ticket ingestion (for testing or API-based CRM integration)."""
     provider: str = Field(default="generic", description="zendesk, hubspot, generic")
     payload: Dict[str, Any] = Field(..., description="Raw CRM ticket payload")
-    tenant_id: str = Field(default="tenant_001", description="PARWA tenant ID")
+    # Deprecated: /ingest requires a JWT and always uses the authenticated
+    # user's company as the tenant (BC-001). Kept for payload compatibility.
+    tenant_id: str = Field(default="", description="Ignored — authenticated tenant is used")
     variant_tier: str = Field(default="parwa", description="Variant tier: mini, parwa, high")
 
 
@@ -137,7 +258,11 @@ async def _run_pipeline_async(initial_state: Dict[str, Any]) -> Dict[str, Any]:
 # ── Webhook Endpoints ────────────────────────────────────────
 
 
-@router.post("/zendesk", response_model=CRMWebhookResponse)
+@router.post(
+    "/zendesk",
+    response_model=CRMWebhookResponse,
+    dependencies=[Depends(verify_crm_webhook)],
+)
 async def receive_zendesk_webhook(request: Request) -> CRMWebhookResponse:
     """Receive incoming Zendesk ticket webhook.
 
@@ -185,7 +310,11 @@ async def receive_zendesk_webhook(request: Request) -> CRMWebhookResponse:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)[:200]}")
 
 
-@router.post("/hubspot", response_model=CRMWebhookResponse)
+@router.post(
+    "/hubspot",
+    response_model=CRMWebhookResponse,
+    dependencies=[Depends(verify_crm_webhook)],
+)
 async def receive_hubspot_webhook(request: Request) -> CRMWebhookResponse:
     """Receive incoming HubSpot ticket webhook.
 
@@ -225,7 +354,11 @@ async def receive_hubspot_webhook(request: Request) -> CRMWebhookResponse:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)[:200]}")
 
 
-@router.post("/generic", response_model=CRMWebhookResponse)
+@router.post(
+    "/generic",
+    response_model=CRMWebhookResponse,
+    dependencies=[Depends(verify_crm_webhook)],
+)
 async def receive_generic_webhook(request: Request) -> CRMWebhookResponse:
     """Receive generic webhook from any CRM system.
 
@@ -273,11 +406,16 @@ async def receive_generic_webhook(request: Request) -> CRMWebhookResponse:
 
 
 @router.post("/ingest")
-async def direct_ingest(req: CRMIngestRequest) -> Dict[str, Any]:
+async def direct_ingest(
+    req: CRMIngestRequest,
+    company_id: str = Depends(get_company_id),
+) -> Dict[str, Any]:
     """Direct ticket ingestion (for API-based CRM integration or testing).
 
     Accepts a pre-parsed ticket and runs it through the PARWA pipeline.
-    Useful for CRMs that don't support webhooks or for programmatic access.
+    Requires a JWT (BC-011) and always runs against the AUTHENTICATED
+    user's company — a caller can never run tickets against another
+    tenant (BC-001).
     """
     from app.core.crm_bridge.crm_bridge import CRMBridge
 
@@ -291,7 +429,7 @@ async def direct_ingest(req: CRMIngestRequest) -> Dict[str, Any]:
         result = await _run_pipeline_from_crm(
             provider=req.provider,
             ticket_data=ticket_data,
-            tenant_id=req.tenant_id,
+            tenant_id=company_id,  # BC-001: authenticated tenant, not caller-supplied
             variant_tier=req.variant_tier,
         )
 

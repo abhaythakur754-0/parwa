@@ -79,29 +79,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     if (!isInitialized) return;
 
     if (isAuthenticated && user?.company_id) {
-      // Get token from cookie (httpOnly cookies are sent automatically,
-      // but socket.io needs the token in the query string)
-      // Try localStorage first (legacy), then extract from cookie
-      let token: string | null = null;
-      if (typeof window !== 'undefined') {
-        token = localStorage.getItem('parwa_access_token');
-        if (!token) {
-          // Try to extract from cookie
-          const match = document.cookie.match(/parwa_at=([^;]+)/);
-          if (match) token = decodeURIComponent(match[1]);
-        }
-      }
-
-      // Only connect if we have a token — otherwise socket will fail auth
-      if (token) {
-        devLog('Auth verified — connecting socket', {
-          companyId: user.company_id,
-          hasToken: true,
-        });
-        socketClient.connect(token, user.company_id);
-      } else {
-        devLog('No token found — skipping socket connection');
-      }
+      // Auth rides on the httpOnly `parwa_at` cookie: the browser attaches it
+      // to the WebSocket handshake automatically (withCredentials: true) and
+      // the backend verifies the JWT server-side. No client-side token lookup
+      // — localStorage tokens are the XSS risk we removed (security C-03).
+      devLog('Auth verified — connecting socket', {
+        companyId: user.company_id,
+      });
+      socketClient.connect(user.company_id);
     } else {
       // Not authenticated — ensure socket is disconnected
       if (socketClient.isConnected()) {
