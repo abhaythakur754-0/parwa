@@ -106,23 +106,24 @@ async function proxyRequest(
   const queryString = url.searchParams.toString();
   const backendPath = `/api/v1/${fullPath}${queryString ? `?${queryString}` : ''}`;
 
+  // Declared outside the try so the timeout-retry in `catch` can use them.
+  const cookie = request.headers.get('cookie') || '';
+  let accessToken = getAccessTokenFromCookie(cookie);
+  let currentCookie = cookie;
+
+  // POST requests trigger the sync pipeline (3-5s per ticket); when
+  // multiple tickets are created in quick succession they queue on the
+  // single uvicorn worker and need more than 15s to complete.
+  // GET requests for ticket lists (page_size=50+) can be slow when the
+  // DB is under load from pipeline workers — give them more time too.
+  const isTicketList = method === 'GET' && fullPath.startsWith('tickets');
+  const requestTimeout = method === 'POST' ? 45000 : (isTicketList ? 30000 : 15000);
+
   try {
     let body: string | null = null;
     if (method !== 'GET' && method !== 'DELETE') {
       try { body = await request.text(); } catch { /* no body */ }
     }
-
-    const cookie = request.headers.get('cookie') || '';
-    let accessToken = getAccessTokenFromCookie(cookie);
-    let currentCookie = cookie;
-
-    // POST requests trigger the sync pipeline (3-5s per ticket); when
-    // multiple tickets are created in quick succession they queue on the
-    // single uvicorn worker and need more than 15s to complete.
-    // GET requests for ticket lists (page_size=50+) can be slow when the
-    // DB is under load from pipeline workers — give them more time too.
-    const isTicketList = method === 'GET' && fullPath.startsWith('tickets');
-    const requestTimeout = method === 'POST' ? 45000 : (isTicketList ? 30000 : 15000);
 
     // ── First attempt ───────────────────────────────────────
     let backendRes = await fetch(`${backendUrl}${backendPath}`, {

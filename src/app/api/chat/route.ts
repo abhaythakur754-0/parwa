@@ -256,7 +256,7 @@ async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
   }
 
   try {
-    const result = await callNvidia(messages);
+    const result = await callNVIDIA(messages);
     if (result && result.trim().length > 10) return result.trim();
   } catch (e) {
     console.warn('[Chat API] NVIDIA failed:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));

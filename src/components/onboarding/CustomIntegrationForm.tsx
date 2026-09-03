@@ -8,7 +8,20 @@ interface CustomIntegrationFormProps {
   onSaved: (integration: { id: string; integration_type: string; name: string | null; status: string }) => void;
 }
 
-const AUTH_TYPES = [
+// Unified credential-field shape: manual auth types identify fields by
+// `name`, Superglue-discovered schemas use `key`. Both may set `required`.
+interface CredentialField {
+  name?: string;
+  key?: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  placeholder?: string;
+}
+
+const fieldId = (f: CredentialField): string => f.name || f.key || '';
+
+const AUTH_TYPES: { value: string; label: string; fields: CredentialField[] }[] = [
   { value: 'bearer', label: 'Bearer Token', fields: [{ name: 'api_key', label: 'API Key / Token', type: 'password' }] },
   { value: 'api_key_header', label: 'API Key (Header)', fields: [{ name: 'header_name', label: 'Header Name', type: 'text' }, { name: 'api_key', label: 'API Key', type: 'password' }] },
   { value: 'api_key_query', label: 'API Key (Query Param)', fields: [{ name: 'param_name', label: 'Param Name', type: 'text' }, { name: 'api_key', label: 'API Key', type: 'password' }] },
@@ -24,7 +37,7 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
   const [testUrl, setTestUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [askingSuperglue, setAskingSuperglue] = useState(false);
-  const [superglueFields, setSuperglueFields] = useState<Array<{ key: string; label: string; type: string; required?: boolean; placeholder?: string }>>([]);
+  const [superglueFields, setSuperglueFields] = useState<CredentialField[]>([]);
 
   // If Superglue returned fields, use those. Otherwise use the selected auth type's fields.
   const selectedAuthType = AUTH_TYPES.find(a => a.value === authType) || AUTH_TYPES[0];
@@ -79,8 +92,8 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
     if (!integrationName.trim()) { toast.error('Please enter an integration name'); return; }
     if (!baseUrl.trim()) { toast.error('Please enter a base URL'); return; }
 
-    const requiredFields = activeFields.filter(f => f.required && !f.name?.startsWith('header') && !f.name?.startsWith('param'));
-    const missing = requiredFields.filter(f => !credentials[f.name || f.key]?.trim());
+    const requiredFields = activeFields.filter(f => f.required && !fieldId(f).startsWith('header') && !fieldId(f).startsWith('param'));
+    const missing = requiredFields.filter(f => !credentials[fieldId(f)]?.trim());
     if (missing.length > 0) { toast.error(`Please fill in: ${missing.map(f => f.label).join(', ')}`); return; }
 
     setSaving(true);
@@ -196,14 +209,14 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
         <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
           <p className="text-xs text-purple-300 font-medium">Superglue discovered these fields:</p>
           {superglueFields.map((field) => (
-            <div key={field.key}>
+            <div key={fieldId(field)}>
               <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
                 {field.label} {field.required && <span className="text-red-400">*</span>}
               </label>
               <input
                 type={field.type === 'password' ? 'password' : 'text'}
-                value={credentials[field.key] || ''}
-                onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                value={credentials[fieldId(field)] || ''}
+                onChange={(e) => handleFieldChange(fieldId(field), e.target.value)}
                 placeholder={field.placeholder || field.label}
                 maxLength={255}
                 className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
@@ -244,14 +257,14 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
 
           {/* Dynamic credential fields based on auth type */}
           {activeFields.map((field) => (
-            <div key={field.name} className="mt-3">
+            <div key={fieldId(field)} className="mt-3">
               <label className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium block mb-1">
                 {field.label}
               </label>
               <input
                 type={field.type === 'password' ? 'password' : 'text'}
-                value={credentials[field.name] || ''}
-                onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                value={credentials[fieldId(field)] || ''}
+                onChange={(e) => handleFieldChange(fieldId(field), e.target.value)}
                 placeholder={field.name === 'header_name' ? 'X-API-Key' : field.name === 'param_name' ? 'api_key' : 'Enter value...'}
                 maxLength={255}
                 className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"

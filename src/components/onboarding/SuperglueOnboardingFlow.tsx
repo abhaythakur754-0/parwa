@@ -83,8 +83,9 @@ interface BuildStatus {
 }
 
 // ── CRM options (only CRM types shown in Phase 1) ────────────────────
-// auth_type: "oauth" = show Connect button, "api_key" = show form fields
-// auth_schema: extra fields per system (rendered before standard API Key field)
+// auth_type "oauth" systems (HubSpot/Salesforce/Zoho) currently use the same
+// paste-a-token form — honest path until the Superglue OAuth redirect ships.
+// auth_schema: extra fields per system (rendered before the API Key field)
 
 interface AuthSchemaField {
   key: string;
@@ -641,16 +642,6 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          {/* Data profile summary */}
-          {analysisResult.data_profile && Object.keys(analysisResult.data_profile).length > 0 && (
-            <div className="mt-4 pt-3 border-t border-white/5">
-              <p className="text-[10px] text-zinc-600 mb-1">Analysis details:</p>
-              <pre className="text-[10px] text-zinc-500 font-mono overflow-x-auto">
-                {JSON.stringify(analysisResult.data_profile, null, 2)}
-              </pre>
             </div>
           )}
 
