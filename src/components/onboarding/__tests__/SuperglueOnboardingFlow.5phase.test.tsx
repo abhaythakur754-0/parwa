@@ -99,6 +99,8 @@ async function completePhase1And2() {
   await waitFor(() => expect(screen.getByText(/Connect HubSpot/)).toBeInTheDocument());
   fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
   fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
+  // API key is REQUIRED now — empty-credential connects were a bug
+  fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
   fireEvent.click(screen.getByText('Connect & Verify'));
   await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
 }
@@ -113,6 +115,8 @@ async function connectAndTestRecommendation() {
   await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
   // Fill the URL field (API form, not database form)
   fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
+  // API key is REQUIRED now — empty-credential connects were a bug
+  fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'sk_test_123' } });
   // Click "Connect & Verify" in the modal
   fireEvent.click(screen.getByText('Connect & Verify'));
   // Wait for the Test button to appear (means it's connected)
@@ -164,6 +168,8 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
     // Fill the URL + submit
     fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
+    // API key is REQUIRED now — empty-credential connects were a bug
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'sk_test_123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
     // Wait for Test button to appear (means connected)
     await waitFor(() => expect(screen.getByText('Test')).toBeInTheDocument());

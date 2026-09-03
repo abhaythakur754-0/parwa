@@ -39,6 +39,12 @@ from database.models.crm_analysis import CRMAnalysisResult
 logger = logging.getLogger("parwa.onboarding_build")
 router = APIRouter(prefix="/api/onboarding-build", tags=["onboarding-build"])
 
+# Starter agents for brand-new tenants: no ticket history + no connected
+# integrations yet means the analyser has nothing to learn from. Without a
+# fallback, zero agents get built and /status can never report all_ready=True
+# — onboarding deadlocks at verify. This guarantees the build always runs.
+STARTER_AGENT_PACK = ("Stripe", "Shopify", "Gmail", "Slack")
+
 
 # ── Models ────────────────────────────────────────────────────────────
 
@@ -117,15 +123,34 @@ async def trigger_build(
     failed = 0
 
     # Get tenant's connected integrations for tool generation context
+    # Status vocab: Superglue flow writes "connected", manual flow writes
+    # "active" — read BOTH or one flow is invisible to the other.
     from database.models.integration import Integration
     connected_integrations = db.query(Integration).filter(
         Integration.company_id == tenant_id,
-        Integration.status.in_(["connected", "verified"]),
+        Integration.status.in_(["connected", "verified", "active"]),
     ).all()
     tenant_integrations_ctx = {
         i.integration_type: {"name": i.name, "status": i.status}
         for i in connected_integrations
     }
+
+    # ── Fallback: never leave a tenant with zero agents ──
+    # Empty recommendations → zero agents → all_ready=False forever →
+    # the customer is stuck on the verify screen. Derive agents from the
+    # integrations they already connected; if none, use the starter pack.
+    if not recommendations:
+        fallback_names = [
+            i.integration_type.replace("-", " ").replace("_", " ").title()
+            for i in connected_integrations
+        ] or list(STARTER_AGENT_PACK)
+        recommendations = [
+            {"name": name, "priority": "high",
+             "reason": "Auto-generated from your connected systems"}
+            for name in fallback_names
+        ]
+        logger.info("onboarding_build_fallback tenant=%s agents=%d",
+                    tenant_id, len(recommendations))
 
     for rec in recommendations:
         agent_name = rec.get("name", "Unknown") if isinstance(rec, dict) else str(rec)

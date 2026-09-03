@@ -148,6 +148,9 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     });
     fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
+    // API key is REQUIRED now — empty-credential connects were a bug
+    // (they "verified" OK but could not read any data on first use).
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // The analysis mock resolves fast, so we should land on recommendations
@@ -171,6 +174,9 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     });
     fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
+    // API key is REQUIRED now — empty-credential connects were a bug
+    // (they "verified" OK but could not read any data on first use).
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Wait for recommendations to appear
@@ -193,6 +199,9 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     });
     fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
+    // API key is REQUIRED now — empty-credential connects were a bug
+    // (they "verified" OK but could not read any data on first use).
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Wait for recommendations
@@ -231,6 +240,9 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     });
     fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
+    // API key is REQUIRED now — empty-credential connects were a bug
+    // (they "verified" OK but could not read any data on first use).
+    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Should show error state

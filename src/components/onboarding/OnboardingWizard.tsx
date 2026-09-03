@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProgressIndicator } from './ProgressIndicator';
 import { DetailsVerificationStep } from './DetailsVerificationStep';
-import { IntegrationStep } from './IntegrationStep';
+import { SuperglueOnboardingFlow } from './SuperglueOnboardingFlow';
 import { KnowledgeUpload } from './KnowledgeUpload';
 import { AgentBuildingStep } from './AgentBuildingStep';
 import { FirstVictory } from './FirstVictory';
@@ -183,9 +183,6 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     }
   }, [variantIdParam, selectedVariant, industryParam]);
 
-  // Resolve industry: URL param > localStorage > undefined
-  const resolvedIndustry = selectedIndustry || (industryParam ? mapIndustryToParwaIndustry(industryParam) : undefined);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
@@ -317,24 +314,19 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
             />
           )}
 
-          {/* Step 2: CRM + Knowledge Base + Smart Recommendations (merged) */}
+          {/* Step 2: Connect CRM (Superglue auto-flow) + Knowledge Base.
+              The Superglue flow handles CRM connect → auto analysis →
+              recommended integrations → background agent build. Its
+              "Continue" button unlocks when all checks pass and fires
+              onComplete, which activates the tenant and moves to
+              Build & Launch. Replaces the old manual 12-system grid. */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              {/* 2A: Connect CRM */}
-              <IntegrationStep onNext={() => {}} industry={resolvedIndustry} hideNextButton={true} />
+              {/* 2A: Superglue guided integration flow */}
+              <SuperglueOnboardingFlow onComplete={() => completeStep(2)} />
 
-              {/* 2B: Upload KB */}
+              {/* 2B: Upload Knowledge Base */}
               <KnowledgeUpload onComplete={() => {}} hideNextButton={true} />
-
-              {/* 2C: Continue to Build & Launch */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
-                <button
-                  onClick={() => completeStep(2)}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
-                >
-                  Continue to Build & Launch →
-                </button>
-              </div>
             </div>
           )}
         </div>

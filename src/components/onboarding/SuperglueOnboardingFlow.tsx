@@ -1,14 +1,18 @@
 'use client';
 
 /**
- * SuperglueOnboardingFlow — 3-phase progressive integration flow.
+ * SuperglueOnboardingFlow — progressive integration flow.
  *
  * Phase 1: CRM Connect — show ONE CRM card. User connects + verifies.
  *          Verify = Superglue GET check + MCPConnection DB record.
  * Phase 2: CRM Analysis — auto-trigger /api/integrations/analyze.
  *          Show loading spinner (2-3 min, analyser scans 30 days of tickets).
+ *          New tenants with no ticket history get a starter-pack fallback
+ *          from the backend, so this phase ALWAYS produces recommendations.
  * Phase 3: Recommended Integrations — show analyser results as connectable
  *          cards below the CRM. User connects each via Superglue.
+ * Phase 4: Agent build — auto-triggered in background, polled via
+ *          /api/onboarding-build/status. "Continue" unlocks when all pass.
  *
  * Replaces the old "show all 12 systems at once" grid. Makes onboarding
  * fast, guided, and simple — customer just follows instructions.
@@ -109,7 +113,7 @@ const CRM_OPTIONS: (CRMType & { auth_type?: string; auth_schema?: AuthSchemaFiel
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function SuperglueOnboardingFlow() {
+export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => void } = {}) {
   const [phase, setPhase] = useState<Phase>('crm-connect');
   const [selectedCRM, setSelectedCRM] = useState<CRMType | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -138,76 +142,17 @@ export function SuperglueOnboardingFlow() {
   const [allTested, setAllTested] = useState(false);
 
   // ── Phase 1: Open CRM connect form ────────────────────────────────
+  // OAuth-type CRMs also use this form: until Superglue exposes an OAuth
+  // redirect endpoint, the user pastes an API key / access token — same
+  // fast path, but the credentials are REAL (empty-credential connects
+  // used to "verify" OK and then fail on first data access).
   const openCRMForm = (crm: any) => {
     setSelectedCRM(crm);
     setFormName(crm.name === 'Custom CRM' ? '' : crm.name);
     setFormUrl(crm.url_hint || '');
     setFormApiKey('');
     setFormExtraFields({});
-    // For OAuth-type CRMs, skip the form and start OAuth flow
-    if (crm.auth_type === 'oauth') {
-      // Superglue handles OAuth redirect — for now show a simplified connect
-      setFormOpen(true);
-      return;
-    }
     setFormOpen(true);
-  };
-
-  // ── Phase 1: Connect CRM to Superglue ─────────────────────────────
-  const handleConnectCRM = async () => {
-    if (!selectedCRM || !formName.trim()) {
-      toast.error('Name is required');
-      return;
-    }
-    // Build credentials from auth_schema fields + API key
-    const crmAny = selectedCRM as any;
-    const credentials: Record<string, string> = {};
-    // Add auth_schema fields first (subdomain, email, domain, etc.)
-    if (crmAny.auth_schema) {
-      for (const field of crmAny.auth_schema) {
-        if (formExtraFields[field.key]?.trim()) {
-          credentials[field.key] = formExtraFields[field.key].trim();
-        }
-      }
-    }
-    // Add API key (mapped to correct key per provider)
-    if (formApiKey.trim()) {
-      // HubSpot uses access_token, others use api_key
-      if (selectedCRM.id === 'hubspot') {
-        credentials.access_token = formApiKey.trim();
-      } else {
-        credentials.api_key = formApiKey.trim();
-      }
-    }
-    // For OAuth-type with no manual credentials, just send empty
-    setConnecting(true);
-    try {
-      const res = await fetch('/api/superglue/systems', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_id: selectedCRM.id,
-          name: formName.trim(),
-          url: formUrl.trim(),
-          credentials,
-          icon: selectedCRM.icon,
-          metadata: { is_crm: true },
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(`${formName} connected to Superglue`);
-        setFormOpen(false);
-        // Auto-verify after connect
-        await handleVerify(selectedCRM.id);
-      } else {
-        toast.error(data.detail || 'Failed to connect');
-      }
-    } catch {
-      toast.error('Network error — could not reach Superglue');
-    } finally {
-      setConnecting(false);
-    }
   };
 
   // ── Phase 1: Verify CRM (Superglue + MCP) ────────────────────────
@@ -304,8 +249,7 @@ export function SuperglueOnboardingFlow() {
     setConnecting(true);
     try {
       // Detect if this is a CRM connection (Phase 1) vs recommendation (Phase 3)
-      const crmIds = ['hubspot', 'zendesk', 'custom'];
-      const isCrm = crmIds.includes(selectedCRM.id);
+      const isCrm = CRM_OPTIONS.some((c) => c.id === selectedCRM.id);
 
       const payload: any = {
         system_id: selectedCRM.id,
@@ -325,9 +269,29 @@ export function SuperglueOnboardingFlow() {
         payload.url = ''; // backend builds it from DB fields
         payload.credentials = {};
       } else {
-        // API connection — send URL + API key
+        // API connection — build credentials from auth_schema fields + API key.
+        // auth_schema fields (Zendesk subdomain/email, Freshdesk domain, etc.)
+        // used to be dropped here — they must reach Superglue or the
+        // connection is broken from birth.
+        const credentials: Record<string, string> = {};
+        const crmDef = CRM_OPTIONS.find((c) => c.id === selectedCRM.id);
+        if (crmDef?.auth_schema) {
+          for (const field of crmDef.auth_schema) {
+            if (formExtraFields[field.key]?.trim()) {
+              credentials[field.key] = formExtraFields[field.key].trim();
+            }
+          }
+        }
+        if (formApiKey.trim()) {
+          // HubSpot uses access_token, others use api_key
+          if (selectedCRM.id === 'hubspot') {
+            credentials.access_token = formApiKey.trim();
+          } else {
+            credentials.api_key = formApiKey.trim();
+          }
+        }
         payload.url = formUrl.trim();
-        payload.credentials = formApiKey.trim() ? { api_key: formApiKey.trim() } : {};
+        payload.credentials = credentials;
       }
 
       const res = await fetch('/api/superglue/systems', {
@@ -829,8 +793,12 @@ export function SuperglueOnboardingFlow() {
                 </div>
               )}
 
-              {/* Continue button — only activates when verify passes all 3 */}
+              {/* Continue button — only activates when verify passes all 3.
+                  Fires onComplete so the parent wizard advances the step. */}
               <button
+                onClick={() => {
+                  if (verifyResult?.all_passed) onComplete?.();
+                }}
                 disabled={!verifyResult?.all_passed}
                 className={cn(
                   'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all',
@@ -1009,11 +977,13 @@ export function SuperglueOnboardingFlow() {
                       />
                     </div>
                   ))}
-                  {/* API Key field — only show for api_key auth type (not OAuth) */}
-                  {((selectedCRM as any)?.auth_type !== 'oauth') && (
+                  {/* API Key field — shown for ALL systems. OAuth-type CRMs
+                      accept an API key / access token until the Superglue
+                      OAuth redirect endpoint ships; a real credential here
+                      beats an empty "OAuth" connect that fails on first use. */}
                   <div>
                     <label className="block text-xs text-zinc-400 mb-1">
-                      API Key / Token{(selectedCRM as any)?.auth_type === 'api_key' ? ' *' : ''}
+                      API Key / Token *
                     </label>
                     <input
                       type="password"
@@ -1022,22 +992,12 @@ export function SuperglueOnboardingFlow() {
                       placeholder="••••••••••••"
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
                     />
-                    <p className="text-[10px] text-zinc-600 mt-1">Stored securely in Superglue + encrypted in MCP registry.</p>
+                    <p className="text-[10px] text-zinc-600 mt-1">
+                      {((selectedCRM as any)?.auth_type === 'oauth')
+                        ? `Paste an access token from your ${selectedCRM.name} account — stored securely in Superglue.`
+                        : 'Stored securely in Superglue + encrypted in MCP registry.'}
+                    </p>
                   </div>
-                  )}
-                  {/* OAuth connect button — only for OAuth auth type */}
-                  {((selectedCRM as any)?.auth_type === 'oauth') && (
-                  <div>
-                    <button
-                      onClick={handleConnectCRM}
-                      disabled={connecting || !formName.trim()}
-                      className="w-full px-4 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium disabled:opacity-50 transition"
-                    >
-                      {connecting ? 'Connecting...' : `Connect with ${selectedCRM.name}`}
-                    </button>
-                    <p className="text-[10px] text-zinc-600 mt-1">You'll be redirected to authorize via {selectedCRM.name}. Token stored securely in Superglue.</p>
-                  </div>
-                  )}
                 </>
               )}
             </div>
@@ -1051,7 +1011,7 @@ export function SuperglueOnboardingFlow() {
               </button>
               <button
                 onClick={handleConnect}
-                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() || !formDbName.trim()) : !formUrl.trim())}
+                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() || !formDbName.trim()) : (!formUrl.trim() || !formApiKey.trim()))}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plug className="w-3.5 h-3.5" />}

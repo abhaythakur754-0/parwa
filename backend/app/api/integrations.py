@@ -1213,8 +1213,53 @@ async def api_analyze_integrations(
         {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
         for name in result.get("integrations", [])
     ]
+
+    # ── Fallback: never return empty recommendations ──
+    # Brand-new tenants have zero tickets, so the analyser has nothing to
+    # learn from and returns []. Empty recommendations → zero agents built
+    # → onboarding-build /status can never report all_ready=True → the
+    # customer deadlocks at the verify screen. Guarantee a starter pack.
+    from app.api.onboarding_build import STARTER_AGENT_PACK
+
+    if result.get("error"):
+        analysis_summary = (
+            "CRM Analyser unavailable — showing a starter pack you can "
+            "connect now. Re-run analysis after your first tickets arrive."
+        )
+    elif not recommendations:
+        recommendations = [
+            {"name": name, "priority": "medium",
+             "reason": "Starter pack — recommended for new accounts"}
+            for name in STARTER_AGENT_PACK
+        ]
+        analysis_summary = (
+            "No ticket history yet — showing a starter pack. "
+            "Re-run analysis after your first tickets arrive for "
+            "personalized recommendations."
+        )
+    else:
+        analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
+
+    # Include the tenant's actually-connected integrations. Both flows write
+    # here: the Superglue flow upserts "connected", the manual flow "active".
+    connected_list: list = []
+    try:
+        from database.models.integration import Integration
+        connected_rows = db.query(Integration).filter(
+            Integration.company_id == str(user.company_id),
+            Integration.status.in_(["active", "connected", "verified"]),
+        ).all()
+        connected_list = [
+            {"type": r.integration_type, "name": r.name, "status": r.status}
+            for r in connected_rows
+        ]
+    except Exception as exc:
+        import logging
+        logging.getLogger("parwa.integrations").warning(
+            "Failed to load connected integrations: %s", str(exc)[:200]
+        )
+
     data_profile = {"total_tickets": result.get("tickets_scanned", 0)}
-    analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
 
     # ── Save to CRMAnalysisResult table (persists across logins) ──
     # Stores the full analysis so the user can see their recommendations
@@ -1224,7 +1269,7 @@ async def api_analyze_integrations(
         analysis_record = CRMAnalysisResult(
             company_id=str(user.company_id),
             data_profile=data_profile,
-            connected_integrations=[],
+            connected_integrations=connected_list,
             detected_gaps=[],
             recommendations=recommendations,
             analysis_summary=analysis_summary,
@@ -1245,7 +1290,7 @@ async def api_analyze_integrations(
     return AnalyzeIntegrationsResponse(
         company_id=str(user.company_id),
         analyzed_at=datetime.now(timezone.utc).isoformat(),
-        connected_integrations=[],
+        connected_integrations=connected_list,
         data_profile=data_profile,
         detected_gaps=[],
         recommendations=recommendations,

@@ -63,6 +63,11 @@ def _get_config() -> tuple[str, str]:
     """
     url = os.environ.get("SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL).strip().rstrip("/")
     token = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN).strip()
+    if not os.environ.get("SUPERGLUE_AUTH_TOKEN"):
+        logger.warning(
+            "SUPERGLUE_AUTH_TOKEN not set — using built-in default token. "
+            "Set a real token before production traffic."
+        )
     return url, token
 
 

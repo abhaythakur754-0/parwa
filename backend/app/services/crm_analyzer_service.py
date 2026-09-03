@@ -109,7 +109,9 @@ class CRMAnalyzerService:
             self.db.query(Integration)
             .filter(
                 Integration.company_id == company_id,
-                Integration.status == "active",
+                # Both writers must be visible: Superglue flow writes
+                # "connected", the manual IntegrationService writes "active".
+                Integration.status.in_(["active", "connected", "verified"]),
             )
             .all()
         )
