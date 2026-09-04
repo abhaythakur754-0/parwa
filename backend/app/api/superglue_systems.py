@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core import superglue_client
+from app.logger import get_logger
 from database.base import get_db
 from database.models.core import User
 from database.models.integration import MCPConnection, Integration, DBConnection
@@ -37,6 +38,8 @@ from shared.utils.token_encryption import encrypt_token, decrypt_token
 
 
 router = APIRouter(prefix="/api/superglue", tags=["superglue-systems"])
+
+logger = get_logger("superglue_systems_api")
 
 
 # ── Curated catalog (replaces Nango's 6-provider list) ────────────────
@@ -265,7 +268,18 @@ async def create_system(
         specific_instructions=req.specific_instructions,
     )
     if not result.get("success"):
-        raise HTTPException(status_code=502, detail=f"Superglue error: {result.get('error', 'unknown')}")
+        raw_error = str(result.get("error", "unknown"))
+        logger.error(
+            "superglue_create_failed system=%s tenant=%s error=%.300s",
+            req.system_id, tenant_id, raw_error,
+        )
+        # Upstream failures can be entire HTML error pages — never show those
+        # to users. Log the full detail, return one clean readable line.
+        if "<" in raw_error and ">" in raw_error:
+            detail = "The integration service is temporarily unavailable. Please try again in a few minutes."
+        else:
+            detail = f"Could not connect {req.name}: {raw_error[:200]}"
+        raise HTTPException(status_code=502, detail=detail)
 
     # Save EVERY connection to the Integration table (local DB record).
     _upsert_integration(
