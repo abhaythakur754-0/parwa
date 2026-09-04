@@ -1,5 +1,6 @@
 # Dependencies
 skills/
+!/.claude/skills/
 node_modules/
 backend/venv/
 backend/.venv/

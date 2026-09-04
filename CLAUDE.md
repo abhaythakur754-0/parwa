@@ -96,6 +96,16 @@ Before writing or modifying any code in this project:
 - Always connect technical decisions to business impact (revenue, customer experience, shipping speed).
 - Every code change should answer: "How does this help us ship the product?"
 
+## 7. Ponytail — Lazy Senior Dev Mode (adopted)
+
+This repo runs with [Ponytail](https://github.com/DietrichGebert/ponytail) (MIT).
+Before writing code, stop at the first rung that holds: (1) does this need to exist? (2) already in this codebase? reuse it. (3) stdlib? (4) native platform feature? (5) installed dependency? (6) one line? (7) only then, the minimum that works.
+
+- `AGENTS.md` at the repo root is the always-on ruleset — read it and follow it.
+- Skills live in `.claude/skills/ponytail*/`: `/ponytail` (levels lite/full/ultra), `/ponytail-review` (diff → delete-list), `/ponytail-audit` (whole repo), `/ponytail-debt`, `/ponytail-gain`, `/ponytail-help`.
+- Never cut validation, error handling, security, or accessibility to be lazy. Lazy about the solution, never about reading.
+- Deliberate simplifications with a real ceiling get a `ponytail:` comment naming the ceiling and the upgrade path.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
