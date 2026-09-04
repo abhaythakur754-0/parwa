@@ -63,8 +63,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
+      const rawError = result.error || 'Failed to send OTP email';
+
+      // Brevo rejects API calls from server IPs it does not recognise
+      // (Brevo Console → Security → Authorised IPs). Full detail stays in
+      // server logs; the customer gets an honest, readable message.
+      const message = rawError.includes('unrecognised IP')
+        ? 'Our email provider is temporarily blocking messages from the app server. We are on it — please try again shortly.'
+        : rawError;
+
       return NextResponse.json(
-        { error: 'send_failed', message: result.error || 'Failed to send OTP email' },
+        { error: 'send_failed', message },
         { status: 500 }
       );
     }
