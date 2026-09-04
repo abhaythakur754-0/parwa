@@ -1,68 +1,76 @@
 /**
- * PARWA Verify OTP API
- * 
+ * PARWA Verify OTP (business email verification)
+ *
  * POST /api/verification/verify-otp
- * Verifies the 6-digit OTP sent to user's email
+ *
+ * Proxies to the backend (POST /api/verification/verify-otp), which checks
+ * the code against hashed OTPs in Postgres (max 5 attempts, 10-min expiry).
+ * Verification lives on the backend so the code can never be bypassed here.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { backendProxy } from "@/lib/backend-proxy";
 
-// Share the same OTP store (in production, use shared Redis/DB)
-// Import from send-otp module or use shared store
-const otpStore = new Map<string, { code: string; expiresAt: Date; attempts: number }>();
-
-// Note: In a real implementation, this would share state with the send-otp endpoint
-// For now, we'll accept the OTP and validate it (demo mode accepts any 6-digit code for testing)
+function getAuthToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
+  return req.cookies.get("parwa_at")?.value ?? null;
+}
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { email, otp } = body;
-
-    if (!email || !otp) {
-      return NextResponse.json(
-        { error: 'validation_error', message: 'Email and OTP are required' },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Validate OTP format (6 digits)
-    if (!/^\d{6}$/.test(otp)) {
-      return NextResponse.json(
-        { error: 'invalid_format', message: 'OTP must be 6 digits' },
-        { status: 400 }
-      );
-    }
-
-    // For demo/testing purposes, accept common test OTPs or any valid format
-    // In production, check against stored OTP:
-    // const stored = otpStore.get(normalizedEmail);
-    // if (!stored || stored.expiresAt < new Date()) {
-    //   return NextResponse.json({ error: 'expired', message: 'OTP has expired' }, { status: 410 });
-    // }
-    // if (stored.code !== otp) {
-    //   return NextResponse.json({ error: 'invalid', message: 'Invalid OTP' }, { status: 401 });
-    // }
-
-    console.log(`[OTP] Verified for ${normalizedEmail}: ${otp}`);
-
-    // Clear used OTP
-    // otpStore.delete(normalizedEmail);
-
-    return NextResponse.json({
-      success: true,
-      verified: true,
-      message: 'Email verified successfully',
-      // Return a token that can be used to mark email as verified in DB
-      verification_token: `verified_${Date.now()}_${normalizedEmail}`,
-    });
-  } catch (error) {
-    console.error('[OTP Verify Error]:', error);
+  const token = getAuthToken(request);
+  if (!token) {
     return NextResponse.json(
-      { error: 'internal_error', message: 'Failed to verify OTP' },
-      { status: 500 }
+      { error: "unauthorized", message: "Please sign in to verify your email." },
+      { status: 401 },
+    );
+  }
+
+  const body = await request.json().catch(() => null);
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const otp = typeof body?.otp === "string" ? body.otp.trim() : "";
+
+  if (!email.includes("@") || !/^\d{6}$/.test(otp)) {
+    return NextResponse.json(
+      { error: "validation_error", message: "Email and a 6-digit OTP are required" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { response } = await backendProxy("/api/verification/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp_code: otp }),
+      authToken: token,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (response.ok) {
+      return NextResponse.json({
+        success: true,
+        verified: true,
+        message: data.message || "Email verified successfully",
+      });
+    }
+
+    // Backend error envelope: { error: { code, message } } — or FastAPI { detail }
+    const detail = typeof data?.detail === "string" ? data.detail : null;
+    return NextResponse.json(
+      {
+        error: data?.error?.code || "invalid_otp",
+        message: data?.error?.message || detail || "Invalid or expired OTP",
+      },
+      { status: response.status },
+    );
+  } catch {
+    // Backend unreachable — honest failure, no fake success
+    return NextResponse.json(
+      {
+        error: "backend_unavailable",
+        message: "We could not reach the verification service. Please try again shortly.",
+      },
+      { status: 502 },
     );
   }
 }
