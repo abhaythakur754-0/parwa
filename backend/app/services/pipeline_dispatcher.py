@@ -34,6 +34,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Coroutine, Dict, Optional
 
+from app.core.email_utils import strip_reasoning
+
 logger = logging.getLogger("parwa.pipeline_dispatcher")
 
 # ── Priority constants ────────────────────────────────────────────────────
@@ -975,6 +977,11 @@ def _persist_ai_response(
         The new TicketMessage ID.
     """
     from database.models.tickets import TicketMessage
+
+    # Reasoning models can emit <think>…</think> blocks — never persist
+    # them as customer-visible message content (live bug found 2026-09-03).
+    ai_response_text = strip_reasoning(ai_response_text)
+    ai_response_html = strip_reasoning(ai_response_html)
 
     # ── Idempotency check: if an AI message already exists for this
     # ticket (e.g. written by ChannelDispatcher during Node 6.5 delivery),

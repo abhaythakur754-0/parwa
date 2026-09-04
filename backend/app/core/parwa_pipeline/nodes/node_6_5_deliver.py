@@ -74,6 +74,7 @@ from app.core.parwa_pipeline.delivery_circuit_breaker import (
     get_delivery_circuit_breaker,
 )
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
+from app.core.email_utils import strip_reasoning
 
 logger = logging.getLogger("parwa.pipeline.node_6_5")
 
@@ -680,6 +681,19 @@ async def node_6_5_deliver(state: PipelineV2State) -> dict:
     )
     variant_tier = state.get("variant_tier", "parwa")
     confidence = state.get("quality_score") or state.get("simple_confidence")
+
+    # ── 0. ReasoningStrip: never deliver model thinking to customers ─
+    # Reasoning models can leak <think>…</think> blocks into the response
+    # (live bug found 2026-09-03). Strip before any downstream check so
+    # empty-after-strip responses fall into the empty-response path.
+    stripped = strip_reasoning(response_text)
+    if stripped != response_text:
+        logger.info(
+            "Node 6.5 ReasoningStrip: ticket=%s stripped %d chars of model reasoning",
+            ticket_id,
+            len(response_text) - len(stripped),
+        )
+        response_text = stripped
 
     # ── 0. Idempotency check ────────────────────────────────────
     existing_status = state.get("delivery_status", "")

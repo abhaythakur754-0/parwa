@@ -109,3 +109,25 @@ def sanitize_subject(subject: str, max_length: int = 500) -> str:
     )
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned[:max_length]
+
+
+def strip_reasoning(text: str) -> str:
+    """Remove model chain-of-thought (<think>...</think>) from a response.
+
+    Reasoning models can emit their internal thinking as <think> blocks.
+    Those must never reach a customer: this strips paired blocks AND an
+    unclosed trailing block (model cut off mid-think), then trims the
+    leftover leading whitespace. Applied before persisting AI messages
+    and before customer delivery.
+
+    Args:
+        text: Raw model output (may be None/empty).
+
+    Returns:
+        Clean customer-safe text.
+    """
+    if not text:
+        return text or ""
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    cleaned = re.sub(r"<think>.*\Z", "", cleaned, flags=re.DOTALL)
+    return cleaned.lstrip() if cleaned != text else cleaned
