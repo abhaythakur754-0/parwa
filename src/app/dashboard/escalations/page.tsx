@@ -1064,7 +1064,7 @@ export default function EscalationsPage() {
           <div className="h-8 w-px bg-white/[0.06]" />
           <p className="text-xs text-zinc-400">
             {awaitingTickets.length === 0
-              ? 'AI is resolving all tickets automatically'
+              ? 'No tickets are waiting for you right now'
               : 'Click a ticket to open the guidance chat'}
           </p>
         </div>
@@ -1084,9 +1084,10 @@ export default function EscalationsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-base font-semibold text-white">All clear</p>
+              <p className="text-base font-semibold text-white">Nothing waiting for you</p>
               <p className="text-sm text-zinc-500 mt-1">
-                The AI is resolving all tickets automatically.
+                No tickets need human guidance right now. Tickets the AI
+                fully resolves never land here.
               </p>
             </div>
           </div>

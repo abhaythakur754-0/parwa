@@ -216,6 +216,38 @@ async def safe_get(key: str, default: Any = None) -> Any:
         return default
 
 
+async def safe_set(key: str, value: Any, ttl_seconds: int = 300) -> bool:
+    """Safely set a Redis key with tenant validation and TTL.
+
+    Mirror of safe_get(): validates the key follows the
+    parwa:{company_id}:* pattern before operating, and fails open
+    (returns False instead of raising) so cache writes can never break
+    a request (BC-012).
+
+    Args:
+        key: The tenant-scoped key to write.
+        value: Value to store (JSON-serialized if not a string).
+        ttl_seconds: Time-to-live in seconds (default 5 minutes).
+
+    Returns:
+        True if the write succeeded, False otherwise (fail-open).
+    """
+    if not validate_tenant_key(key):
+        logger.warning(
+            "safe_set_rejected_non_tenant_key",
+            extra={"key": key[:100]},
+        )
+        return False
+
+    try:
+        client = await get_redis()
+        serialized = value if isinstance(value, str) else json.dumps(value)
+        await client.set(key, serialized, ex=ttl_seconds)
+        return True
+    except Exception:
+        return False
+
+
 async def safe_mget(keys: List[str]) -> List[Any]:
     """Safely get multiple Redis keys with tenant validation.
 

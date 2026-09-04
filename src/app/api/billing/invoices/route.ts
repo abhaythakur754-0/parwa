@@ -58,12 +58,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, { status: backendRes.status });
   } catch (err) {
     console.error('[/api/billing/invoices] Backend unreachable:', err);
-    // Return empty list — billing page shows "No invoices yet"
-    return NextResponse.json({
-      items: [],
-      total: 0,
-      page: 1,
-      page_size: 20,
-    });
+    // HONEST failure: never fabricate an empty invoice list — the billing
+    // page must show an error state, not "No invoices yet" (real invoices
+    // may exist). Mirrors /api/tickets/route.ts.
+    return NextResponse.json(
+      {
+        error: {
+          code: 'BACKEND_UNAVAILABLE',
+          message: 'Could not reach the billing service. Please retry in a moment.',
+        },
+      },
+      { status: 502 },
+    );
   }
 }

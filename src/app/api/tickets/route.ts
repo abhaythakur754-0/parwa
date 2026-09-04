@@ -154,13 +154,34 @@ export async function GET(request: NextRequest) {
     }
     return response;
   } catch (err) {
-    // Backend unavailable — return empty list (frontend shows "no tickets")
-    console.error('[/api/tickets] Backend unreachable:', err);
-    return NextResponse.json({
-      items: [],
-      total: 0,
-      page: 1,
-      page_size: 20,
-    });
+    // Timeout / network error — the backend may just be waking up (Render
+    // free tier sleeps after idle). Wait briefly and retry ONCE before
+    // declaring failure.
+    console.error('[/api/tickets] Backend unreachable, retrying once:', err);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const retryRes = await fetch(targetUrl, {
+        method: 'GET',
+        headers: buildHeaders(),
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'manual',
+      });
+      const retryData = await retryRes.json();
+      return NextResponse.json(retryData, { status: retryRes.status });
+    } catch (retryErr) {
+      console.error('[/api/tickets] Backend still unreachable:', retryErr);
+      // HONEST failure: never fabricate an empty list — the UI must show
+      // "service unavailable + Retry", not "No tickets yet" (real tickets
+      // may exist in the DB).
+      return NextResponse.json(
+        {
+          error: {
+            code: 'BACKEND_UNAVAILABLE',
+            message: 'Could not reach the ticket service. Your tickets are safe — please retry.',
+          },
+        },
+        { status: 502 },
+      );
+    }
   }
 }

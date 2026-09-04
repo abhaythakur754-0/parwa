@@ -14,6 +14,7 @@ BC-001: All endpoints are tenant-isolated.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -26,6 +27,7 @@ from pydantic import BaseModel, Field, ValidationError as PydanticValidationErro
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.redis import make_key, safe_get, safe_set
 from database.models.core import User
 from database.base import get_db
 from database.models.core import User
@@ -282,6 +284,41 @@ async def list_tickets(
     """
     company_id = current_user.company_id
 
+    # ── Cache-aside (1M-request readiness) ──────────────────────────
+    # The ticket list is the hottest dashboard read: clients poll it while
+    # the pipeline runs. Serve it from Redis for 10s; on miss, fall through
+    # to PostgreSQL. Fail-open per BC-012 — a cache error never breaks the
+    # read (safe_get/safe_set return default/False instead of raising).
+    cache_key = make_key(
+        company_id,
+        "cache",
+        "tickets_list",
+        hashlib.sha1(
+            json.dumps(
+                [
+                    status,
+                    priority,
+                    category,
+                    assigned_to,
+                    channel,
+                    customer_id,
+                    tags,
+                    is_spam,
+                    is_frozen,
+                    search,
+                    page,
+                    page_size,
+                    sort_by,
+                    sort_order,
+                ],
+                default=str,
+            ).encode()
+        ).hexdigest(),
+    )
+    cached = await safe_get(cache_key)
+    if cached is not None:
+        return cached  # FastAPI re-validates against response_model
+
     service = TicketService(db, company_id)
 
     tickets, total = service.list_tickets(
@@ -301,12 +338,14 @@ async def list_tickets(
         sort_order=sort_order,
     )
 
-    return TicketListResponse(
+    response = TicketListResponse(
         items=[_ticket_to_response(t) for t in tickets],
         total=total,
         page=page,
         page_size=page_size,
     )
+    await safe_set(cache_key, jsonable_encoder(response), ttl_seconds=10)
+    return response
 
 
 # ── BULK OPERATIONS (must come BEFORE /{ticket_id} routes) ────────────────────

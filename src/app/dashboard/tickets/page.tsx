@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Inbox, Sparkles, Clock, CheckCircle2, SkipForward } from 'lucide-react';
+import { Loader2, Inbox, Sparkles, Clock, CheckCircle2, SkipForward, RefreshCw, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useTicketStore,
@@ -17,6 +17,7 @@ import {
   ALL_CATEGORIES,
   ALL_CHANNELS,
   ALL_VARIANTS,
+  syncFromBackend,
   type Ticket,
   type TicketStatus,
   type TicketPriority,
@@ -1070,6 +1071,41 @@ function EmptyState({ onCreate }: { onCreate?: () => void }) {
   );
 }
 
+// ── Sync Error State (honest failure — never fake an empty inbox) ──
+// Shown instead of EmptyState when the last backend sync failed. Real
+// tickets may exist in the database; "No tickets yet" would be a lie.
+function SyncErrorState({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center justify-center py-20 text-center"
+    >
+      <div className="relative mb-6">
+        <div className="absolute inset-0 blur-2xl bg-red-500/10 rounded-full" />
+        <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500/15 to-red-600/5 border border-red-500/20 flex items-center justify-center">
+          <WifiOff className="w-10 h-10 text-red-400" />
+        </div>
+      </div>
+      <h3 className="text-lg font-semibold text-white mb-2">Can&apos;t reach the ticket service</h3>
+      <p className="text-sm text-zinc-500 max-w-sm mb-6 leading-relaxed">
+        We couldn&apos;t load your tickets just now — but they are safe.
+        The service may be waking up. Please retry in a moment.
+      </p>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Retry
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
 // ── Create Ticket Modal (Simplified) ─────────────────────────────────
 //
 // Per user request 2026-07-13: remove all unnecessary fields.
@@ -1117,7 +1153,9 @@ function CreateTicketModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateTicketFormData) => void;
+  // Must await the backend outcome: resolve to the created ticket on
+  // success, null on failure — the modal never closes pretending success.
+  onSubmit: (data: CreateTicketFormData) => Promise<Ticket | null>;
 }) {
   const [description, setDescription] = useState('');
   const [selectedTool, setSelectedTool] = useState<string>('');
@@ -1142,9 +1180,9 @@ function CreateTicketModal({
 
   const canSubmit = description.trim().length > 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
     try {
       const subject = description.trim().slice(0, 60) + (description.length > 60 ? '…' : '');
@@ -1159,8 +1197,16 @@ function CreateTicketModal({
         tags: [],
         metadata_json: selectedTool ? { source_tool: selectedTool } : {},
       };
-      onSubmit(formData);
-      onClose();
+      const created = await onSubmit(formData);
+      if (created) {
+        toast.success('Ticket created — the AI pipeline is on it.');
+        onClose();
+      } else {
+        // Honest failure: keep the modal open AND the user's text so
+        // nothing they typed is lost. The optimistic ghost ticket is
+        // already removed by the store.
+        toast.error('Could not create the ticket — the service may be waking up. Your text is kept; please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1323,9 +1369,10 @@ function NoResultsState({ onClearFilters }: { onClearFilters: () => void }) {
 export default function TicketsPage() {
   const tickets = useTicketStore((s) => s.tickets);
   const initialized = useTicketStore((s) => s.initialized);
+  const lastSyncError = useTicketStore((s) => s.lastSyncError);
   const init = useTicketStore((s) => s.init);
   const ticketStats = useTicketStore((s) => s.ticketStats);
-  const addTicket = useTicketStore((s) => s.addTicket);
+  const createTicket = useTicketStore((s) => s.createTicket);
   // NEW: Agent control methods
   const stopAllAgents = useTicketStore((s) => s.stopAllAgents);
   const resumeAllAgents = useTicketStore((s) => s.resumeAllAgents);
@@ -1431,6 +1478,11 @@ export default function TicketsPage() {
 
   const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || categoryFilter !== 'all' || channelFilter !== 'all' || searchText.trim() !== '';
 
+  // Honest retry for the sync-error / stale-data states
+  const handleSyncRetry = useCallback(() => {
+    void syncFromBackend();
+  }, []);
+
   // ── Loading ──────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -1463,11 +1515,15 @@ export default function TicketsPage() {
             Create Ticket
           </button>
         </div>
-        <EmptyState onCreate={() => setIsCreateModalOpen(true)} />
+        {lastSyncError ? (
+          <SyncErrorState onRetry={handleSyncRetry} />
+        ) : (
+          <EmptyState onCreate={() => setIsCreateModalOpen(true)} />
+        )}
         <CreateTicketModal
           open={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={(data) => addTicket(data)}
+          onSubmit={(data) => createTicket(data)}
         />
       </div>
     );
@@ -1478,6 +1534,23 @@ export default function TicketsPage() {
     <div className="space-y-6">
       {/* ── Welcome Card (real variant subscription data) ── */}
       <WelcomeCardSection />
+
+      {/* ── Stale-data banner (honest: saved data ≠ live truth) ── */}
+      {lastSyncError && tickets.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+          <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+          <p className="text-sm text-amber-200/90 flex-1">
+            Showing your saved tickets — we couldn&apos;t reach the ticket service just now, so this list may be out of date.
+          </p>
+          <button
+            onClick={handleSyncRetry}
+            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-medium transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Connected Integrations ── */}
       <ConnectedIntegrationsSection />
@@ -1763,7 +1836,7 @@ export default function TicketsPage() {
       <CreateTicketModal
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => addTicket(data)}
+        onSubmit={(data) => createTicket(data)}
       />
     </div>
   );

@@ -234,21 +234,34 @@ export function computeStats(tickets: Ticket[]): TicketStats {
 
 // ── Store ───────────────────────────────────────────────────────────
 
+// Payload for creating a ticket (forwarded to backend TicketCreate schema)
+export type CreateTicketData = Omit<Ticket, 'id' | 'ticket_number' | 'status' | 'assigned_variant' | 'assigned_agent' | 'created_at' | 'updated_at' | 'resolved_at' | 'first_response_at' | 'resolution_time_hours' | 'ai_confidence' | 'cost_per_ticket' | 'savings_per_ticket' | 'messages' | 'tags' | 'skipped' | 'agent_stopped' | 'kb_matched' | 'kb_article_id' | 'company_id'> & {
+  // CRM-universal optional fields (forwarded to backend TicketCreate schema)
+  customer_id?: string;        // existing customer ID — skips auto-create
+  customer_phone?: string;     // used when auto-creating a Customer
+  tags?: string[];             // free-form tags (refund, vip, etc.)
+  metadata_json?: Record<string, unknown>;  // structured context (order_id, url, etc.)
+  company_id?: string;         // company for filtering
+};
+
 interface TicketState {
   tickets: Ticket[];
   initialized: boolean;
   agentStopped: boolean;  // Global agent stop flag
+  // 'unavailable' when the last backend sync failed (backend down/timeout).
+  // The tickets page shows an honest error/stale-data banner instead of
+  // pretending the (possibly stale) list is complete. null = last sync OK.
+  lastSyncError: string | null;
 
   // Actions
   init: () => void;
-  addTicket: (data: Omit<Ticket, 'id' | 'ticket_number' | 'status' | 'assigned_variant' | 'assigned_agent' | 'created_at' | 'updated_at' | 'resolved_at' | 'first_response_at' | 'resolution_time_hours' | 'ai_confidence' | 'cost_per_ticket' | 'savings_per_ticket' | 'messages' | 'tags' | 'skipped' | 'agent_stopped' | 'kb_matched' | 'kb_article_id' | 'company_id'> & {
-    // CRM-universal optional fields (forwarded to backend TicketCreate schema)
-    customer_id?: string;        // existing customer ID — skips auto-create
-    customer_phone?: string;     // used when auto-creating a Customer
-    tags?: string[];             // free-form tags (refund, vip, etc.)
-    metadata_json?: Record<string, unknown>;  // structured context (order_id, url, etc.)
-    company_id?: string;         // company for filtering
-  }) => Ticket;
+  // Legacy synchronous entry (fire-and-forget callers): adds the optimistic
+  // placeholder immediately and continues the backend flow in the background.
+  addTicket: (data: CreateTicketData) => Ticket;
+  // Canonical async creator: resolves to the persisted ticket on success,
+  // null on failure (ghost removed) — the Create-Ticket modal awaits this
+  // so it never closes pretending success.
+  createTicket: (data: CreateTicketData, prebuilt?: Ticket) => Promise<Ticket | null>;
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   assignVariant: (id: string, variant: TicketVariant) => void;
   resolveTicket: (id: string, resolution?: string) => void;
@@ -281,10 +294,51 @@ interface TicketState {
 const STORAGE_KEY = 'parwa_tickets';
 const INIT_KEY = 'parwa_tickets_initialized';
 
+/**
+ * Build the optimistic placeholder shown until the backend sync lands.
+ * Backend is the source of truth — no client-side variant assignment,
+ * no hardcoded ai_confidence/cost/savings. The 8-node pipeline fills
+ * those in and the next syncFromBackend() replaces this placeholder.
+ */
+function buildOptimisticTicket(data: CreateTicketData): Ticket {
+  const now = new Date().toISOString();
+  return {
+    id: uuid(),
+    ticket_number: `TKT-PENDING`,
+    subject: data.subject,
+    description: data.description,
+    category: data.category,
+    priority: data.priority,
+    status: 'open',
+    channel: data.channel,
+    customer_name: data.customer_name,
+    customer_email: data.customer_email,
+    company_id: data.company_id ?? null,
+    assigned_variant: null,
+    assigned_agent: null,
+    created_at: now,
+    updated_at: now,
+    resolved_at: null,
+    first_response_at: null,
+    resolution_time_hours: null,
+    ai_confidence: null,
+    cost_per_ticket: null,
+    savings_per_ticket: null,
+    messages: [],
+    tags: [],
+    // New fields for agent control
+    skipped: false,
+    agent_stopped: false,
+    kb_matched: false,
+    kb_article_id: null,
+  };
+}
+
 export const useTicketStore = create<TicketState>((set, get) => ({
   tickets: [],
   initialized: false,
   agentStopped: false,  // Global agent stop flag
+  lastSyncError: null,
 
   init: () => {
     if (get().initialized) return;
@@ -322,60 +376,28 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   },
 
   addTicket: (data) => {
-    // Backend is the source of truth — we NO LONGER do client-side variant
-    // assignment, hardcoded ai_confidence, hardcoded cost_per_ticket, or
-    // hardcoded savings_per_ticket. The 8-node pipeline runs on the
-    // backend (Node 2 smart-routes the variant, Node 4 generates the
-    // response, Node 6 quality-checks, Node 7 persists cost/savings) and
-    // the next syncFromBackend() will populate all these fields from
-    // real data.
-    //
-    // Until that sync completes, we show optimistic placeholders (null /
-    // 'open' / no variant) so the user sees the ticket they just created.
-    const now = new Date().toISOString();
-    const optimisticId = uuid();
-    const ticket: Ticket = {
-      id: optimisticId,
-      ticket_number: `TKT-PENDING`,
-      subject: data.subject,
-      description: data.description,
-      category: data.category,
-      priority: data.priority,
-      status: 'open',
-      channel: data.channel,
-      customer_name: data.customer_name,
-      customer_email: data.customer_email,
-      company_id: data.company_id ?? null,
-      assigned_variant: null,
-      assigned_agent: null,
-      created_at: now,
-      updated_at: now,
-      resolved_at: null,
-      first_response_at: null,
-      resolution_time_hours: null,
-      ai_confidence: null,
-      cost_per_ticket: null,
-      savings_per_ticket: null,
-      messages: [],
-      tags: [],
-      // New fields for agent control
-      skipped: false,
-      agent_stopped: false,
-      kb_matched: false,
-      kb_article_id: null,
-    };
+    // Legacy synchronous entry (tests, realtime events): show the ticket
+    // immediately, then run the canonical backend flow in the background.
+    const ticket = buildOptimisticTicket(data);
     set((s) => ({ tickets: [ticket, ...s.tickets] }));
+    void get().createTicket(data, ticket);
+    return ticket;
+  },
 
-    // Push to backend. The backend will:
+  createTicket: async (data, prebuilt) => {
+    // Canonical async creator. The backend will:
     //   1. Auto-create a Customer (if customer_email is new) or match existing
     //   2. Store description as first TicketMessage (role=customer)
     //   3. Trigger the 8-node pipeline (sync for critical, async for others)
     //   4. Store AI response as TicketMessage (role=ai)
     //   5. Update ticket with status / variant / ai_confidence / cost
-    // On success, we patch the optimistic ticket with the REAL backend ID
-    // (so subsequent escalate/resolve calls use the correct ID) and re-sync
-    // from backend to fetch the full real ticket (including AI response).
-    void pushToBackendWithBody<{ id?: string }>('POST', '/api/v1/tickets', {
+    // Resolves to the persisted ticket (patched with the real backend ID),
+    // or null when the backend rejected / could not be reached — the
+    // Create-Ticket modal awaits this so it never closes pretending success.
+    const ticket = prebuilt ?? buildOptimisticTicket(data);
+    if (!prebuilt) set((s) => ({ tickets: [ticket, ...s.tickets] }));
+
+    const responseBody = await pushToBackendWithBody<{ id?: string }>('POST', '/api/v1/tickets', {
       subject: ticket.subject,
       description: ticket.description,
       category: ticket.category,
@@ -391,29 +413,32 @@ export const useTicketStore = create<TicketState>((set, get) => ({
       ...(data.metadata_json && Object.keys(data.metadata_json).length > 0
         ? { metadata_json: data.metadata_json }
         : {}),
-    }).then((responseBody) => {
-      if (!responseBody) {
-        // Ticket creation failed on the backend (likely trial expired or
-        // trial ticket limit hit). Remove the optimistic ghost ticket so
-        // the user doesn't see a ticket that doesn't actually exist.
-        set((s) => ({ tickets: s.tickets.filter((t) => t.id !== optimisticId) }));
-        return;
-      }
-      // Patch the optimistic ticket in-place with the real backend ID
-      // so subsequent calls (escalate, resolve, update) use the persisted ID.
-      const realId = responseBody.id;
-      if (realId && realId !== optimisticId) {
-        set((s) => ({
-          tickets: s.tickets.map((t) =>
-            t.id === optimisticId
-              ? { ...t, id: realId, ticket_number: t.ticket_number === 'TKT-PENDING' ? 'TKT-…' : t.ticket_number }
-              : t
-          ),
-        }));
-      }
-      void syncFromBackend();
     });
-    return ticket;
+    if (!responseBody) {
+      // Ticket creation failed on the backend (unreachable, trial expired,
+      // or trial ticket limit hit). Remove the optimistic ghost ticket so
+      // the user doesn't see a ticket that doesn't actually exist.
+      set((s) => ({ tickets: s.tickets.filter((t) => t.id !== ticket.id) }));
+      return null;
+    }
+    // Patch the optimistic ticket in-place with the real backend ID
+    // so subsequent calls (escalate, resolve, update) use the persisted ID.
+    const realId = responseBody.id;
+    let patchedTicket = ticket;
+    if (realId && realId !== ticket.id) {
+      patchedTicket = {
+        ...ticket,
+        id: realId,
+        ticket_number: ticket.ticket_number === 'TKT-PENDING' ? 'TKT-…' : ticket.ticket_number,
+      };
+      set((s) => ({
+        tickets: s.tickets.map((t) =>
+          t.id === ticket.id ? patchedTicket : t
+        ),
+      }));
+    }
+    void syncFromBackend();
+    return patchedTicket;
   },
 
   updateTicketStatus: (id, status) => {
@@ -845,7 +870,12 @@ export async function syncFromBackend(): Promise<void> {
     });
 
     if (!res.ok) {
-      // 401 = not authenticated; 5xx = backend down. Either way, leave existing data.
+      // 401/403 = auth problem (refresh flow handles it); 5xx = backend down.
+      // Either way, leave existing data — but 5xx must be surfaced honestly:
+      // the stale list on screen may NOT be the complete truth.
+      if (res.status >= 500) {
+        useTicketStore.setState({ lastSyncError: 'unavailable' });
+      }
       return;
     }
 
@@ -854,8 +884,8 @@ export async function syncFromBackend(): Promise<void> {
 
     const normalized: Ticket[] = items.map(normalizeBackendTicket);
 
-    // Update store
-    useTicketStore.setState({ tickets: normalized, initialized: true });
+    // Update store — sync succeeded, clear any previous error flag
+    useTicketStore.setState({ tickets: normalized, initialized: true, lastSyncError: null });
 
     // Persist to localStorage so next page load is instant from cache
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
@@ -871,8 +901,11 @@ export async function syncFromBackend(): Promise<void> {
       if (!Number.isNaN(maxNum)) ticketCounter = maxNum + 1;
     }
   } catch (err) {
-    // Network error / JSON parse error — leave existing data intact
+    // Network error / JSON parse error — leave existing data intact but
+    // flag it honestly so the UI can show "showing saved data" instead of
+    // implying the list is live and complete.
     console.warn('[ticket-store] syncFromBackend failed:', err);
+    useTicketStore.setState({ lastSyncError: 'unavailable' });
   }
 }
 

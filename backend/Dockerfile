@@ -91,7 +91,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# --workers 1: single worker to minimize memory (Render free 512MB)
+# --workers ${WEB_CONCURRENCY:-1}: worker count via env (Render Standard: set 2-4)
 # --no-access-log: disable access logging (saves ~10MB)
-# --limit-max-requests 1000: recycle worker after 1000 requests (prevents memory leaks)
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --no-access-log
+# NOTE: never add --limit-max-requests — worker recycling caused periodic
+# stalls under sustained load (all workers restart simultaneously).
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --no-access-log

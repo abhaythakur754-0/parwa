@@ -25,6 +25,8 @@ Security (BC-001 / BC-011):
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Any, Dict, Optional
 
@@ -32,6 +34,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_company_id
+from app.core.redis import make_key, safe_get, safe_set
 
 logger = logging.getLogger("parwa.escalation_api")
 
@@ -86,6 +89,21 @@ async def list_escalations(
       - human_status: "pending", "guidance_provided", "resolved"
       - reprocess_status: "pending", "processing", "done", "failed"
     """
+    # ── Cache-aside (1M-request readiness): escalations list is polled by
+    # the dashboard. 10s Redis TTL, fail-open (BC-012) — same pattern as
+    # the ticket list cache in app/api/tickets.py.
+    cache_key = make_key(
+        company_id,
+        "cache",
+        "escalations_list",
+        hashlib.sha1(
+            json.dumps([human_status, reprocess_status, limit], default=str).encode()
+        ).hexdigest(),
+    )
+    cached = await safe_get(cache_key)
+    if cached is not None:
+        return cached
+
     from app.core.escalation_vault.vault_manager import VaultManager
 
     escalations = await VaultManager.list_escalations(
@@ -95,12 +113,14 @@ async def list_escalations(
         limit=limit,
     )
 
-    return {
+    response = {
         "success": True,
         "tenant_id": company_id,
         "count": len(escalations),
         "escalations": escalations,
     }
+    await safe_set(cache_key, response, ttl_seconds=10)
+    return response
 
 
 @router.get("/stats")
