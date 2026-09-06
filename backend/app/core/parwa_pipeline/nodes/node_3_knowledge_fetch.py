@@ -1733,10 +1733,17 @@ def _version_tracker(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
     doc_versions: Dict[str, list] = {}
     for doc in documents:
         source = doc.get("source", "")
-        match = re.match(r"(.+?)(?:_v(\d+))?(?:_.*)?$", source)
-        if match:
-            base = match.group(1)
-            ver = int(match.group(2)) if match.group(2) else 1
+        # Only an explicit "_v<number>" SUFFIX marks a document version.
+        # The old prefix-regex collapsed every "tenant_kb:<uuid>" source to
+        # base "tenant" (the only underscore lives in the prefix), so ALL
+        # tenant docs looked like versions of one document and all but one
+        # were dropped as "superseded" — live bug 2026-09-06: tenants with
+        # several KB articles got knowledge_context=[] and the AI answered
+        # with no facts at all.
+        ver_match = re.search(r"_v(\d+)$", source)
+        if ver_match:
+            base = source[: ver_match.start()]
+            ver = int(ver_match.group(1))
         else:
             base = source
             ver = 1

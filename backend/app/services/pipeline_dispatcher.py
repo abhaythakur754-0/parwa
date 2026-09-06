@@ -731,6 +731,17 @@ def _run_pipeline_sync(
             or result.get("response")
             or ""
         )
+        # Strip model reasoning BEFORE anything downstream sees the text.
+        # Live bug 2026-09-06: reasoning models can burn the whole token
+        # budget on <think>… and get cut off — the "answer" is then ONLY
+        # leaked thinking. _persist_ai_response strips too, but its
+        # idempotency skip meant the channel dispatch below still went out
+        # with the raw text. Strip here so persist, email and CRM pushes
+        # all see the same clean text.
+        ai_response_text = strip_reasoning(ai_response_text)
+        # If nothing survives the strip the model never actually answered —
+        # never mark such a ticket "resolved". Route it to a human instead.
+        _ai_answered = bool(ai_response_text.strip())
         # ── Gap 2: Use polished escalation template when AI escalates ──
         # When the pipeline escalates (force_human_handoff, cove_blocked, or
         # non-resolved status) and either (a) no final_response was set, or
@@ -741,6 +752,13 @@ def _run_pipeline_sync(
         cove_blocked = result.get("cove_blocked", False)
         pipeline_status_raw = result.get("status", "resolved")
         is_escalating = force_human or cove_blocked or pipeline_status_raw != "resolved"
+        # No real answer after stripping model reasoning → treat like an
+        # escalation: the customer gets the "escalated to specialist"
+        # template and the ticket goes to awaiting_human, never resolved.
+        if not _ai_answered:
+            is_escalating = True
+            if pipeline_status_raw == "resolved":
+                pipeline_status_raw = "awaiting_human"
 
         # Check if the AI response contains internal vocabulary that customers
         # shouldn't see (GSD goals, KB doc counts, guidance requests, etc.)
@@ -774,6 +792,9 @@ def _run_pipeline_sync(
                 )
         ai_response_html = result.get("final_response_html") or f"<p>{ai_response_text}</p>"
         pipeline_status = result.get("status", "resolved")
+        if not _ai_answered and pipeline_status == "resolved":
+            # Model produced no customer-safe answer — see strip block above.
+            pipeline_status = "awaiting_human"
         confidence = result.get("confidence")
         if confidence is not None:
             try:
