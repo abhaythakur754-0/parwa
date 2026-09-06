@@ -92,7 +92,7 @@ async def generate_tool_for_agent(
     # Step 2: GET /status/{request_id}?XTransformPort=3003 → poll until done
     import asyncio as _aio
     from app.core.superglue_client import (
-        _get_queue_url, _get_status_url,
+        _get_queue_url, _get_status_url, _session_headers,
         SUPERGLUE_QUEUE_PORT,
     )
 
@@ -107,6 +107,7 @@ async def generate_tool_for_agent(
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
+                    **_session_headers(),
                 },
                 json={"instruction": instruction},
             )
@@ -132,7 +133,7 @@ async def generate_tool_for_agent(
                 try:
                     poll_res = await client.get(
                         f"{status_url}/{request_id}?XTransformPort={SUPERGLUE_QUEUE_PORT}",
-                        headers={"Authorization": f"Bearer {token}"},
+                        headers={"Authorization": f"Bearer {token}", **_session_headers()},
                     )
                     if poll_res.status_code == 200:
                         poll_data = poll_res.json()
@@ -294,7 +295,7 @@ async def check_tool_status(tool_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.get(
                 f"{url}/v1/tools/{tool_id}",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
 
         if res.status_code == 200:
@@ -325,6 +326,7 @@ async def disable_tool(tool_id: str) -> bool:
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
+                    **_session_headers(),
                 },
                 json={"archived": True},
             )
@@ -478,6 +480,7 @@ Generate ONLY the JSON. No markdown fences, no explanation."""
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
+                    **_session_headers(),
                 },
                 json=tool_def,
             )

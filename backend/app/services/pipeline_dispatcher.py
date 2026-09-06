@@ -867,6 +867,48 @@ def _run_pipeline_sync(
             crm_data=crm_data,
         )
 
+        # ── Pipeline diagnostics (readable via ticket metadata_json) ──
+        # Temporary (2026-09): live tickets show empty AI answers + leaked
+        # model reasoning even though every write path strips <think>.
+        # Persist enough state here to see exactly where knowledge and the
+        # final answer die, without needing Render server logs.
+        try:
+            import json as _diag_json
+
+            _kb_docs = result.get("knowledge_context") or []
+            _raw_final = str(result.get("final_response") or "")
+            _ai_msgs = (
+                db.query(TicketMessage)
+                .filter(TicketMessage.ticket_id == ticket_id, TicketMessage.role == "ai")
+                .count()
+            )
+            _meta = _diag_json.loads(ticket.metadata_json or "{}")
+            _meta["pipeline_diagnostics"] = {
+                "route": result.get("route_decision") or result.get("current_path") or "",
+                "kb_docs": len(_kb_docs),
+                "kb_sources": [str(d.get("source", ""))[:40] for d in _kb_docs[:5]],
+                "kb_chars": sum(len(str(d.get("content", ""))) for d in _kb_docs),
+                "raw_final_starts_think": _raw_final.lstrip().startswith("<think"),
+                "raw_final_chars": len(_raw_final),
+                "raw_final_head": _raw_final[:120],
+                "ai_messages_at_persist": _ai_msgs,
+                "confidence": confidence,
+                "status": pipeline_status,
+                "errors": [str(e)[:150] for e in (result.get("errors") or [])[:5]],
+                "technique_log": [
+                    {
+                        "n": t.get("node"),
+                        "t": t.get("technique"),
+                        "i": str(t.get("result_summary", ""))[:90],
+                    }
+                    for t in (result.get("technique_log") or [])[:60]
+                ],
+            }
+            ticket.metadata_json = _diag_json.dumps(_meta)
+            db.commit()
+        except Exception as _diag_exc:  # noqa: BLE001
+            logger.warning("pipeline_diagnostics_save_failed: %s", str(_diag_exc)[:150])
+
         # ── Dispatch to channel (email / chat / sms / voice) ─────────
         try:
             from app.core.channel_dispatcher import ChannelDispatcher

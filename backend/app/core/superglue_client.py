@@ -55,6 +55,18 @@ SUPERGLUE_QUEUE_PORT = 3003   # enqueue + status
 SUPERGLUE_CORE_PORT = 3002    # /v1/tools (run tools)
 
 
+def _session_headers() -> dict:
+    """Extra routing headers the Superglue host may require.
+
+    The gateway in front of the current Superglue sandbox (Alibaba Cloud
+    Function Compute) rejects any request without an `x-session-id`
+    header (HTTP 400, session affinity). The value itself is arbitrary —
+    any non-empty constant works. Set SUPERGLUE_SESSION_ID in the env.
+    """
+    session_id = os.environ.get("SUPERGLUE_SESSION_ID", "").strip()
+    return {"x-session-id": session_id} if session_id else {}
+
+
 def _get_config() -> tuple[str, str]:
     """Get Superglue URL + token.
 
@@ -142,7 +154,7 @@ async def list_tools() -> List[Dict[str, Any]]:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             res = await client.get(
                 f"{url}/v1/tools",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
         if res.status_code == 200:
             data = res.json()
@@ -175,7 +187,7 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.get(
                 f"{url}/v1/tools/{actual_tool_id}",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
         if res.status_code == 200:
             tool = res.json()
@@ -202,7 +214,7 @@ async def list_systems() -> List[Dict[str, Any]]:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             res = await client.get(
                 f"{url}/v1/systems",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
         if res.status_code == 200:
             data = res.json()
@@ -287,6 +299,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
+                    **_session_headers(),
                 },
                 json=payload,
             )
@@ -507,6 +520,7 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
+                    **_session_headers(),
                 },
                 json=payload,
             )
@@ -546,7 +560,7 @@ async def _poll_run_status(run_id: str, tool_id: str = "", max_polls: int = 30, 
             async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
                 res = await client.get(
                     f"{url}/v1/runs/{run_id}",
-                    headers={"Authorization": f"Bearer {token}"},
+                    headers={"Authorization": f"Bearer {token}", **_session_headers()},
                 )
 
             if res.status_code != 200:
@@ -711,7 +725,7 @@ async def create_system(
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             res = await client.post(
                 f"{cfg_url}/v1/systems",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
                 json=payload,
             )
         if res.status_code in (200, 201):
@@ -738,7 +752,7 @@ async def get_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[st
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.get(
                 f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
         if res.status_code == 200:
             data = res.json()
@@ -766,7 +780,7 @@ async def delete_system(system_id: str, tenant_id: Optional[str] = None) -> Dict
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.delete(
                 f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
             )
         if res.status_code in (200, 204):
             return {"success": True}
@@ -832,7 +846,7 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
         async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(
                 f"{cfg_url}/v1/discover/auth-schema",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
                 json={
                     "platform_name": platform_name,
                     "platform_type": platform_type,
@@ -934,7 +948,7 @@ async def analyze_db_schema(
         async with httpx.AsyncClient(timeout=60.0) as client:
             res = await client.post(
                 f"{cfg_url}/v1/discover/db-schema",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
                 json={
                     "connection_id": namespaced_tool_id(db_connection_id, tenant_id),
                     "db_type": db_type,
