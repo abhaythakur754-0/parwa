@@ -901,8 +901,14 @@ def _run_pipeline_sync(
                         "t": t.get("technique"),
                         "i": str(t.get("result_summary", ""))[:90],
                     }
-                    for t in (result.get("technique_log") or [])[:60]
-                ],
+                    for t in (result.get("technique_log") or [])
+                    # node 1 emits dozens of depth2/depth3 validation spam
+                    # entries — keep only a count so later nodes fit in the cap
+                    if str(t.get("node")) != "1"
+                ][:80],
+                "node1_log_entries": len(
+                    [t for t in (result.get("technique_log") or []) if str(t.get("node")) == "1"]
+                ),
             }
             ticket.metadata_json = _diag_json.dumps(_meta)
             db.commit()
