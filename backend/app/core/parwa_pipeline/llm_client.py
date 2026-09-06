@@ -759,6 +759,12 @@ async def _call_smart_router(messages: list, temperature: float, max_tokens: int
         model_used = result.get("model", "?")
         provider = result.get("provider", "?")
         fallback = result.get("fallback_used", False)
+        # Smart-router pool includes hybrid reasoners (Groq Qwen3 family)
+        # that emit <think>…</think> blocks by default. Strip here so no
+        # downstream consumer ever sees model reasoning (live bug
+        # 2026-09-06: truncated think text was delivered as the answer).
+        from app.core.email_utils import strip_reasoning
+        content = strip_reasoning(content or "")
         if content and len(content) > 0:
             logger.info(
                 "LLM call #%d: SmartRouter %s/%s (%d chars, fallback=%s)",
