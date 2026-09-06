@@ -384,7 +384,10 @@ async def _call_aion_direct(messages: list, temperature: float, max_tokens: int,
         "model": "aion-3.0-mini",
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        # Aion 3.0 Mini is a reasoning model — same truncation risk as
+        # GLM-5.2 (see _call_nvidia_direct). Give it room to finish the
+        # think block AND the answer; delivery strips the reasoning.
+        "max_tokens": min(max(max_tokens * 3, 1200), 3000),
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -864,7 +867,12 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
         "model": "z-ai/glm-5.2",
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        # GLM-5.2 is a reasoning model: it writes a <think>…</think> block
+        # before the answer. With the caller's budget it burns everything
+        # on thinking and gets truncated mid-think — the customer receives
+        # no answer at all (live bug 2026-09-06). Give it room to finish
+        # both; the dispatcher strips the think block before delivery.
+        "max_tokens": min(max(max_tokens * 3, 1200), 3000),
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
