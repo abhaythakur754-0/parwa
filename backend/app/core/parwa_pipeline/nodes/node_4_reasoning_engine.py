@@ -1153,9 +1153,14 @@ RULES:
 6. If a policy says "30 days" say "30 days" not "about a month"
 7. End with clear next steps
 
+IMPORTANT: output ONLY the final customer-facing reply. No reasoning, no <think> blocks, no planning text — the very first word of your output must be part of the customer's answer.
+
 Write the response:"""
 
-    return await llm_call(prompt, max_tokens=600, temperature=0.3)
+    # 600→1100: fallback reasoning models spend tokens thinking before
+    # answering; with the old budget they got cut off mid-think and the
+    # customer got only leaked reasoning (live bug 2026-09-06).
+    return await llm_call(prompt, max_tokens=1100, temperature=0.3)
 
 
 # ── Phase 9: Self-Consistency Voting ──────────────────────────────

@@ -558,9 +558,14 @@ Instructions:
 - If the knowledge doesn't fully answer the question, say what you can and offer to connect them with a human agent
 - Do NOT just copy the KB text — write a natural response as if you're emailing the customer
 
+IMPORTANT: output ONLY the final customer-facing reply. No reasoning, no <think> blocks, no planning text — the very first word of your output must be part of the customer's email.
+
 Response:"""
 
-        synthesized = await llm_call(synth_prompt, max_tokens=300, temperature=0.2)
+        # 500→800: fallback reasoning models spend tokens thinking before
+        # answering; with the old budget they got cut off mid-think and the
+        # customer got nothing (live bug 2026-09-06).
+        synthesized = await llm_call(synth_prompt, max_tokens=800, temperature=0.2)
         if synthesized and len(synthesized) > 20 and not synthesized.startswith("["):
             synthesized_answer = synthesized
             logs.append({"node": 7, "technique": "LLMSynthesis", "duration_ms": 0,
