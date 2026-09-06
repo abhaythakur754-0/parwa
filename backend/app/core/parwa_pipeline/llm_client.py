@@ -1027,7 +1027,13 @@ async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: 
         "model": "gpt-oss-120b",
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        # gpt-oss is a reasoning model — via the raw Cerebras API its
+        # analysis lands inline in content and it will burn the whole
+        # caller budget thinking (live bug 2026-09-06: customers got
+        # truncated reasoning instead of answers). reasoning_effort=low
+        # shortens the thinking; the 3x budget leaves room for the answer.
+        "reasoning_effort": "low",
+        "max_tokens": min(max(max_tokens * 3, 1200), 3000),
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
