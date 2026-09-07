@@ -158,33 +158,23 @@ async def api_upload_document(
     from fastapi.responses import JSONResponse
 
     try:
-        # Decode file content to text
-        try:
-            file_text = content.decode("utf-8", errors="replace")
-        except Exception:
-            file_text = ""
+        # ── OSS stack: parse binary formats properly (MarkItDown) + chunk ──
+        # Previously PDF/DOCX bytes were UTF-8-decoded into garbage. Now:
+        # binary formats go through oss_stack.docparse (MarkItDown), text
+        # formats keep UTF-8 decode. Unreadable binary files are REJECTED
+        # with a clear message instead of storing junk chunks.
+        from app.core.oss_stack import kb as oss_kb
 
-        # Simple chunking: split by double-newline (paragraphs), then merge
-        # short paragraphs to get ~500-char chunks.
-        raw_paras = [p.strip() for p in file_text.split("\n\n") if p.strip()]
-        chunks_text = []
-        current = ""
-        for para in raw_paras:
-            if len(current) + len(para) + 2 < 500:
-                current = (current + "\n\n" + para).strip() if current else para
-            else:
-                if current:
-                    chunks_text.append(current)
-                current = para
-        if current:
-            chunks_text.append(current)
-
-        # If no paragraph breaks, split by single newlines or by 500-char windows
-        if not chunks_text and file_text.strip():
-            for i in range(0, len(file_text), 500):
-                chunk = file_text[i:i+500].strip()
-                if chunk:
-                    chunks_text.append(chunk)
+        file_text, chunks_text = oss_kb.parse_and_chunk(filename, content)
+        if file_text is None:
+            raise ValidationError(
+                message=(
+                    f"Could not extract text from '{filename}'. "
+                    "Install 'markitdown' (pip install 'markitdown[all]') on the "
+                    "server to support PDF/DOCX uploads, or upload a .txt/.md/.csv file."
+                ),
+                details={"filename": filename, "file_type": ext},
+            )
 
         document = KnowledgeDocument(
             company_id=user.company_id,
@@ -199,19 +189,37 @@ async def api_upload_document(
         db.refresh(document)
 
         # Insert chunks into document_chunks table
+        # ── OSS stack: best-effort LOCAL embeddings (fastembed ONNX, 384-dim) ──
+        # Fixes the production bug where uploads had zero embeddings, so the
+        # pipeline's entire hybrid retrieval tier was skipped. Local embeddings
+        # mean Node 3 vector search works even when Google/NVIDIA APIs fail.
+        embedded_literals = []
+        try:
+            embedded_literals = oss_kb.embed_chunks_best_effort(chunks_text)
+        except Exception as emb_exc:
+            logger.warning("kb_local_embed_error: %s", str(emb_exc)[:200])
+            embedded_literals = [None] * len(chunks_text)
+
         try:
             from database.models.onboarding import DocumentChunk
             import uuid
             for idx, chunk_text in enumerate(chunks_text):
+                emb_literal = embedded_literals[idx] if idx < len(embedded_literals) else None
                 chunk = DocumentChunk(
                     id=str(uuid.uuid4()),
                     document_id=document.id,
                     company_id=user.company_id,
                     chunk_index=idx,
                     content=chunk_text,
+                    embedding=emb_literal,
                 )
                 db.add(chunk)
             db.commit()
+            embedded_count = sum(1 for e in embedded_literals if e)
+            logger.info(
+                "kb_upload_chunks_embedded document_id=%s chunks=%d embedded=%d",
+                str(document.id), len(chunks_text), embedded_count,
+            )
         except Exception as chunk_exc:
             logger.warning("kb_chunk_insert_partial_error: %s", str(chunk_exc)[:200])
             db.rollback()

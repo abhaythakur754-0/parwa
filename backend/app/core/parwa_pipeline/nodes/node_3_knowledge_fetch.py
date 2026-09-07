@@ -329,6 +329,103 @@ def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") 
         except Exception as exc:
             logger.warning("Node 3: Hybrid search failed: %s — falling back to fetch-all", str(exc)[:200])
 
+    # ── Tier 1.5: OSS stack — BM25 ALWAYS + local-embedding fallback ──
+    # Production bug fixed here: fresh KB uploads had zero embeddings, and
+    # the BM25 keyword search above only ran INSIDE the has_embeddings
+    # branch — so a tenant's brand-new KB was completely invisible. This
+    # tier runs BM25 regardless of embeddings, and fuses local fastembed
+    # (384-dim) vector similarity when available. Tenant-scoped (BC-001).
+    if tenant_id and query:
+        try:
+            from database.base import SessionLocal
+            from sqlalchemy import text as _oss_text
+            from app.core.oss_stack import embeddings as oss_emb
+
+            db = SessionLocal()
+            try:
+                bm25_rows = db.execute(
+                    _oss_text(
+                        "SELECT id, content, document_id, "
+                        "ts_rank_cd(to_tsvector('english', content), "
+                        "plainto_tsquery('english', :q)) AS rank "
+                        "FROM document_chunks "
+                        "WHERE company_id = :tenant_id "
+                        "AND to_tsvector('english', content) @@ plainto_tsquery('english', :q) "
+                        "ORDER BY rank DESC LIMIT 20"
+                    ),
+                    {"tenant_id": tenant_id, "q": query},
+                ).fetchall()
+            finally:
+                db.close()
+
+            fused = {}
+            for rank, row in enumerate(bm25_rows, 1):
+                fused[str(row[0])] = {
+                    "content": row[1],
+                    "document_id": str(row[2]),
+                    "rrf": 1.0 / (60 + rank),
+                    "sim": 0.0,
+                }
+
+            # Local 384-dim vector pass (best-effort, OSS_EMBEDDINGS=1)
+            if oss_emb.is_available():
+                try:
+                    db2 = SessionLocal()
+                    try:
+                        rows384 = db2.execute(
+                            _oss_text(
+                                "SELECT id, content, document_id, embedding "
+                                "FROM document_chunks "
+                                "WHERE company_id = :tenant_id AND embedding IS NOT NULL"
+                            ),
+                            {"tenant_id": tenant_id},
+                        ).fetchall()
+                    finally:
+                        db2.close()
+                    q384 = oss_emb.embed(query)
+                    if q384 is not None:
+                        vec_scored = []
+                        for r in rows384:
+                            v = oss_emb.from_stored_literal(r[3])
+                            if v is None or len(v) != len(q384):
+                                continue
+                            sim = oss_emb.cosine(q384, v)
+                            if sim > 0.05:
+                                vec_scored.append((str(r[0]), r[1], str(r[2]), sim))
+                        vec_scored.sort(key=lambda x: x[3], reverse=True)
+                        for rank, row in enumerate(vec_scored[:20], 1):
+                            cid = row[0]
+                            if cid not in fused:
+                                fused[cid] = {
+                                    "content": row[1],
+                                    "document_id": row[2],
+                                    "rrf": 0.0,
+                                    "sim": 0.0,
+                                }
+                            fused[cid]["rrf"] += 1.0 / (60 + rank)
+                            fused[cid]["sim"] = max(fused[cid]["sim"], row[3])
+                except Exception as vec_exc:
+                    logger.warning("Node 3: OSS local vector pass failed: %s", str(vec_exc)[:150])
+
+            if fused:
+                merged = sorted(fused.values(), key=lambda x: x["rrf"], reverse=True)[:5]
+                result = [
+                    {
+                        "content": m["content"],
+                        "source": f"tenant_kb:{m['document_id']}",
+                        "section": "C",
+                        "score": m["rrf"],
+                    }
+                    for m in merged
+                ]
+                logger.info(
+                    "Node 3: OSS tier returned %d chunks for company_id=%s (bm25=%d)",
+                    len(result), tenant_id, len(bm25_rows),
+                )
+                return result
+        except Exception as oss_exc:
+            logger.warning("Node 3: OSS tier failed: %s — falling to next tier", str(oss_exc)[:200])
+
     # ── Tier 2: Per-tenant KB (fetch all chunks — original behavior) ──
     if tenant_id:
         try:
@@ -353,16 +450,32 @@ def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") 
                     ).all()
 
                     if chunks:
-                        result = []
-                        for chunk in chunks:
-                            result.append({
-                                "content": chunk.content,
-                                "source": f"tenant_kb:{chunk.document_id}",
+                        # ── OSS stack: rank + cap instead of dumping ALL chunks ──
+                        # Fetch-all could blow the prompt budget on big KBs.
+                        # With a query, take the top-12 by BM25-lite overlap.
+                        from app.core.oss_stack import kb as oss_kb
+
+                        rows = [(str(c.id), c.content or "", str(c.document_id)) for c in chunks]
+                        if query:
+                            ranked = oss_kb.bm25_rank(query, rows, top_k=12)
+                        else:
+                            ranked = []
+                        if not ranked:
+                            ranked = [
+                                {"id": r[0], "content": r[1], "document_id": r[2], "score": 0.0}
+                                for r in rows[:12]
+                            ]
+                        result = [
+                            {
+                                "content": p["content"],
+                                "source": f"tenant_kb:{p['document_id']}",
                                 "section": "C",
-                            })
+                            }
+                            for p in ranked
+                        ]
                         logger.info(
-                            "Node 3: Retrieved %d tenant KB chunks for company_id=%s",
-                            len(result), tenant_id,
+                            "Node 3: Retrieved %d tenant KB chunks (ranked+cap, query=%s) for company_id=%s",
+                            len(result), bool(query), tenant_id,
                         )
                         return result
                     else:
