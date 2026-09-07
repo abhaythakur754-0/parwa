@@ -87,14 +87,15 @@ async def generate_tool_for_agent(
     instruction = _build_tool_instruction(
         agent_name, agent_instructions, agent_capabilities, sample_ticket, tenant_integrations
     )
-    # ── NEW Superglue: enqueue + poll flow ──
-    # Step 1: POST /enqueue?XTransformPort=3003 → get request_id
-    # Step 2: GET /status/{request_id}?XTransformPort=3003 → poll until done
+    # ── NEW Superglue: enqueue + poll flow (legacy stacks) ──
+    # Step 1: POST {queue_url} → get request_id
+    # Step 2: GET {status_url}/{request_id} → poll until done
+    # NOTE: the current global stack's queue is a serial API-job executor
+    # ({method,path,body} jobs) — it does NOT generate tools from
+    # instructions. Enqueue failure there is EXPECTED and we fall back to
+    # the PARWA LLM generator below (one-time cost per agent, not per ticket).
     import asyncio as _aio
-    from app.core.superglue_client import (
-        _get_queue_url, _get_status_url, _session_headers,
-        SUPERGLUE_QUEUE_PORT,
-    )
+    from app.core.superglue_client import _get_queue_url, _get_status_url, _session_headers
 
     queue_url = _get_queue_url()
     status_url = _get_status_url()
@@ -103,7 +104,7 @@ async def generate_tool_for_agent(
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Step 1: Enqueue tool generation request
             res = await client.post(
-                f"{queue_url}?XTransformPort={SUPERGLUE_QUEUE_PORT}",
+                f"{queue_url}",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
@@ -112,7 +113,7 @@ async def generate_tool_for_agent(
                 json={"instruction": instruction},
             )
 
-        if res.status_code in (200, 201):
+        if res.status_code in (200, 201, 202):
             # Enqueue response: {id: "req-123", status: "pending"}
             enqueue_resp = res.json()
             request_id = enqueue_resp.get("id")
@@ -132,7 +133,7 @@ async def generate_tool_for_agent(
                 await _aio.sleep(5)
                 try:
                     poll_res = await client.get(
-                        f"{status_url}/{request_id}?XTransformPort={SUPERGLUE_QUEUE_PORT}",
+                        f"{status_url}/{request_id}",
                         headers={"Authorization": f"Bearer {token}", **_session_headers()},
                     )
                     if poll_res.status_code == 200:
@@ -198,7 +199,11 @@ async def generate_tool_for_agent(
         # POST it directly to Superglue /v1/tools (which works).
         # This costs PARWA 1 LLM call (~5s, ~500 tokens) but only happens
         # ONCE per agent creation — not per ticket.
-        if res.status_code == 404:
+        # Any non-2xx → fall back. Critical for the NEW global stack: its
+        # /sgq/jobs queue rejects instruction payloads with HTTP 400 (it's
+        # a serial API-job executor, not a tool generator). The PARWA LLM
+        # path below is the supported generator there.
+        if res.status_code in (400, 404, 405, 422, 500, 501, 502, 503):
             logger.info(
                 "superglue_agent_api_unavailable: falling back to PARWA NVIDIA LLM "
                 "for agent=%s (one-time cost, not per-ticket)",

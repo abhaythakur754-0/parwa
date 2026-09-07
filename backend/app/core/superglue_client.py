@@ -42,17 +42,20 @@ HTTP_TIMEOUT = 30.0
 
 
 # ── Hardcoded Superglue config (no env var needed on Render) ──
-# Same pattern as Builder + CRM Analyser — URL hardcoded.
-# User request (2026-08-12): "connect this also same way"
-DEFAULT_SUPERGLUE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai"
-DEFAULT_SUPERGLUE_TOKEN = "sg-test-token"
-DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/enqueue"
-DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/status"
-DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-57c587a9-5bfa-49a2-a723-08e25fa91694.space-z.ai/v1/tools"
+# NEW stack (2026-09-07): global Cloudflare tunnel, Bearer-token only,
+# NO x-session-id required. Verified live from this codebase's consumer
+# path: list tools 200, /tools/{id}/run 200 (status=success), inline
+# /tools/run 200, /sgq/jobs 202→done, /sgai/v1 Mistral 200.
+# NOTE: trycloudflare URLs are ephemeral — if the sandbox reboots the URL
+# changes; update these defaults OR set the SUPERGLUE_* env vars on Render.
+DEFAULT_SUPERGLUE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgapi"
+DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
+DEFAULT_SUPERGLUE_QUEUE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgq/jobs"
+DEFAULT_SUPERGLUE_STATUS_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgq/jobs"
+DEFAULT_SUPERGLUE_CORE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgapi/v1/tools"
 
-# XTransformPort values for the gateway
-SUPERGLUE_QUEUE_PORT = 3003   # enqueue + status
-SUPERGLUE_CORE_PORT = 3002    # /v1/tools (run tools)
+# Legacy gateway ports (kept for import compatibility; no longer appended
+# to URLs — the new global stack is reached directly over HTTPS).
 
 
 def _session_headers() -> dict:
@@ -292,17 +295,35 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         # packages/core/api/tools.ts line 381: payload: body?.inputs
         payload = {"inputs": input_data}
 
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            **_session_headers(),
+        }
+
         async with httpx.AsyncClient(timeout=120.0) as client:
-            # Use XTransformPort=3002 for the Superglue core API (gateway routing)
+            # Shape A (new stack, verified live 2026-09-07):
+            #   POST /v1/tools/{toolId}/run  → 200 {status, data, stepResults}
             res = await client.post(
-                f"{_get_core_url()}/{actual_tool_id}/run?XTransformPort={SUPERGLUE_CORE_PORT}",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                    **_session_headers(),
-                },
+                f"{_get_core_url()}/{actual_tool_id}/run",
+                headers=headers,
                 json=payload,
             )
+            # Shape B fallback (deployments without the per-tool route):
+            #   GET tool config, then POST /v1/tools/run with inline config.
+            if res.status_code == 404:
+                cfg_res = await client.get(
+                    f"{_get_core_url()}/{actual_tool_id}", headers=headers
+                )
+                if cfg_res.status_code == 200:
+                    tool_cfg = cfg_res.json()
+                    if isinstance(tool_cfg, dict) and "data" in tool_cfg:
+                        tool_cfg = tool_cfg["data"]
+                    res = await client.post(
+                        f"{_get_core_url()}/run",
+                        headers=headers,
+                        json={"tool": tool_cfg, "inputs": input_data},
+                    )
 
         if res.status_code in (200, 202):
             result = res.json()
@@ -514,16 +535,31 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
 
     try:
         payload = {"inputs": input_data}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            **_session_headers(),
+        }
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             res = await client.post(
-                f"{_get_core_url()}/{actual_tool_id}/run?XTransformPort={SUPERGLUE_CORE_PORT}",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                    **_session_headers(),
-                },
+                f"{_get_core_url()}/{actual_tool_id}/run",
+                headers=headers,
                 json=payload,
             )
+            if res.status_code == 404:
+                cfg_res = await client.get(
+                    f"{_get_core_url()}/{actual_tool_id}", headers=headers
+                )
+                if cfg_res.status_code == 200:
+                    tool_cfg = cfg_res.json()
+                    if isinstance(tool_cfg, dict) and "data" in tool_cfg:
+                        tool_cfg = tool_cfg["data"]
+                    res = await client.post(
+                        f"{_get_core_url()}/run",
+                        headers=headers,
+                        json={"tool": tool_cfg, "inputs": input_data},
+                    )
 
         if res.status_code in (200, 202):
             result = res.json()
