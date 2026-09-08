@@ -197,6 +197,8 @@ class Settings(BaseSettings):
     CEREBRAS_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     NVIDIA_API_KEY: str = ""
+    AI21_API_KEY: str = ""
+    MISTRAL_API_KEY: str = ""
 
     # ── Superglue (universal integration layer) ──────────────────
     SUPERGLUE_API_URL: str = ""

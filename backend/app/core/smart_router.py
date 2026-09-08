@@ -59,6 +59,7 @@ class ModelProvider(str, Enum):
     GROQ = "groq"
     NVIDIA = "nvidia"
     AI21 = "ai21"
+    MISTRAL = "mistral"
 
 
 class ModelTier(str, Enum):
@@ -119,79 +120,81 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # LIGHT TIER — 90% of traffic
     # ═══════════════════════════════════════════════════════════════════
 
-    # LIGHT priority order: Cerebras first (fastest inference), then Groq models, then AI21 last.
-    "cerebras-llama3.1-8b": ModelConfig(
-        provider=ModelProvider.CEREBRAS, model_id="llama3.1-8b",
-        display_name="Llama 3.1 8B (Cerebras)", tier=ModelTier.LIGHT, priority=1,
-        max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=8192,
-        api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
-    ),
-    "groq-llama-3.1-8b-instant": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
-        display_name="Llama 3.1 8B Instant (Groq)", tier=ModelTier.LIGHT, priority=2,
-        max_requests_per_day=14400, max_tokens_per_minute=6000, context_window=8192,
-        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
-    ),
-    "groq-llama-3.3-70b": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="llama-3.3-70b-versatile",
-        display_name="Llama 3.3 70B (Groq)", tier=ModelTier.LIGHT, priority=3,
-        max_requests_per_day=1000, max_tokens_per_minute=12000, context_window=32768,
-        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
-    ),
-    "groq-llama-4-scout": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="meta-llama/llama-4-scout-17b-16e-instruct",
-        display_name="Llama 4 Scout (Groq)", tier=ModelTier.LIGHT, priority=4,
-        max_requests_per_day=1000, max_tokens_per_minute=30000, context_window=65536,
-        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
-    ),
-    "groq-qwen3-32b": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="qwen/qwen3-32b",
-        display_name="Qwen3 32B (Groq)", tier=ModelTier.LIGHT, priority=5,
-        max_requests_per_day=1000, max_tokens_per_minute=6000, context_window=32768,
-        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
-    ),
+    # 2026-09 REORDER — production /debug/llm-test ground truth:
+    # Groq key works; llama-3.1-8b-instant / llama-3.3-70b-versatile /
+    # llama-4-scout / qwen3-32b are all 404 (dead). qwen3.6-27b VERIFIED
+    # working via smart_router fallback. Cerebras key set but 402
+    # (quota exhausted) — demoted until billing is topped up.
+    # LIGHT priority order: live Groq models first, then NVIDIA/Mistral
+    # fallbacks, then Cerebras (needs credits), then AI21 (no key yet).
     "groq-qwen3.6-27b": ModelConfig(
         provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
-        display_name="Qwen3.6 27B (Groq)", tier=ModelTier.LIGHT, priority=6,
+        display_name="Qwen3.6 27B (Groq)", tier=ModelTier.LIGHT, priority=1,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,
-        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
-    ),
-    "groq-allam-2-7b": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="allam-2-7b",
-        display_name="Allam 2 7B (Groq)", tier=ModelTier.LIGHT, priority=7,
-        max_requests_per_day=7000, max_tokens_per_minute=6000, context_window=8192,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
     "groq-gpt-oss-120b-light": ModelConfig(
         provider=ModelProvider.GROQ, model_id="openai/gpt-oss-120b",
-        display_name="GPT-OSS 120B (Groq)", tier=ModelTier.LIGHT, priority=8,
+        display_name="GPT-OSS 120B (Groq)", tier=ModelTier.LIGHT, priority=2,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
     "groq-gpt-oss-20b-light": ModelConfig(
         provider=ModelProvider.GROQ, model_id="openai/gpt-oss-20b",
-        display_name="GPT-OSS 20B (Groq)", tier=ModelTier.LIGHT, priority=9,
+        display_name="GPT-OSS 20B (Groq)", tier=ModelTier.LIGHT, priority=3,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "groq-allam-2-7b": ModelConfig(
+        provider=ModelProvider.GROQ, model_id="allam-2-7b",
+        display_name="Allam 2 7B (Groq)", tier=ModelTier.LIGHT, priority=4,
+        max_requests_per_day=7000, max_tokens_per_minute=6000, context_window=8192,
+        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "groq-qwen3.8-27b": ModelConfig(
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
+        display_name="Qwen3.8 27B (Groq)", tier=ModelTier.LIGHT, priority=5,
+        max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,
+        api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "nvidia-gpt-oss-20b-light": ModelConfig(
+        provider=ModelProvider.NVIDIA, model_id="openai/gpt-oss-20b",
+        display_name="GPT-OSS 20B (NVIDIA)", tier=ModelTier.LIGHT, priority=6,
+        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=131072,
+        api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "mistral-ministral-8b-light": ModelConfig(
+        provider=ModelProvider.MISTRAL, model_id="ministral-8b-latest",
+        display_name="Ministral 8B (Mistral)", tier=ModelTier.LIGHT, priority=7,
+        max_requests_per_day=999999, max_tokens_per_minute=500000, context_window=131072,
+        api_endpoint_base="https://api.mistral.ai/v1/chat/completions", is_openai_compatible=True,
     ),
     "groq-gpt-oss-safeguard-light": ModelConfig(
         provider=ModelProvider.GROQ, model_id="openai/gpt-oss-safeguard-20b",
-        display_name="GPT-OSS Safeguard 20B (Groq)", tier=ModelTier.LIGHT, priority=10,
+        display_name="GPT-OSS Safeguard 20B (Groq)", tier=ModelTier.LIGHT, priority=8,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=65536,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
+    "cerebras-gpt-oss-120b-light": ModelConfig(
+        provider=ModelProvider.CEREBRAS, model_id="gpt-oss-120b",
+        display_name="GPT-OSS 120B (Cerebras)", tier=ModelTier.LIGHT, priority=9,
+        max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=65536,
+        api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
+    ),
     "ai21-jamba-mini": ModelConfig(
         provider=ModelProvider.AI21, model_id="jamba-2.0-mini",
-        display_name="Jamba Mini 2 (AI21)", tier=ModelTier.LIGHT, priority=11,
+        display_name="Jamba Mini 2 (AI21)", tier=ModelTier.LIGHT, priority=10,
         max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=256000,
         api_endpoint_base="https://api.ai21.com/studio/v1/chat/completions", is_openai_compatible=True,
     ),
     "ai21-jamba-large": ModelConfig(
         provider=ModelProvider.AI21, model_id="jamba-1.7-large",
-        display_name="Jamba Large 1.7 (AI21)", tier=ModelTier.LIGHT, priority=12,
+        display_name="Jamba Large 1.7 (AI21)", tier=ModelTier.LIGHT, priority=11,
         max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=256000,
         api_endpoint_base="https://api.ai21.com/studio/v1/chat/completions", is_openai_compatible=True,
     ),
+    # 2026-09: LIGHT-tier fallbacks (NVIDIA/Mistral) are listed above at
+    # priority 6/7 — see the 2026-09 REORDER note.
 
     # ═══════════════════════════════════════════════════════════════════
     # MEDIUM TIER — 8% of traffic
@@ -210,11 +213,20 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         max_requests_per_day=20, max_tokens_per_minute=999999, context_window=1048576,
         api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models", is_openai_compatible=False,
     ),
+    # 2026-09: z-ai/glm-5.2 no longer exists on NVIDIA's live catalog
+    # (404/410 — model retired). Replaced with completion-verified live
+    # models tested against a real NVIDIA API key on 2026-09-08.
     "nvidia-glm-5.2-medium": ModelConfig(
-        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
-        display_name="GLM 5.2 (NVIDIA)", tier=ModelTier.MEDIUM, priority=3,
-        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
+        provider=ModelProvider.NVIDIA, model_id="deepseek-ai/deepseek-v4-flash-0731",
+        display_name="DeepSeek V4 Flash (NVIDIA)", tier=ModelTier.MEDIUM, priority=3,
+        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=131072,
         api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "mistral-small-medium": ModelConfig(
+        provider=ModelProvider.MISTRAL, model_id="mistral-small-latest",
+        display_name="Mistral Small (Mistral)", tier=ModelTier.MEDIUM, priority=4,
+        max_requests_per_day=999999, max_tokens_per_minute=500000, context_window=131072,
+        api_endpoint_base="https://api.mistral.ai/v1/chat/completions", is_openai_compatible=True,
     ),
 
     # ═══════════════════════════════════════════════════════════════════
@@ -234,11 +246,18 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=65536,
         api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
     ),
+    # 2026-09: z-ai/glm-5.2 retired — replaced with completion-verified model.
     "nvidia-glm-5.2-heavy": ModelConfig(
-        provider=ModelProvider.NVIDIA, model_id="z-ai/glm-5.2",
-        display_name="GLM 5.2 (NVIDIA)", tier=ModelTier.HEAVY, priority=3,
-        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=1048576,
+        provider=ModelProvider.NVIDIA, model_id="deepseek-ai/deepseek-v4-flash-0731",
+        display_name="DeepSeek V4 Flash (NVIDIA)", tier=ModelTier.HEAVY, priority=3,
+        max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=131072,
         api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
+    ),
+    "mistral-medium-heavy": ModelConfig(
+        provider=ModelProvider.MISTRAL, model_id="mistral-medium-latest",
+        display_name="Mistral Medium (Mistral)", tier=ModelTier.HEAVY, priority=4,
+        max_requests_per_day=999999, max_tokens_per_minute=500000, context_window=131072,
+        api_endpoint_base="https://api.mistral.ai/v1/chat/completions", is_openai_compatible=True,
     ),
 
     # ═══════════════════════════════════════════════════════════════════
@@ -248,9 +267,12 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     #  user-validated as best model for ALL pipeline tasks.)
     # ═══════════════════════════════════════════════════════════════════
 
+    # 2026-09: builder tier used llama-3.1-8b-instant which is now 404 on
+    # Groq. Switched to qwen/qwen3.6-27b — verified live via production
+    # /debug/llm-test smart_router fallback (ok=true).
     "groq-llama-3.1-8b-builder": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
-        display_name="Llama 3.1 8B Instant (Groq) — Builder", tier=ModelTier.BUILDER, priority=1,
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
+        display_name="Qwen3.6 27B (Groq) — Builder", tier=ModelTier.BUILDER, priority=1,
         max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
@@ -258,8 +280,8 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # Kept for backward compat — alias to the new Groq builder.
     # (Old code that looked up "nvidia-glm-5.2-builder" still resolves.)
     "nvidia-glm-5.2-builder": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="llama-3.1-8b-instant",
-        display_name="Llama 3.1 8B Instant (Groq) — Builder [alias]", tier=ModelTier.BUILDER, priority=2,
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
+        display_name="Qwen3.6 27B (Groq) — Builder [alias]", tier=ModelTier.BUILDER, priority=2,
         max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
@@ -1633,6 +1655,7 @@ class SmartRouter:
             ModelProvider.GOOGLE: f"gemini/{model_id}",
             ModelProvider.NVIDIA: f"nvidia/{model_id}",
             ModelProvider.AI21: f"ai21/{model_id}",
+            ModelProvider.MISTRAL: f"mistral/{model_id}",
         }
         return mapping.get(provider, f"openai/{model_id}")
 
@@ -1727,6 +1750,8 @@ class SmartRouter:
         - Google: GOOGLE_API_KEY, GEMINI_API_KEY, GOOGLE_AI_API_KEY
         - Groq: GROQ_API_KEY
         - Cerebras: CEREBRAS_API_KEY
+        - NVIDIA: NVIDIA_API_KEY
+        - Mistral: MISTRAL_API_KEY
         """
         key_map = {
             ModelProvider.CEREBRAS: (
@@ -1746,6 +1771,9 @@ class SmartRouter:
             ModelProvider.AI21: (
                 os.environ.get("AI21_API_KEY")
             ),
+            ModelProvider.MISTRAL: (
+                os.environ.get("MISTRAL_API_KEY")
+            ),
         }
         key = key_map.get(provider)
 
@@ -1764,6 +1792,12 @@ class SmartRouter:
                         or getattr(settings, "GOOGLE_API_KEY", None)
                         or getattr(settings, "GEMINI_API_KEY", None)
                     )
+                elif provider == ModelProvider.NVIDIA:
+                    key = getattr(settings, "NVIDIA_API_KEY", None)
+                elif provider == ModelProvider.MISTRAL:
+                    key = getattr(settings, "MISTRAL_API_KEY", None)
+                elif provider == ModelProvider.AI21:
+                    key = getattr(settings, "AI21_API_KEY", None)
             except Exception:
                 pass  # Settings not available (missing required vars)
 
