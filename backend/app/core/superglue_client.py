@@ -22,9 +22,10 @@ Execution endpoint:
   POST /v1/tools/run             — execute by providing full tool config inline
   POST /v1/runs                  — only for LOGGING a run record (NOT execution)
 
-Env vars (set on Render):
-  SUPERGLUE_API_URL=https://preview-chat-xxx.space-z.ai
-  SUPERGLUE_AUTH_TOKEN=c398040a73bfc7880ae316a122bcb322419bf26789e47416
+Env vars (set on Render — one URL is enough, the rest derive from it):
+  SUPERGLUE_API_URL=https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi
+  SUPERGLUE_AUTH_TOKEN=sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b
+  SUPERGLUE_LLM_API_KEY=sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f  (optional; default built in)
 """
 
 from __future__ import annotations
@@ -42,17 +43,24 @@ HTTP_TIMEOUT = 30.0
 
 
 # ── Hardcoded Superglue config (no env var needed on Render) ──
-# NEW stack (2026-09-07): global Cloudflare tunnel, Bearer-token only,
-# NO x-session-id required. Verified live from this codebase's consumer
-# path: list tools 200, /tools/{id}/run 200 (status=success), inline
-# /tools/run 200, /sgq/jobs 202→done, /sgai/v1 Mistral 200.
-# NOTE: trycloudflare URLs are ephemeral — if the sandbox reboots the URL
-# changes; update these defaults OR set the SUPERGLUE_* env vars on Render.
-DEFAULT_SUPERGLUE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgapi"
+# STABLE stack (2026-09-08): platform preview route (system Caddy), NOT a
+# quick tunnel — never rotates, resolves to public Aliyun ALB IPs.
+# Bearer-token only, NO x-session-id required. Independently re-verified
+# from the consumer side: dashboard 200, list tools 200 (5 tools),
+# /tools/{id}/run 200 status=success with real rows, POST /v1/tools 201,
+# DELETE /v1/tools/{id} 200, /sgq/jobs 202→done<1s, /sgai/v1 Mistral 200.
+# NOTE: PATCH /v1/tools/{id} does NOT exist on this stack — use DELETE.
+DEFAULT_SUPERGLUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi"
 DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
-DEFAULT_SUPERGLUE_QUEUE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgq/jobs"
-DEFAULT_SUPERGLUE_STATUS_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgq/jobs"
-DEFAULT_SUPERGLUE_CORE_URL = "https://packard-thickness-prizes-gig.trycloudflare.com/sgapi/v1/tools"
+DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
+DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
+DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi/v1/tools"
+
+# Superglue's own LLM (OpenAI-compatible /sgai/v1) — used by the tool
+# generator so PARWA pays $0 for generation. Verified live 2026-09-08.
+DEFAULT_SUPERGLUE_LLM_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions"
+DEFAULT_SUPERGLUE_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
+DEFAULT_SUPERGLUE_LLM_MODEL = "open-mistral-7b"
 
 # Legacy gateway ports (kept for import compatibility; no longer appended
 # to URLs — the new global stack is reached directly over HTTPS).
@@ -138,6 +146,27 @@ def _get_core_url() -> str:
     if os.environ.get("SUPERGLUE_API_URL", "").strip():
         return _stack_root() + "/sgapi/v1/tools"
     return DEFAULT_SUPERGLUE_CORE_URL
+
+
+def _get_llm_url() -> str:
+    """Superglue LLM chat-completions URL. SUPERGLUE_LLM_URL wins if set;
+    else derive from SUPERGLUE_API_URL (same one-var swap as above)."""
+    explicit = os.environ.get("SUPERGLUE_LLM_URL", "").strip()
+    if explicit:
+        return explicit
+    if os.environ.get("SUPERGLUE_API_URL", "").strip():
+        return _stack_root() + "/sgai/v1/chat/completions"
+    return DEFAULT_SUPERGLUE_LLM_URL
+
+
+def _get_llm_key() -> str:
+    """Superglue LLM API key (sgai_…). SUPERGLUE_LLM_API_KEY wins if set."""
+    return os.environ.get("SUPERGLUE_LLM_API_KEY", DEFAULT_SUPERGLUE_LLM_KEY).strip()
+
+
+def _get_llm_model() -> str:
+    """Superglue LLM model id. SUPERGLUE_LLM_MODEL wins if set."""
+    return os.environ.get("SUPERGLUE_LLM_MODEL", DEFAULT_SUPERGLUE_LLM_MODEL).strip()
 
 
 def is_configured() -> bool:
