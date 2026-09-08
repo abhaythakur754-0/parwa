@@ -149,6 +149,20 @@ services:
         sync: false
       - key: REFRESH_TOKEN_PEPPER
         sync: false
+      # ── LLM provider keys (CRITICAL) ──
+      # The 8-node AI pipeline runs in THIS worker, not the web service.
+      # Without these, every ticket fails with "LLM call failed: all
+      # providers exhausted". Same values as parwa-backend.
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
 
   # ── Redis ───────────────────────────────────────────────────
   - type: pserv
