@@ -35,7 +35,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+import re
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -59,6 +60,7 @@ async def generate_tool_for_agent(
     agent_capabilities: str,
     sample_ticket: Optional[str] = None,
     tenant_integrations: Optional[Dict[str, Any]] = None,
+    trial_run_inputs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Ask Superglue to generate a multi-step tool for this AI agent.
 
@@ -69,6 +71,11 @@ async def generate_tool_for_agent(
         sample_ticket: A real ticket text that triggered this agent (helps design the tool)
         tenant_integrations: Integrations the tenant has connected
             (e.g. {"paddle": {"api_key": "pdl_..."}})
+        trial_run_inputs: OPTIONAL side-effect-safe inputs. When provided,
+            the saved tool is trial-RUN with these inputs and a runtime
+            failure deletes the tool and feeds the error back for a
+            corrective retry (catches e.g. hallucinated table names).
+            NEVER pass inputs that mutate real customer data.
 
     Returns:
         {
@@ -97,7 +104,9 @@ async def generate_tool_for_agent(
     # server-side). Generation goes DIRECT to the LLM; the resulting JSON
     # is then saved via POST /v1/tools (verified 201).
     try:
-        result = await _generate_tool_via_superglue_llm(instruction, agent_name)
+        result = await _generate_tool_via_superglue_llm(
+            instruction, agent_name, trial_run_inputs
+        )
         if result.get("success"):
             return result
         logger.warning(
@@ -153,9 +162,16 @@ HARD RULES (violations are rejected by validation):
   - "request" config fields: type, method (GET/POST/PUT/PATCH/DELETE),
     url, headers (object, optional), queryParams (object, optional),
     body (string, optional), systemId (string, optional).
+  - "body" MUST be a JSON-encoded STRING, NEVER a JSON object (the engine
+    only templates string bodies). Example:
+      "body": "{\"query\": \"SELECT * FROM t WHERE email = '<<customerEmail>>'\"}"
   - "transform" config fields: type ("transform"), transformCode
     (a single "(sourceData) => ..." expression string).
   - Step ids: lowercase snake_case (step1, step2, ...).
+  - Step ORDER matters: a transform step MUST come BEFORE any request step
+    that references its result (e.g. a body of
+    "<<(sourceData) => sourceData.update_query.data>>" requires the
+    "update_query" transform to appear EARLIER in steps).
   - JSON strings must be single-line — NEVER put raw newlines inside a
     string value.
   - Inside transformCode / outputTransform / url arrow-function strings use
@@ -163,21 +179,38 @@ HARD RULES (violations are rejected by validation):
     double quotes.
 
 TRANSFORM RULE (critical - prevents invalid JSON):
-  - If a step needs "transformCode", or you need "outputTransform", DO NOT
-    write JavaScript inside the JSON. Set the value to a marker instead:
+  - If a transform step needs "transformCode", or you need
+    "outputTransform", DO NOT write JavaScript inside the JSON. Set that
+    value to a marker instead:
       "transformCode": "@@T1@@"   (use T1, T2, ... in order)
-    Then AFTER the JSON, add ONE fenced js block defining each marker as a
-    single-expression arrow function, e.g.:
-    ```js
-    @@T1@@ = (sourceData) => sourceData.step1.data.map(p => p.title)
-    ```
-    Use single quotes in JS. Never put raw newlines inside JSON strings.
+    @@Tn@@ markers are allowed ONLY in transformCode / outputTransform —
+    NOWHERE else. PARWA resolves each marker against real JavaScript
+    afterwards — you do NOT provide any js block or definitions. Your
+    ENTIRE response is the single ```json block and nothing else.
+  - For a COMPUTED request "body" (depends on a previous step's result)
+    use this VERIFIED two-step pattern — NEVER inline JS in the body:
+      1) add a transform step whose transformCode RETURNS the body JSON
+         string, e.g. it ends with: JSON.stringify({query: 'UPDATE ...'})
+         (use a @@Tn@@ marker there — PARWA fills the JS)
+      2) the request step's body is exactly ONE reference to it:
+           "body": "<<(sourceData) => sourceData.<thatStepId>.data>>"
+    The ONLY other allowed body form is a static JSON string with
+    <<input>> refs inside. NEVER write inline JavaScript in a body
+    string (quote escaping breaks), NEVER a bare "(sourceData) => ..."
+    string, NEVER a @@Tn@@ marker directly in body.
 
 Template syntax for URLs:
   - Tool input ref: <<customerEmail>>
   - Step result ref: <<(sourceData) => 'https://api.x.com/' + sourceData.stepId.data.path>>
   - For Paddle (wraps items in data[]): sourceData.stepId.data.data[0].id
-  - ALWAYS end with >> (double chevron)"""
+  - ALWAYS end with >> (double chevron)
+
+Data shapes inside transforms (verified — follow exactly):
+  - Step results live at sourceData.<stepId>.
+  - The payload is at sourceData.<stepId>.data. For Postgres steps this is
+    ALREADY the rows array (e.g. sourceData.step1.data[0].stage) — there is
+    NO extra .rows wrapper. For HTTP steps it is the response payload.
+  - Use defensive access (?. and || []) so an empty result cannot crash."""
 
 
 def _parse_tool_json(response_text: str) -> Optional[Dict[str, Any]]:
@@ -374,63 +407,331 @@ def _parse_tool_json(response_text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _stitch_transforms(raw_response: str, tool_def: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Replace @@Tn@@ markers in tool_def with JS definitions from ```js blocks.
+def _extract_markers(tool_def: Dict[str, Any]) -> List[str]:
+    """Collect @@Tn@@ markers from transformCode / outputTransform ONLY.
 
-    The model writes NO JavaScript inside the JSON (which small LLMs cannot
-    escape reliably) — markers reference definitions in a separate fenced
-    js block. Stitching happens on the parsed dict, so proper JSON escaping
-    of the JS is guaranteed by construction. Returns None when a marker is
-    used but never defined (caller retries / falls back).
+    Markers anywhere else (body, url, queryParams, ...) are banned by the
+    SPEC and rejected by _validate_marker_placement — the ONLY supported
+    computed-value form outside transform fields is the <<(...) => ...>>
+    template ref (verified live: template ref runs, bare arrow fn breaks
+    the postgres engine with 'Cannot destructure property camelCase').
     """
-    import re as _re
+    markers: List[str] = []
 
-    defs: Dict[str, str] = {}
-    blocks = _re.findall(r'```(?:js|javascript)\s*([\s\S]*?)```', raw_response)
-    for block in blocks:
-        # @@Tn@@ = <expression possibly spanning lines until next marker>
-        for m in _re.finditer(
-            r'@@([\w-]+)@@\s*=\s*([\s\S]*?)(?=\n\s*@@[\w-]+@@|$)', block
-        ):
-            defs[m.group(1)] = ' '.join(m.group(2).split())
+    def scan(val: Any) -> None:
+        if isinstance(val, str):
+            for m in re.finditer(r'@@([\w-]+)@@', val):
+                if m.group(1) not in markers:
+                    markers.append(m.group(1))
+
+    for step in tool_def.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        cfg = step.get("config")
+        if isinstance(cfg, dict) and isinstance(cfg.get("transformCode"), str):
+            scan(cfg["transformCode"])
+    ot = tool_def.get("outputTransform")
+    if isinstance(ot, str):
+        scan(ot)
+    return markers
+
+
+def _validate_marker_placement(tool_def: Dict[str, Any]) -> Optional[str]:
+    """Reject @@Tn@@ markers outside transformCode/outputTransform and bare
+    arrow-function bodies. Returns an error string, or None when clean.
+
+    Verified live: a body of "<<(sourceData) => '...'>>" runs; the same
+    arrow WITHOUT the << >> wrapper makes the postgres plugin fail with
+    "Cannot destructure property 'camelCase' of 'config_or_text'".
+    """
+    for step in tool_def.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        cfg = step.get("config")
+        if not isinstance(cfg, dict):
+            continue
+        sid = step.get("id")
+        for key, val in cfg.items():
+            if isinstance(val, str) and "@@" in val and key not in ("transformCode", "outputTransform"):
+                return (
+                    f"step {sid}: @@Tn@@ marker in '{key}' is not allowed — "
+                    f"use a <<(sourceData) => ...>> template ref instead"
+                )
+        body = cfg.get("body")
+        if isinstance(body, str):
+            b = body.strip()
+            if b.startswith("(sourceData"):
+                return (
+                    f"step {sid}: computed body must be produced by a preceding "
+                    f"transform step and referenced as "
+                    f"<<(sourceData) => sourceData.<stepId>.data>> — a bare arrow "
+                    f"function breaks the engine"
+                )
+            if "<<(" in b and not re.fullmatch(
+                r'<<\(sourceData\) => sourceData\.[\w-]+\.data>>', b
+            ):
+                return (
+                    f"step {sid}: inline JS in body breaks escaping — produce the "
+                    f"body JSON string in a preceding transform step and reference "
+                    f"it as <<(sourceData) => sourceData.<stepId>.data>>"
+                )
+        elif body is not None:
+            return f"step {sid}: body must be a JSON-encoded string, never an object"
+    return None
+
+
+def _validate_body_refs(tool_def: Dict[str, Any]) -> Optional[str]:
+    """Pre-save static check of the computed-body chain (no save quota burned).
+
+    A request body of "<<(sourceData) => sourceData.<ref>.data>>" requires:
+      1. step <ref> exists,
+      2. it is a transform step,
+      3. its (stitched) transformCode returns JSON.stringify({query: ...}) —
+         the FULL body JSON string (verified live; a bare SQL string or a
+         plain value makes the postgres plugin fail with 'Cannot
+         destructure property camelCase').
+    Returns an error string for the retry loop, or None when clean.
+    """
+    steps = tool_def.get("steps") or []
+    by_id = {s.get("id"): s for s in steps if isinstance(s, dict)}
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        cfg = s.get("config") or {}
+        body = cfg.get("body") if isinstance(cfg, dict) else None
+        if not isinstance(body, str):
+            continue
+        m = re.fullmatch(
+            r'<<\(sourceData\) => sourceData\.([\w-]+)\.data>>', body.strip()
+        )
+        if not m:
+            continue
+        ref = m.group(1)
+        ref_step = by_id.get(ref)
+        if ref_step is None:
+            return f"step {s.get('id')}: body references step '{ref}' which does not exist"
+        rcfg = ref_step.get("config") or {}
+        if not isinstance(rcfg, dict) or rcfg.get("type") != "transform":
+            return (
+                f"step {s.get('id')}: body references step '{ref}' which must be "
+                f"a transform step returning JSON.stringify({{query: ...}})"
+            )
+        tc = rcfg.get("transformCode") or ""
+        if "JSON.stringify" not in tc:
+            return (
+                f"step {ref}: must return JSON.stringify({{query: '...'}}) — the FULL "
+                f"body JSON string — because step {s.get('id')} uses its output as "
+                f"a request body"
+            )
+    return None
+
+
+def _fix_step_order(tool_def: Dict[str, Any]) -> Dict[str, Any]:
+    """Deterministically reorder steps so a body-referenced transform comes
+    BEFORE the request step that consumes it (verified live failure: the
+    7B placed the body-producing transform AFTER its consumer — the engine
+    then saw sourceData.<id> as undefined). Only body-ref edges are used:
+      request step with body "<<(sourceData) => sourceData.<id>.data>>"
+      depends on step <id>.
+    Original order is kept for everything else (stable Kahn, lowest-index
+    tie-break). Cycles → return unchanged (save will fail, retry loop).
+    """
+    steps = tool_def.get("steps")
+    if not isinstance(steps, list) or len(steps) < 2:
+        return tool_def
+
+    deps: Dict[int, set] = {}
+    for i, s in enumerate(steps):
+        deps[i] = set()
+        cfg = s.get("config") if isinstance(s, dict) else None
+        body = cfg.get("body") if isinstance(cfg, dict) else None
+        if isinstance(body, str):
+            m = re.fullmatch(
+                r'<<\(sourceData\) => sourceData\.([\w-]+)\.data>>', body.strip()
+            )
+            if m:
+                ref = m.group(1)
+                for j, other in enumerate(steps):
+                    if isinstance(other, dict) and other.get("id") == ref:
+                        deps[i].add(j)
+
+    order, done, remaining = [], set(), set(range(len(steps)))
+    while remaining:
+        ready = next((i for i in sorted(remaining) if deps[i] <= done), None)
+        if ready is None:
+            return tool_def  # cycle / dangling ref — leave as-is
+        order.append(ready)
+        done.add(ready)
+        remaining.discard(ready)
+
+    if order != list(range(len(steps))):
+        logger.info("superglue_step_order_fixed: %s", order)
+        tool_def["steps"] = [steps[i] for i in order]
+    return tool_def
+
+
+def _stitch_transforms(tool_def: Dict[str, Any], defs: Dict[str, str]) -> Optional[Dict[str, Any]]:
+    """Replace @@Tn@@ markers in tool_def with the supplied JS definitions.
+
+    Definitions come from the focused marker-definition LLM call (the model
+    could NOT reliably emit them alongside the JSON — verified live: 4/4
+    attempts ended right after the JSON block). Stitching happens on the
+    parsed dict, so proper JSON escaping of the JS is guaranteed by
+    construction. Returns None when a marker is used but never defined.
+    """
 
     def resolve(val: str) -> Optional[str]:
-        m = _re.fullmatch(r'\s*@@([\w-]+)@@\s*', val or '')
+        m = re.fullmatch(r'\s*@@([\w-]+)@@\s*', val or '')
         if not m:
-            return val  # inline transform — keep as-is
+            return val  # not a bare marker — keep as-is
         return defs.get(m.group(1))
 
-    used_any = False
+    def apply(container: Any, where: str) -> bool:
+        if isinstance(container, dict):
+            items = list(container.items())
+        elif isinstance(container, list):
+            items = list(enumerate(container))
+        else:
+            return True
+        for key, val in items:
+            if isinstance(val, str):
+                if not re.search(r'@@[\w-]+@@', val):
+                    continue
+                resolved = resolve(val)
+                if resolved is None:
+                    logger.warning(
+                        "superglue_stitch_missing_definition: marker=%r in %s.%s",
+                        val[:40], where, key,
+                    )
+                    return False
+                if resolved != val:
+                    container[key] = resolved
+            elif isinstance(val, (dict, list)):
+                if not apply(val, where):
+                    return False
+        return True
+
     for step in tool_def.get("steps") or []:
         cfg = step.get("config") if isinstance(step, dict) else None
-        if isinstance(cfg, dict) and isinstance(cfg.get("transformCode"), str):
-            resolved = resolve(cfg["transformCode"])
-            if resolved is None:
-                logger.warning(
-                    "superglue_stitch_missing_definition: marker=%r in step=%s",
-                    cfg["transformCode"][:40], step.get("id"),
-                )
-                return None  # marker without definition
-            if resolved != cfg["transformCode"]:
-                used_any = True
-            cfg["transformCode"] = resolved
+        if isinstance(cfg, dict) and not apply(cfg, str(step.get("id"))):
+            return None
 
     ot = tool_def.get("outputTransform")
     if isinstance(ot, str) and ot.strip():
-        resolved = resolve(ot)
-        if resolved is None:
-            logger.warning(
-                "superglue_stitch_missing_definition: marker=%r in outputTransform",
-                ot[:40],
-            )
-            return None  # marker without definition
-        if resolved != ot:
-            used_any = True
-        tool_def["outputTransform"] = resolved
+        pseudo: Dict[str, Any] = {"outputTransform": ot}
+        if not apply(pseudo, "outputTransform"):
+            return None
+        tool_def["outputTransform"] = pseudo["outputTransform"]
 
-    if not defs and not used_any and '@@' in json.dumps(tool_def):
-        return None  # stray marker that resolve() never saw
     return tool_def
+
+
+async def _superglue_llm_ask(system: str, user: str) -> Optional[str]:
+    """One direct call to Superglue's OpenAI-compatible LLM (/sgai/v1).
+
+    The queue CANNOT reach the LLM (verified) — generation always goes
+    direct. Returns the message content, or None on any failure.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+            res = await client.post(
+                _get_llm_url(),
+                headers={
+                    "Authorization": f"Bearer {_get_llm_key()}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _get_llm_model(),
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    "max_tokens": 2600,
+                    "temperature": 0.2,
+                },
+            )
+    except Exception as exc:
+        logger.warning("superglue_llm_call_error: %s", str(exc)[:200])
+        return None
+    if res.status_code != 200:
+        logger.warning(
+            "superglue_llm_call_status: %s %s", res.status_code, res.text[:200]
+        )
+        return None
+    return ((res.json().get("choices") or [{}])[0].get("message") or {}).get("content") or None
+
+
+async def _define_markers_via_llm(
+    ask_fn,
+    tool_def: Dict[str, Any],
+    markers: List[str],
+) -> Dict[str, str]:
+    """Focused second call: define each requested @@Tn@@ marker as JS.
+
+    Small models reliably emit a plain list of one-line arrow functions when
+    asked for NOTHING else — but they cannot reliably emit the JSON block
+    AND a js block together (verified live: 4/4 attempts ended after the
+    JSON block, js block never produced).
+    """
+    system = (
+        "You write JavaScript arrow functions for Superglue tool transforms. "
+        "Respond ONLY with one definition line per requested marker, in the "
+        "exact form @@T1@@ = (sourceData) => <single expression>. Use single "
+        "quotes for JS strings. No fences, no prose, no markdown."
+    )
+    user = (
+        "Tool JSON:\n" + json.dumps(tool_def) + "\n\n"
+        "Write the definition line for EACH of these markers: "
+        + ", ".join(f"@@{m}@@" for m in markers)
+        + "\n\nIMPORTANT: if a marker belongs to a transform step whose output is "
+        "consumed by a later request step's body (referenced as "
+        "sourceData.<stepId>.data), the function MUST return the FULL body JSON "
+        "string, e.g. JSON.stringify({query: 'UPDATE ...'}) — not a bare SQL "
+        "string or a plain value. Use EXACTLY the table/column names shown in "
+        "the tool JSON's SQL strings. Use single quotes for JS strings."
+    )
+    content = await ask_fn(system, user)
+    if not content:
+        return {}
+    defs: Dict[str, str] = {}
+    for m in re.finditer(
+        r'@@([\w-]+)@@\s*=\s*([\s\S]*?)(?=\n\s*@@[\w-]+@@|\Z)', content
+    ):
+        defs[m.group(1)] = ' '.join(m.group(2).split())
+    return defs
+
+
+async def _trial_run_tool(tool_id: str, inputs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Direct POST /v1/tools/{id}/run — post-save validation of a generated tool.
+
+    Bypasses execute_tool()'s DB queue (bare-bones, no persistence). The
+    CALLER decides whether the trial inputs are side-effect-safe (e.g. a
+    test entity); generation never trial-runs unless inputs were provided.
+    """
+    url, token = _get_config()
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            res = await client.post(
+                f"{url}/v1/tools/{tool_id}/run",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    **_session_headers(),
+                },
+                json={"inputs": inputs or {}},
+            )
+    except Exception as exc:
+        return {"success": False, "error": f"trial run error: {str(exc)[:200]}"}
+    if res.status_code not in (200, 202):
+        return {"success": False, "error": f"trial run HTTP {res.status_code}: {res.text[:200]}"}
+    r = res.json()
+    if r.get("status") != "success":
+        errs = [
+            sr.get("error") for sr in (r.get("stepResults") or [])
+            if isinstance(sr, dict) and not sr.get("success")
+        ]
+        return {"success": False, "error": "; ".join(filter(None, errs))[:300] or f"status={r.get('status')}"}
+    return {"success": True, "data": r.get("data")}
 
 
 async def _save_tool_to_superglue(tool_def: Dict[str, Any]) -> Dict[str, Any]:
@@ -476,24 +777,31 @@ async def _save_tool_to_superglue(tool_def: Dict[str, Any]) -> Dict[str, Any]:
 async def _generate_tool_via_superglue_llm(
     instruction: str,
     agent_name: str,
+    trial_run_inputs: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Generate a tool using SUPERGLUE'S OWN LLM (primary path).
 
     Direct POST to the OpenAI-compatible /sgai/v1/chat/completions with
     Superglue's sgai_ key — the queue cannot reach the LLM (verified).
     Returns the standard generator result dict with generated_by="superglue_llm".
-    """
-    llm_url = _get_llm_url()
-    llm_key = _get_llm_key()
-    model = _get_llm_model()
 
+    Architecture (verified live 2026-09-08 — the model ends its turn right
+    after the JSON block 4/4 times, so the js block is never produced):
+      call 1 → tool JSON with @@Tn@@ markers only (parses reliably)
+      call 2 → focused "define these markers" ask, plain JS lines
+      stitch → PARWA splices definitions into the parsed dict, then saves.
+    """
     system = (
-        "You are a Superglue tool designer. You respond with EXACTLY two "
-        "fenced blocks and nothing else: (1) a ```json block with the tool "
-        "JSON, where every transform is the marker @@T1@@, @@T2@@, ... ; "
-        "(2) a ```js block defining each marker as a single-expression "
-        "arrow function, one per line, e.g. @@T1@@ = (sourceData) => ... "
-        "Never write JavaScript inside the JSON block."
+        "You are a Superglue tool designer. Respond with EXACTLY ONE fenced "
+        "```json block and nothing else. Where a transform step's "
+        "\"transformCode\" or the tool's \"outputTransform\" is needed, set "
+        "that value to a marker @@T1@@, @@T2@@, ... — PARWA collects the "
+        "JavaScript definitions separately. A computed request body must be "
+        "produced by a preceding transform step and referenced as "
+        "<<(sourceData) => sourceData.<stepId>.data>> — never inline JS. "
+        "Never write "
+        "JavaScript inside the JSON. Never put raw newlines inside JSON "
+        "strings."
     )
     base_user = (
         f"{instruction}\n\n"
@@ -501,41 +809,21 @@ async def _generate_tool_via_superglue_llm(
     )
 
     user = base_user
+    result: Dict[str, Any] = {
+        "success": False,
+        "error": "generation loop exited unexpectedly",
+        "tool_id": None,
+        "tool_definition": None,
+    }
     # Up to 3 attempts: if Superglue's validation rejects the generated
-    # tool (e.g. invented step type) or the response is unparseable, feed
-    # a corrective nudge back. Still $0 — this is Superglue's own LLM.
+    # tool (e.g. invented step type) or the response is unusable, feed a
+    # corrective nudge back. Still $0 — this is Superglue's own LLM.
     for attempt in range(3):
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            res = await client.post(
-                llm_url,
-                headers={
-                    "Authorization": f"Bearer {llm_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "max_tokens": 2600,
-                    "temperature": 0.2,
-                },
-            )
-
-        if res.status_code != 200:
-            return {
-                "success": False,
-                "error": f"Superglue LLM returned {res.status_code}: {res.text[:200]}",
-                "tool_id": None,
-                "tool_definition": None,
-            }
-
-        content = (res.json().get("choices") or [{}])[0].get("message", {}).get("content", "")
+        content = await _superglue_llm_ask(system, user)
         if not content:
             return {
                 "success": False,
-                "error": "Superglue LLM returned empty response",
+                "error": "Superglue LLM unreachable or returned an empty response",
                 "tool_id": None,
                 "tool_definition": None,
             }
@@ -543,32 +831,49 @@ async def _generate_tool_via_superglue_llm(
         tool_def = _parse_tool_json(content)
         fail_reason = "json_parse" if not tool_def else None
         if tool_def:
-            tool_def = _stitch_transforms(content, tool_def)
-            if not tool_def:
+            # fail fast on banned marker placement / bare-arrow bodies
+            fail_reason = _validate_marker_placement(tool_def)
+            if fail_reason:
+                tool_def = None
+        if tool_def:
+            markers = _extract_markers(tool_def)
+            if markers:
+                defs = await _define_markers_via_llm(_superglue_llm_ask, tool_def, markers)
+                missing = [m for m in markers if m not in defs]
+                if missing:
+                    logger.warning(
+                        "superglue_marker_defs_missing_first_pass: %s — one targeted retry",
+                        missing,
+                    )
+                    defs.update(
+                        await _define_markers_via_llm(_superglue_llm_ask, tool_def, missing)
+                    )
+                tool_def = _stitch_transforms(tool_def, defs)
+            if tool_def is not None and "@@" in json.dumps(tool_def):
+                tool_def = None  # stray marker survived somewhere
+            if tool_def is not None:
+                tool_def = _fix_step_order(tool_def)
+            if tool_def is not None:
+                ref_err = _validate_body_refs(tool_def)
+                if ref_err:
+                    fail_reason = ref_err
+                    tool_def = None
+            if tool_def is None and fail_reason is None:
                 fail_reason = "transform_stitch"
-        if not tool_def:
+
+        if tool_def is None:
             logger.warning(
                 "superglue_llm_generation_reject (%s): agent=%s len=%d head=%r tail=%r",
                 fail_reason, agent_name, len(content), content[:300], content[-250:],
             )
             if attempt < 2:
-                if fail_reason == "transform_stitch":
-                    user = (
-                        f"{base_user}\n\n"
-                        f"Your JSON used transform markers (@@T1@@ etc.) but you did "
-                        f"not DEFINE them. Respond again with the ```json block, then "
-                        f"a ```js block that defines EVERY marker you used, one per "
-                        f"line: @@T1@@ = (sourceData) => ... (single expression, "
-                        f"single quotes). No other text."
-                    )
-                else:
-                    user = (
-                        f"{base_user}\n\n"
-                        f"Your previous response could not be parsed as JSON. "
-                        f"Respond again with the ```json block (all strings "
-                        f"single-line) then the ```js block for any markers. "
-                        f"No other text."
-                    )
+                user = (
+                    f"{base_user}\n\n"
+                    f"Your previous response could not be used ({fail_reason}). "
+                    f"Respond again with ONLY the single ```json block (all "
+                    f"strings single-line; use @@T1@@ markers for transforms; "
+                    f"do NOT write JavaScript). No other text."
+                )
                 continue
             return {
                 "success": False,
@@ -579,6 +884,35 @@ async def _generate_tool_via_superglue_llm(
 
         result = await _save_tool_to_superglue(tool_def)
         if result.get("success"):
+            # Optional post-save validation: trial-run with caller-provided
+            # safe inputs. A runtime failure deletes the tool and feeds the
+            # error back for a corrective retry (catches e.g. hallucinated
+            # table names that Superglue's own validation cannot see).
+            if trial_run_inputs is not None:
+                trial = await _trial_run_tool(result.get("tool_id"), trial_run_inputs)
+                if not trial.get("success"):
+                    await disable_tool(result.get("tool_id"))
+                    logger.warning(
+                        "superglue_trial_run_failed: agent=%s tool_id=%s error=%s",
+                        agent_name, result.get("tool_id"), trial.get("error"),
+                    )
+                    if attempt < 2:
+                        user = (
+                            f"{base_user}\n\n"
+                            f"Your tool was saved but FAILED its trial run with this "
+                            f"runtime error:\n{trial.get('error')}\n"
+                            f"Fix the tool (exact table/column names, correct step "
+                            f"wiring, defensive access) and respond again with ONLY "
+                            f"the corrected JSON."
+                        )
+                        continue
+                    return {
+                        "success": False,
+                        "error": f"tool trial run failed: {trial.get('error')}",
+                        "tool_id": None,
+                        "tool_definition": None,
+                    }
+                result["trial_run_data"] = trial.get("data")
             result["generated_by"] = "superglue_llm"  # for audit
             if attempt > 0:
                 result["generated_after_retry"] = True
@@ -588,7 +922,7 @@ async def _generate_tool_via_superglue_llm(
             )
             return result
 
-        # Validation rejection → one corrective retry with the error text
+        # Validation rejection → corrective retry with the error text
         user = (
             f"{base_user}\n\n"
             f"Your previous JSON was REJECTED by validation with this error:\n"
@@ -625,7 +959,9 @@ def _build_tool_instruction(
     parts.append(
         "Design a multi-step tool that takes the customer's input (e.g. email, order ID) "
         "and executes the necessary API calls end-to-end. Use the connected integrations' "
-        "credentials from your systems store."
+        "credentials from your systems store. Use EXACTLY the table, column, and "
+        "endpoint names given in the agent context — never invent, rename, or "
+        "shorten them."
     )
 
     return " ".join(parts)
@@ -790,6 +1126,31 @@ Generate ONLY the JSON. No markdown fences, no explanation."""
                 "tool_id": None,
                 "tool_definition": None,
             }
+
+        # Same pipeline as the primary path: reject bad marker placement,
+        # then resolve transform markers before saving.
+        placement_error = _validate_marker_placement(tool_def)
+        if placement_error:
+            return {
+                "success": False,
+                "error": f"PARWA LLM tool invalid: {placement_error}",
+                "tool_id": None,
+                "tool_definition": None,
+            }
+        markers = _extract_markers(tool_def)
+        if markers:
+            async def _parwa_ask(system: str, user: str) -> Optional[str]:
+                return await llm_call(f"{system}\n\n{user}", max_tokens=900, temperature=0.2)
+
+            defs = await _define_markers_via_llm(_parwa_ask, tool_def, markers)
+            tool_def = _stitch_transforms(tool_def, defs)
+            if not tool_def or "@@" in json.dumps(tool_def):
+                return {
+                    "success": False,
+                    "error": "PARWA LLM tool used transform markers that could not be resolved",
+                    "tool_id": None,
+                    "tool_definition": None,
+                }
 
         result = await _save_tool_to_superglue(tool_def)
         if result.get("success"):
