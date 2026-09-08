@@ -176,7 +176,7 @@ class TestDisableTool:
             mock_client = AsyncMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.patch = AsyncMock(return_value=mock_response)
+            mock_client.delete = AsyncMock(return_value=mock_response)
             mock_cls.return_value = mock_client
 
             assert await disable_tool("tool-123") is True
@@ -192,7 +192,7 @@ class TestDisableTool:
             mock_client = AsyncMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.patch = AsyncMock(return_value=mock_response)
+            mock_client.delete = AsyncMock(return_value=mock_response)
             mock_cls.return_value = mock_client
 
             assert await disable_tool("tool-123") is False
