@@ -86,19 +86,58 @@ def _get_config() -> tuple[str, str]:
     return url, token
 
 
+def _stack_root() -> str:
+    """Root of the Superglue stack (scheme + host) from the effective API URL.
+
+    SUPERGLUE_API_URL points at the core API, e.g. https://host/sgapi.
+    The queue/status services live under the SAME host at /sgq/*, so the
+    root (the URL minus its trailing /sgapi) is all we need to rebuild
+    them. This makes a tunnel swap a ONE-env-var change on Render: set
+    SUPERGLUE_API_URL and queue/status/core follow automatically.
+
+    If the URL doesn't end in /sgapi it is used as the root as-is (the
+    new stack contract: /sgapi/v1/* core, /sgq/* queue).
+    """
+    url, _ = _get_config()
+    if url.endswith("/sgapi/"):
+        url = url[: -len("/")]
+    if url.endswith("/sgapi"):
+        url = url[: -len("/sgapi")]
+    return url.rstrip("/")
+
+
 def _get_queue_url() -> str:
-    """Get the queue service URL (for tool generation)."""
-    return os.environ.get("SUPERGLUE_QUEUE_URL", DEFAULT_SUPERGLUE_QUEUE_URL)
+    """Queue service URL. SUPERGLUE_QUEUE_URL wins if set; else derive
+    from SUPERGLUE_API_URL so a new tunnel host needs only one env var."""
+    explicit = os.environ.get("SUPERGLUE_QUEUE_URL", "").strip()
+    if explicit:
+        return explicit
+    if os.environ.get("SUPERGLUE_API_URL", "").strip():
+        return _stack_root() + "/sgq/jobs"
+    return DEFAULT_SUPERGLUE_QUEUE_URL
 
 
 def _get_status_url() -> str:
-    """Get the status polling URL."""
-    return os.environ.get("SUPERGLUE_STATUS_URL", DEFAULT_SUPERGLUE_STATUS_URL)
+    """Status polling URL. SUPERGLUE_STATUS_URL wins if set; else derive
+    from SUPERGLUE_API_URL so a new tunnel host needs only one env var."""
+    explicit = os.environ.get("SUPERGLUE_STATUS_URL", "").strip()
+    if explicit:
+        return explicit
+    if os.environ.get("SUPERGLUE_API_URL", "").strip():
+        return _stack_root() + "/sgq/jobs"
+    return DEFAULT_SUPERGLUE_STATUS_URL
 
 
 def _get_core_url() -> str:
-    """Get the core API URL (for running tools)."""
-    return os.environ.get("SUPERGLUE_CORE_URL", DEFAULT_SUPERGLUE_CORE_URL)
+    """Core API URL (for running tools). SUPERGLUE_CORE_URL wins if set;
+    else derive from SUPERGLUE_API_URL so a new tunnel host needs only
+    one env var."""
+    explicit = os.environ.get("SUPERGLUE_CORE_URL", "").strip()
+    if explicit:
+        return explicit
+    if os.environ.get("SUPERGLUE_API_URL", "").strip():
+        return _stack_root() + "/sgapi/v1/tools"
+    return DEFAULT_SUPERGLUE_CORE_URL
 
 
 def is_configured() -> bool:
