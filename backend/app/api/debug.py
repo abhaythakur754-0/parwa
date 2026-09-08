@@ -66,7 +66,9 @@ async def llm_test() -> Dict[str, Any]:
                 r = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     json={
-                        "model": "llama-3.1-8b-instant",
+                        # 2026-09: llama-3.1-8b-instant retired on Groq (404).
+                        # qwen/qwen3.6-27b verified live via production test.
+                        "model": "qwen/qwen3.6-27b",
                         "messages": messages,
                         "max_tokens": 10,
                         "temperature": 0,
@@ -113,7 +115,9 @@ async def llm_test() -> Dict[str, Any]:
     except Exception as exc:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
-    # ── 3.5. Test NVIDIA GLM-5.2 directly ──
+    # ── 3.5. Test NVIDIA directly ──
+    # 2026-09: z-ai/glm-5.2 hit EOL (410 Gone) — replaced with
+    # deepseek-ai/deepseek-v4-flash-0731 (completion-verified live model).
     # Captures exception type + duration so we can distinguish:
     #   - 401/403  → bad key
     #   - 404      → wrong model name
@@ -138,7 +142,7 @@ async def llm_test() -> Dict[str, Any]:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "z-ai/glm-5.2",
+                        "model": "deepseek-ai/deepseek-v4-flash-0731",
                         "messages": messages,
                         "max_tokens": 10,
                         "temperature": 0,
@@ -149,7 +153,7 @@ async def llm_test() -> Dict[str, Any]:
                 content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
                 results["nvidia"] = {
                     "ok": True, "response": content[:50],
-                    "model": "z-ai/glm-5.2", "latency_ms": _nv_latency,
+                    "model": "deepseek-ai/deepseek-v4-flash-0731", "latency_ms": _nv_latency,
                 }
             else:
                 results["nvidia"] = {
