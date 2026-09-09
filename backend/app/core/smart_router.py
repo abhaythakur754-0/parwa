@@ -6,10 +6,20 @@ Aware of MAKER framework: one query = 6-24 LLM calls.
 Intelligently assigns tiers: technique-boosted calls use LIGHT,
 only raw reasoning needs MEDIUM/HEAVY.
 
-Providers: Google AI Studio, Cerebras, Groq (all free tiers).
+Providers (PRIMARY pool, drained in parallel via capacity-weighted
+water-filling): Groq 30 RPM, NVIDIA 40 RPM, Mistral 60 RPM = 130 RPM
+aggregate (~2.2 req/s, ~7 tickets/min at ~18 LLM calls/ticket).
+RESERVE pool (emergency only, tiny free tiers): Google, Cerebras, AI21.
 Variant access: All variants get ALL model tiers; only restrictions differ.
-User-validated: llama-3.1-8b (LIGHT) works best for ALL tasks.
-Guardrail checks use gpt-oss-120b.
+Routing rule: per atomic step, send to the PRIMARY-pool provider with the
+MOST remaining RPM capacity in the sliding 60s window (tie-break: registry
+priority). This self-balances traffic proportionally to each rate limit
+(Groq 23% / NVIDIA 31% / Mistral 46%) and drains all windows at the same
+moment — maximum sustainable throughput. Reserve providers are only
+touched when no primary provider is available (API error / 429 penalty /
+daily cap). All limits env-overridable: GROQ_RPM, NVIDIA_RPM, MISTRAL_RPM.
+Mistral also enforces a 1 req/sec min-interval spacing (free tier rule).
+Guardrail checks use gpt-oss-120b (Groq).
 
 BC-007: All AI model interaction MUST go through Smart Router.
 BC-001: company_id is always second parameter.
@@ -196,6 +206,18 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # 2026-09: LIGHT-tier fallbacks (NVIDIA/Mistral) are listed above at
     # priority 6/7 — see the 2026-09 REORDER note.
 
+    # 2026-09 RESERVE: last-resort LIGHT entry so a total primary-pool
+    # outage (Groq + NVIDIA + Mistral all down at once) still has a
+    # fallback instead of "All providers exhausted" → awaiting_human.
+    # NEVER used while any primary is healthy — capacity-weighted
+    # water-filling always prefers the PRIMARY pool.
+    "google-gemini-3.5-flash-light-reserve": ModelConfig(
+        provider=ModelProvider.GOOGLE, model_id="gemini-3.5-flash",
+        display_name="Gemini 3.5 Flash (Google) — reserve", tier=ModelTier.LIGHT, priority=99,
+        max_requests_per_day=20, max_tokens_per_minute=999999, context_window=1048576,
+        api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models", is_openai_compatible=False,
+    ),
+
     # ═══════════════════════════════════════════════════════════════════
     # MEDIUM TIER — 8% of traffic
     # ═══════════════════════════════════════════════════════════════════
@@ -342,17 +364,69 @@ TIER_FALLBACK_ORDER: List[ModelTier] = [
     ModelTier.LIGHT,
 ]
 
-# ── Per-Provider RPM Limits (sliding 60s window) ───────────────────
-# RPM is tracked PER PROVIDER (shared across all of that provider's models).
-# When count == limit, we WAIT for the oldest timestamp to fall out of the
-# 60s window — we do NOT switch providers for RPM. Provider switching only
-# happens for: API errors, daily limits, broken APIs.
+# ── Per-Provider Rate-Limit Configuration (env-driven) ─────────────
+# 2026-09 ALGORITHM: capacity-weighted water-filling across free tiers.
+#
+# User capacity plan (requests per minute, sliding 60s window):
+#   Groq    30 RPM   (free tier)
+#   Mistral 60 RPM   (1 req/sec free tier)
+#   NVIDIA  40 RPM   (NIM free tier, up to 40 RPM)
+#   ────────────────────────
+#   TOTAL  130 RPM  ≈ 2.2 req/s ≈ 7 tickets/min (~18 LLM calls/ticket)
+#
+# All values are overridable from the Render dashboard WITHOUT code
+# changes: GROQ_RPM, MISTRAL_RPM, NVIDIA_RPM, GOOGLE_RPM, CEREBRAS_RPM,
+# AI21_RPM. Setting a provider's RPM to 0 DISABLES it.
+#
+# RPM is tracked PER PROVIDER (shared across all of that provider's
+# models). When count == limit we WAIT for the oldest timestamp to fall
+# out of the window. Provider SWITCHING only happens for: API errors,
+# daily limits, broken APIs (never for RPM alone).
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer env var with a safe fallback (BC-008)."""
+    try:
+        return int(os.environ.get(name, "").strip() or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    """Read a float env var with a safe fallback (BC-008)."""
+    try:
+        return float(os.environ.get(name, "").strip() or default)
+    except (TypeError, ValueError):
+        return default
+
+
 PROVIDER_RPM_LIMITS: Dict[ModelProvider, int] = {
-    ModelProvider.CEREBRAS: 1000,  # token-based, effectively unlimited
-    ModelProvider.GROQ: 30,        # 30 RPM shared across ALL Groq models
-    ModelProvider.NVIDIA: 30,      # 30 RPM (safe; actual is 40)
-    ModelProvider.GOOGLE: 20,
-    ModelProvider.AI21: 200,       # credit-based, $10 free tier
+    ModelProvider.GROQ: _env_int("GROQ_RPM", 30),
+    ModelProvider.MISTRAL: _env_int("MISTRAL_RPM", 60),   # 1 req/sec free tier
+    ModelProvider.NVIDIA: _env_int("NVIDIA_RPM", 40),     # NIM "up to 40 RPM"
+    ModelProvider.GOOGLE: _env_int("GOOGLE_RPM", 15),     # reserve pool only
+    ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # disabled (too low)
+    ModelProvider.AI21: _env_int("AI21_RPM", 0),          # disabled (no key)
+}
+
+# PRIMARY pool = the big free tiers we drain in parallel (free forever).
+# RESERVE pool = emergency-only providers (tiny limits — don't waste them).
+PRIMARY_PROVIDERS: Set[ModelProvider] = {
+    ModelProvider.GROQ,
+    ModelProvider.NVIDIA,
+    ModelProvider.MISTRAL,
+}
+RESERVE_PROVIDERS: Set[ModelProvider] = {
+    ModelProvider.GOOGLE,
+    ModelProvider.CEREBRAS,
+    ModelProvider.AI21,
+}
+
+# Minimum spacing between call STARTS per provider (seconds).
+# Mistral free tier = 1 req/sec: the 60 RPM budget cannot burst — calls
+# must be spaced ≥1s apart or the API returns 429. Env-overridable via
+# MISTRAL_MIN_INTERVAL. Providers not listed = no spacing.
+PROVIDER_MIN_INTERVAL: Dict[ModelProvider, float] = {
+    ModelProvider.MISTRAL: _env_float("MISTRAL_MIN_INTERVAL", 1.0),
 }
 
 # ── Provider Usage Tracking ────────────────────────────────────────
@@ -419,6 +493,9 @@ class ProviderHealthTracker:
     # the same 30 RPM budget). Tracked at the PROVIDER level, not per-model.
     _shared_provider_rpm: Dict[ModelProvider, Deque[float]] = {}
     _shared_provider_rpm_locks: Dict[ModelProvider, threading.Lock] = {}
+    # Last call-start timestamp per provider (for min-interval spacing,
+    # e.g. Mistral 1 req/sec). Shared class-level like the RPM windows.
+    _shared_provider_last_call: Dict[ModelProvider, float] = {}
 
     def __init__(self) -> None:
         # Use class-level shared state for multi-worker consistency
@@ -426,6 +503,7 @@ class ProviderHealthTracker:
         self._last_daily_reset = ProviderHealthTracker._shared_last_daily_reset
         self._provider_rpm = ProviderHealthTracker._shared_provider_rpm
         self._provider_rpm_locks = ProviderHealthTracker._shared_provider_rpm_locks
+        self._provider_last_call = ProviderHealthTracker._shared_provider_last_call
         self._reset_daily_if_needed()
 
     def _reset_daily_if_needed(self) -> None:
@@ -444,21 +522,21 @@ class ProviderHealthTracker:
     def _ensure_usage(self, registry_key: str, config: ModelConfig) -> ProviderUsage:
         """Get or create ProviderUsage for a registry key."""
         if registry_key not in self._usage:
-            # Set RPM limit based on provider (free tier limits)
-            _RPM_LIMITS = {
-                ModelProvider.GROQ: 28,       # 30 RPM, use 28 for safety
-                ModelProvider.CEREBRAS: 28,   # 30 RPM, use 28 for safety
-                ModelProvider.GOOGLE: 14,     # 15 RPM, use 14 for safety
-                ModelProvider.NVIDIA: 38,     # 40 RPM shared, use 38 for safety
-                ModelProvider.AI21: 190,      # 200 RPM, use 190 for safety
-            }
-            rpm_limit = _RPM_LIMITS.get(config.provider, 25)  # default 25 for unknown
+            # RPM limit from the central env-driven provider config
+            # (PROVIDER_RPM_LIMITS) so per-model tracking matches the
+            # per-provider sliding-window enforcement.
+            rpm_limit = PROVIDER_RPM_LIMITS.get(config.provider, 30)
             self._usage[registry_key] = ProviderUsage(
                 provider=config.provider,
                 model_id=config.model_id,
                 daily_limit=config.max_requests_per_day,
                 rpm_limit=rpm_limit,
                 minute_limit=config.max_tokens_per_minute,
+                # Start the cooldown clock at creation. Without this,
+                # rpm_window_start=0.0 makes get_rpm_available() instantly
+                # "auto-recover" a freshly-failed model (unix_time - 0 > 60),
+                # so the 3-strikes health penalty never stuck.
+                rpm_window_start=time.time(),
             )
         return self._usage[registry_key]
 
@@ -623,6 +701,10 @@ class ProviderHealthTracker:
         2. Health: is the provider marked unhealthy? (auto-recovers in 60s)
         3. Daily limit: have we hit the daily cap?
         """
+        # Providers disabled via config (RPM = 0) are never available
+        if PROVIDER_RPM_LIMITS.get(provider, 30) <= 0:
+            return False
+
         registry_key = f"{model_id}-{provider.value}"
         if registry_key not in self._usage:
             return True  # No usage data = assume available
@@ -673,6 +755,10 @@ class ProviderHealthTracker:
             self._provider_rpm[provider] = deque()
         return self._provider_rpm[provider]
 
+    def _get_provider_last_call(self, provider: ModelProvider) -> float:
+        """Get the last call-start timestamp for a provider (0.0 if never)."""
+        return self._provider_last_call.get(provider, 0.0)
+
     @staticmethod
     def _prune_provider_timestamps(timestamps: Deque[float]) -> None:
         """Remove timestamps older than 60s from the front of the deque."""
@@ -698,14 +784,29 @@ class ProviderHealthTracker:
         with its own event loop, so blocking is acceptable).
         """
         limit = PROVIDER_RPM_LIMITS.get(provider, 30)
+        if limit <= 0:
+            # Provider disabled via config (RPM = 0) — fail fast, never wait
+            return False
+
         lock = self._get_provider_lock(provider)
 
         with lock:
             timestamps = self._get_provider_timestamps(provider)
             self._prune_provider_timestamps(timestamps)
 
+            # ── Min-interval spacing (e.g. Mistral 1 req/sec) ──
+            # Even with RPM slots left, call starts must be spaced apart
+            # or the provider returns 429. Sleeping INSIDE the provider
+            # lock serializes concurrent callers correctly.
+            min_interval = PROVIDER_MIN_INTERVAL.get(provider, 0.0)
+            if min_interval > 0:
+                elapsed = time.time() - self._provider_last_call.get(provider, 0.0)
+                if elapsed < min_interval:
+                    time.sleep(min_interval - elapsed)
+
             if len(timestamps) < limit:
                 # Slot available — take it immediately
+                self._provider_last_call[provider] = time.time()
                 timestamps.append(time.time())
                 return True
 
@@ -717,6 +818,7 @@ class ProviderHealthTracker:
                 # Edge case: oldest already expired between prune and now
                 self._prune_provider_timestamps(timestamps)
                 if len(timestamps) < limit:
+                    self._provider_last_call[provider] = time.time()
                     timestamps.append(time.time())
                     return True
                 wait_seconds = 1.0  # fallback
@@ -737,6 +839,7 @@ class ProviderHealthTracker:
             # Re-prune and acquire
             self._prune_provider_timestamps(timestamps)
             if len(timestamps) < limit:
+                self._provider_last_call[provider] = time.time()
                 timestamps.append(time.time())
                 return True
 
@@ -746,6 +849,19 @@ class ProviderHealthTracker:
                 provider.value, wait_seconds,
             )
             return False
+
+    def get_provider_rpm_available(self, provider: ModelProvider) -> int:
+        """Remaining RPM slots for a provider in the sliding 60s window.
+
+        Used by the Smart Router's capacity-weighted selection
+        (water-filling: route to the provider with the most room left).
+        """
+        limit = PROVIDER_RPM_LIMITS.get(provider, 30)
+        if limit <= 0:
+            return 0
+        timestamps = self._get_provider_timestamps(provider)
+        self._prune_provider_timestamps(timestamps)
+        return max(0, limit - len(timestamps))
 
     def get_provider_rpm_status(self) -> Dict[str, Dict[str, Any]]:
         """Return per-provider RPM status for monitoring/debugging."""
@@ -1241,7 +1357,18 @@ class SmartRouter:
     ) -> Tuple[Optional[ModelConfig], List[ModelConfig]]:
         """Pick primary model + list of fallbacks for a tier.
 
-        Models within a tier are sorted by priority (1 = best).
+        2026-09 ALGORITHM — capacity-weighted water-filling:
+        1. Candidates = available models in this tier, split into a
+           PRIMARY pool (GROQ / NVIDIA / MISTRAL — the big free tiers)
+           and a RESERVE pool (GOOGLE / CEREBRAS / AI21 — emergency only).
+        2. Within a pool, pick the provider with the MOST remaining RPM
+           capacity in the sliding 60s window; tie-break by registry
+           priority. This self-balances traffic proportionally to each
+           provider's rate limit and maximises aggregate throughput —
+           all primary windows drain to zero at the same moment.
+        3. Reserve-pool models are used only when NO primary model is
+           available (API down, 429 penalty box, daily cap reached).
+
         Returns (primary_model, fallback_models_list).
         """
         tier_models = [
@@ -1250,28 +1377,45 @@ class SmartRouter:
         ]
         tier_models.sort(key=lambda m: m.priority)
 
-        primary: Optional[ModelConfig] = None
-        fallbacks: List[ModelConfig] = []
+        available = [m for m in tier_models if self._is_model_available(m)]
 
-        for model in tier_models:
-            if primary is None:
-                if self._is_model_available(model):
-                    primary = model
-                else:
-                    fallbacks.append(model)
-            else:
-                fallbacks.append(model)
+        primary_candidates = [
+            m for m in available if m.provider in PRIMARY_PROVIDERS
+        ]
+        reserve_candidates = [
+            m for m in available if m.provider not in PRIMARY_PROVIDERS
+        ]
 
-        # If no model is available, return first model anyway (BC-008)
-        if primary is None and tier_models:
-            primary = tier_models[0]
-            fallbacks = tier_models[1:]
-            logger.warning(
-                "No available model in tier=%s, forcing primary: %s",
-                tier.value, primary.display_name,
+        def _by_capacity(models: List[ModelConfig]) -> List[ModelConfig]:
+            """Most remaining provider RPM first; priority as tie-break."""
+            return sorted(
+                models,
+                key=lambda m: (
+                    -self._health.get_provider_rpm_available(m.provider),
+                    m.priority,
+                ),
             )
 
-        return primary, fallbacks
+        ordered = (
+            _by_capacity(primary_candidates)
+            + _by_capacity(reserve_candidates)
+        )
+
+        if ordered:
+            return ordered[0], ordered[1:]
+
+        # Nothing available right now — keep legacy behaviour (BC-008):
+        # force the highest-priority model of the tier so the call is
+        # still attempted (acquire_provider_slot will wait for a slot).
+        if tier_models:
+            forced = tier_models  # already sorted by priority
+            logger.warning(
+                "No available model in tier=%s, forcing primary: %s",
+                tier.value, forced[0].display_name,
+            )
+            return forced[0], forced[1:]
+
+        return None, []
 
     def _is_model_available(self, model_config: ModelConfig) -> bool:
         """Check if a model's provider is healthy and under rate limits."""

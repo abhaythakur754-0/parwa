@@ -137,14 +137,22 @@ class TestBC008NeverCrashes:
 class TestProviderHealthTracker:
     def test_record_success_resets_failures(self):
         tracker = ProviderHealthTracker()
-        provider = ModelProvider.CEREBRAS
+        # 2026-09: CEREBRAS is disabled (CEREBRAS_RPM=0) — use an
+        # enabled primary-pool provider (GROQ) for this health test.
+        provider = ModelProvider.GROQ
         model_id = "llama-3.1-8b"
         tracker.record_failure(provider, model_id, "test error")
         assert tracker.is_available(provider, model_id)
         tracker.record_success(provider, model_id)
-        usage = tracker._usage.get(f"{model_id}-cerebras")
+        usage = tracker._usage.get(f"{model_id}-groq")
         assert usage is not None
         assert usage.consecutive_failures == 0
+
+    def test_disabled_provider_never_available(self):
+        """2026-09: providers with RPM=0 (CEREBRAS/AI21) are hard-disabled."""
+        tracker = ProviderHealthTracker()
+        assert not tracker.is_available(ModelProvider.CEREBRAS, "gpt-oss-120b")
+        assert not tracker.is_available(ModelProvider.AI21, "jamba-2.0-mini")
 
     def test_record_failure_marks_unhealthy_after_threshold(self):
         tracker = ProviderHealthTracker()

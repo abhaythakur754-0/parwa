@@ -68,6 +68,8 @@ def _reset_shared_state():
     """Reset class-level shared state before each test for isolation."""
     ProviderHealthTracker._shared_usage.clear()
     ProviderHealthTracker._shared_last_daily_reset = ""
+    ProviderHealthTracker._shared_provider_rpm.clear()
+    ProviderHealthTracker._shared_provider_last_call.clear()
     yield
 
 
@@ -442,23 +444,24 @@ class TestSilentHealthCheckFailure:
 
     def test_single_failure_does_not_mark_unhealthy(self, tracker: ProviderHealthTracker):
         """One failure should not mark a provider as unhealthy."""
+        # 2026-09: CEREBRAS is disabled (RPM=0) — use enabled provider GROQ.
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "timeout",
+            ModelProvider.GROQ, "llama-3.1-8b", "timeout",
         )
-        assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
+        assert tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
 
     def test_two_failures_mark_degraded_still_available(self, tracker: ProviderHealthTracker):
         """Two consecutive failures should not yet mark unavailable
         (threshold is 3)."""
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail1",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail1",
         )
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail2",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail2",
         )
-        assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
+        assert tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
         # But consecutive failures should be 2
-        key = "llama-3.1-8b-cerebras"
+        key = "llama-3.1-8b-groq"
         usage = tracker._usage.get(key)
         assert usage is not None
         assert usage.consecutive_failures == 2
@@ -466,30 +469,30 @@ class TestSilentHealthCheckFailure:
     def test_three_failures_mark_unhealthy(self, tracker: ProviderHealthTracker):
         """Three consecutive failures must mark provider as unhealthy."""
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail1",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail1",
         )
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail2",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail2",
         )
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail3",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail3",
         )
-        assert not tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
+        assert not tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
 
     def test_success_resets_failure_counter(self, tracker: ProviderHealthTracker):
         """A successful call must reset the consecutive failure counter."""
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail1",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail1",
         )
         tracker.record_failure(
-            ModelProvider.CEREBRAS, "llama-3.1-8b", "fail2",
+            ModelProvider.GROQ, "llama-3.1-8b", "fail2",
         )
         # Two failures, one success resets
-        tracker.record_success(ModelProvider.CEREBRAS, "llama-3.1-8b")
+        tracker.record_success(ModelProvider.GROQ, "llama-3.1-8b")
 
         # Still available, and counter reset
-        assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
-        key = "llama-3.1-8b-cerebras"
+        assert tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
+        key = "llama-3.1-8b-groq"
         assert tracker._usage[key].consecutive_failures == 0
 
     def test_intermittent_30p_failure_detected(self, tracker: ProviderHealthTracker):
@@ -503,22 +506,22 @@ class TestSilentHealthCheckFailure:
         for i in range(10):
             if random.random() < 0.3:
                 tracker.record_failure(
-                    ModelProvider.CEREBRAS, "llama-3.1-8b", f"intermittent-{i}",
+                    ModelProvider.GROQ, "llama-3.1-8b", f"intermittent-{i}",
                 )
                 fail_count += 1
             else:
-                tracker.record_success(ModelProvider.CEREBRAS, "llama-3.1-8b")
+                tracker.record_success(ModelProvider.GROQ, "llama-3.1-8b")
 
         # The key point is that intermittent failures are tracked,
         # even if the provider stays "available" (successes reset the
         # consecutive counter).  Verify the tracker is recording data.
-        key = "llama-3.1-8b-cerebras"
+        key = "llama-3.1-8b-groq"
         usage = tracker._usage[key]
         assert usage is not None
         assert usage.daily_count > 0
         # Provider should still be available because successes reset
         # consecutive failures
-        assert tracker.is_available(ModelProvider.CEREBRAS, "llama-3.1-8b")
+        assert tracker.is_available(ModelProvider.GROQ, "llama-3.1-8b")
 
     def test_rate_limit_sets_cooldown_and_blocks(self, tracker: ProviderHealthTracker):
         """Rate-limit recording must block the provider for the cooldown
@@ -542,8 +545,10 @@ class TestSilentHealthCheckFailure:
     def test_unknown_provider_always_available(self, tracker: ProviderHealthTracker):
         """A provider that has never been tracked should be assumed
         available (no usage data = available)."""
+        # 2026-09: use an ENABLED provider — CEREBRAS is disabled (RPM=0)
+        # and is never available regardless of usage data.
         assert tracker.is_available(
-            ModelProvider.CEREBRAS, "unknown-model-id",
+            ModelProvider.GROQ, "unknown-model-id",
         )
 
     def test_get_all_status_tracks_tracked_models(self, tracker: ProviderHealthTracker):
@@ -611,15 +616,28 @@ class TestIdempotencyViolation:
         assert len(decision.routed_at) > 0
 
     def test_no_random_model_selection_in_tier(self, router: SmartRouter):
-        """Within a tier, model selection must be deterministic
-        (priority-based), not random."""
-        # Route the same step 100 times and verify consistency
-        for _ in range(100):
-            decision = router.route(
+        """Within a tier, model selection must be deterministic, not
+        random.
+
+        2026-09 UPDATE: selection is now capacity-weighted water-filling
+        (most remaining RPM capacity wins, priority as tie-break) instead
+        of strict priority-1-only. The determinism contract is unchanged:
+        with UNCHANGED router state, repeated identical routes must all
+        produce the IDENTICAL decision (no randomness involved).
+        """
+        decisions = [
+            router.route(
                 COMPANY_A, "parwa", AtomicStepType.INTENT_CLASSIFICATION,
             )
-            assert decision.model_config.priority <= 2, (
-                "Model priority should be deterministic (1=primary)"
+            for _ in range(100)
+        ]
+        first = decisions[0]
+        for d in decisions[1:]:
+            assert d.model_config.model_id == first.model_config.model_id, (
+                "Model selection must be deterministic for identical state"
+            )
+            assert d.provider == first.provider, (
+                "Provider selection must be deterministic (no random pick)"
             )
 
 
