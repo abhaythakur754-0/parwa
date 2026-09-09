@@ -134,6 +134,73 @@ def get_provider_pool() -> ProviderPool:
 _last_call_time: float = 0.0
 _rate_lock: asyncio.Lock = None
 MIN_CALL_INTERVAL: float = 0.2  # 300 RPM across all providers (was 0.5/120 RPM)
+
+# ── Per-Provider RPM Budgets (2026-09 water-filling) ─────────────────
+# User capacity plan: Groq 30 RPM, Mistral 60 RPM, NVIDIA 40 RPM
+# (130 RPM aggregate). Uses the SAME shared sliding-window tracker as
+# SmartRouter (app/core/smart_router.ProviderHealthTracker) so both
+# routing layers draw from ONE budget per provider. Limits are
+# env-driven there: GROQ_RPM / MISTRAL_RPM / NVIDIA_RPM / GOOGLE_RPM /
+# CEREBRAS_RPM (0 = disabled) / AI21_RPM (0 = disabled).
+try:
+    from app.core.smart_router import (
+        ModelProvider as _SRProvider,
+        ProviderHealthTracker as _SRTracker,
+    )
+    _SR_AVAILABLE = True
+except Exception:
+    _SR_AVAILABLE = False
+
+_SR_TRACKER = None
+
+
+def _get_sr_tracker():
+    """Get the shared SmartRouter health tracker (BC-008 safe)."""
+    global _SR_TRACKER
+    if _SR_TRACKER is None and _SR_AVAILABLE:
+        _SR_TRACKER = _SRTracker()
+    return _SR_TRACKER
+
+
+# pipeline provider name -> smart_router ModelProvider (None = ungated)
+_RPM_NAME_MAP = {
+    "groq": _SRProvider.GROQ if _SR_AVAILABLE else None,
+    "mistral": _SRProvider.MISTRAL if _SR_AVAILABLE else None,
+    "nvidia": _SRProvider.NVIDIA if _SR_AVAILABLE else None,
+    "cerebras": _SRProvider.CEREBRAS if _SR_AVAILABLE else None,
+    "gemini": _SRProvider.GOOGLE if _SR_AVAILABLE else None,
+}
+
+# PRIMARY pool = the big free tiers (drained in parallel, water-filling).
+# Reserves (cerebras/gemini/aion) only when no primary has capacity.
+_PRIMARY_PIPELINE_PROVIDERS = {"groq", "mistral", "nvidia"}
+
+
+def _rpm_remaining(provider_name: str) -> int:
+    """Remaining RPM slots for a provider in the shared sliding window."""
+    tracker = _get_sr_tracker()
+    if tracker is None:
+        return 1  # tracker unavailable — don't gate, legacy behavior
+    p = _RPM_NAME_MAP.get(provider_name)
+    if p is None:
+        return 999  # aion — self-limited internally (15 RPM, 20K TPD)
+    return tracker.get_provider_rpm_available(p)
+
+
+def _record_rpm_use(provider_name: str) -> None:
+    """Record one call into the shared per-provider sliding window."""
+    tracker = _get_sr_tracker()
+    if tracker is None:
+        return
+    p = _RPM_NAME_MAP.get(provider_name)
+    if p is None:
+        return
+    import threading as _threading
+    lock = tracker._get_provider_lock(p)
+    with lock:
+        tracker._get_provider_timestamps(p).append(time.time())
+
+
 MAX_RETRIES: int = 3
 RETRY_BASE_DELAY: float = 2.0
 
@@ -194,16 +261,17 @@ async def llm_call(
     step_type: str = "",
     ticket_id: str = "",
 ) -> str:
-    """Single LLM call — Node-based routing (assembly line model).
+    """Single LLM call — water-filling routing (2026-09).
 
-    Routes based on max_tokens (task size):
-      ≤150 tokens (Light)  → prefer Groq (fastest, 30 RPM)
-      151-300 tokens (Med) → prefer Mistral (1 RPS, good quality)
-      300+ tokens (Hard)   → prefer NVIDIA (GLM-5.2, 40 RPM, best reasoning)
-
-    If preferred provider is 429'd → tries next in fallback list.
-    ProviderPool handles cooldown automatically.
-    Tickets flow through like an assembly line — no waiting for other tickets.
+    PRIMARY pool (drained in parallel by remaining capacity):
+      Groq 30 RPM, Mistral 60 RPM (1 RPS), NVIDIA 40 RPM = 130 RPM.
+      Per call, providers are reordered by MOST remaining RPM capacity
+      in the shared 60s sliding window (SmartRouter tracker) — this
+      self-balances traffic 23%/46%/31% and maximises throughput.
+    RESERVE pool (only when no primary has capacity):
+      Cerebras (disabled via CEREBRAS_RPM=0), Gemini (15 RPM), Aion.
+    Task-size hints (light→groq-first, hard→quality order) are kept as
+    tie-breakers; capacity always dominates.
     """
     global _call_count, _total_errors
 
@@ -263,14 +331,39 @@ async def llm_call(
             ("nvidia", _call_nvidia_direct),
         ]
 
-    # ── TRY: preferred provider first, then fallbacks ──
+    # ── TRY: water-filling across primaries, then reserves ──
     pool = get_provider_pool()
-    
-    for provider_name, provider_fn in preferred_order:
+
+    def _order_candidates(cands):
+        """Primaries first (most remaining RPM capacity wins, stable for
+        ties so task-size speed preferences survive), then reserves."""
+        primaries = [(n, f) for n, f in cands if n in _PRIMARY_PIPELINE_PROVIDERS]
+        reserves = [(n, f) for n, f in cands if n not in _PRIMARY_PIPELINE_PROVIDERS]
+        primaries.sort(key=lambda nf: -_rpm_remaining(nf[0]))
+        reserves.sort(key=lambda nf: -_rpm_remaining(nf[0]))
+        return primaries + reserves
+
+    for provider_name, provider_fn in _order_candidates(preferred_order):
         # Check if provider is cooling down (429)
         if not pool._is_available(provider_name, []):
             continue
-            
+
+        # RPM budget gate: skip providers whose sliding window is full.
+        # If EVERY candidate is full, wait briefly and proceed anyway —
+        # the window rolls forward and a 429 just triggers cooldown.
+        if _rpm_remaining(provider_name) <= 0:
+            others = [
+                n for n, _ in preferred_order
+                if _rpm_remaining(n) > 0 and pool._is_available(n, [])
+            ]
+            if others:
+                continue
+            logger.info("LLM call #%d: all RPM windows full — brief wait", call_id)
+            await asyncio.sleep(2.0)
+
+        # Record this call into the shared per-provider RPM window
+        _record_rpm_use(provider_name)
+
         try:
             result = await provider_fn(messages, temperature, max_tokens, call_id)
             if result and len(result.strip()) > 0:
@@ -477,7 +570,10 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
         return ""
 
     payload = {
-        "model": "llama-3.1-8b-instant",
+        # 2026-09: llama-3.1-8b-instant is RETIRED on Groq (404).
+        # qwen/qwen3.6-27b is completion-verified live (see smart_router
+        # MODEL_REGISTRY notes). Override with GROQ_MODEL env if needed.
+        "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"),
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -788,7 +884,7 @@ async def _call_litellm_direct(messages: list, temperature: float, max_tokens: i
         if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
             os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
 
-        model = os.environ.get("AI_LIGHT_MODEL", "groq/llama-3.1-8b-instant")
+        model = os.environ.get("AI_LIGHT_MODEL", "groq/qwen/qwen3.6-27b")
 
         response = await litellm.acompletion(
             model=model,
@@ -853,7 +949,7 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
             _queue_row = LLMRequestQueue(
                 id=request_id,
                 provider="nvidia",
-                model="z-ai/glm-5.2",
+                model=os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4-flash-0731"),
                 messages=_json.dumps(messages),
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -869,15 +965,16 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
         # Don't fail the call if DB persistence fails — just log
         logger.warning("llm_queue_persist_failed: %s", str(persist_exc)[:200])
 
+    # 2026-09: z-ai/glm-5.2 is RETIRED on NVIDIA NIM (404/410 — model
+    # removed from catalog). deepseek-ai/deepseek-v4-flash-0731 is
+    # completion-verified live (see smart_router MODEL_REGISTRY notes).
+    # Override with NVIDIA_MODEL env if needed.
+    _nvidia_model = os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4-flash-0731")
+
     payload = {
-        "model": "z-ai/glm-5.2",
+        "model": _nvidia_model,
         "messages": messages,
         "temperature": temperature,
-        # GLM-5.2 is a reasoning model: it writes a <think>…</think> block
-        # before the answer. With the caller's budget it burns everything
-        # on thinking and gets truncated mid-think — the customer receives
-        # no answer at all (live bug 2026-09-06). Give it room to finish
-        # both; the dispatcher strips the think block before delivery.
         "max_tokens": min(max(max_tokens * 3, 1200), 3000),
     }
     headers = {
