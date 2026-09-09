@@ -413,7 +413,11 @@ async def _call_mistral_direct(messages: list, temperature: float, max_tokens: i
 
     api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"MISTRAL_API_KEY not set — provider key missing on this service"
+        )
 
     # ── 1 RPS LIMITER: ensure 1 second gap between Mistral calls ──
     global _last_mistral_call_time
@@ -471,7 +475,11 @@ async def _call_aion_direct(messages: list, temperature: float, max_tokens: int,
 
     api_key = os.environ.get("AION_API_KEY", "").strip()
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"AION_API_KEY not set — provider key missing on this service"
+        )
 
     payload = {
         "model": "aion-3.0-mini",
@@ -522,7 +530,11 @@ async def _call_gemini_direct(messages: list, temperature: float, max_tokens: in
 
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"GEMINI_API_KEY not set — provider key missing on this service"
+        )
 
     # Convert messages to Gemini format
     contents = []
@@ -567,7 +579,11 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
 
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"GROQ_API_KEY not set — provider key missing on this service"
+        )
 
     payload = {
         # 2026-09: llama-3.1-8b-instant is RETIRED on Groq (404).
@@ -606,7 +622,11 @@ async def _call_google_direct(messages: list, temperature: float, max_tokens: in
 
     api_key = os.environ.get("GOOGLE_AI_API_KEY", "")
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"GOOGLE_AI_API_KEY not set — provider key missing on this service"
+        )
 
     contents = []
     system_instruction = None
@@ -937,7 +957,11 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
 
     api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"NVIDIA_API_KEY not set — provider key missing on this service"
+        )
 
     # ── Step 1: Persist request to DB (survives Render restart) ──
     request_id = str(_uuid.uuid4())
@@ -1124,7 +1148,11 @@ async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: 
 
     api_key = os.environ.get("CEREBRAS_API_KEY", "")
     if not api_key:
-        return ""
+        # 2026-09: fail LOUDLY — silent "" was indistinguishable
+        # from a real failure, hiding missing env vars on Render.
+        raise RuntimeError(
+            f"CEREBRAS_API_KEY not set — provider key missing on this service"
+        )
 
     payload = {
         "model": "gpt-oss-120b",
