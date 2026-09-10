@@ -80,7 +80,12 @@ import time as _time_mod
 #
 # Each ticket is assigned to a specific provider to avoid rate-limit collisions.
 # Rest queue in DB. Workers poll DB for 'open' tickets.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "10"))
+# 2026-09-10: 10 concurrent full 8-node pipelines (LangGraph + RAG +
+# embeddings in-process) OOM-killed the 512MB Render free instance right
+# after ticket creation. 2 concurrent pipelines bounds memory while
+# keeping decent throughput (each pipeline is mostly I/O wait on LLM
+# calls). Env-overridable: MAX_CONCURRENT_PIPELINES=4 on paid plans.
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "2"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 
@@ -222,6 +227,12 @@ def _start_pipeline_workers():
                                 awareness["agent_count"], awareness["tool_count"],
                             )
                             _run_pipeline_sync(ticket_id, company_id, channel)
+                            # 2026-09-10: each pipeline builds large object
+                            # graphs (LangGraph state, RAG contexts). Force a
+                            # GC pass so the 512MB free instance reclaims
+                            # memory between tickets instead of creeping up.
+                            import gc as _gc
+                            _gc.collect()
                         except Exception as exc:
                             err_msg = str(exc)[:300]
                             logger.error(
