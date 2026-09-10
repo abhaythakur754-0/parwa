@@ -38,9 +38,13 @@ AI_HEAVY_MODEL = os.environ.get("AI_HEAVY_MODEL", "groq/gpt-oss-120b")
 AI_FAILOVER_MODEL = os.environ.get("AI_FAILOVER_MODEL", "groq/llama-3.1-8b-instant")
 
 # Legacy NVIDIA config kept for emergency fallback only
+# 2026-09: meta/llama-3.1-8b-instruct is EOL on NVIDIA NIM (410 Gone,
+# retired 2026-08-26). nvidia/llama-3.1-nemotron-70b-instruct is the live
+# Llama-3.1-family model (in NVIDIA's current 80-model catalog).
+# NOTE: nemotron is a hybrid reasoner — call sites must strip <think>.
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
 
 # Rate limit: Conservative default for free tiers
 LLM_RPM_LIMIT = 30

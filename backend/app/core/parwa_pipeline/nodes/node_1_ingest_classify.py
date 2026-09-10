@@ -317,7 +317,10 @@ async def _llm_match_capability(query: str, tenant_id: str) -> str | None:
             "model": NVIDIA_MODEL,
             "messages": messages,
             "temperature": 0.0,  # deterministic — same query = same capability
-            "max_tokens": 20,    # capability keys are short
+            # 2026-09: nemotron (Llama-3.1) is a hybrid reasoner — the
+            # <think> block alone can exceed 20 tokens, so budget enough
+            # room for thinking + the short capability answer.
+            "max_tokens": 300,
         }
         headers = {
             "Authorization": f"Bearer {NVIDIA_API_KEY}",
@@ -334,7 +337,15 @@ async def _llm_match_capability(query: str, tenant_id: str) -> str | None:
             )
             return None
 
-        content = r.json()["choices"][0]["message"]["content"].strip().lower()
+        # 2026-09: nemotron (Llama-3.1) emits <think>…</think> — strip
+        # before parsing (unterminated think handled too).
+        import re as _re
+        _raw = r.json()["choices"][0]["message"]["content"] or ""
+        _raw = _re.sub(r"<think>[\s\S]*?(</think>|$)", "", _raw)
+        content = _raw.strip().lower()
+        if not content:
+            logger.warning("llm_capability_matcher_empty_after_think_strip")
+            return None
         # Normalize: strip quotes, whitespace, trailing punctuation
         content = content.strip("`'\".,;: \n\r\t")
 

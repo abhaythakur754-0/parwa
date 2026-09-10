@@ -235,12 +235,13 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         max_requests_per_day=20, max_tokens_per_minute=999999, context_window=1048576,
         api_endpoint_base="https://generativelanguage.googleapis.com/v1beta/models", is_openai_compatible=False,
     ),
-    # 2026-09: z-ai/glm-5.2 no longer exists on NVIDIA's live catalog
-    # (404/410 — model retired). Replaced with completion-verified live
-    # models tested against a real NVIDIA API key on 2026-09-08.
+    # 2026-09: z-ai/glm-5.2 AND meta/llama-3.1-8b-instruct are gone from
+    # NVIDIA's live catalog (404/410). deepseek-v4-flash also swapped out —
+    # user directive: NVIDIA runs Llama 3.1 → nvidia/llama-3.1-nemotron-70b-instruct
+    # (live in NVIDIA's 80-model catalog; hybrid reasoner, think-stripped upstream).
     "nvidia-glm-5.2-medium": ModelConfig(
-        provider=ModelProvider.NVIDIA, model_id="deepseek-ai/deepseek-v4-flash-0731",
-        display_name="DeepSeek V4 Flash (NVIDIA)", tier=ModelTier.MEDIUM, priority=3,
+        provider=ModelProvider.NVIDIA, model_id="nvidia/llama-3.1-nemotron-70b-instruct",
+        display_name="Llama 3.1 Nemotron 70B (NVIDIA)", tier=ModelTier.MEDIUM, priority=3,
         max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=131072,
         api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
     ),
@@ -268,10 +269,10 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         max_requests_per_day=14400, max_tokens_per_minute=60000, context_window=65536,
         api_endpoint_base="https://api.cerebras.ai/v1/chat/completions", is_openai_compatible=True,
     ),
-    # 2026-09: z-ai/glm-5.2 retired — replaced with completion-verified model.
+    # 2026-09: retired glm-5.2 / deepseek swap → Llama 3.1 Nemotron 70B.
     "nvidia-glm-5.2-heavy": ModelConfig(
-        provider=ModelProvider.NVIDIA, model_id="deepseek-ai/deepseek-v4-flash-0731",
-        display_name="DeepSeek V4 Flash (NVIDIA)", tier=ModelTier.HEAVY, priority=3,
+        provider=ModelProvider.NVIDIA, model_id="nvidia/llama-3.1-nemotron-70b-instruct",
+        display_name="Llama 3.1 Nemotron 70B (NVIDIA)", tier=ModelTier.HEAVY, priority=3,
         max_requests_per_day=999999, max_tokens_per_minute=999999, context_window=131072,
         api_endpoint_base="https://integrate.api.nvidia.com/v1/chat/completions", is_openai_compatible=True,
     ),
