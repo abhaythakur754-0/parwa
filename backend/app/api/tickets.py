@@ -1161,7 +1161,12 @@ def resume_pipeline(
                     {"role": "user", "content": direct_prompt},
                 ],
                 "temperature": 0.3,
-                "max_tokens": 500,
+                # 2026-09-10: qwen3.6-27b is a hybrid reasoner — the
+                # <think> block alone consumed the old 500-token budget,
+                # leaving an empty answer after strip_reasoning (resume
+                # returned 200 with status:error). 1500 gives room for
+                # think + full professional answer.
+                "max_tokens": 1500,
             },
             headers={
                 "Authorization": f"Bearer {groq_key}",
