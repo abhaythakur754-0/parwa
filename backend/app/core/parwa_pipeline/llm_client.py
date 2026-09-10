@@ -666,6 +666,16 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
     if r.status_code == 200:
         data = r.json()
         content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # 2026-09-10: qwen3.x is a hybrid reasoner — its <think>…</think>
+        # block lands inline in content. The direct path previously returned
+        # raw reasoning text to pipeline nodes (live bug 2026-09-06 pattern,
+        # fixed for smart_router but not here). Strip before returning.
+        try:
+            from app.core.email_utils import strip_reasoning
+            content = strip_reasoning(content or "")
+        except Exception:
+            import re as _re_strip
+            content = _re_strip.sub(r"<think>[\s\S]*?</think>", "", content or "").strip()
         global _total_tokens
         _total_tokens += data.get("usage", {}).get("total_tokens", 0)
         return content.strip()
@@ -818,9 +828,28 @@ async def _recover_stuck_llm_requests() -> None:
             # Table exists now — reset the warned flag
             _llm_queue_table_missing_warned = False
 
+            # 2026-09-10 CRASH-LOOP FIX: rows belonging to a HARD-DISABLED
+            # provider (RPM limit = 0, e.g. NVIDIA with the revoked key) are
+            # marked failed immediately — never re-fired. Re-firing them was
+            # re-starting 90s×3 hanging calls on EVERY backend boot, which
+            # killed the free-tier service in a restart→recover→crash loop.
+            _recover_fires = 0  # max real re-fires per 30s cycle
             logger.info("llm_queue_recovery: found %d stuck requests", len(stuck_rows))
 
             for row in stuck_rows:
+                # Disabled provider (e.g. nvidia with NVIDIA_RPM=0) — drain
+                # the row instead of re-firing the dead endpoint forever.
+                if _provider_disabled(row.provider or ""):
+                    row.status = "failed"
+                    row.error_message = "provider disabled (RPM limit 0) — drained by recovery"
+                    row.completed_at = now
+                    _db.commit()
+                    logger.warning(
+                        "llm_queue_recovery: request %s drained (provider '%s' disabled)",
+                        row.id[:8], row.provider,
+                    )
+                    continue
+
                 # Skip rate_limited rows whose retry_at hasn't passed yet
                 if row.status == "rate_limited" and row.next_retry_at and row.next_retry_at > now:
                     continue  # not yet time to retry
@@ -837,7 +866,13 @@ async def _recover_stuck_llm_requests() -> None:
                     )
                     continue
 
-                # Re-try this request via _call_nvidia_direct
+                # Cap REAL re-fires per cycle — each one spawns a background
+                # task holding a DB session + HTTP client for minutes.
+                if _recover_fires >= 2:
+                    continue
+                _recover_fires += 1
+
+                # Re-try this request via its provider's direct call
                 # The call will DELETE the row on success or update it on 429
                 try:
                     messages = _json.loads(row.messages)

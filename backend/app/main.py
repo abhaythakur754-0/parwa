@@ -16,6 +16,7 @@ Main FastAPI app with:
 """
 
 from contextlib import asynccontextmanager
+import json
 import os
 
 from fastapi import Depends, FastAPI, Query, Request
@@ -886,18 +887,27 @@ async def lifespan(app: FastAPI):
 
                 db = SessionLocal()
                 try:
-                    # Re-dispatch tickets stuck in 'open' for >15 min
-                    # (truly orphaned — never picked up by workers)
+                    # 2026-09-10 CRASH-LOOP FIX: the old 5-min processing
+                    # cutoff flagged LEGITIMATE pipelines as stuck — a full
+                    # 8-node run (≈18 LLM calls, Mistral 1-req/sec spacing)
+                    # regularly exceeds 5 min, so every real run was reset to
+                    # 'open' and re-dispatched WHILE STILL RUNNING. Duplicate
+                    # concurrent pipelines piled up → OOM on the 512MB free
+                    # instance → restart → the same tickets re-dispatched →
+                    # infinite loop. Cutoff is now 15 min (> the 5-min
+                    # PIPELINE_HARD_TIMEOUT with head room), plus a hard
+                    # requeue cap: after 3 requeues a ticket goes to
+                    # awaiting_human (human review) instead of looping.
                     cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
                     stuck_tickets = db.query(Ticket).filter(
                         Ticket.status == "open",
                         Ticket.created_at < cutoff,
                     ).limit(5).all()
 
-                    # Also re-dispatch tickets stuck in 'processing' for >5 min
+                    # Re-dispatch tickets stuck in 'processing' for >15 min
                     # (worker crashed mid-pipeline — reset to open so workers
                     # pick them up again)
-                    processing_cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+                    processing_cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
                     stuck_processing = db.query(Ticket).filter(
                         Ticket.status == "processing",
                         Ticket.updated_at < processing_cutoff,
@@ -913,14 +923,39 @@ async def lifespan(app: FastAPI):
 
                     for ticket in all_stuck:
                         try:
+                            # ── Requeue cap: after 3 requeues, stop looping ──
+                            # Parse metadata ONCE (cheap) and escalate to a
+                            # human instead of re-dispatching forever.
+                            try:
+                                _md = json.loads(ticket.metadata_json or "{}") if isinstance(ticket.metadata_json, str) else (ticket.metadata_json or {})
+                            except Exception:
+                                _md = {}
+                            _requeues = int(_md.get("requeue_count", 0))
+                            if _requeues >= 3:
+                                if ticket.status != "awaiting_human":
+                                    ticket.status = "awaiting_human"
+                                    ticket.awaiting_human = True
+                                    ticket.updated_at = datetime.now(timezone.utc)
+                                    db.commit()
+                                    logger.warning(
+                                        "stuck_ticket_recovery: ticket %s hit requeue cap (%d) — escalated to awaiting_human",
+                                        str(ticket.id)[:8], _requeues,
+                                    )
+                                continue
+
+                            # Count this requeue attempt
+                            _md["requeue_count"] = _requeues + 1
+                            ticket.metadata_json = json.dumps(_md)
+
                             # If ticket is stuck in 'processing', reset to 'open'
                             # so the DB-backed workers pick it up again
                             if ticket.status == "processing":
                                 ticket.status = "open"
+                                ticket.updated_at = datetime.now(timezone.utc)
                                 db.commit()
                                 logger.info(
-                                    "stuck_ticket_recovery: reset processing→open ticket %s",
-                                    str(ticket.id)[:8],
+                                    "stuck_ticket_recovery: reset processing→open ticket %s (requeue %d/3)",
+                                    str(ticket.id)[:8], _requeues + 1,
                                 )
                                 continue
 
