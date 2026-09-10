@@ -157,21 +157,29 @@ class TestDegradedResponseDetector:
 
 class TestFailoverChains:
     def test_light_chain_uses_correct_models(self):
+        # 2026-09 backbone-only: Groq + Mistral + NVIDIA
         light = FAILOVER_CHAINS.get("light", [])
         assert len(light) > 0
-        # Should use llama-3.1-8b or gemma-3-27b-it (matching SmartRouter registry)
         model_ids = [m for _, m in light]
-        assert "llama-3.1-8b" in model_ids
+        assert "qwen/qwen3.6-27b" in model_ids
 
-    def test_medium_chain_has_gemini_flash_lite(self):
+    def test_medium_chain_has_mistral(self):
         medium = FAILOVER_CHAINS.get("medium", [])
         model_ids = [m for _, m in medium]
-        assert "gemini-3.1-flash-lite" in model_ids
+        assert "mistral-small-latest" in model_ids
 
-    def test_heavy_chain_has_gpt_oss(self):
+    def test_heavy_chain_has_nvidia_nemotron(self):
         heavy = FAILOVER_CHAINS.get("heavy", [])
         model_ids = [m for _, m in heavy]
-        assert "gpt-oss-120b" in model_ids
+        assert "nvidia/llama-3.1-nemotron-70b-instruct" in model_ids
+
+    def test_no_dead_providers_in_chains(self):
+        # Cerebras/Google removed from all chains (2026-09)
+        for tier, chain in FAILOVER_CHAINS.items():
+            for provider, _model in chain:
+                assert provider in ("groq", "mistral", "nvidia"), (
+                    f"dead provider {provider} in {tier} chain"
+                )
 
     def test_guardrail_chain_exists(self):
         assert "guardrail" in FAILOVER_CHAINS

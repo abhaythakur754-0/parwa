@@ -1616,15 +1616,14 @@ async def _try_ai_providers(messages: List[Dict[str, str]]) -> Optional[str]:
     settings = get_settings()
 
     # Build provider list (only include providers with API keys configured)
-    # NOTE: Groq removed per user request (2026-08-12) — use Google + Aion + Cerebras
-    # These 3 providers give 75 RPM combined (plenty for 3 concurrent Jarvis users)
+    # 2026-09 backbone-only directive: Google/Aion/Cerebras REMOVED from
+    # Jarvis (daily caps / dead keys / 402). Jarvis now rides the SAME
+    # backbone as the ticket pipeline: Groq (30 RPM) + Mistral (60 RPM).
     providers = []
-    if settings.GOOGLE_AI_API_KEY:
-        providers.append(("google", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"))
-    if os.environ.get("AION_API_KEY", "").strip():
-        providers.append(("aion", "https://api.aionlabs.ai/v1/chat/completions"))
-    if settings.CEREBRAS_API_KEY:
-        providers.append(("cerebras", "https://api.cerebras.ai/v1/chat/completions"))
+    if settings.GROQ_API_KEY:
+        providers.append(("groq", "https://api.groq.com/openai/v1/chat/completions"))
+    if settings.MISTRAL_API_KEY:
+        providers.append(("mistral", "https://api.mistral.ai/v1/chat/completions"))
 
     if not providers:
         logger.warning("jarvis_no_providers_configured")
@@ -1679,35 +1678,26 @@ async def _call_single_provider_async(
 
     settings = get_settings()
 
-    if provider_name == "cerebras":
-        api_key = settings.CEREBRAS_API_KEY
-    elif provider_name == "groq":
+    if provider_name == "groq":
         api_key = settings.GROQ_API_KEY
-    elif provider_name == "google":
-        api_key = settings.GOOGLE_AI_API_KEY
-    elif provider_name == "aion":
-        api_key = os.environ.get("AION_API_KEY", "").strip()
+    elif provider_name == "mistral":
+        api_key = settings.MISTRAL_API_KEY
     else:
         return None
 
     if not api_key:
         return None
 
-    if provider_name == "google":
-        return await _call_google_api_async(client, endpoint, api_key, messages)
-
-    # OpenAI-compatible: Groq, Cerebras, Aion
-    # Groq: llama-3.1-8b-instant (user-validated best, ~1s)
-    # Cerebras: llama-3.1-8b (~1s)
-    # Aion: aion-3.0-mini (reasoning model, ~2s)
+    # OpenAI-compatible: Groq, Mistral
+    # 2026-09: llama-3.1-8b-instant is RETIRED on Groq (404). GROQ_MODEL
+    # (qwen — hybrid reasoner) is the live default; <think> is stripped
+    # from the response below. Mistral: mistral-small-latest.
     if provider_name == "groq":
-        model = "llama-3.1-8b-instant"
-    elif provider_name == "cerebras":
-        model = "llama-3.1-8b"
-    elif provider_name == "aion":
-        model = "aion-3.0-mini"
+        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+    elif provider_name == "mistral":
+        model = "mistral-small-latest"
     else:
-        model = "llama-3.1-8b-instant"
+        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
 
     payload = {
         "model": model,
@@ -1732,7 +1722,13 @@ async def _call_single_provider_async(
     data = r.json()
     choices = data.get("choices", [])
     if choices:
-        return choices[0].get("message", {}).get("content", "")
+        import re as _re
+        content = choices[0].get("message", {}).get("content", "") or ""
+        # GROQ_MODEL (qwen) is a hybrid reasoner — strip <think> blocks
+        # (incl. unterminated think from a truncated response) so admin
+        # chat never sees reasoning text.
+        content = _re.sub(r"<think>[\s\S]*?(</think>|$)", "", content)
+        return content.strip()
     return None
 
 

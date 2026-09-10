@@ -481,7 +481,7 @@ class AnomalyDetector:
     def _infer_healing_action(self, service: str) -> Optional[HealingAction]:
         """Infer the appropriate healing action for a service."""
         service_lower = service.lower()
-        if service_lower in ("google_ai", "cerebras", "groq"):
+        if service_lower in ("google_ai", "cerebras", "groq", "mistral", "nvidia"):
             return HealingAction.LLM_FAILOVER
         if service_lower == "redis":
             return HealingAction.REDIS_RECONNECT
@@ -691,7 +691,7 @@ class SelfHealingService:
         to backup providers.
 
         Args:
-            provider: Provider name (e.g., 'google_ai', 'cerebras', 'groq').
+            provider: Provider name (e.g., 'groq', 'mistral', 'nvidia').
         """
         try:
             from app.core.parwa_core_bridge import get_parwa_circuit_breaker as get_circuit_breaker_manager

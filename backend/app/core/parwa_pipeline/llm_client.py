@@ -1,26 +1,24 @@
 """
 PARWA Pipeline V2 — Shared LLM Client
 
-Production LLM routing via node-based assembly line + Smart Router fallback.
+Production LLM routing: water-filling over the 3 free-forever backbone
+providers, then Smart Router as last resort.
 
-User-validated (2026-08-12): "llama-3.1-8b gives best results for ALL pipeline
-tasks." Groq llama-3.1-8b-instant is now PRIMARY for all runtime tiers.
+Backbone (user directive 2026-09: ONLY these — everything else is
+daily-capped or dead):
+  Groq 30 RPM + Mistral 60 RPM + NVIDIA 40 RPM = 130 RPM
+  (~7 tickets/min, ~10k tickets/day ceiling)
 
-Node-based routing (assembly line — no ticket waits for another):
-  LIGHT  (≤150 tok): Groq → Cerebras → Mistral → Gemini → Aion → NVIDIA
-  MEDIUM (≤300 tok): Groq → Cerebras → Mistral → Gemini → Aion → NVIDIA
-  HEAVY  (300+ tok): Cerebras → Groq → Mistral → Gemini → Aion → NVIDIA
-  BUILDER:           Groq llama-3.1-8b-instant (onboarding agent creation)
-  GUARDRAIL:         Groq GPT-OSS Safeguard 20B
+Routing (capacity dominates; task-size hints are tie-breakers):
+  LIGHT / MEDIUM / HEAVY: Groq → Mistral → NVIDIA (same pool)
+  BUILDER:                Groq (onboarding agent creation)
+  GUARDRAIL:              Groq GPT-OSS Safeguard 20B
 
-NVIDIA GLM-5.2 is LAST in runtime fallback chains because it takes ~58s/call
-(warm) / 90s+ (cold) — using it as primary caused the 11-node pipeline to
-take 5-10 MINUTES per ticket → Render HTTP timeout → ticket escalated.
-NVIDIA is still used for embeddings (different endpoint, fast).
-
-LiteLLM auto-routes cerebras/, groq/, gemini/ prefixes to the correct API key.
-The Smart Router handles priority-based failover — if the primary model in a
-tier fails, it automatically tries the next one.
+Cerebras / Google / Aion / OpenRouter are REMOVED from the runtime chain
+(daily caps / dead keys / 402 payment). Smart Router remains last resort
+— its GOOGLE/CEREBRAS/AI21 RPM limits are 0, so it can only ever land
+on the backbone too. NVIDIA stays hard-disabled (NVIDIA_RPM=0) until a
+valid nvapi-* key is set on the service.
 """
 
 from __future__ import annotations
@@ -43,7 +41,7 @@ class ProviderPool:
     When a provider returns 429 (rate limited) or 5xx, it's marked as
     "cooling down" for COOLDOWN_SECONDS. Subsequent calls skip cooling-down
     providers and use the next available one. This lets us spread load
-    across Groq, Cerebras, Google, NVIDIA instead of hammering one provider.
+    across Groq, Mistral and NVIDIA instead of hammering one provider.
 
     Usage:
         pool = get_provider_pool()
@@ -173,8 +171,10 @@ MIN_CALL_INTERVAL: float = 0.2  # 300 RPM across all providers (was 0.5/120 RPM)
 # (130 RPM aggregate). Uses the SAME shared sliding-window tracker as
 # SmartRouter (app/core/smart_router.ProviderHealthTracker) so both
 # routing layers draw from ONE budget per provider. Limits are
-# env-driven there: GROQ_RPM / MISTRAL_RPM / NVIDIA_RPM / GOOGLE_RPM /
-# CEREBRAS_RPM (0 = disabled) / AI21_RPM (0 = disabled).
+# env-driven there: GROQ_RPM (30) / MISTRAL_RPM (60) / NVIDIA_RPM (40 once
+# a valid key lands; 0 = hard-disabled) — the 3-provider backbone.
+# GOOGLE_RPM / CEREBRAS_RPM / AI21_RPM default 0 = disabled (removed from
+# the rotation 2026-09: daily caps / dead keys / 402 payment).
 try:
     from app.core.smart_router import (
         ModelProvider as _SRProvider,
@@ -196,16 +196,15 @@ def _get_sr_tracker():
 
 
 # pipeline provider name -> smart_router ModelProvider (None = ungated)
+# Backbone only (2026-09): cerebras/gemini removed from the chain.
 _RPM_NAME_MAP = {
     "groq": _SRProvider.GROQ if _SR_AVAILABLE else None,
     "mistral": _SRProvider.MISTRAL if _SR_AVAILABLE else None,
     "nvidia": _SRProvider.NVIDIA if _SR_AVAILABLE else None,
-    "cerebras": _SRProvider.CEREBRAS if _SR_AVAILABLE else None,
-    "gemini": _SRProvider.GOOGLE if _SR_AVAILABLE else None,
 }
 
-# PRIMARY pool = the big free tiers (drained in parallel, water-filling).
-# Reserves (cerebras/gemini/aion) only when no primary has capacity.
+# The one and only pool — drained in parallel by remaining capacity
+# (water-filling). No reserve pool (removed 2026-09).
 _PRIMARY_PIPELINE_PROVIDERS = {"groq", "mistral", "nvidia"}
 
 
@@ -216,7 +215,7 @@ def _rpm_remaining(provider_name: str) -> int:
         return 1  # tracker unavailable — don't gate, legacy behavior
     p = _RPM_NAME_MAP.get(provider_name)
     if p is None:
-        return 999  # aion — self-limited internally (15 RPM, 20K TPD)
+        return 0  # unknown provider — fail closed, never call
     return tracker.get_provider_rpm_available(p)
 
 
@@ -246,7 +245,7 @@ def _provider_disabled(provider_name: str) -> bool:
         return False
     p = _RPM_NAME_MAP.get(provider_name)
     if p is None:
-        return False  # aion etc. — self-limited internally, keep enabled
+        return True  # unknown provider — fail closed, never call
     from app.core.smart_router import PROVIDER_RPM_LIMITS
     return PROVIDER_RPM_LIMITS.get(p, 30) <= 0
 
@@ -313,15 +312,13 @@ async def llm_call(
 ) -> str:
     """Single LLM call — water-filling routing (2026-09).
 
-    PRIMARY pool (drained in parallel by remaining capacity):
+    Backbone pool (drained in parallel by remaining capacity):
       Groq 30 RPM, Mistral 60 RPM (1 RPS), NVIDIA 40 RPM = 130 RPM.
       Per call, providers are reordered by MOST remaining RPM capacity
       in the shared 60s sliding window (SmartRouter tracker) — this
-      self-balances traffic 23%/46%/31% and maximises throughput.
-    RESERVE pool (only when no primary has capacity):
-      Cerebras (disabled via CEREBRAS_RPM=0), Gemini (15 RPM), Aion.
-    Task-size hints (light→groq-first, hard→quality order) are kept as
-    tie-breakers; capacity always dominates.
+      self-balances traffic and maximises throughput.
+    Task-size hints (light→groq-first) are kept as tie-breakers;
+    capacity always dominates. Smart Router = last resort only.
     """
     global _call_count, _total_errors
 
@@ -335,66 +332,32 @@ async def llm_call(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    # ── NODE-BASED ROUTING: pick provider based on token size ──
+    # ── BACKBONE ONLY (2026-09 user directive): Groq + Mistral + NVIDIA ──
     #
-    # IMPORTANT (verified live 2026-08-12):
-    #   - Groq llama-3.1-8b-instant: ~0.5-1s/call   (user-validated for ALL tasks)
-    #   - Cerebras gpt-oss-120b:    ~1-2s/call       (great quality, fast)
-    #   - Mistral Small 4:          ~2-3s/call
-    #   - NVIDIA GLM-5.2:           ~58s/call (WARM) / 90s+ COLD  ← BLOCKING
+    # Cerebras/Google/Aion removed from the chain entirely (daily caps /
+    # dead keys / 402). Task-size tiers collapsed — capacity water-filling
+    # dominates anyway; order below is just the tie-breaker preference.
     #
-    # NVIDIA is intentionally LAST in runtime fallback chains.
-    # At 58s/call, routing a ticket to NVIDIA makes the 5-10 LLM calls in the
-    # pipeline take 5-10 MINUTES → Render HTTP timeout → ticket escalates
-    # instead of resolving. NVIDIA is still used for:
-    #   - BUILDER tier (onboarding agent creation, latency acceptable)
-    #   - Last-resort fallback when all other providers are 429'd
-    if max_tokens <= 150:
-        # Light task → Groq (fastest)
-        preferred_order = [
-            ("groq", _call_groq_direct),
-            ("cerebras", _call_cerebras_direct),
-            ("mistral", _call_mistral_direct),
-            ("gemini", _call_gemini_direct),
-            ("aion", _call_aion_direct),
-            ("nvidia", _call_nvidia_direct),
-        ]
-    elif max_tokens <= 300:
-        # Medium task → Groq (best balance of speed + quality, user-validated)
-        preferred_order = [
-            ("groq", _call_groq_direct),
-            ("cerebras", _call_cerebras_direct),
-            ("mistral", _call_mistral_direct),
-            ("gemini", _call_gemini_direct),
-            ("aion", _call_aion_direct),
-            ("nvidia", _call_nvidia_direct),
-        ]
-    else:
-        # Hard task → Cerebras GPT-OSS 120B (best fast reasoning, 1-2s/call)
-        # NVIDIA GLM-5.2 was preferred here but takes 58s/call → pipeline timeout
-        preferred_order = [
-            ("cerebras", _call_cerebras_direct),
-            ("groq", _call_groq_direct),
-            ("mistral", _call_mistral_direct),
-            ("gemini", _call_gemini_direct),
-            ("aion", _call_aion_direct),
-            ("nvidia", _call_nvidia_direct),
-        ]
+    # NVIDIA is LAST: ~58s/call (warm) / 90s+ (cold). Routing a ticket to
+    # NVIDIA mid-pipeline makes 5-10 calls take 5-10 MINUTES → Render HTTP
+    # timeout → ticket escalates. It also stays hard-disabled (RPM=0) via
+    # _provider_disabled until NVIDIA_RPM=40 + a valid key are set.
+    preferred_order = [
+        ("groq", _call_groq_direct),
+        ("mistral", _call_mistral_direct),
+        ("nvidia", _call_nvidia_direct),
+    ]
 
-    # ── TRY: water-filling across primaries, then reserves ──
+    # ── TRY: water-filling across the backbone ──
     pool = get_provider_pool()
 
     def _order_candidates(cands):
-        """Primaries first (most remaining RPM capacity wins, stable for
-        ties so task-size speed preferences survive), then reserves.
-        Hard-disabled providers (RPM limit = 0) are removed entirely —
-        they are never tried, even as last resort."""
+        """Most remaining RPM capacity wins (stable for ties so the speed
+        preference above survives). Hard-disabled providers (RPM limit = 0)
+        are removed entirely — never tried, even as last resort."""
         cands = [(n, f) for n, f in cands if not _provider_disabled(n)]
-        primaries = [(n, f) for n, f in cands if n in _PRIMARY_PIPELINE_PROVIDERS]
-        reserves = [(n, f) for n, f in cands if n not in _PRIMARY_PIPELINE_PROVIDERS]
-        primaries.sort(key=lambda nf: -_rpm_remaining(nf[0]))
-        reserves.sort(key=lambda nf: -_rpm_remaining(nf[0]))
-        return primaries + reserves
+        cands.sort(key=lambda nf: -_rpm_remaining(nf[0]))
+        return cands
 
     for provider_name, provider_fn in _order_candidates(preferred_order):
         # Hard-disabled providers (RPM limit = 0 via env) are never called.
@@ -518,118 +481,6 @@ async def _call_mistral_direct(messages: list, temperature: float, max_tokens: i
         raise RuntimeError(f"Mistral API error {r.status_code}: {r.text[:200]}")
 
 
-
-
-async def _call_aion_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Aion Labs API call — 15 RPM, 20K TPD.
-    
-    Uses Aion 3.0 Mini (reasoning model).
-    Best for: medium tasks when Groq/Mistral are rate-limited.
-    Cuts off after 20K tokens/day (falls back to other providers).
-    """
-    import os
-    import httpx
-
-    api_key = os.environ.get("AION_API_KEY", "").strip()
-    if not api_key:
-        # 2026-09: fail LOUDLY — silent "" was indistinguishable
-        # from a real failure, hiding missing env vars on Render.
-        raise RuntimeError(
-            f"AION_API_KEY not set — provider key missing on this service"
-        )
-
-    payload = {
-        "model": "aion-3.0-mini",
-        "messages": messages,
-        "temperature": temperature,
-        # Aion 3.0 Mini is a reasoning model — same truncation risk as
-        # GLM-5.2 (see _call_nvidia_direct). Give it room to finish the
-        # think block AND the answer; delivery strips the reasoning.
-        "max_tokens": min(max(max_tokens * 3, 1200), 3000),
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            r = await client.post(
-                "https://api.aionlabs.ai/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-
-        if r.status_code == 200:
-            data = r.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            global _total_tokens
-            _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-            return content.strip()
-        else:
-            raise RuntimeError(f"Aion API error {r.status_code}: {r.text[:200]}")
-    except httpx.TimeoutException:
-        raise RuntimeError(f"Aion timeout (call #{call_id})")
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        raise RuntimeError(f"Aion call failed: {str(exc)[:200]}")
-
-
-
-async def _call_gemini_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Google Gemini Flash-Lite API call — 30 RPM, 1,500 RPD.
-    
-    Best for: chat/new request tickets (fast, multimodal).
-    """
-    import os
-    import httpx
-
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        # 2026-09: fail LOUDLY — silent "" was indistinguishable
-        # from a real failure, hiding missing env vars on Render.
-        raise RuntimeError(
-            f"GEMINI_API_KEY not set — provider key missing on this service"
-        )
-
-    # Convert messages to Gemini format
-    contents = []
-    for msg in messages:
-        role = "user" if msg["role"] == "user" else "model"
-        contents.append({"role": role, "parts": [{"text": msg["content"]}]})
-
-    payload = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
-    }
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            r = await client.post(url, json=payload)
-
-        if r.status_code == 200:
-            data = r.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                text = "".join(p.get("text", "") for p in parts)
-                return text.strip()
-        else:
-            raise RuntimeError(f"Gemini API error {r.status_code}: {r.text[:200]}")
-    except httpx.TimeoutException:
-        raise RuntimeError(f"Gemini timeout (call #{call_id})")
-    except RuntimeError:
-        raise
-    except Exception as exc:
-        raise RuntimeError(f"Gemini call failed: {str(exc)[:200]}")
-
-
 async def _call_groq_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
     """Direct Groq API call (raw HTTP, no LiteLLM dependency)."""
     import httpx
@@ -681,60 +532,6 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
         return content.strip()
     else:
         raise RuntimeError(f"Groq API error {r.status_code}: {r.text[:200]}")
-
-
-async def _call_google_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Google AI Studio API call (raw HTTP, no LiteLLM dependency)."""
-    import httpx
-
-    api_key = os.environ.get("GOOGLE_AI_API_KEY", "")
-    if not api_key:
-        # 2026-09: fail LOUDLY — silent "" was indistinguishable
-        # from a real failure, hiding missing env vars on Render.
-        raise RuntimeError(
-            f"GOOGLE_AI_API_KEY not set — provider key missing on this service"
-        )
-
-    contents = []
-    system_instruction = None
-    for msg in messages:
-        role = msg.get("role", "user")
-        text = msg.get("content", "")
-        if role == "system":
-            system_instruction = text
-        else:
-            contents.append({"role": role, "parts": [{"text": text}]})
-
-    payload = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
-    }
-    if system_instruction:
-        payload["systemInstruction"] = {
-            "parts": [{"text": system_instruction}]
-        }
-
-    model_id = "gemini-2.5-flash-lite"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={api_key}"
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
-
-    if r.status_code == 200:
-        data = r.json()
-        candidates = data.get("candidates", [])
-        if candidates:
-            text_parts = candidates[0].get("content", {}).get("parts", [])
-            content = text_parts[0].get("text", "") if text_parts else ""
-            global _total_tokens
-            _total_tokens += data.get("usageMetadata", {}).get("totalTokenCount", 0)
-            return content.strip()
-        return ""
-    else:
-        raise RuntimeError(f"Google API error {r.status_code}: {r.text[:200]}")
 
 
 def get_stats() -> dict:
@@ -1241,51 +1038,5 @@ def _mark_llm_queue_failed(request_id: str, error: str) -> None:
             _db.close()
     except Exception as exc:
         logger.warning("llm_queue_mark_failed_failed: %s", str(exc)[:200])
-
-
-async def _call_cerebras_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Cerebras API call (raw HTTP, no LiteLLM dependency)."""
-    import httpx
-
-    api_key = os.environ.get("CEREBRAS_API_KEY", "")
-    if not api_key:
-        # 2026-09: fail LOUDLY — silent "" was indistinguishable
-        # from a real failure, hiding missing env vars on Render.
-        raise RuntimeError(
-            f"CEREBRAS_API_KEY not set — provider key missing on this service"
-        )
-
-    payload = {
-        "model": "gpt-oss-120b",
-        "messages": messages,
-        "temperature": temperature,
-        # gpt-oss is a reasoning model — via the raw Cerebras API its
-        # analysis lands inline in content and it will burn the whole
-        # caller budget thinking (live bug 2026-09-06: customers got
-        # truncated reasoning instead of answers). reasoning_effort=low
-        # shortens the thinking; the 3x budget leaves room for the answer.
-        "reasoning_effort": "low",
-        "max_tokens": min(max(max_tokens * 3, 1200), 3000),
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(
-            "https://api.cerebras.ai/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
-
-    if r.status_code == 200:
-        data = r.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        global _total_tokens
-        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-        return content.strip()
-    else:
-        raise RuntimeError(f"Cerebras API error {r.status_code}: {r.text[:200]}")
 
 

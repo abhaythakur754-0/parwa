@@ -88,61 +88,42 @@ class PREWARM_COMBO:
 # Common model+technique combos across providers and tiers.
 
 PREWARM_COMBOS: List[PREWARM_COMBO] = [
+    # Backbone only (2026-09 directive): Groq + Mistral + NVIDIA.
+    # Cerebras/Google removed (daily caps / dead keys / 402).
     # LIGHT tier
     PREWARM_COMBO(
-        model_id="llama-3.1-8b",
-        provider="cerebras",
-        tier="light",
-        probe_query="Hello",
-        max_acceptable_latency_ms=2000,
-    ),
-    PREWARM_COMBO(
-        model_id="llama-3.1-8b",
+        model_id="qwen/qwen3.6-27b",
         provider="groq",
         tier="light",
         probe_query="Hello",
         max_acceptable_latency_ms=2000,
     ),
     PREWARM_COMBO(
-        model_id="gemma-3-27b-it",
-        provider="google",
+        model_id="mistral-small-latest",
+        provider="mistral",
         tier="light",
-        probe_query="Hi",
-        max_acceptable_latency_ms=2000,
+        probe_query="Hello",
+        max_acceptable_latency_ms=3000,
     ),
     # MEDIUM tier
     PREWARM_COMBO(
-        model_id="gemini-2.0-flash-lite",
-        provider="google",
+        model_id="qwen/qwen3.6-27b",
+        provider="groq",
         tier="medium",
         probe_query="Classify: refund",
         max_acceptable_latency_ms=5000,
     ),
     PREWARM_COMBO(
-        model_id="llama-3.3-70b-versatile",
-        provider="groq",
+        model_id="mistral-small-latest",
+        provider="mistral",
         tier="medium",
-        probe_query="Classify: billing",
-        max_acceptable_latency_ms=5000,
-    ),
-    PREWARM_COMBO(
-        model_id="qwen3-32b",
-        provider="groq",
-        tier="medium",
-        probe_query="Analyze: inquiry",
+        probe_query="Classify: refund",
         max_acceptable_latency_ms=5000,
     ),
     # HEAVY tier
     PREWARM_COMBO(
-        model_id="gpt-oss-120b",
-        provider="groq",
-        tier="heavy",
-        probe_query="Complex analysis",
-        max_acceptable_latency_ms=8000,
-    ),
-    PREWARM_COMBO(
-        model_id="llama-4-scout-instruct",
-        provider="groq",
+        model_id="nvidia/llama-3.1-nemotron-70b-instruct",
+        provider="nvidia",
         tier="heavy",
         probe_query="Complex analysis",
         max_acceptable_latency_ms=8000,
@@ -378,15 +359,13 @@ class ColdStartService:
         Always returns something — never fails.
         """
         # Hardcoded fallback chain: light → medium → heavy
+        # Backbone only (2026-09): Groq + Mistral + NVIDIA
         fallback_chain = [
-            ("cerebras", "llama-3.1-8b", "light"),
-            ("groq", "llama-3.1-8b", "light"),
-            ("google", "gemma-3-27b-it", "light"),
-            ("google", "gemini-2.0-flash-lite", "medium"),
-            ("groq", "llama-3.3-70b-versatile", "medium"),
-            ("groq", "qwen3-32b", "medium"),
-            ("groq", "gpt-oss-120b", "heavy"),
-            ("cerebras", "gpt-oss-120b", "heavy"),
+            ("groq", "qwen/qwen3.6-27b", "light"),
+            ("mistral", "mistral-small-latest", "light"),
+            ("groq", "qwen/qwen3.6-27b", "medium"),
+            ("mistral", "mistral-small-latest", "medium"),
+            ("nvidia", "nvidia/llama-3.1-nemotron-70b-instruct", "heavy"),
         ]
 
         # If tenant has warmup state, find the best warm model
@@ -407,8 +386,8 @@ class ColdStartService:
 
         # No warm model found — return fastest light model as fallback
         return {
-            "provider": "cerebras",
-            "model_id": "llama-3.1-8b",
+            "provider": "groq",
+            "model_id": "qwen/qwen3.6-27b",
             "tier": "light",
             "reason": "cold_fallback_to_lightest",
         }
@@ -515,13 +494,11 @@ class ColdStartService:
             # If settings unavailable (e.g., during testing), use empty keys
             settings = None
 
+        # Backbone only (2026-09): Groq + Mistral + NVIDIA
         provider_urls = {
-            "cerebras": "https://api.cerebras.ai/v1/chat/completions",
             "groq": "https://api.groq.com/openai/v1/chat/completions",
-            "google": (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model_id}:generateContent"
-            ),
+            "mistral": "https://api.mistral.ai/v1/chat/completions",
+            "nvidia": "https://integrate.api.nvidia.com/v1/chat/completions",
         }
 
         url = provider_urls.get(provider)
@@ -535,29 +512,22 @@ class ColdStartService:
 
         # Build headers with API keys
         headers = {"Content-Type": "application/json"}
-        if provider == "cerebras" and settings:
-            api_key = getattr(settings, "CEREBRAS_API_KEY", "")
+        _PROVIDER_KEY_ATTRS = {
+            "groq": "GROQ_API_KEY",
+            "mistral": "MISTRAL_API_KEY",
+            "nvidia": "NVIDIA_API_KEY",
+        }
+        key_attr = _PROVIDER_KEY_ATTRS.get(provider)
+        if key_attr and settings:
+            api_key = getattr(settings, key_attr, "")
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-        elif provider == "groq" and settings:
-            api_key = getattr(settings, "GROQ_API_KEY", "")
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
-        elif provider == "google" and settings:
-            api_key = getattr(settings, "GOOGLE_AI_API_KEY", "")
-            if api_key:
-                url = f"{url}?key={api_key}"
 
-        if provider == "google":
-            payload = json.dumps({
-                "contents": [{"parts": [{"text": query}]}],
-            }).encode("utf-8")
-        else:
-            payload = json.dumps({
-                "model": model_id,
-                "messages": [{"role": "user", "content": query}],
-                "max_tokens": 10,
-            }).encode("utf-8")
+        payload = json.dumps({
+            "model": model_id,
+            "messages": [{"role": "user", "content": query}],
+            "max_tokens": 10,
+        }).encode("utf-8")
 
         req = urllib.request.Request(
             url,

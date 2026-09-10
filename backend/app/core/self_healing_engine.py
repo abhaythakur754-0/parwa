@@ -179,11 +179,12 @@ _VARIANT_FLOOR: Dict[str, float] = {
 # Default recovery traffic percentages per stage
 _RECOVERY_STAGES: List[int] = [10, 25, 50, 100]
 
-# Known providers per tier
+# Known providers per tier — backbone only (2026-09 directive):
+# Groq 30 + Mistral 60 + NVIDIA 40 = 130 RPM. Cerebras/Google removed.
 _TIER_PROVIDERS: Dict[str, List[str]] = {
-    "light": ["cerebras", "groq", "google"],
-    "medium": ["google", "cerebras", "groq"],
-    "heavy": ["google", "cerebras", "groq"],
+    "light": ["groq", "mistral", "nvidia"],
+    "medium": ["groq", "mistral", "nvidia"],
+    "heavy": ["groq", "mistral", "nvidia"],
 }
 
 # Window sizes for rolling analysis

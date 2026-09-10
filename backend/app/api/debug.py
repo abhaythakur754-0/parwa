@@ -2,7 +2,7 @@
 Debug endpoint for testing LLM connectivity.
 
 GET /api/v1/debug/llm-test
-Returns: { cerebras: {ok, error?}, groq: {ok, error?}, smart_router: {ok, error?} }
+Returns: { groq, mistral, nvidia, smart_router, litellm: {ok, error?} } — backbone only (2026-09)
 
 This endpoint is for debugging only — it makes a real LLM call to each
 provider and reports whether it succeeded or failed.
@@ -26,36 +26,7 @@ async def llm_test() -> Dict[str, Any]:
     # Test messages
     messages = [{"role": "user", "content": "Reply with the single word: ok"}]
 
-    # ── 1. Test Cerebras directly ──
-    cerebras_key = os.environ.get("CEREBRAS_API_KEY", "")
-    if not cerebras_key:
-        results["cerebras"] = {"ok": False, "error": "CEREBRAS_API_KEY not set"}
-    else:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                r = await client.post(
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    json={
-                        "model": "gpt-oss-120b",
-                        "messages": messages,
-                        "max_tokens": 10,
-                        "temperature": 0,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {cerebras_key}",
-                        "Content-Type": "application/json",
-                    },
-                )
-                if r.status_code == 200:
-                    content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                    results["cerebras"] = {"ok": True, "response": content[:50]}
-                else:
-                    results["cerebras"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
-        except Exception as exc:
-            results["cerebras"] = {"ok": False, "error": str(exc)[:300]}
-
-    # ── 2. Test Groq directly ──
+    # ── 1. Test Groq directly ──
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
         results["groq"] = {"ok": False, "error": "GROQ_API_KEY not set"}
@@ -85,6 +56,35 @@ async def llm_test() -> Dict[str, Any]:
                     results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
         except Exception as exc:
             results["groq"] = {"ok": False, "error": str(exc)[:300]}
+
+    # ── 1.5. Test Mistral directly ──
+    mistral_key = os.environ.get("MISTRAL_API_KEY", "")
+    if not mistral_key:
+        results["mistral"] = {"ok": False, "error": "MISTRAL_API_KEY not set"}
+    else:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    json={
+                        "model": "mistral-small-latest",
+                        "messages": messages,
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {mistral_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                if r.status_code == 200:
+                    content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                    results["mistral"] = {"ok": True, "response": content[:50]}
+                else:
+                    results["mistral"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+        except Exception as exc:
+            results["mistral"] = {"ok": False, "error": str(exc)[:300]}
 
     # ── 3. Test Smart Router ──
     try:
@@ -116,8 +116,8 @@ async def llm_test() -> Dict[str, Any]:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
     # ── 3.5. Test NVIDIA directly ──
-    # 2026-09: z-ai/glm-5.2 hit EOL (410 Gone) — replaced with
-    # deepseek-ai/deepseek-v4-flash-0731 (completion-verified live model).
+    # 2026-09 backbone: NVIDIA runs Llama 3.1 Nemotron 70B (llama-3.1-8b
+    # is EOL 410; deepseek swapped out per user directive). Env-overridable.
     # Captures exception type + duration so we can distinguish:
     #   - 401/403  → bad key
     #   - 404      → wrong model name
@@ -142,7 +142,7 @@ async def llm_test() -> Dict[str, Any]:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "deepseek-ai/deepseek-v4-flash-0731",
+                        "model": os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct"),
                         "messages": messages,
                         "max_tokens": 10,
                         "temperature": 0,
@@ -153,7 +153,7 @@ async def llm_test() -> Dict[str, Any]:
                 content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
                 results["nvidia"] = {
                     "ok": True, "response": content[:50],
-                    "model": "deepseek-ai/deepseek-v4-flash-0731", "latency_ms": _nv_latency,
+                    "model": os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct"), "latency_ms": _nv_latency,
                 }
             else:
                 results["nvidia"] = {
@@ -178,24 +178,6 @@ async def llm_test() -> Dict[str, Any]:
     except Exception as exc:
         results["litellm"] = {"ok": False, "error": str(exc)[:300]}
 
-    # ── 5. List available models from each provider ──
-    # This tells us EXACTLY what model names Cerebras and Groq accept.
-    if cerebras_key:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                r = await client.get(
-                    "https://api.cerebras.ai/v1/models",
-                    headers={"Authorization": f"Bearer {cerebras_key}"},
-                )
-                if r.status_code == 200:
-                    models = r.json().get("data", [])
-                    results["cerebras_models"] = [m.get("id", "") for m in models[:20]]
-                else:
-                    results["cerebras_models"] = f"HTTP {r.status_code}: {r.text[:200]}"
-        except Exception as exc:
-            results["cerebras_models"] = f"Error: {str(exc)[:200]}"
-
     if groq_key:
         try:
             import httpx
@@ -217,40 +199,21 @@ async def llm_test() -> Dict[str, Any]:
 
 @router.post("/test-user-keys")
 async def test_user_keys(request: Request) -> Dict[str, Any]:
-    """Test user-provided Cerebras + Groq API keys from Render's server.
+    """Test user-provided Groq + Mistral + NVIDIA API keys from Render's server.
 
     This lets users verify their keys work BEFORE updating Render env vars.
+    (2026-09: backbone-only — cerebras_key param is accepted but ignored.)
     """
     import httpx
     import time as _time
 
     body = await request.json()
-    cerebras_key = body.get("cerebras_key", "")
     groq_key = body.get("groq_key", "")
+    mistral_key = body.get("mistral_key", "")
+    nvidia_key = body.get("nvidia_key", "")
 
     results: Dict[str, Any] = {}
     messages = [{"role": "user", "content": "Reply with: ok"}]
-
-    # Test Cerebras
-    if cerebras_key:
-        t0 = _time.time()
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                r = await client.post(
-                    "https://api.cerebras.ai/v1/chat/completions",
-                    json={"model": "gpt-oss-120b", "messages": messages, "max_tokens": 10},
-                    headers={"Authorization": f"Bearer {cerebras_key}", "Content-Type": "application/json"},
-                )
-            latency_ms = int((_time.time() - t0) * 1000)
-            if r.status_code == 200:
-                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                results["cerebras"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": "gpt-oss-120b"}
-            else:
-                results["cerebras"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
-        except Exception as exc:
-            results["cerebras"] = {"ok": False, "error": str(exc)[:300]}
-    else:
-        results["cerebras"] = {"ok": False, "error": "No cerebras_key provided"}
 
     # Test Groq
     if groq_key:
@@ -274,6 +237,49 @@ async def test_user_keys(request: Request) -> Dict[str, Any]:
             results["groq"] = {"ok": False, "error": str(exc)[:300]}
     else:
         results["groq"] = {"ok": False, "error": "No groq_key provided"}
+
+    # Test Mistral
+    if mistral_key:
+        t0 = _time.time()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    json={"model": "mistral-small-latest", "messages": messages, "max_tokens": 10},
+                    headers={"Authorization": f"Bearer {mistral_key}", "Content-Type": "application/json"},
+                )
+            latency_ms = int((_time.time() - t0) * 1000)
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["mistral"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": "mistral-small-latest"}
+            else:
+                results["mistral"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
+        except Exception as exc:
+            results["mistral"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        results["mistral"] = {"ok": False, "error": "No mistral_key provided"}
+
+    # Test NVIDIA (backbone model: Llama 3.1 Nemotron 70B)
+    if nvidia_key:
+        t0 = _time.time()
+        _nv_model = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    json={"model": _nv_model, "messages": messages, "max_tokens": 10},
+                    headers={"Authorization": f"Bearer {nvidia_key}", "Content-Type": "application/json"},
+                )
+            latency_ms = int((_time.time() - t0) * 1000)
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["nvidia"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": _nv_model}
+            else:
+                results["nvidia"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
+        except Exception as exc:
+            results["nvidia"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        results["nvidia"] = {"ok": False, "error": "No nvidia_key provided"}
 
     return results
 

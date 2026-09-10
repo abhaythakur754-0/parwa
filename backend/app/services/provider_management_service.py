@@ -55,13 +55,13 @@ class AlertLevel(str, Enum):
 
 # Provider display names for human-readable output.
 _PROVIDER_DISPLAY_NAMES: Dict[str, str] = {
-    "google": "Google AI Studio",
-    "cerebras": "Cerebras",
     "groq": "Groq",
+    "mistral": "Mistral",
+    "nvidia": "NVIDIA NIM",
 }
 
 # Ordered list of providers for iteration.
-_KNOWN_PROVIDERS: List[str] = ["google", "cerebras", "groq"]
+_KNOWN_PROVIDERS: List[str] = ["groq", "mistral", "nvidia"]
 
 # Status priority for computing worst-status across models.
 # Higher index = worse status. Used to bubble up provider summary.

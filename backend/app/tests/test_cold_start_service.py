@@ -127,10 +127,18 @@ class TestPrewarmCombos:
         assert len(guardrail) >= 1
         assert guardrail[0].model_id == "llama-guard-4-12b"
 
-    def test_has_llama_4_scout_heavy(self):
+    def test_has_nvidia_nemotron_heavy(self):
+        # 2026-09 backbone-only: heavy prewarm = NVIDIA Llama 3.1 Nemotron
         heavy = [c for c in PREWARM_COMBOS if c.tier == "heavy"]
         model_ids = [c.model_id for c in heavy]
-        assert "llama-4-scout-instruct" in model_ids
+        assert "nvidia/llama-3.1-nemotron-70b-instruct" in model_ids
+
+    def test_no_dead_providers_in_prewarm(self):
+        # Cerebras/Google removed (2026-09)
+        for c in PREWARM_COMBOS:
+            assert c.provider in ("groq", "mistral", "nvidia"), (
+                f"dead provider {c.provider} in prewarm combos"
+            )
 
 
 # ── 4. get_cold_fallback_model always returns something ──────────

@@ -97,15 +97,15 @@ class CircuitBreaker:
 
 
 # ── Provider + Model Registry ─────────────────────────────────────
-# Default provider chain: google → cerebras → groq
-# Default model per tier — will be overridden by Smart Router / config
+# Backbone only (2026-09 user directive): Groq + Mistral + NVIDIA.
+# Cerebras/Google removed (daily caps / dead keys / 402 payment).
 
-DEFAULT_PROVIDERS = ["google", "cerebras", "groq"]
+DEFAULT_PROVIDERS = ["groq", "mistral", "nvidia"]
 
 DEFAULT_MODELS: Dict[str, str] = {
-    "google": "gemini-3.1-flash-lite",
-    "cerebras": "llama-3.1-8b",
-    "groq": "llama-3.1-8b",
+    "groq": "qwen/qwen3.6-27b",
+    "mistral": "mistral-small-latest",
+    "nvidia": "nvidia/llama-3.1-nemotron-70b-instruct",
 }
 
 # Tier → ordered list of (provider, model_id)
@@ -113,30 +113,23 @@ DEFAULT_MODELS: Dict[str, str] = {
 # Each tier has its own chain; on full exhaustion, falls to lower tier.
 FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
     "light": [
-        ("cerebras", "llama-3.1-8b"),
-        ("groq", "llama-3.1-8b"),
-        ("google", "gemma-3-27b-it"),
+        ("groq", "qwen/qwen3.6-27b"),
+        ("mistral", "mistral-small-latest"),
     ],
     "medium": [
-        ("google", "gemini-3.1-flash-lite"),  # Primary: 500 RPD, 250K TPM
-        ("google", "gemini-2.5-flash-preview-05-20"),  # Backup: 1500 RPD
-        ("groq", "llama-3.3-70b-versatile"),
-        ("groq", "qwen3-32b"),
+        ("groq", "qwen/qwen3.6-27b"),
+        ("mistral", "mistral-small-latest"),
         # Falls to LIGHT if all MEDIUM exhausted
-        ("cerebras", "llama-3.1-8b"),
+        ("groq", "qwen/qwen3.6-27b"),
     ],
     "heavy": [
-        ("cerebras", "gpt-oss-120b"),
-        ("groq", "gpt-oss-120b"),
-        ("groq", "llama-4-scout-instruct"),
-        # Falls to MEDIUM then LIGHT
-        ("google", "gemini-3.1-flash-lite"),
-        ("cerebras", "llama-3.1-8b"),
+        ("groq", "qwen/qwen3.6-27b"),
+        ("mistral", "mistral-small-latest"),
+        ("nvidia", "nvidia/llama-3.1-nemotron-70b-instruct"),
     ],
     "guardrail": [
         ("groq", "llama-guard-4-12b"),
         # Guardrail has no fallback tier
-        ("cerebras", "llama-3.1-8b"),
     ],
 }
 

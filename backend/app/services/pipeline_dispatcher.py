@@ -93,20 +93,9 @@ _workers_lock = _threading_mod.Lock()
 # ═══════════════════════════════════════════════════════════════════════
 # TICKET-TO-PROVIDER ASSIGNMENT
 # ═══════════════════════════════════════════════════════════════════════
-# Each ticket is assigned to a MAJOR provider (NVIDIA, Groq, Mistral, Gemini).
-# All LLM calls for that ticket go to the assigned provider.
-# If the major provider returns 429 → switch to BACKUP (Cerebras, Aion).
-# After 60s (rate limit renews) → switch back to major provider.
-#
-# MAJOR PROVIDERS (primary — one ticket each):
-#   1. NVIDIA (40 RPM)     — deep reasoning tickets
-#   2. Groq (30 RPM)        — fast classification tickets
-#   3. Mistral (60 RPM)     — medium/hard tickets
-#   4. Gemini (30 RPM)      — chat/new request tickets
-#
-# BACKUP PROVIDERS (when major is 429'd):
-#   5. Cerebras (5 RPM)
-#   6. Aion Labs (15 RPM)
+# 2026-09 backbone-only directive: tickets are served by the water-filling
+# pool in llm_client (Groq 30 + Mistral 60 + NVIDIA 40 = 130 RPM).
+# Cerebras/Aion/Gemini are REMOVED (daily caps / dead keys).
 # ═══════════════════════════════════════════════════════════════════════
 
 import threading as _t

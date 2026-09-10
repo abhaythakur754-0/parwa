@@ -591,10 +591,11 @@ class LLMGateway:
         elif self.provider == LLMProvider.OPENAI:
             return bool(self._api_key or os.environ.get("OPENAI_API_KEY"))
         elif self.provider == LLMProvider.LITELLM:
+            # Backbone only (2026-09): Groq + Mistral + NVIDIA
             return bool(
-                os.environ.get("GOOGLE_AI_API_KEY")
-                or os.environ.get("CEREBRAS_API_KEY")
-                or os.environ.get("GROQ_API_KEY")
+                os.environ.get("GROQ_API_KEY")
+                or os.environ.get("MISTRAL_API_KEY")
+                or os.environ.get("NVIDIA_API_KEY")
             )
         return False
 

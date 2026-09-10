@@ -409,8 +409,8 @@ PROVIDER_RPM_LIMITS: Dict[ModelProvider, int] = {
     # Default 0 = hard-disabled so no traffic/timeouts are wasted on it.
     # Re-enable with a fresh key: NVIDIA_RPM=40 + valid NVIDIA_API_KEY.
     ModelProvider.NVIDIA: _env_int("NVIDIA_RPM", 0),
-    ModelProvider.GOOGLE: _env_int("GOOGLE_RPM", 15),     # reserve pool only
-    ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # disabled (402 payment)
+    ModelProvider.GOOGLE: _env_int("GOOGLE_RPM", 0),      # removed 2026-09 (daily caps / geo-block)
+    ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # removed 2026-09 (402 payment)
     ModelProvider.AI21: _env_int("AI21_RPM", 0),          # disabled (no key)
 }
 
