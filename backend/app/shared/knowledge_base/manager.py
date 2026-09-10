@@ -91,19 +91,31 @@ class KnowledgeBaseManager:
             chunks = self._chunker.chunk_text(content, filename=filename)
 
             if not chunks:
-                # Empty document — mark completed with 0 chunks
-                doc.status = "completed"
+                # 2026-09-10 FIX: empty extraction is a FAILURE, not success.
+                # Marking 0-chunk docs "completed" produced phantom healthy
+                # KB rows whose retrieval always returned nothing — tickets
+                # then starved of context and escalated. Aligned with the
+                # Celery task behavior (knowledge_tasks.py marks 0-chunk
+                # docs failed). Frontend shows retry for failed docs.
+                _err = (
+                    "No text content could be extracted from the document "
+                    "(0 chunks). The file may be empty, corrupted, or in "
+                    "an unsupported format."
+                )
+                doc.status = "failed"
                 doc.chunk_count = 0
-                doc.error_message = None
+                doc.error_message = _err
+                doc.failed_at = datetime.now(timezone.utc)
                 doc.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
-                logger.info(
-                    "ingest_empty_document document_id=%s company_id=%s",
+                logger.warning(
+                    "ingest_empty_document_marked_failed document_id=%s company_id=%s",
                     document_id, self.company_id)
                 return {
                     "chunk_count": 0,
                     "document_id": document_id,
-                    "status": "completed",
+                    "status": "failed",
+                    "error": _err,
                 }
 
             # Step 2: Generate embeddings and store chunks

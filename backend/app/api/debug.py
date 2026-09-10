@@ -173,7 +173,8 @@ async def llm_test() -> Dict[str, Any]:
     # ── 4. Check litellm ──
     try:
         import litellm
-        results["litellm"] = {"ok": True, "version": litellm.__version__}
+        # Some litellm builds drop __version__ — probe importability, not the attr
+        results["litellm"] = {"ok": True, "version": getattr(litellm, "__version__", "unknown")}
     except Exception as exc:
         results["litellm"] = {"ok": False, "error": str(exc)[:300]}
 
@@ -254,17 +255,19 @@ async def test_user_keys(request: Request) -> Dict[str, Any]:
     # Test Groq
     if groq_key:
         t0 = _time.time()
+        # 2026-09-10: llama-3.1-8b-instant retired (404) — use live pipeline model
+        _groq_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 r = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
-                    json={"model": "llama-3.1-8b-instant", "messages": messages, "max_tokens": 10},
+                    json={"model": _groq_model, "messages": messages, "max_tokens": 10},
                     headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
                 )
             latency_ms = int((_time.time() - t0) * 1000)
             if r.status_code == 200:
                 content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                results["groq"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": "llama-3.1-8b-instant"}
+                results["groq"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": _groq_model}
             else:
                 results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
         except Exception as exc:
@@ -703,8 +706,9 @@ async def test_groq_quota(request: Request) -> Dict[str, Any]:
     if not groq_key:
         return {"error": "No groq_key provided"}
 
+    _groq_quota_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
     results: Dict[str, Any] = {
-        "model": "llama-3.1-8b-instant",
+        "model": _groq_quota_model,
         "calls_made": 0,
         "calls_succeeded": 0,
         "calls_failed": 0,
@@ -724,7 +728,7 @@ async def test_groq_quota(request: Request) -> Dict[str, Any]:
                 r = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     json={
-                        "model": "llama-3.1-8b-instant",
+                        "model": _groq_quota_model,
                         "messages": [{"role": "user", "content": f"Reply with: {i}"}],
                         "max_tokens": 5,
                     },

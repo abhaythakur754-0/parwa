@@ -53,6 +53,11 @@ class ProviderPool:
     """
 
     COOLDOWN_SECONDS: float = 60.0  # Cool down for 60s after a 429
+    # 401/403/402 (key missing/revoked/quota-dead) do NOT self-heal in 60s
+    # (live case 2026-09-10: NVIDIA key inference revoked → every call
+    # 403/hang, retried forever). Park the provider for 15 minutes.
+    AUTH_ERROR_COOLDOWN_SECONDS: float = 900.0
+    TIMEOUT_COOLDOWN_SECONDS: float = 120.0
     MAX_CALLS_PER_PROVIDER: int = 25  # Reset counter after this many success
 
     def __init__(self):
@@ -91,15 +96,43 @@ class ProviderPool:
         # Clear any cooldown on success
         self._cooldown_until.pop(provider_name, None)
 
-    def record_failure(self, provider_name: str, status_code: int = 0):
-        """Record a failed call. If 429/5xx, cool down the provider."""
+    def record_failure(self, provider_name: str, status_code: int = 0, error_text: str = ""):
+        """Record a failed call. If 429/5xx, cool down the provider.
+
+        If 401/403/402 (auth/quota error) or the error text carries auth
+        failure signatures, cool down for AUTH_ERROR_COOLDOWN_SECONDS —
+        a revoked key will not fix itself in 60 seconds.
+        """
         self._call_counts[provider_name] += 1
         self._fail_counts[provider_name] += 1
-        if status_code == 429 or status_code >= 500:
+        _err_lower = (error_text or "").lower()
+        _is_auth = status_code in (401, 402, 403) or any(
+            sig in _err_lower for sig in (
+                "unauthorized", "forbidden", "authorization failed",
+                "invalid api key", "not set — provider key missing",
+                "payment required", "payment_required",
+            )
+        )
+        if _is_auth:
+            self._cooldown_until[provider_name] = time.time() + self.AUTH_ERROR_COOLDOWN_SECONDS
+            logger.error(
+                "provider_penalty_box name=%s status=%d cooldown_until=%.0fs reason=auth_or_quota_error: %s",
+                provider_name, status_code, self.AUTH_ERROR_COOLDOWN_SECONDS, error_text[:120],
+            )
+        elif status_code == 429 or status_code >= 500:
             self._cooldown_until[provider_name] = time.time() + self.COOLDOWN_SECONDS
             logger.warning(
                 "provider_cooldown name=%s status=%d cooldown_until=%.0fs reason=rate_limited_or_server_error",
                 provider_name, status_code, self.COOLDOWN_SECONDS,
+            )
+        elif "timeout" in _err_lower or "timed out" in _err_lower:
+            # Timeouts previously got NO cooldown (status 0) — a slow/hanging
+            # provider was re-tried on every call, burning 60-90s each time.
+            # Cool down for 2 minutes so traffic moves on.
+            self._cooldown_until[provider_name] = time.time() + self.TIMEOUT_COOLDOWN_SECONDS
+            logger.warning(
+                "provider_cooldown name=%s cooldown_until=%.0fs reason=timeout: %s",
+                provider_name, self.TIMEOUT_COOLDOWN_SECONDS, error_text[:120],
             )
 
     def get_status(self) -> Dict[str, Dict]:
@@ -199,6 +232,23 @@ def _record_rpm_use(provider_name: str) -> None:
     lock = tracker._get_provider_lock(p)
     with lock:
         tracker._get_provider_timestamps(p).append(time.time())
+
+
+def _provider_disabled(provider_name: str) -> bool:
+    """True when the provider is hard-disabled via its RPM limit = 0.
+
+    Hard-disabled providers are NEVER called — not as primary, not as
+    reserve, not even when every other window is full. This is what keeps
+    a dead/revoked key (e.g. NVIDIA 2026-09-10) from burning 90s timeouts
+    inside every LLM call. Re-enable purely via env: NVIDIA_RPM=40.
+    """
+    if not _SR_AVAILABLE:
+        return False
+    p = _RPM_NAME_MAP.get(provider_name)
+    if p is None:
+        return False  # aion etc. — self-limited internally, keep enabled
+    from app.core.smart_router import PROVIDER_RPM_LIMITS
+    return PROVIDER_RPM_LIMITS.get(p, 30) <= 0
 
 
 MAX_RETRIES: int = 3
@@ -336,7 +386,10 @@ async def llm_call(
 
     def _order_candidates(cands):
         """Primaries first (most remaining RPM capacity wins, stable for
-        ties so task-size speed preferences survive), then reserves."""
+        ties so task-size speed preferences survive), then reserves.
+        Hard-disabled providers (RPM limit = 0) are removed entirely —
+        they are never tried, even as last resort."""
+        cands = [(n, f) for n, f in cands if not _provider_disabled(n)]
         primaries = [(n, f) for n, f in cands if n in _PRIMARY_PIPELINE_PROVIDERS]
         reserves = [(n, f) for n, f in cands if n not in _PRIMARY_PIPELINE_PROVIDERS]
         primaries.sort(key=lambda nf: -_rpm_remaining(nf[0]))
@@ -344,6 +397,10 @@ async def llm_call(
         return primaries + reserves
 
     for provider_name, provider_fn in _order_candidates(preferred_order):
+        # Hard-disabled providers (RPM limit = 0 via env) are never called.
+        if _provider_disabled(provider_name):
+            continue
+
         # Check if provider is cooling down (429)
         if not pool._is_available(provider_name, []):
             continue
@@ -354,7 +411,7 @@ async def llm_call(
         if _rpm_remaining(provider_name) <= 0:
             others = [
                 n for n, _ in preferred_order
-                if _rpm_remaining(n) > 0 and pool._is_available(n, [])
+                if not _provider_disabled(n) and _rpm_remaining(n) > 0 and pool._is_available(n, [])
             ]
             if others:
                 continue
@@ -371,7 +428,7 @@ async def llm_call(
                 logger.info("LLM call #%d: %s SUCCESS (%d chars, step=%s, tokens=%d)", 
                            call_id, provider_name, len(result), step_type, max_tokens)
                 return result
-            pool.record_failure(provider_name, status_code=0)
+            pool.record_failure(provider_name, status_code=0, error_text="empty response")
             logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
             status_code = 0
@@ -380,11 +437,11 @@ async def llm_call(
                 if part.isdigit():
                     status_code = int(part)
                     break
-            pool.record_failure(provider_name, status_code=status_code)
+            pool.record_failure(provider_name, status_code=status_code, error_text=str(exc))
             logger.warning("LLM call #%d: %s failed (status=%d): %s", 
                           call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:
-            pool.record_failure(provider_name, status_code=0)
+            pool.record_failure(provider_name, status_code=0, error_text=str(exc))
             logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
 
     # ── LAST RESORT: Smart Router (LiteLLM — 11 models) ──

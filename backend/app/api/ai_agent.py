@@ -18,6 +18,7 @@ All responses use structured JSON (BC-012).
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query
@@ -230,7 +231,7 @@ def get_agent_detail(
 
 
 @router.post("")
-def create_agent(
+async def create_agent(
     body: AgentCreateRequest,
     user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
@@ -239,6 +240,13 @@ def create_agent(
     """Create a new agent assignment.
 
     Company-scoped: company_id is extracted and logged for audit.
+
+    2026-09-10 FIX: also generates the agent's Superglue tool (same hook
+    the onboarding flow uses, onboarding_build.py). Previously UI-created
+    agents got NO tool — superglue_tool_id stayed None and agent pipeline
+    steps had nothing to execute. Tool generation failure never fails the
+    request: the agent is created, tool status is 'failed' and can be
+    regenerated later.
     """
     logger.info(
         "create_agent called | company_id=%s | agent_name=%s",
@@ -256,6 +264,68 @@ def create_agent(
         instructions=body.instructions,
         restrictions=body.restrictions,
     )
+
+    # ── Superglue tool generation (SG hook, mirrors onboarding_build.py) ──
+    try:
+        from app.core.superglue_client import is_configured as superglue_is_configured
+        from app.core.superglue_tool_generator import generate_tool_for_agent
+
+        if superglue_is_configured():
+            agent.superglue_tool_status = "pending"
+            db.commit()
+
+            _capabilities = body.capabilities or ""
+            if isinstance(_capabilities, (list, tuple)):
+                _capabilities = ", ".join(str(c) for c in _capabilities)
+            _instructions = body.instructions or (
+                f"Handle {body.agent_name}-related customer tickets."
+            )
+
+            result = await generate_tool_for_agent(
+                agent_name=body.agent_name,
+                agent_instructions=_instructions,
+                agent_capabilities=str(_capabilities),
+                sample_ticket=None,
+                tenant_integrations=None,
+            )
+            if result.get("success"):
+                agent.superglue_tool_id = result.get("tool_id")
+                agent.superglue_tool_status = "active"
+                agent.superglue_tool_definition = json.dumps(
+                    result.get("tool_definition", {})
+                )
+                agent.superglue_tool_created_at = datetime.now(timezone.utc)
+                logger.info(
+                    "superglue_tool_created | company_id=%s | agent=%s | tool_id=%s",
+                    company_id, body.agent_name, result.get("tool_id"),
+                )
+            else:
+                agent.superglue_tool_status = "failed"
+                logger.warning(
+                    "superglue_tool_generation_failed | company_id=%s | agent=%s | error=%s",
+                    company_id, body.agent_name, str(result.get("error"))[:200],
+                )
+            db.commit()
+        else:
+            agent.superglue_tool_status = "failed"
+            db.commit()
+            logger.warning(
+                "superglue_not_configured — agent created without tool | company_id=%s | agent=%s",
+                company_id, body.agent_name,
+            )
+    except Exception as exc:
+        # NEVER fail agent creation because tool generation blew up
+        db.rollback()
+        try:
+            agent.superglue_tool_status = "failed"
+            db.commit()
+        except Exception:
+            pass
+        logger.error(
+            "superglue_tool_hook_error | company_id=%s | agent=%s | error=%s",
+            company_id, body.agent_name, str(exc)[:300],
+        )
+
     return _serialize_agent(agent, company_id=company_id)
 
 

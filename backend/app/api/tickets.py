@@ -1092,11 +1092,13 @@ def resume_pipeline(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    # Check ticket is actually paused (awaiting_human)
-    if ticket.status != "awaiting_human":
+    # Check ticket is actually paused (awaiting_human) or awaiting review
+    # (review_needed = fresh tenant without agents/KB — also needs human
+    # guidance; before 2026-09-10 these were invisible in Escalations).
+    if ticket.status not in ("awaiting_human", "review_needed"):
         raise HTTPException(
             status_code=400,
-            detail=f"Ticket is not paused (status={ticket.status}). Only awaiting_human tickets can be resumed.",
+            detail=f"Ticket is not paused (status={ticket.status}). Only awaiting_human / review_needed tickets can be resumed.",
         )
 
     logger.info("resume_pipeline ticket=%s guidance_len=%d", ticket_id, len(body.guidance))
@@ -1146,10 +1148,14 @@ def resume_pipeline(
     logger.info("resume_groq ticket=%s", ticket_id)
 
     try:
+        # 2026-09-10: llama-3.1-8b-instant is RETIRED on Groq (404) — the
+        # whole resume flow silently 404'd since the model died. Same live
+        # model as the pipeline (GROQ_MODEL env-overridable).
+        _resume_model = _os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
         r = _httpx.post(
             "https://api.groq.com/openai/v1/chat/completions",
             json={
-                "model": "llama-3.1-8b-instant",
+                "model": _resume_model,
                 "messages": [
                     {"role": "system", "content": "You are a professional customer support agent. Write a helpful, empathetic response based on the guidance provided."},
                     {"role": "user", "content": direct_prompt},
@@ -1183,6 +1189,15 @@ def resume_pipeline(
         }
 
     ai_response = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+
+    # qwen3.x is a hybrid reasoner — strip <think>…</think> blocks so
+    # customers never see model reasoning (same fix as llm_client.py).
+    try:
+        from app.core.email_utils import strip_reasoning as _strip_reasoning
+        ai_response = _strip_reasoning(ai_response or "")
+    except Exception:
+        import re as _re
+        ai_response = _re.sub(r"<think>[\s\S]*?</think>", "", ai_response or "").strip()
 
     if not ai_response or len(ai_response) < 10:
         return {

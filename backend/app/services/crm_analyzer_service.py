@@ -495,7 +495,9 @@ class CRMAnalyzerService:
         ]
 
         payload = {
-            "model": "llama-3.1-8b-instant",  # Groq — user-validated best model
+            # 2026-09-10: llama-3.1-8b-instant RETIRED on Groq (404).
+            # Same live model as the pipeline (GROQ_MODEL env-overridable).
+            "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"),
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -516,6 +518,14 @@ class CRMAnalyzerService:
             if r.status_code == 200:
                 data = r.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                # qwen3.x is a hybrid reasoner — strip <think>…</think> so
+                # the JSON parsers downstream never see model reasoning.
+                try:
+                    from app.core.email_utils import strip_reasoning
+                    content = strip_reasoning(content or "")
+                except Exception:
+                    import re as _re
+                    content = _re.sub(r"<think>[\s\S]*?</think>", "", content or "").strip()
                 usage = data.get("usage", {})
                 logger.info(
                     "Groq CRM analysis complete: tokens=%s (prompt=%s, completion=%s)",

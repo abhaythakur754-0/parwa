@@ -402,9 +402,14 @@ def _env_float(name: str, default: float) -> float:
 PROVIDER_RPM_LIMITS: Dict[ModelProvider, int] = {
     ModelProvider.GROQ: _env_int("GROQ_RPM", 30),
     ModelProvider.MISTRAL: _env_int("MISTRAL_RPM", 60),   # 1 req/sec free tier
-    ModelProvider.NVIDIA: _env_int("NVIDIA_RPM", 40),     # NIM "up to 40 RPM"
+    # 2026-09-10: NVIDIA key's INFERENCE access was revoked server-side —
+    # every chat call returns 403 "Authorization failed" (catalog listing
+    # still returns 200) and from Render the same call hangs ~90s.
+    # Default 0 = hard-disabled so no traffic/timeouts are wasted on it.
+    # Re-enable with a fresh key: NVIDIA_RPM=40 + valid NVIDIA_API_KEY.
+    ModelProvider.NVIDIA: _env_int("NVIDIA_RPM", 0),
     ModelProvider.GOOGLE: _env_int("GOOGLE_RPM", 15),     # reserve pool only
-    ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # disabled (too low)
+    ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # disabled (402 payment)
     ModelProvider.AI21: _env_int("AI21_RPM", 0),          # disabled (no key)
 }
 
@@ -483,6 +488,9 @@ class ProviderHealthTracker:
 
     CONSECUTIVE_FAILURE_THRESHOLD = 3
     RATE_LIMIT_COOLDOWN_SECONDS = 60
+    # 401/403/402 (key missing, revoked, or quota-dead) — these do not
+    # self-heal in 60s, so park the provider for 15 minutes per strike.
+    AUTH_ERROR_COOLDOWN_SECONDS = 900
     RATE_LIMIT_RETRY_AFTER_DEFAULT = 60  # seconds when 429 has no Retry-After
 
     # Class-level shared state — all instances share the same tracker
@@ -673,6 +681,27 @@ class ProviderHealthTracker:
 
         usage.consecutive_failures += 1
         usage.last_error = error_msg
+
+        # ── Auth errors: cool down HARD and LONG ────────────────────
+        # 401/403 mean the key is missing/revoked/quota-dead. These do
+        # NOT self-heal in 60s (live case 2026-09-10: NVIDIA key's
+        # inference access revoked → every call 403/hang, retried forever).
+        # Penalty-box the provider for 15 minutes so traffic shifts to
+        # healthy providers immediately instead of burning every window.
+        _err_lower = (error_msg or "").lower()
+        _is_auth_error = any(
+            sig in _err_lower
+            for sig in ("401", "403", "unauthorized", "forbidden", "authorization failed", "invalid api key", "payment_required", "402")
+        )
+        if _is_auth_error:
+            usage.rate_limited_until = time.time() + self.AUTH_ERROR_COOLDOWN_SECONDS
+            usage.is_healthy = False
+            usage.marked_unhealthy_at = time.time()
+            logger.error(
+                "Auth/quota error on %s — provider PENALTY-BOXED for %ds: %s",
+                registry_key, self.AUTH_ERROR_COOLDOWN_SECONDS, error_msg[:200],
+            )
+            return
 
         if usage.consecutive_failures >= self.CONSECUTIVE_FAILURE_THRESHOLD:
             usage.is_healthy = False

@@ -926,7 +926,9 @@ export default function EscalationsPage() {
     if (!tenantId) return;
     let cancelled = false;
     setAwaitingLoading(true);
-    fetch('/api/v1/tickets?status=awaiting_human&page=1&page_size=50', { credentials: 'include' })
+    // 2026-09-10: also show review_needed tickets (fresh tenants without
+    // agents/KB land there). Backend supports repeated status params.
+    fetch('/api/v1/tickets?status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (cancelled) return;
@@ -940,7 +942,7 @@ export default function EscalationsPage() {
 
   // Refresh awaiting tickets when guidance is submitted
   const refreshAwaiting = useCallback(() => {
-    fetch('/api/v1/tickets?status=awaiting_human&page=1&page_size=50', { credentials: 'include' })
+    fetch('/api/v1/tickets?status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         const items = data?.items || data?.tickets || (Array.isArray(data) ? data : []);
