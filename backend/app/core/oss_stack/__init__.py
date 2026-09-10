@@ -23,7 +23,8 @@ Modules:
   channels    — email (imap-tools) + telegram (aiogram) pollers, env-gated.
 
 Env flags (all default to safe values):
-  OSS_EMBEDDINGS=1    enable local embeddings at KB upload + retrieval fallback
+  OSS_EMBEDDINGS=1    enable local embeddings (opt-in; ~150-300MB RAM — OFF by
+                          default, OOM-killed the 512MB free instance)
   OSS_DOCPARSE=1      enable MarkItDown parsing of PDF/DOCX uploads
   OSS_PII=0           enable Presidio redaction before prompts/logs (off until tested)
   OSS_INTENT=0        enable local zero-shot triage (off until wired to UI)
@@ -53,7 +54,7 @@ def _flag(name: str, default: bool) -> bool:
 def availability() -> dict:
     """Report which OSS components are installed and enabled. Used by verify script."""
     return {
-        "fastembed": {"installed": _has("fastembed"), "enabled": _flag("OSS_EMBEDDINGS", True)},
+        "fastembed": {"installed": _has("fastembed"), "enabled": _flag("OSS_EMBEDDINGS", False)},
         "markitdown": {"installed": _has("markitdown"), "enabled": _flag("OSS_DOCPARSE", True)},
         "presidio": {
             "installed": _has("presidio_analyzer") and _has("presidio_anonymizer"),

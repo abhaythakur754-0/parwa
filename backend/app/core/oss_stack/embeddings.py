@@ -35,7 +35,14 @@ def is_available() -> bool:
 
         if importlib.util.find_spec("fastembed") is None:
             return False
-        return os.environ.get("OSS_EMBEDDINGS", "1").strip() in ("1", "true", "yes", "on")
+        # 2026-09-10: default OFF. The ONNX MiniLM model costs ~150-300MB
+        # resident (+ a ~90MB download on first call) — on the 512MB Render
+        # free instance loading it mid-pipeline OOM-killed the whole web
+        # service 1-2 min after every ticket creation (the crash-loop's
+        # final leg). BM25 retrieval (pure SQL) still runs without it, and
+        # remote embeddings (Google) remain primary for chunk vectors.
+        # Opt back in on bigger instances: OSS_EMBEDDINGS=1.
+        return os.environ.get("OSS_EMBEDDINGS", "0").strip() in ("1", "true", "yes", "on")
     except Exception:
         return False
 
