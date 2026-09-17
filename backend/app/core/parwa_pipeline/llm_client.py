@@ -862,7 +862,7 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
             _queue_row = LLMRequestQueue(
                 id=request_id,
                 provider="nvidia",
-                model=os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct"),
+                model=os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"),
                 messages=_json.dumps(messages),
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -878,12 +878,11 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
         # Don't fail the call if DB persistence fails — just log
         logger.warning("llm_queue_persist_failed: %s", str(persist_exc)[:200])
 
-    # 2026-09: meta/llama-3.1-8b-instruct is EOL on NVIDIA NIM (410 Gone).
-    # nvidia/llama-3.1-nemotron-70b-instruct is the live Llama-3.1-family
-    # model in NVIDIA's current catalog. It is a hybrid REASONER — <think>
-    # blocks are stripped on the success path below (same guard as groq).
-    # Override with NVIDIA_MODEL env if needed.
-    _nvidia_model = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+    # 2026-09 (revalidated with real nvapi key): nemotron-70b 404s on new
+    # accounts; z-ai/glm-5.3-flash verified live (~2.4s, clean content).
+    # GLM may emit <think> — stripped on the success path below (same guard
+    # as groq). Override with NVIDIA_MODEL env if needed.
+    _nvidia_model = os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash")
 
     payload = {
         "model": _nvidia_model,

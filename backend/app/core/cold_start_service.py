@@ -122,7 +122,7 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
     ),
     # HEAVY tier
     PREWARM_COMBO(
-        model_id="nvidia/llama-3.1-nemotron-70b-instruct",
+        model_id="z-ai/glm-5.3-flash",
         provider="nvidia",
         tier="heavy",
         probe_query="Complex analysis",
@@ -365,7 +365,7 @@ class ColdStartService:
             ("mistral", "mistral-small-latest", "light"),
             ("groq", "qwen/qwen3.6-27b", "medium"),
             ("mistral", "mistral-small-latest", "medium"),
-            ("nvidia", "nvidia/llama-3.1-nemotron-70b-instruct", "heavy"),
+            ("nvidia", "z-ai/glm-5.3-flash", "heavy"),
         ]
 
         # If tenant has warmup state, find the best warm model

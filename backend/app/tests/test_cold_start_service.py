@@ -127,11 +127,11 @@ class TestPrewarmCombos:
         assert len(guardrail) >= 1
         assert guardrail[0].model_id == "llama-guard-4-12b"
 
-    def test_has_nvidia_nemotron_heavy(self):
-        # 2026-09 backbone-only: heavy prewarm = NVIDIA Llama 3.1 Nemotron
+    def test_has_nvidia_heavy(self):
+        # 2026-09 backbone-only: heavy prewarm = NVIDIA GLM 5.3 Flash
         heavy = [c for c in PREWARM_COMBOS if c.tier == "heavy"]
         model_ids = [c.model_id for c in heavy]
-        assert "nvidia/llama-3.1-nemotron-70b-instruct" in model_ids
+        assert "z-ai/glm-5.3-flash" in model_ids
 
     def test_no_dead_providers_in_prewarm(self):
         # Cerebras/Google removed (2026-09)

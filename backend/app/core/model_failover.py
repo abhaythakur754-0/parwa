@@ -105,7 +105,7 @@ DEFAULT_PROVIDERS = ["groq", "mistral", "nvidia"]
 DEFAULT_MODELS: Dict[str, str] = {
     "groq": "qwen/qwen3.6-27b",
     "mistral": "mistral-small-latest",
-    "nvidia": "nvidia/llama-3.1-nemotron-70b-instruct",
+    "nvidia": "z-ai/glm-5.3-flash",
 }
 
 # Tier → ordered list of (provider, model_id)
@@ -125,7 +125,7 @@ FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
     "heavy": [
         ("groq", "qwen/qwen3.6-27b"),
         ("mistral", "mistral-small-latest"),
-        ("nvidia", "nvidia/llama-3.1-nemotron-70b-instruct"),
+        ("nvidia", "nvidia/nemotron-3-super-120b-a12b"),
     ],
     "guardrail": [
         ("groq", "llama-guard-4-12b"),

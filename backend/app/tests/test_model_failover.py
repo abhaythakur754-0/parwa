@@ -168,10 +168,10 @@ class TestFailoverChains:
         model_ids = [m for _, m in medium]
         assert "mistral-small-latest" in model_ids
 
-    def test_heavy_chain_has_nvidia_nemotron(self):
+    def test_heavy_chain_has_nvidia(self):
         heavy = FAILOVER_CHAINS.get("heavy", [])
         model_ids = [m for _, m in heavy]
-        assert "nvidia/llama-3.1-nemotron-70b-instruct" in model_ids
+        assert "nvidia/nemotron-3-super-120b-a12b" in model_ids
 
     def test_no_dead_providers_in_chains(self):
         # Cerebras/Google removed from all chains (2026-09)

@@ -38,13 +38,21 @@ AI_HEAVY_MODEL = os.environ.get("AI_HEAVY_MODEL", "groq/gpt-oss-120b")
 AI_FAILOVER_MODEL = os.environ.get("AI_FAILOVER_MODEL", "groq/llama-3.1-8b-instant")
 
 # Legacy NVIDIA config kept for emergency fallback only
-# 2026-09: meta/llama-3.1-8b-instruct is EOL on NVIDIA NIM (410 Gone,
-# retired 2026-08-26). nvidia/llama-3.1-nemotron-70b-instruct is the live
-# Llama-3.1-family model (in NVIDIA's current 80-model catalog).
-# NOTE: nemotron is a hybrid reasoner — call sites must strip <think>.
+# 2026-09 (revalidated with a real nvapi-* key, live-fire tested):
+#   - meta/llama-3.1-8b-instruct EOL (410), llama-3.1-nemotron-70b/51b/ultra
+#     all 404 "Not found for account" on NEW build.nvidia.com accounts.
+#   - VERIFIED LIVE on-account: z-ai/glm-5.3-flash (~2.4s, clean),
+#     nvidia/nemotron-3-super-120b-a12b (~8.3s, strongest),
+#     openai/gpt-oss-20b (~3.9s), nemotron-3-nano-omni (reasoning kept in
+#     separate reasoning_content field — content stays clean).
+#   - AVOID nvidia/nemotron-3.5-lightning-30b-a3b: leaks CoT prose into content.
+# NOTE: GLM/nemotron models may emit <think> — call sites strip it (kept).
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_API_BASE = "https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash")
+# Heavy tier gets the strongest verified model (also spreads load across two
+# per-model rate-limit buckets on the free 40 RPM account).
+NVIDIA_HEAVY_MODEL = os.environ.get("NVIDIA_HEAVY_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 
 # Rate limit: Conservative default for free tiers
 LLM_RPM_LIMIT = 30

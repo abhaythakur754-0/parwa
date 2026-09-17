@@ -116,7 +116,7 @@ async def llm_test() -> Dict[str, Any]:
         results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
 
     # ── 3.5. Test NVIDIA directly ──
-    # 2026-09 backbone: NVIDIA runs Llama 3.1 Nemotron 70B (llama-3.1-8b
+    # 2026-09 backbone: NVIDIA runs z-ai/glm-5.3-flash (llama-3.1-8b
     # is EOL 410; deepseek swapped out per user directive). Env-overridable.
     # Captures exception type + duration so we can distinguish:
     #   - 401/403  → bad key
@@ -142,7 +142,7 @@ async def llm_test() -> Dict[str, Any]:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct"),
+                        "model": os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"),
                         "messages": messages,
                         "max_tokens": 10,
                         "temperature": 0,
@@ -153,7 +153,7 @@ async def llm_test() -> Dict[str, Any]:
                 content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
                 results["nvidia"] = {
                     "ok": True, "response": content[:50],
-                    "model": os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct"), "latency_ms": _nv_latency,
+                    "model": os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"), "latency_ms": _nv_latency,
                 }
             else:
                 results["nvidia"] = {
@@ -259,10 +259,10 @@ async def test_user_keys(request: Request) -> Dict[str, Any]:
     else:
         results["mistral"] = {"ok": False, "error": "No mistral_key provided"}
 
-    # Test NVIDIA (backbone model: Llama 3.1 Nemotron 70B)
+    # Test NVIDIA (backbone model: GLM 5.3 Flash)
     if nvidia_key:
         t0 = _time.time()
-        _nv_model = os.environ.get("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+        _nv_model = os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash")
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.post(
