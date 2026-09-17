@@ -405,12 +405,15 @@ def _env_float(name: str, default: float) -> float:
 PROVIDER_RPM_LIMITS: Dict[ModelProvider, int] = {
     ModelProvider.GROQ: _env_int("GROQ_RPM", 30),
     ModelProvider.MISTRAL: _env_int("MISTRAL_RPM", 60),   # 1 req/sec free tier
-    # 2026-09-10: NVIDIA key's INFERENCE access was revoked server-side —
-    # every chat call returns 403 "Authorization failed" (catalog listing
-    # still returns 200) and from Render the same call hangs ~90s.
-    # Default 0 = hard-disabled so no traffic/timeouts are wasted on it.
-    # Re-enable with a fresh key: NVIDIA_RPM=40 + valid NVIDIA_API_KEY.
-    ModelProvider.NVIDIA: _env_int("NVIDIA_RPM", 0),
+    # 2026-09 (revalidated with real nvapi key, live-fire): key VALID,
+    # models z-ai/glm-5.3-flash + nvidia/nemotron-3-super-120b-a12b answer.
+    # AUTO-ACTIVATION: default 40 RPM whenever NVIDIA_API_KEY exists, 0
+    # otherwise — no env var needed. Old 0-default was for the revoked key
+    # (403 on every call, ~90s hangs); that failure mode is gone. Explicit
+    # NVIDIA_RPM env still overrides (set 0 to force-disable).
+    ModelProvider.NVIDIA: _env_int(
+        "NVIDIA_RPM", 40 if os.environ.get("NVIDIA_API_KEY", "").strip() else 0
+    ),
     ModelProvider.GOOGLE: _env_int("GOOGLE_RPM", 0),      # removed 2026-09 (daily caps / geo-block)
     ModelProvider.CEREBRAS: _env_int("CEREBRAS_RPM", 0),  # removed 2026-09 (402 payment)
     ModelProvider.AI21: _env_int("AI21_RPM", 0),          # disabled (no key)
