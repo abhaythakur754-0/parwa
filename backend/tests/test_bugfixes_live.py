@@ -211,3 +211,19 @@ def test_dispatch_guard_present_in_source():
     src = (BACKEND_DIR / "app" / "core" / "channel_dispatcher.py").read_text()
     assert "deduplicated" in src
     assert 'TicketMessage.role == "ai"' in src
+
+
+# ── 4: stale-claim recovery (crash/deploy restart must not strand tickets) ─
+
+def test_stale_processing_recovery_wired():
+    # Default threshold must be 20 min (4x the worst healthy pipeline).
+    out = _run_py(
+        "import app.services.pipeline_dispatcher as p; "
+        "print(p.STALE_PROCESSING_MINUTES)"
+    )
+    assert out == "20"
+    # The claim SQL must include the stale-processing branch so a worker
+    # death (OOM / deploy restart) cannot strand a ticket forever.
+    src = (BACKEND_DIR / "app" / "services" / "pipeline_dispatcher.py").read_text()
+    assert "OR (status = 'processing'" in src
+    assert "STALE_PROCESSING_MINUTES" in src

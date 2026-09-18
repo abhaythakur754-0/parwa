@@ -94,6 +94,12 @@ import time as _time_mod
 # restarts on OOM, drop back via env MAX_CONCURRENT_PIPELINES=3 (env always
 # wins over this default). Paid plans (1GB+) can go higher.
 MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "4"))
+
+# A 'processing' ticket older than this is a DEAD claim (worker died — OOM
+# restart / deploy restart on Render free). Workers reclaim it. Must be well
+# above the slowest healthy pipeline (~5 min on free LLMs) so a LIVE pipeline
+# is never double-claimed. 20 min = 4x the observed worst healthy runtime.
+STALE_PROCESSING_MINUTES = int(os.environ.get("STALE_PROCESSING_MINUTES", "20"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 
@@ -132,11 +138,26 @@ def _claim_next_ticket():
             # Within same channel+priority: oldest first (updated_at ASC)
             # This ensures live customers (chat/phone) are served before async (email),
             # because a chat customer will leave in 30s while email can wait hours.
+            #
+            # STALE-CLAIM RECOVERY (live bug 2026-09-18): the worker that claimed
+            # a ticket can DIE mid-pipeline — Render free tier restarts on OOM and
+            # every deploy restarts the process. The claim then stayed 'processing'
+            # FOREVER (no sweeper existed; proven live: ticket stuck 40+ min after
+            # a backend restart). Now a 'processing' ticket whose updated_at is
+            # older than STALE_PROCESSING_MINUTES is treated as claimable again:
+            # a healthy pipeline never takes that long, so the original claim is
+            # certainly dead. Open tickets and stale claims compete in the same
+            # ordering (stale ones sort first within their channel+priority via
+            # updated_at ASC — they are the oldest).
             result = db.execute(text(
                 "UPDATE tickets SET status = 'processing', updated_at = NOW() "
                 "WHERE id = ("
                 "  SELECT id FROM tickets "
-                "  WHERE status = 'open' "
+                "  WHERE ("
+                "    status = 'open'"
+                "    OR (status = 'processing' "
+                "        AND updated_at < NOW() - (:stale_minutes * INTERVAL '1 minute'))"
+                "  ) "
                 "  ORDER BY "
                 "    CASE channel "
                 "      WHEN 'phone' THEN 0 "
@@ -159,7 +180,7 @@ def _claim_next_ticket():
                 "  LIMIT 1"
                 ") "
                 "RETURNING id, company_id, channel"
-            ))
+            ), {"stale_minutes": STALE_PROCESSING_MINUTES})
             row = result.fetchone()
             db.commit()
             if row:
