@@ -4,12 +4,14 @@ on a z.ai space box instead of inside Render.
 
 WHY THIS EXISTS
 Render free tier has 512MB RAM. Each concurrent pipeline costs ~45MB,
-so Render can hold 3 lanes (MAX_CONCURRENT_PIPELINES=3, unchanged here).
+so Render holds its own lanes (MAX_CONCURRENT_PIPELINES, free-tier
+default now 4 — unchanged here).
 This process claims tickets from the SAME database queue
 (tickets.status='open') using the SAME _start_pipeline_workers() code
-from pipeline_dispatcher, so Render's 3 lanes and this box's lanes
+from pipeline_dispatcher, so Render's lanes and this box's lanes
 share one queue safely (SELECT ... FOR UPDATE SKIP LOCKED = no double
-claims). Total lanes = 3 (Render) + SPACE_CONCURRENCY (this box).
+claims). Total lanes = MAX_CONCURRENT_PIPELINES (Render, default 4)
++ SPACE_CONCURRENCY (this box).
 
 SAFETY GUARD (runs on EVERY start):
 Refuses to boot unless the database user is the limited "variant_agent"

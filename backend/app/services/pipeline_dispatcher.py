@@ -86,13 +86,14 @@ import time as _time_mod
 #
 # 2026-09-17 memory math (512MB free tier, pipeline ~45MB each):
 #   base process ~150MB + cap×45MB pipelines + Jarvis(2)/variant/redis ~60MB
-#   cap=2 -> ~300MB (safe)     cap=3 -> ~345MB (safe, ~165MB headroom)
+#   cap=3 -> ~345MB (safe, ~165MB headroom)
 #   cap=4 -> ~390MB (borderline: RAG/embedding spikes can push near 512MB)
 #   cap=10 -> OOM-killed (proven 2026-09-10)
-# Background load is light (Jarvis semaphore=2, jarvis_cc=1, no other heavy
-# tenants), so default raised 2 -> 3. Env-overridable: MAX_CONCURRENT_PIPELINES=4
-# on paid plans (1GB+) or when monitoring shows stable RSS.
-MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "3"))
+# User rollout decision (free tier): default raised 3 -> 4 WITH a monitoring
+# plan — watch Render's memory graph for a few days; if the service ever
+# restarts on OOM, drop back via env MAX_CONCURRENT_PIPELINES=3 (env always
+# wins over this default). Paid plans (1GB+) can go higher.
+MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "4"))
 _workers_started = False
 _workers_lock = _threading_mod.Lock()
 

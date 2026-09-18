@@ -10,7 +10,7 @@ worker).
 
 ```
 Tickets (database queue, status='open')
-   ├── Render box:      3 lanes  (unchanged, MAX_CONCURRENT_PIPELINES=3)
+   ├── Render box:      4 lanes  (free-tier default, MAX_CONCURRENT_PIPELINES=4)
    └── z.ai space box:  2 lanes  (SPACE_CONCURRENCY=2, raise anytime)
                             └── each extra lane here costs ~5MB, not Render RAM
 ```
@@ -94,8 +94,8 @@ Jarvis's awareness tick gains:
    The ticket worker physically cannot touch Jarvis's queue.
 4. **No secrets** — auth/billing/api-key tables are fully revoked. LLM keys
    live in the space box's own env vars, never read from the DB.
-5. **Failover is free** — space dies? Render's 3 lanes keep solving. Queue
-   is in the database; nothing is lost.
+5. **Failover is free** — space dies? Render's lanes (default 4) keep
+   solving. Queue is in the database; nothing is lost.
 
 ## Honest limitations
 
