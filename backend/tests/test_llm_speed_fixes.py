@@ -36,6 +36,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -44,9 +45,15 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 def _run_py(code: str, extra_env: dict | None = None, timeout: int = 120) -> str:
-    """Run python in a clean subprocess from the backend dir."""
+    """Run python in a clean subprocess from the backend dir.
+
+    2026-09-18: DATABASE_URL is HARD-SET (not setdefault) to a UNIQUE fresh
+    sqlite file per run — the shell/tooling env can carry a pre-set
+    DATABASE_URL (z.ai template dev db), and recovery tests must never
+    read or write a foreign database.
+    """
     env = dict(os.environ)
-    env.setdefault("DATABASE_URL", "sqlite:///./test_llm_speed_tmp.db")
+    env["DATABASE_URL"] = f"sqlite:///./test_llm_speed_{uuid.uuid4().hex[:8]}.db"
     env.pop("NVIDIA_API_KEY", None)  # tests set their own
     if extra_env:
         env.update(extra_env)
@@ -102,20 +109,18 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_llm_recovery_tmp.db")
-DB_PATH = "./test_llm_recovery_tmp.db"
-if os.path.exists(DB_PATH):
-    os.remove(DB_PATH)
+# HARD-SET (never setdefault) — the parent env may carry a foreign
+# DATABASE_URL; this test must own its database.
+os.environ["DATABASE_URL"] = "sqlite:///./test_llm_recovery_" + uuid.uuid4().hex[:8] + ".db"
 
 import app.core.parwa_pipeline.llm_client as lc
 from database.base import SessionLocal
 from database.models.core import LLMRequestQueue
-from sqlalchemy.orm import sessionmaker
 
 engine = None
 from database.base import engine as _engine
 try:
-    LLMRequestQueue.__table__.create(_engine)  # checkfirst-style: tolerate import-chain create_all
+    LLMRequestQueue.__table__.create(_engine)  # tolerate import-chain create_all
 except Exception as e:
     if "already exists" not in str(e):
         raise
@@ -154,11 +159,16 @@ for key, spec in rows.items():
 db.commit()
 db.close()
 
-fired = []
-call_started = asyncio.Event()
+fired_ids = []
+_orig_retry = lc._retry_single_llm_request
+
+async def counting_retry(**kw):
+    fired_ids.append(kw["request_id"])
+    await _orig_retry(**kw)
+
+lc._retry_single_llm_request = counting_retry
 
 async def fake_nvidia(messages, temperature, max_tokens, call_id):
-    fired.append("called")
     await asyncio.sleep(1.5)  # simulate a slow re-fire still running
     return "ok"
 
@@ -174,46 +184,41 @@ async def main():
 
 asyncio.run(main())
 
+# Per-row assertions — immune to stray rows from any foreign database.
+MY_FIRED = set(fired_ids)
+MY_FIRED_LIST = list(fired_ids)
+
 db = SessionLocal()
 def get(rid):
     return db.query(LLMRequestQueue).filter(LLMRequestQueue.id == rid).first()
 
-# fresh in-flight: untouched
+# fresh in-flight: untouched and NEVER fired
 fresh = get(sid["fresh_inprog"])
 assert fresh is not None and fresh.status == "in_progress", "fresh row was touched!"
+assert sid["fresh_inprog"] not in MY_FIRED, "fresh row was fired!"
 
-# future rate_limited: untouched
+# future rate_limited: untouched and NEVER fired
 f_rl = get(sid["future_rl"])
 assert f_rl is not None and f_rl.status == "rate_limited", "future 429 row was touched!"
+assert sid["future_rl"] not in MY_FIRED, "future 429 row was fired!"
 
-# unknown provider: drained to failed
+# unknown provider: drained to failed, never fired
 wp = get(sid["wrong_provider"])
 assert wp is not None and wp.status == "failed", "unknown-provider row not drained!"
+assert sid["wrong_provider"] not in MY_FIRED, "unknown-provider row was fired!"
 
-# stale rows: fired, then row deleted on success
-# fired count: each stale row exactly once (in-flight guard held in cycle 2)
-# due_rl row may ALSO have been fired in cycle 2 if cycle-1 task finished
-# within 2.5s — 1.5s sleep makes that possible, so assert <= 2 and that the
-# stale_inprog row fired at most once per cycle guard. The critical live bug
-# was unbounded re-firing every 30s; bounded counts prove the fix.
-import time
-deadline = time.time() + 5
-while time.time() < deadline and fired and len(fired) < 2:
-    time.sleep(0.2)
+# stale rows: fired EXACTLY ONCE (in-flight guard blocked cycle-2 re-fire),
+# then deleted on success.
+assert MY_FIRED_LIST.count(sid["stale_inprog"]) == 1, (
+    f"stale_inprog fired {MY_FIRED_LIST.count(sid['stale_inprog'])} times — guard leak!"
+)
+assert MY_FIRED_LIST.count(sid["due_rl"]) == 1, (
+    f"due_rl fired {MY_FIRED_LIST.count(sid['due_rl'])} times — guard leak!"
+)
+assert get(sid["stale_inprog"]) is None, "stale row not deleted after successful retry"
+assert get(sid["due_rl"]) is None, "due_rl row not deleted after successful retry"
 
 db.close()
-
-# stale_inprog + due_rl both fired; fresh + future did not.
-assert 2 <= len(fired) <= 3, f"expected 2-3 fires (2 stale rows), got {len(fired)}"
-
-# rows for stale requests must be gone (deleted on success)
-db = SessionLocal()
-assert db.query(LLMRequestQueue).filter(
-    LLMRequestQueue.id == sid["stale_inprog"]).first() is None, "stale row not deleted"
-assert db.query(LLMRequestQueue).filter(
-    LLMRequestQueue.id == sid["due_rl"]).first() is None, "due_rl row not deleted"
-db.close()
-
 print("RECOVERY_OK")
 """
 
@@ -383,3 +388,111 @@ print("ERR_TYPE_OK")
 def test_recovery_logs_exception_type_not_empty_err():
     out = _run_py(EMPTY_ERR_CODE, timeout=60)
     assert "ERR_TYPE_OK" in out
+
+
+# ── 6: Groq model-rotation self-healing (THE 4.5-min root cause) ─────────
+
+GROQ_FALLBACK_CODE = r"""
+import asyncio, os
+os.environ["GROQ_API_KEY"] = "gsk_test"
+os.environ.pop("GROQ_MODEL", None)
+
+import app.core.parwa_pipeline.llm_client as lc
+
+lc._groq_resolved_model = None  # fresh process state
+
+posts = []
+
+class FakeResp:
+    def __init__(self, status, body):
+        self.status_code = status
+        self._body = body
+        self.text = body
+    def json(self):
+        import json as _j
+        return _j.loads(self._body)
+
+NOT_FOUND = '{"error":{"message":"The model `qwen/qwen3.6-27b` does not exist or you do not have access to it.","type":"invalid_request_error","code":"model_not_found"}}'
+OK_BODY = '{"choices":[{"message":{"content":"ok answer"}}],"usage":{"total_tokens":5}}'
+
+class FakeGroqClient:
+    def __init__(self, *a, **k): pass
+    async def __aenter__(self): return self
+    async def __aexit__(self, *a): return False
+    async def post(self, url, json=None, headers=None):
+        posts.append(json["model"])
+        # First candidate (qwen3.8-27b) is dead — Groq rotated it.
+        if json["model"] == "qwen/qwen3.8-27b":
+            return FakeResp(404, NOT_FOUND)
+        return FakeResp(200, OK_BODY)
+
+import httpx
+_orig = httpx.AsyncClient
+httpx.AsyncClient = FakeGroqClient
+
+async def main():
+    # Call 1: falls through the dead model to the next candidate.
+    out = await lc._call_groq_direct([{"role": "user", "content": "hi"}], 0.1, 32, 1)
+    assert out == "ok answer", f"unexpected content: {out!r}"
+    assert posts == ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"], f"unexpected attempts: {posts}"
+    assert lc._groq_resolved_model == "openai/gpt-oss-20b", "winner not cached"
+
+    # Call 2: cached winner is tried FIRST and succeeds — one post only.
+    posts.clear()
+    out2 = await lc._call_groq_direct([{"role": "user", "content": "hi"}], 0.1, 32, 1)
+    assert out2 == "ok answer" and posts == ["openai/gpt-oss-20b"], (
+        f"cache miss! posts={posts}"
+    )
+
+asyncio.run(main())
+httpx.AsyncClient = _orig
+print("GROQ_FALLBACK_OK")
+"""
+
+GROQ_429_FAST_FAIL_CODE = r"""
+import asyncio, os
+os.environ["GROQ_API_KEY"] = "gsk_test"
+os.environ.pop("GROQ_MODEL", None)
+
+import app.core.parwa_pipeline.llm_client as lc
+lc._groq_resolved_model = None
+
+class FakeResp:
+    status_code = 429
+    text = '{"error":"rate limit exceeded"}'
+    def json(self): return {}
+
+class Fake429:
+    def __init__(self, *a, **k): pass
+    async def __aenter__(self): return self
+    async def __aexit__(self, *a): return False
+    async def post(self, url, json=None, headers=None):
+        return FakeResp()
+
+import httpx
+_orig = httpx.AsyncClient
+httpx.AsyncClient = Fake429
+
+async def main():
+    try:
+        await lc._call_groq_direct([{"role": "user", "content": "hi"}], 0.1, 32, 1)
+        return "NO_RAISE"
+    except RuntimeError as exc:
+        # 429 is NOT a rotation — must raise immediately (no candidate churn),
+        # the provider-pool cooldown logic takes over.
+        assert "429" in str(exc), str(exc)
+        return "RATE_LIMIT_RAISES_OK"
+
+print(asyncio.run(main()))
+httpx.AsyncClient = _orig
+"""
+
+
+def test_groq_model_rotation_fallback_and_cache():
+    out = _run_py(GROQ_FALLBACK_CODE, timeout=60)
+    assert "GROQ_FALLBACK_OK" in out
+
+
+def test_groq_429_raises_without_candidate_churn():
+    out = _run_py(GROQ_429_FAST_FAIL_CODE, timeout=60)
+    assert "RATE_LIMIT_RAISES_OK" in out

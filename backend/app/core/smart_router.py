@@ -132,14 +132,16 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 
     # 2026-09 REORDER — production /debug/llm-test ground truth:
     # Groq key works; llama-3.1-8b-instant / llama-3.3-70b-versatile /
-    # llama-4-scout / qwen3-32b are all 404 (dead). qwen3.6-27b VERIFIED
-    # working via smart_router fallback. Cerebras key set but 402
-    # (quota exhausted) — demoted until billing is topped up.
+    # llama-4-scout / qwen3-32b are all 404 (dead). qwen3.8-27b VERIFIED
+    # live 2026-09-18 via /debug/llm-test model list (Groq rotated
+    # qwen3.6-27b → 404, which was the 4.5-min-ticket root cause).
+    # Cerebras key set but 402 (quota exhausted) — demoted until billing
+    # is topped up.
     # LIGHT priority order: live Groq models first, then NVIDIA/Mistral
     # fallbacks, then Cerebras (needs credits), then AI21 (no key yet).
     "groq-qwen3.6-27b": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
-        display_name="Qwen3.6 27B (Groq)", tier=ModelTier.LIGHT, priority=1,
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
+        display_name="Qwen3.8 27B (Groq)", tier=ModelTier.LIGHT, priority=1,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
@@ -293,11 +295,11 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # ═══════════════════════════════════════════════════════════════════
 
     # 2026-09: builder tier used llama-3.1-8b-instant which is now 404 on
-    # Groq. Switched to qwen/qwen3.6-27b — verified live via production
-    # /debug/llm-test smart_router fallback (ok=true).
+    # Groq. Switched to qwen/qwen3.8-27b — verified live 2026-09-18 via
+    # /debug/llm-test model list (qwen3.6-27b rotated to 404 by Groq).
     "groq-llama-3.1-8b-builder": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
-        display_name="Qwen3.6 27B (Groq) — Builder", tier=ModelTier.BUILDER, priority=1,
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
+        display_name="Qwen3.8 27B (Groq) — Builder", tier=ModelTier.BUILDER, priority=1,
         max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
@@ -305,8 +307,8 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # Kept for backward compat — alias to the new Groq builder.
     # (Old code that looked up "nvidia-glm-5.2-builder" still resolves.)
     "nvidia-glm-5.2-builder": ModelConfig(
-        provider=ModelProvider.GROQ, model_id="qwen/qwen3.6-27b",
-        display_name="Qwen3.6 27B (Groq) — Builder [alias]", tier=ModelTier.BUILDER, priority=2,
+        provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
+        display_name="Qwen3.8 27B (Groq) — Builder [alias]", tier=ModelTier.BUILDER, priority=2,
         max_requests_per_day=10000, max_tokens_per_minute=12000, context_window=131072,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),

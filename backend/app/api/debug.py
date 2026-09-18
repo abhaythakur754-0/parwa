@@ -37,9 +37,10 @@ async def llm_test() -> Dict[str, Any]:
                 r = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     json={
-                        # 2026-09: llama-3.1-8b-instant retired on Groq (404).
-                        # qwen/qwen3.6-27b verified live via production test.
-                        "model": "qwen/qwen3.6-27b",
+                        # 2026-09-18: Groq rotated qwen3.6-27b to 404 (the
+                        # 4.5-min-ticket root cause). qwen3.8-27b verified
+                        # live via this endpoint's model list. Env wins.
+                        "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b"),
                         "messages": messages,
                         "max_tokens": 10,
                         "temperature": 0,
@@ -49,13 +50,13 @@ async def llm_test() -> Dict[str, Any]:
                         "Content-Type": "application/json",
                     },
                 )
-                if r.status_code == 200:
-                    content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                    results["groq"] = {"ok": True, "response": content[:50]}
-                else:
-                    results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["groq"] = {"ok": True, "response": content[:50]}
+            else:
+                results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
         except Exception as exc:
-            results["groq"] = {"ok": False, "error": str(exc)[:300]}
+            results["groq"] = {"ok": False, "error": str(exc)[:300] or type(exc).__name__}
 
     # ── 1.5. Test Mistral directly ──
     mistral_key = os.environ.get("MISTRAL_API_KEY", "")
@@ -150,7 +151,13 @@ async def llm_test() -> Dict[str, Any]:
                 )
             _nv_latency = int((_nv_time.time() - _nv_t0) * 1000)
             if r.status_code == 200:
-                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                # 2026-09-18 guard: NVIDIA sometimes 200s with "choices": null
+                # or an empty body → old code crashed ('NoneType' object is
+                # not subscriptable) and HID the real provider state.
+                _nv_data = r.json() or {}
+                _nv_choices = _nv_data.get("choices") or [{}]
+                _nv_msg = (_nv_choices[0] or {}).get("message") or {}
+                content = _nv_msg.get("content") or ""
                 results["nvidia"] = {
                     "ok": True, "response": content[:50],
                     "model": os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"), "latency_ms": _nv_latency,
@@ -712,7 +719,7 @@ async def test_groq_quota(request: Request) -> Dict[str, Any]:
     if not groq_key:
         return {"error": "No groq_key provided"}
 
-    _groq_quota_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+    _groq_quota_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
     results: Dict[str, Any] = {
         "model": _groq_quota_model,
         "calls_made": 0,

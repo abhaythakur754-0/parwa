@@ -501,9 +501,32 @@ async def _call_mistral_direct(messages: list, temperature: float, max_tokens: i
         raise RuntimeError(f"Mistral API error {r.status_code}: {r.text[:200]}")
 
 
+# ── Groq model fallback chain (2026-09-18 live fix) ─────────────────
+# THE root cause of the 4.5-minute tickets: Groq rotated their model
+# (qwen3.6-27b → 404 model_not_found), every Groq call failed instantly,
+# and all traffic fell to NVIDIA (~60-90s/call) → retry storms.
+# Groq rotates models without notice, so: try candidates in order, on
+# 404 model_not_found move to the next one, and CACHE the winner so the
+# hot path never pays the fallback cost again.
+GROQ_MODEL_CANDIDATES = [
+    "qwen/qwen3.8-27b",      # live 2026-09-18 via /debug/llm-test model list
+    "openai/gpt-oss-20b",    # live in the same list — fast, verified tier
+    "openai/gpt-oss-120b",   # stronger fallback, still fast on Groq
+    "groq/compound-mini",    # last resort compound system
+]
+_groq_resolved_model: Optional[str] = None
+
+
 async def _call_groq_direct(messages: list, temperature: float, max_tokens: int, call_id: int) -> str:
-    """Direct Groq API call (raw HTTP, no LiteLLM dependency)."""
+    """Direct Groq API call (raw HTTP, no LiteLLM dependency).
+
+    2026-09-18: self-healing against Groq model rotation — if the
+    current model 404s (model_not_found), the next candidate is tried
+    and the working model is cached for subsequent calls.
+    """
     import httpx
+
+    global _groq_resolved_model
 
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
@@ -513,45 +536,75 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
             f"GROQ_API_KEY not set — provider key missing on this service"
         )
 
-    payload = {
-        # 2026-09: llama-3.1-8b-instant is RETIRED on Groq (404).
-        # qwen/qwen3.6-27b is completion-verified live (see smart_router
-        # MODEL_REGISTRY notes). Override with GROQ_MODEL env if needed.
-        "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"),
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
+    # Candidate order: explicit env override FIRST (so GROQ_MODEL still
+    # wins when valid), then the last-resolved working model, then the
+    # default chain.
+    candidates: List[str] = []
+    _env_model = os.environ.get("GROQ_MODEL", "").strip()
+    if _env_model:
+        candidates.append(_env_model)
+    if _groq_resolved_model and _groq_resolved_model not in candidates:
+        candidates.append(_groq_resolved_model)
+    for _cand in GROQ_MODEL_CANDIDATES:
+        if _cand not in candidates:
+            candidates.append(_cand)
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
+    last_error = ""
     async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
+        for model_id in candidates:
+            payload = {
+                "model": model_id,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+            r = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json=payload,
+                headers=headers,
+            )
 
-    if r.status_code == 200:
-        data = r.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        # 2026-09-10: qwen3.x is a hybrid reasoner — its <think>…</think>
-        # block lands inline in content. The direct path previously returned
-        # raw reasoning text to pipeline nodes (live bug 2026-09-06 pattern,
-        # fixed for smart_router but not here). Strip before returning.
-        try:
-            from app.core.email_utils import strip_reasoning
-            content = strip_reasoning(content or "")
-        except Exception:
-            import re as _re_strip
-            content = _re_strip.sub(r"<think>[\s\S]*?</think>", "", content or "").strip()
-        global _total_tokens
-        _total_tokens += data.get("usage", {}).get("total_tokens", 0)
-        return content.strip()
-    else:
-        raise RuntimeError(f"Groq API error {r.status_code}: {r.text[:200]}")
+            if r.status_code == 200:
+                data = r.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+                # 2026-09-10: qwen3.x is a hybrid reasoner — its <think>…</think>
+                # block lands inline in content. The direct path previously returned
+                # raw reasoning text to pipeline nodes (live bug 2026-09-06 pattern,
+                # fixed for smart_router but not here). Strip before returning.
+                try:
+                    from app.core.email_utils import strip_reasoning
+                    content = strip_reasoning(content)
+                except Exception:
+                    import re as _re_strip
+                    content = _re_strip.sub(r"<think>[\s\S]*?(</think>|$)", "", content).strip()
+                global _total_tokens
+                _total_tokens += data.get("usage", {}).get("total_tokens", 0)
+                if _groq_resolved_model != model_id:
+                    logger.info(
+                        "Groq model resolved: %s (was %s) — cached for future calls",
+                        model_id, _groq_resolved_model,
+                    )
+                _groq_resolved_model = model_id
+                return content.strip()
+
+            last_error = f"Groq API error {r.status_code}: {r.text[:200]}"
+            # 404 model_not_found → Groq rotated the model again — try the
+            # next candidate. Everything else (429, 5xx, auth) fails now;
+            # the provider pool cooldown logic handles those.
+            if r.status_code == 404 and "model" in r.text.lower():
+                logger.warning(
+                    "Groq model %s NOT FOUND (rotated?) — trying next candidate",
+                    model_id,
+                )
+                continue
+            raise RuntimeError(last_error)
+
+    raise RuntimeError(last_error or "Groq API error: all model candidates failed")
 
 
 def get_stats() -> dict:
