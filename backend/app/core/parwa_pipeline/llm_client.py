@@ -63,6 +63,7 @@ class ProviderPool:
         self._call_counts: Dict[str, int] = defaultdict(int)
         self._success_counts: Dict[str, int] = defaultdict(int)
         self._fail_counts: Dict[str, int] = defaultdict(int)
+        self._last_error: Dict[str, str] = {}  # provider → last error summary
         self._rr_index: int = 0  # round-robin counter
         self._lock = asyncio.Lock()
 
@@ -104,6 +105,13 @@ class ProviderPool:
         self._call_counts[provider_name] += 1
         self._fail_counts[provider_name] += 1
         _err_lower = (error_text or "").lower()
+        # 2026-09-18: remember WHY a provider fails — /debug/provider-pool
+        # shows it, so outages (404 model rotation, 429 daily quota, 401
+        # revoked key) are diagnosable from one endpoint instead of
+        # guessing from Render logs.
+        self._last_error[provider_name] = (
+            f"[{status_code or 'err'}] {(error_text or 'unknown')[:160]}"
+        )
         _is_auth = status_code in (401, 402, 403) or any(
             sig in _err_lower for sig in (
                 "unauthorized", "forbidden", "authorization failed",
@@ -145,6 +153,7 @@ class ProviderPool:
                 "total_calls": self._call_counts.get(name, 0),
                 "successes": self._success_counts.get(name, 0),
                 "failures": self._fail_counts.get(name, 0),
+                "last_error": self._last_error.get(name, ""),
             }
         return status
 
