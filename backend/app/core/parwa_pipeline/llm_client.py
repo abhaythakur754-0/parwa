@@ -352,6 +352,19 @@ def _check_pipeline_timeout() -> None:
         )
 
 
+def _status_from_error(msg: str) -> int:
+    """Extract the HTTP status from a provider error message.
+
+    2026-09-18 live bug: the old word-by-word isdigit() check NEVER matched
+    because callers raise f"Mistral API error 429: ..." — the token is
+    "429:" WITH a colon, so status stayed 0 and NO 429 cooldown was ever
+    applied to any provider (live proof: Mistral 25 calls / 25 failures /
+    zero cooldowns in /debug/provider-pool). Parse "429:" correctly.
+    """
+    m = re.search(r"\b(\d{3})\b", str(msg))
+    return int(m.group(1)) if m else 0
+
+
 async def llm_call(
     prompt: str,
     max_tokens: int = 256,
@@ -437,13 +450,9 @@ async def llm_call(
             pool.record_failure(provider_name, status_code=0, error_text="empty response")
             logger.warning("LLM call #%d: %s returned empty response", call_id, provider_name)
         except RuntimeError as exc:
-            status_code = 0
             msg = str(exc)
-            for part in msg.split():
-                if part.isdigit():
-                    status_code = int(part)
-                    break
-            pool.record_failure(provider_name, status_code=status_code, error_text=str(exc))
+            status_code = _status_from_error(msg)
+            pool.record_failure(provider_name, status_code=status_code, error_text=msg)
             logger.warning("LLM call #%d: %s failed (status=%d): %s", 
                           call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:

@@ -90,7 +90,33 @@ def test_cooling_provider_is_skipped_by_next_available():
     assert picked is not None and picked[0] == "groq"
 
 
-# ── 2. Reply-leak strip (IMPROVED RESPONSE headers) ──────────────────
+# ── 2. Status parsing from provider error text ───────────────────────
+
+
+def test_status_parsed_from_colon_suffixed_error():
+    """Live bug: 'Mistral API error 429: ...' — the isdigit() check never
+    matched '429:' (colon), so NO 429 cooldown ever fired. The regex
+    parser must read it, with or without the colon."""
+    from app.core.parwa_pipeline.llm_client import _status_from_error
+    assert _status_from_error("Mistral API error 429: {rate_limited}") == 429
+    assert _status_from_error("Groq API error 429:{\"error\":{}}") == 429
+    assert _status_from_error("NVIDIA API error 503: upstream") == 503
+    assert _status_from_error("no status here") == 0
+
+
+def test_runtime_error_429_now_triggers_cooldown():
+    """End-to-end guard: a provider raising RuntimeError('... 429: ...')
+    must land the provider in an escalating cooldown (was: no cooldown
+    at all, provider hammered 25/25 times)."""
+    from app.core.parwa_pipeline.llm_client import ProviderPool, _status_from_error
+    pool = _fresh_pool()
+    exc = RuntimeError("Mistral API error 429: Rate limit exceeded")
+    pool.record_failure("mistral", status_code=_status_from_error(str(exc)), error_text=str(exc))
+    assert pool.get_status()["mistral"]["available"] is False
+    assert pool.get_status()["mistral"]["cooldown_seconds_left"] > 50
+
+
+# ── 3. Reply-leak strip (IMPROVED RESPONSE headers) ──────────────────
 
 
 @pytest.mark.parametrize(
