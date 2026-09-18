@@ -454,10 +454,30 @@ class OverageService:
                 ).order_by(Subscription.created_at.desc()).first()
 
                 if not subscription:
+                    # No subscription (fresh / trial tenant). Still return the
+                    # LIVE ticket count — trial tenants create tickets too, and
+                    # the dashboard usage bar reads this number (live bug
+                    # 2026-09-18: trial showed "0 / 15 used" after tickets).
+                    live_count = 0
+                    try:
+                        from database.models.tickets import Ticket as _TrialTicket
+
+                        month_start = f"{record_month}-01"
+                        live_count = db.query(
+                            func.count(_TrialTicket.id)
+                        ).filter(
+                            _TrialTicket.company_id == str(company_id),
+                            _TrialTicket.created_at >= month_start,
+                        ).scalar() or 0
+                    except Exception as trial_count_exc:  # noqa: BLE001
+                        logger.warning(
+                            "usage_trial_live_count_failed company_id=%s error=%s",
+                            str(company_id), str(trial_count_exc)[:150],
+                        )
                     return UsageInfo(
                         company_id=company_id,
                         record_month=record_month,
-                        tickets_used=0,
+                        tickets_used=int(live_count),
                         ticket_limit=0,
                         overage_tickets=0,
                         overage_charges=Decimal("0.00"),

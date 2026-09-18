@@ -147,10 +147,12 @@ today = date.today()
 month = today.strftime("%Y-%m")
 CO_LIVE = "11111111-1111-1111-1111-111111111111"   # aggregation stale (0), tickets real (3)
 CO_AGG  = "22222222-2222-2222-2222-222222222222"   # aggregation correct (7), tickets real (1)
+CO_TRIAL = "33333333-3333-3333-3333-333333333333"  # NO subscription row (trial), tickets real (2)
 
 with maker() as db:
     db.add(Subscription(id="s-1", company_id=CO_LIVE, tier="parwa", status="active"))
     db.add(Subscription(id="s-2", company_id=CO_AGG, tier="parwa", status="active"))
+    # CO_TRIAL deliberately has NO Subscription row.
     db.add(UsageRecord(company_id=CO_LIVE, record_date=today, record_month=month, tickets_used=0))
     db.add(UsageRecord(company_id=CO_AGG, record_date=today, record_month=month, tickets_used=7))
     for i in range(3):
@@ -162,6 +164,11 @@ with maker() as db:
                   status="resolved", priority="medium", subject="a",
                   created_at=datetime.now(timezone.utc),
                   updated_at=datetime.now(timezone.utc)))
+    for i in range(2):
+        db.add(Ticket(id=f"ut-trial-{i}", company_id=CO_TRIAL, channel="chat",
+                      status="resolved", priority="medium", subject=f"r{i}",
+                      created_at=datetime.now(timezone.utc),
+                      updated_at=datetime.now(timezone.utc)))
     db.commit()
 
 import app.services.overage_service as osvc
@@ -170,10 +177,12 @@ osvc.SessionLocal = maker  # point the service at sqlite
 svc = osvc.OverageService()
 live = asyncio.run(svc.get_usage_info(company_id=uuid.UUID(CO_LIVE)))
 agg = asyncio.run(svc.get_usage_info(company_id=uuid.UUID(CO_AGG)))
+trial = asyncio.run(svc.get_usage_info(company_id=uuid.UUID(CO_TRIAL)))
 
 print(json.dumps({
     "live_tickets_used": live.tickets_used,
     "agg_tickets_used": agg.tickets_used,
+    "trial_tickets_used": trial.tickets_used,
 }))
 '''
 
@@ -189,6 +198,10 @@ def test_usage_counter_counts_real_tickets():
     # Correct aggregation (7) + 1 ticket → max() must keep 7.
     assert data["agg_tickets_used"] == 7, (
         f"expected aggregated 7, got {data['agg_tickets_used']}"
+    )
+    # No subscription (trial tenant) + 2 tickets → live count still returned.
+    assert data["trial_tickets_used"] == 2, (
+        f"expected trial count 2, got {data['trial_tickets_used']}"
     )
 
 
