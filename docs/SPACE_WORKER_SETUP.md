@@ -47,7 +47,7 @@ SELECT count(*) FROM users;        -- must FAIL: permission denied ✅
 | Env var | Value |
 |---|---|
 | `DATABASE_URL` | `variant_agent` user's connection string (same host as Render's, sslmode added automatically) |
-| `SPACE_CONCURRENCY` | `2` to start (raise to 4+ anytime) |
+| `SPACE_CONCURRENCY` | `7` = the full 7-lane goal (each lane ~45MB **in the space**, not Render; lower it anytime) |
 | `SPACE_WORKER_ID` | optional unique name, e.g. `space-1` |
 | LLM keys | same as Render: `GROQ_API_KEY`, `MISTRAL_API_KEY`, `NVIDIA_API_KEY` |
 
