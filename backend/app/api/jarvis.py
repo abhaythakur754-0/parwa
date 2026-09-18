@@ -86,6 +86,11 @@ import os as _os
 MAX_CONCURRENT_JARVIS = int(_os.environ.get("MAX_CONCURRENT_JARVIS", "2"))
 _JARVIS_SEMAPHORE = _asyncio_mod.Semaphore(MAX_CONCURRENT_JARVIS)
 
+# Hard cap per chat message — the same 30s the queue worker enforces.
+# Without it, a hung LLM provider call hangs the user's chat until the
+# gateway kills it with 504 (~60s) — reproduced live on parwa.buzz.
+JARVIS_MESSAGE_TIMEOUT_S = int(_os.environ.get("JARVIS_MESSAGE_TIMEOUT_S", "30"))
+
 logger = logging.getLogger("parwa.api.jarvis")
 
 
@@ -190,11 +195,26 @@ async def send_message(
     # wait briefly in the async queue (cooperative, no thread blocking).
     async with _JARVIS_SEMAPHORE:
         try:
-            user_msg, ai_msg, knowledge = await jarvis_service.send_message(
-                db=db,
-                session_id=session_id,
-                user_id=user.id,
-                user_message=body.content,
+            user_msg, ai_msg, knowledge = await _asyncio_mod.wait_for(
+                jarvis_service.send_message(
+                    db=db,
+                    session_id=session_id,
+                    user_id=user.id,
+                    user_message=body.content,
+                ),
+                timeout=JARVIS_MESSAGE_TIMEOUT_S,
+            )
+        except _asyncio_mod.TimeoutError:
+            logger.warning(
+                "jarvis_message_timeout session=%s after %ss",
+                session_id, JARVIS_MESSAGE_TIMEOUT_S,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Jarvis is taking too long to reply. "
+                    "Please try again in a moment."
+                ),
             )
         except ParwaBaseError:
             raise

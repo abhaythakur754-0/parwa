@@ -79,10 +79,13 @@ def test_jarvis_chat_cap_default_is_2_both_paths():
     out = _run_py(
         "import app.services.jarvis_queue_worker as w\n"
         "import app.api.jarvis as api\n"
-        "print(w.MAX_CONCURRENT_JARVIS, api.MAX_CONCURRENT_JARVIS, api._JARVIS_SEMAPHORE._value)"
+        "print(w.MAX_CONCURRENT_JARVIS, api.MAX_CONCURRENT_JARVIS,"
+        " api._JARVIS_SEMAPHORE._value, api.JARVIS_MESSAGE_TIMEOUT_S)"
     )
-    worker_cap, api_cap, sem_value = out.split()
+    worker_cap, api_cap, sem_value, timeout_s = out.split()
     assert worker_cap == "2" and api_cap == "2" and sem_value == "2"
+    # A hung LLM provider must fail cleanly at 30s, not gateway-504 at ~60s.
+    assert timeout_s == "30"
 
 
 # ── 4: integration — REAL worker loop over a REAL sqlite queue ───────────
