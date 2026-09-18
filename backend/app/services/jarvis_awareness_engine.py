@@ -53,7 +53,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.exceptions import NotFoundError, ValidationError
@@ -458,6 +458,13 @@ def collect_awareness_state(
     # are active, verification rates, payment conversion, and drop-off
     # points. This gives Jarvis full awareness of the pre-purchase funnel.
     state.update(_collect_onboarding_awareness(db, company_id))
+
+    # Domain 12: Space Worker health
+    # Jarvis MUST know whether the off-Render space worker is alive,
+    # how many lanes it holds, and whether its heartbeat went stale.
+    # If the space dies, Render's own lanes keep solving — Jarvis should
+    # be able to say so ("space worker is down, Render is handling it").
+    state.update(_collect_space_worker_health(db, company_id))
 
     # ── JV-02: Merge live LangGraph state (takes precedence over DB) ──
     if live_graph_state and isinstance(live_graph_state, dict):
@@ -2035,6 +2042,17 @@ def _run_rule_checks(
     except Exception:
         logger.exception("activity_store_rule_failed: session=%s", session_id)
 
+    # Rule 13: Space Worker heartbeat
+    # Alerts when a KNOWN space worker went silent (>90s since last beat).
+    # No alert when the space worker was never deployed (absent) — the
+    # space worker is optional; Render's lanes handle everything alone.
+    try:
+        alert = _check_space_worker_health(db, session_id, company_id, current_state, snapshot_id, overrides)
+        if alert:
+            alerts.append(alert)
+    except Exception:
+        logger.exception("space_worker_rule_failed: session=%s", session_id)
+
     return alerts
 
 
@@ -3387,6 +3405,136 @@ def _collect_onboarding_awareness(
         )
 
     return result
+
+# ══════════════════════════════════════════════════════════════════
+# DOMAIN 12: SPACE WORKER HEALTH
+# ══════════════════════════════════════════════════════════════════
+
+# A beat is fresh for 90s (workers beat every 30s → 3 missed beats = stale)
+SPACE_WORKER_STALE_SECONDS = 90
+
+
+def _collect_space_worker_health(
+    db: Session,
+    company_id: str,
+) -> Dict[str, Any]:
+    """Domain 12: Space Worker health.
+
+    Reads the space_worker_heartbeat table that the off-Render space
+    worker upserts every 30s (see backend/run_space_worker.py).
+
+    Global (not tenant-scoped): the space worker serves all tenants,
+    so there is no company_id on its heartbeat row.
+
+    Returns:
+        Dict with:
+          - space_worker_count: live workers (beat within 90s)
+          - space_worker_capacity: total lanes across live workers
+          - space_worker_tickets_in_progress: tickets in 'processing' status
+          - space_worker_status: healthy | stale | absent
+          - space_worker_stale: bool (True when not healthy)
+    """
+    state: Dict[str, Any] = {
+        "space_worker_count": 0,
+        "space_worker_capacity": 0,
+        "space_worker_tickets_in_progress": 0,
+        "space_worker_status": "absent",
+        "space_worker_stale": True,
+    }
+
+    try:
+        rows = db.execute(text(
+            "SELECT worker_id, concurrency, status, tickets_in_progress, "
+            "last_beat_at FROM space_worker_heartbeat"
+        )).fetchall()
+
+        def _beat_age_seconds(beat: Any) -> float:
+            """Seconds since the beat. Handles both real datetimes (PG) and
+            ISO strings (sqlite/local runs)."""
+            if isinstance(beat, datetime):
+                beat_dt = beat
+            else:
+                beat_dt = datetime.fromisoformat(str(beat))
+            if beat_dt.tzinfo is None:
+                beat_dt = beat_dt.replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - beat_dt).total_seconds()
+
+        live = [
+            r for r in rows
+            if r[4] and r[2] == "running"
+            and _beat_age_seconds(r[4]) <= SPACE_WORKER_STALE_SECONDS
+        ]
+
+        state["space_worker_count"] = len(live)
+        state["space_worker_capacity"] = sum(int(r[1] or 0) for r in live)
+        state["space_worker_tickets_in_progress"] = sum(
+            int(r[3] or 0) for r in live
+        )
+
+        if rows and not live:
+            state["space_worker_status"] = "stale"
+        elif live:
+            state["space_worker_status"] = "healthy"
+        # else: no rows ever written → stays "absent" (never deployed)
+
+        state["space_worker_stale"] = state["space_worker_status"] != "healthy"
+
+        logger.debug(
+            "domain12_space_worker: status=%s count=%d capacity=%d",
+            state["space_worker_status"],
+            state["space_worker_count"],
+            state["space_worker_capacity"],
+        )
+
+    except Exception:
+        # Table missing / no grants yet → space worker simply not deployed.
+        # BC-008: stays "absent", never breaks the awareness tick.
+        logger.debug("space_worker_health_collection_failed")
+
+    return state
+
+
+def _check_space_worker_health(
+    db: Session,
+    session_id: str,
+    company_id: str,
+    state: Dict[str, Any],
+    snapshot_id: str,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Optional[JarvisProactiveAlert]:
+    """Rule 13: Space Worker heartbeat.
+
+    Alerts (warning) ONLY when a previously-seen space worker went
+    silent. "absent" (never deployed) is normal and never alerts.
+    """
+    status = state.get("space_worker_status", "absent")
+    if status != "stale":
+        return None
+
+    return create_alert(
+        db=db,
+        session_id=session_id,
+        company_id=company_id,
+        alert_type="space_worker_stale",
+        severity="warning",
+        category="system_health",
+        title="Space Worker went silent",
+        message=(
+            "The off-Render space worker stopped sending heartbeats. "
+            "Render's own lanes are still solving tickets, but total "
+            "capacity dropped back to Render-only until it returns."
+        ),
+        details_json=json.dumps({
+            "status": status,
+            "live_workers": state.get("space_worker_count", 0),
+            "capacity": state.get("space_worker_capacity", 0),
+        }),
+        action_required=True,
+        action_url="/dashboard/monitoring",
+        related_snapshot_id=snapshot_id,
+        dedup_key="space_worker_stale",
+    )
+
 
 # Re-export extracted alert CRUD functions
 from app.services.jarvis_awareness_alerts import (  # noqa: F401
