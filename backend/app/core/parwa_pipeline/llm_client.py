@@ -253,6 +253,33 @@ def _provider_disabled(provider_name: str) -> bool:
 MAX_RETRIES: int = 3
 RETRY_BASE_DELAY: float = 2.0
 
+# ── Backbone ordering (2026-09-18 live-log fix) ──────────────────────
+# Groq/Mistral answer in ~1-5s; NVIDIA needs ~60-90s/call. The old
+# water-filling sorted ALL providers by remaining RPM, so a fresh NVIDIA
+# window (40 RPM) outranked Groq (30 RPM) and whole tickets were routed
+# to the slow provider → "NVIDIA timeout … waiting 60s" retry storms →
+# 4.5-minute tickets (Render logs 2026-09-18 08:35Z). Fast providers
+# water-fill among themselves; NVIDIA is a LAST RESORT, tried only when
+# every fast provider failed / is cooling down / is RPM-full.
+FAST_PROVIDERS = ("groq", "mistral")
+
+
+def _order_backbone_candidates(cands):
+    """Order LLM provider candidates for one llm_call attempt.
+
+    Fast providers (groq/mistral) come first, ordered by most remaining
+    RPM capacity (water-filling). Slow providers (nvidia) are appended
+    AFTER every fast one regardless of capacity. Hard-disabled providers
+    (RPM limit = 0) are removed entirely — never tried, even as last
+    resort.
+    """
+    fast = [(n, f) for n, f in cands
+            if n in FAST_PROVIDERS and not _provider_disabled(n)]
+    fast.sort(key=lambda nf: -_rpm_remaining(nf[0]))
+    slow = [(n, f) for n, f in cands
+            if n not in FAST_PROVIDERS and not _provider_disabled(n)]
+    return fast + slow
+
 # ── Stats ──────────────────────────────────────────────────────────
 
 _call_count: int = 0
@@ -338,8 +365,9 @@ async def llm_call(
     # dead keys / 402). Task-size tiers collapsed — capacity water-filling
     # dominates anyway; order below is just the tie-breaker preference.
     #
-    # NVIDIA is LAST: ~58s/call (warm) / 90s+ (cold). Routing a ticket to
-    # NVIDIA mid-pipeline makes 5-10 calls take 5-10 MINUTES → Render HTTP
+    # NVIDIA is LAST (see FAST_PROVIDERS / _order_backbone_candidates):
+    # ~58s/call (warm) / 90s+ (cold). Routing a ticket to NVIDIA
+    # mid-pipeline makes 5-10 calls take 5-10 MINUTES → Render HTTP
     # timeout → ticket escalates. It also stays hard-disabled (RPM=0) via
     # _provider_disabled until NVIDIA_RPM=40 + a valid key are set.
     preferred_order = [
@@ -348,18 +376,10 @@ async def llm_call(
         ("nvidia", _call_nvidia_direct),
     ]
 
-    # ── TRY: water-filling across the backbone ──
+    # ── TRY: fast water-filling first, NVIDIA strictly last ──
     pool = get_provider_pool()
 
-    def _order_candidates(cands):
-        """Most remaining RPM capacity wins (stable for ties so the speed
-        preference above survives). Hard-disabled providers (RPM limit = 0)
-        are removed entirely — never tried, even as last resort."""
-        cands = [(n, f) for n, f in cands if not _provider_disabled(n)]
-        cands.sort(key=lambda nf: -_rpm_remaining(nf[0]))
-        return cands
-
-    for provider_name, provider_fn in _order_candidates(preferred_order):
+    for provider_name, provider_fn in _order_backbone_candidates(preferred_order):
         # Hard-disabled providers (RPM limit = 0 via env) are never called.
         if _provider_disabled(provider_name):
             continue
@@ -574,6 +594,12 @@ def parse_confidence(text: str, default: float = 0.7) -> float:
 # Track if we've already warned about the missing table (avoid log spam)
 _llm_queue_table_missing_warned = False
 
+# Request IDs currently being re-fired by a previous recovery cycle.
+# Calls take minutes; without this guard the 30s loop re-fired the SAME
+# row again and again → duplicate NVIDIA calls → 429 storm (live logs
+# 2026-09-18: "found 10 stuck requests" every 30s).
+_recovery_inflight: set = set()
+
 async def _recover_stuck_llm_requests() -> None:
     """Find stuck LLM requests in DB and retry them.
 
@@ -584,6 +610,13 @@ async def _recover_stuck_llm_requests() -> None:
 
     Retries each via _call_nvidia_direct (which re-inserts + re-tries).
     On success → row deleted by the call. On failure → marked failed.
+
+    2026-09-18 live fix: rows that are HEALTHY and simply in-flight
+    (NVIDIA calls take 60-90s) were being re-flagged as "stuck" every
+    30s cycle because the query had NO time filter. Now only rows that
+    are genuinely stale are touched:
+      - rate_limited: only when next_retry_at has passed
+      - in_progress / pending: only when older than 5 minutes
 
     If the llm_request_queue table doesn't exist yet (fresh DB), this
     function silently skips — no log spam. The table is created on first
@@ -613,10 +646,31 @@ async def _recover_stuck_llm_requests() -> None:
                     return  # Table doesn't exist yet — silent skip
                 raise  # Different error — re-raise
 
-            # Find stuck rows (rate_limited with retry_at in past, OR in_progress for >5 min)
+            # Find stuck rows — with TIME filters (see docstring above).
             now = datetime.now(timezone.utc)
+            from datetime import timedelta as _timedelta
+            from sqlalchemy import or_ as _or, and_ as _and
+            _stale_cutoff = now - _timedelta(minutes=5)
             stuck_rows = _db.query(LLMRequestQueue).filter(
-                LLMRequestQueue.status.in_(["rate_limited", "in_progress", "pending"])
+                _or(
+                    _and(
+                        LLMRequestQueue.status == "rate_limited",
+                        _or(
+                            LLMRequestQueue.next_retry_at.is_(None),
+                            LLMRequestQueue.next_retry_at < now,
+                        ),
+                    ),
+                    _and(
+                        LLMRequestQueue.status == "in_progress",
+                        LLMRequestQueue.created_at.isnot(None),
+                        LLMRequestQueue.created_at < _stale_cutoff,
+                    ),
+                    _and(
+                        LLMRequestQueue.status == "pending",
+                        LLMRequestQueue.created_at.isnot(None),
+                        LLMRequestQueue.created_at < _stale_cutoff,
+                    ),
+                )
             ).limit(10).all()  # cap at 10 per cycle to avoid overload
 
             if not stuck_rows:
@@ -647,9 +701,19 @@ async def _recover_stuck_llm_requests() -> None:
                     )
                     continue
 
-                # Skip rate_limited rows whose retry_at hasn't passed yet
-                if row.status == "rate_limited" and row.next_retry_at and row.next_retry_at > now:
-                    continue  # not yet time to retry
+                # Only NVIDIA writes rows to this queue today — a stray row
+                # from another provider can't be retried via NVIDIA. Drain it.
+                if (row.provider or "") != "nvidia":
+                    row.status = "failed"
+                    row.error_message = f"recovery drain: unknown provider '{row.provider}'"
+                    row.completed_at = now
+                    _db.commit()
+                    continue
+
+                # In-flight guard: a re-fire from an earlier cycle is still
+                # running (calls take minutes). Never double-fire.
+                if row.id in _recovery_inflight:
+                    continue
 
                 # Skip if max retries exceeded
                 if row.retry_count >= row.max_retries:
@@ -675,6 +739,7 @@ async def _recover_stuck_llm_requests() -> None:
                     messages = _json.loads(row.messages)
                     # Spawn as background task — don't block the recovery loop
                     import asyncio as _asyncio
+                    _recovery_inflight.add(row.id)
                     _asyncio.create_task(
                         _retry_single_llm_request(
                             request_id=row.id,
@@ -725,11 +790,16 @@ async def _retry_single_llm_request(
         else:
             _mark_llm_queue_failed(request_id, "retry returned empty result")
     except Exception as exc:
-        _mark_llm_queue_failed(request_id, f"retry failed: {str(exc)[:200]}")
+        # 2026-09-18: httpx.TimeoutException's str() is EMPTY — Render logs
+        # showed "err=" with nothing after it. Always include the TYPE.
+        _err = (f"{type(exc).__name__}: {exc or 'no message'}")[:200]
+        _mark_llm_queue_failed(request_id, f"retry failed: {_err}")
         logger.warning(
             "llm_queue_recovery_retry_exception: request=%s err=%s",
-            request_id[:8], str(exc)[:200],
+            request_id[:8], _err,
         )
+    finally:
+        _recovery_inflight.discard(request_id)
 
 
 
@@ -829,8 +899,9 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
       1. INSERT row (status='in_progress')
       2. Call NVIDIA API
       3. On success → DELETE row (queue drained)
-      4. On 429 → UPDATE row (status='rate_limited', next_retry_at=NOW+60s)
-         → sleep 60s in memory → retry (up to 3 times)
+      4. On 429 → UPDATE row (status='rate_limited', next_retry_at=NOW+15s)
+         → sleep 15s in memory → retry (up to 2 times); on timeout →
+         fail fast (no wait)
       5. On Render restart during sleep:
          - Row stays in DB with status='rate_limited'
          - Recovery worker on startup finds stuck rows + retries them
@@ -868,7 +939,7 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
                 max_tokens=max_tokens,
                 call_id=call_id,
                 status="in_progress",
-                max_retries=3,
+                max_retries=2,
             )
             _db.add(_queue_row)
             _db.commit()
@@ -895,12 +966,19 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
         "Content-Type": "application/json",
     }
 
-    MAX_RETRIES = 3
-    RATE_LIMIT_WAIT = 60  # seconds — NVIDIA rate limit renews every 60s
+    # 2026-09-18 live-tuning: NVIDIA is a LAST-RESORT provider. The old
+    # 60s wait × 3 retries inside this function could block ONE pipeline
+    # node for ~6 minutes (Render logs: "NVIDIA timeout … waiting 60s"
+    # ×3 back-to-back) while the ticket burned wall-clock. Fast-fail
+    # instead — llm_call() falls through to the next provider / Smart
+    # Router, so the ticket survives without the multi-minute stall.
+    MAX_RETRIES = 2
+    RATE_LIMIT_WAIT = 15  # seconds — short 429 backoff, then fall through
+    _NVIDIA_HTTP_TIMEOUT = 45.0  # was 60s — bound the hang window
 
     for attempt in range(MAX_RETRIES + 1):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=_NVIDIA_HTTP_TIMEOUT) as client:
                 r = await client.post(
                     "https://integrate.api.nvidia.com/v1/chat/completions",
                     json=payload,
@@ -942,16 +1020,16 @@ async def _call_nvidia_direct(messages: list, temperature: float, max_tokens: in
             raise RuntimeError(f"NVIDIA API error {r.status_code}: {r.text[:200]}")
 
         except httpx.TimeoutException:
-            if attempt < MAX_RETRIES:
-                _update_llm_queue_rate_limited(request_id, attempt + 1, "timeout")
-                logger.warning(
-                    "NVIDIA timeout on call #%d (attempt %d/%d) — waiting %ds, then retrying",
-                    call_id, attempt + 1, MAX_RETRIES, RATE_LIMIT_WAIT,
-                )
-                await asyncio.sleep(RATE_LIMIT_WAIT)
-                _update_llm_queue_status(request_id, "in_progress")
-                continue
-            _mark_llm_queue_failed(request_id, "timeout after 3 retries")
+            # 2026-09-18: NO in-function sleep-retry on timeout — a hanging
+            # provider rarely recovers inside a short window, and every 60s
+            # wait stalled the whole ticket (live retry-storm logs). Fail
+            # fast: the provider pool benches NVIDIA for 120s
+            # (TIMEOUT_COOLDOWN_SECONDS) and llm_call() moves to the next
+            # provider / Smart Router.
+            _mark_llm_queue_failed(
+                request_id,
+                f"timeout after {attempt + 1} attempt(s) — fast-fail, no wait",
+            )
             raise
 
     # Exhausted retries — mark failed in DB
