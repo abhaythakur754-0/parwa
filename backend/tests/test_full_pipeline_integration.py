@@ -451,11 +451,15 @@ class TestSmartRouter:
             assert d.model_config is not None
 
     def test_variant_info(self, router):
-        """get_variant_info should return correct tier access."""
+        """get_variant_info should return correct tier access.
+
+        P-002: mini_parwa auto-upgrades to full 'parwa' (Mini tier removed
+        2026-07-26), so it now has heavy-tier access.
+        """
         info = router.get_variant_info("mini_parwa")
         assert "light" in info["allowed_tiers"]
         assert "guardrail" in info["allowed_tiers"]
-        assert "heavy" not in info["allowed_tiers"]
+        assert "heavy" in info["allowed_tiers"]  # upgraded to parwa
 
         info_high = router.get_variant_info("parwa_high")
         assert "heavy" in info_high["allowed_tiers"]
