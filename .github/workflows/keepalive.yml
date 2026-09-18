@@ -1,0 +1,43 @@
+# PARWA Keepalive — "the product never sleeps"
+#
+# Render's free plan spins the backend down after ~15 minutes without
+# traffic. The first customer after a quiet period then waits 35-56s
+# just for the server to wake up. A human support team doesn't boot up
+# when the phone rings — neither should we.
+#
+# This workflow pings the backend every 10 minutes so it never spins
+# down. Repo is public → Actions minutes are free. The backend is the
+# only free Render service (frontend lives on Vercel), so 24/7 = 720h
+# fits inside the 750 free instance-hours.
+#
+# Note: GitHub disables scheduled workflows after 60 days with no repo
+# activity. Parwa ships weekly, so this stays live — this comment is
+# the reminder if it ever silently stops.
+
+name: Keepalive (prevent Render spin-down)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 min — Render idles out at ~15 min
+  workflow_dispatch: {} # manual trigger for testing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend /health
+        run: |
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" -m 90 \
+            https://parwa-backend.onrender.com/health || echo "000")
+          echo "HTTP $code"
+          head -c 300 /tmp/health.json 2>/dev/null; echo
+          # 000 = timed out (cold start can be slow) — the request still
+          # woke the service. Never fail the workflow on a slow wake.
+          exit 0
