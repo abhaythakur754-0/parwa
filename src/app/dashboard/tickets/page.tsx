@@ -1436,8 +1436,21 @@ export default function TicketsPage() {
     });
   }, [statusFilter, priorityFilter, categoryFilter, channelFilter, searchText]);
 
+  // Solved tickets (resolved + closed) — FIX 2026-09-18: these were only
+  // counted in the stats but shown in NO list section, so a solved ticket
+  // was impossible to open in the dashboard after the pipeline finished.
+  const solvedTickets = useMemo(() => {
+    const companyId = user?.company_id;
+    return tickets.filter((t) => {
+      if (t.status !== 'resolved' && t.status !== 'closed') return false;
+      if (companyId && t.company_id && t.company_id !== companyId) return false;
+      return true;
+    });
+  }, [tickets, user?.company_id]);
+
   const filteredAutoSolvable = useMemo(() => applyFilters(autoSolvableTickets), [autoSolvableTickets, applyFilters]);
   const filteredQueue = useMemo(() => applyFilters(queueTickets), [queueTickets, applyFilters]);
+  const filteredSolved = useMemo(() => applyFilters(solvedTickets), [solvedTickets, applyFilters]);
 
   // Legacy: all tickets for backward compatibility with detail panel selection
   const filteredTickets = useMemo(() => {
@@ -1795,6 +1808,65 @@ export default function TicketsPage() {
                 {/* Mobile Cards */}
                 <div className="xl:hidden space-y-2 max-h-[320px] overflow-y-auto pr-1">
                   {filteredQueue.map((ticket) => (
+                    <TicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      isSelected={selectedTicketId === ticket.id}
+                      onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ═════════ SOLVED SECTION: Resolved + Closed Tickets ═════════ */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-400" />
+                <h2 className="text-sm font-semibold text-white">Solved</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                  {filteredSolved.length} tickets
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-600">Resolved and closed tickets</span>
+            </div>
+
+            {filteredSolved.length === 0 ? (
+              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+                <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <p className="text-xs text-zinc-600">No solved tickets yet</p>
+                <p className="text-[10px] text-zinc-700 mt-1">Tickets resolved by the AI or closed by an agent will appear here</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden xl:block bg-[#1A1A1A] border border-green-500/10 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-green-500/5">
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Status</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Priority</span>
+                    <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Created</span>
+                  </div>
+                  <div className="max-h-[280px] overflow-y-auto">
+                    {filteredSolved.map((ticket) => (
+                      <TicketRow
+                        key={ticket.id}
+                        ticket={ticket}
+                        isSelected={selectedTicketId === ticket.id}
+                        onClick={() => setSelectedTicketId(selectedTicketId === ticket.id ? null : ticket.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="xl:hidden space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  {filteredSolved.map((ticket) => (
                     <TicketCard
                       key={ticket.id}
                       ticket={ticket}

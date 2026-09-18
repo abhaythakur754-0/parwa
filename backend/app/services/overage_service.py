@@ -489,6 +489,36 @@ class OverageService:
                 overage_tickets = int(month_usage.total_overage or 0)
                 overage_charges = month_usage.total_charges or Decimal("0.00")
 
+                # ── Live ticket count (Celery-free fallback) ────────────
+                # UsageRecord rows are written by a daily Celery Beat task
+                # that counts YESTERDAY's tickets. On free Render there is
+                # no Celery worker, so the sum above stayed 0 forever and
+                # the dashboard showed "0 / N used" even with tickets in the
+                # DB (live bug 2026-09-18). Count the real tickets table for
+                # the month and use whichever number is higher — the live
+                # count is always correct, the aggregation catches up later.
+                try:
+                    from database.models.tickets import Ticket as _UsageTicket
+
+                    month_start = f"{record_month}-01"
+                    live_count = db.query(
+                        func.count(_UsageTicket.id)
+                    ).filter(
+                        _UsageTicket.company_id == str(company_id),
+                        _UsageTicket.created_at >= month_start,
+                    ).scalar() or 0
+                    tickets_used = max(tickets_used, int(live_count))
+                except Exception as usage_count_exc:  # noqa: BLE001
+                    logger.warning(
+                        "usage_live_count_failed company_id=%s error=%s",
+                        str(company_id), str(usage_count_exc)[:150],
+                    )
+
+                # Keep overage consistent with the final tickets_used
+                overage_tickets = max(
+                    overage_tickets, max(0, tickets_used - ticket_limit)
+                )
+
                 # Calculate percentage
                 usage_percentage = (tickets_used / ticket_limit * 100) if ticket_limit > 0 else 0.0
 

@@ -147,6 +147,45 @@ class ChannelDispatcher:
 
         channel = ticket.channel or "email"
 
+        # ── Idempotency guard: never double-deliver the same AI response ──
+        # The pipeline can reach this dispatcher TWICE for one response:
+        #   1. Node 6.5 delivery (inside the graph, before it returns)
+        #   2. The pipeline dispatcher's finalize dispatch (after persist)
+        # Both store/send the identical text, so the customer saw the AI
+        # answer duplicated in the ticket (live bug 2026-09-18 on
+        # parwa.buzz: two identical "ai" messages 3s apart). If an AI
+        # message with the exact same content is already stored for this
+        # ticket, skip the insert/send entirely.
+        if role == "ai" and ai_response_text:
+            try:
+                duplicate = (
+                    self.db.query(TicketMessage)
+                    .filter(
+                        TicketMessage.ticket_id == ticket.id,
+                        TicketMessage.role == "ai",
+                        TicketMessage.content == ai_response_text,
+                    )
+                    .first()
+                )
+            except Exception as dedupe_exc:  # noqa: BLE001
+                logger.warning(
+                    "dispatch_dedupe_check_failed ticket=%s error=%s",
+                    ticket.id, str(dedupe_exc)[:150],
+                )
+                duplicate = None
+            if duplicate is not None:
+                logger.info(
+                    "dispatch_deduplicated ticket=%s channel=%s existing_msg=%s",
+                    ticket.id, channel, str(duplicate.id)[:8],
+                )
+                return {
+                    "status": "sent",
+                    "channel": channel,
+                    "ticket_id": ticket.id,
+                    "message_id": duplicate.id,
+                    "deduplicated": True,
+                }
+
         # Route to channel-specific handler
         try:
             if channel == "email":
