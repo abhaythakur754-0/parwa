@@ -74,7 +74,7 @@ from app.core.parwa_pipeline.delivery_circuit_breaker import (
     get_delivery_circuit_breaker,
 )
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
-from app.core.email_utils import strip_reasoning
+from app.core.email_utils import strip_reasoning, strip_meta_headers
 
 logger = logging.getLogger("parwa.pipeline.node_6_5")
 
@@ -687,6 +687,9 @@ async def node_6_5_deliver(state: PipelineV2State) -> dict:
     # (live bug found 2026-09-03). Strip before any downstream check so
     # empty-after-strip responses fall into the empty-response path.
     stripped = strip_reasoning(response_text)
+    # 2026-09-18 live bug: quality-node workflow headers ("**IMPROVED
+    # RESPONSE:**") leaked into the delivered reply. Last line of defence.
+    stripped = strip_meta_headers(stripped)
     if stripped != response_text:
         logger.info(
             "Node 6.5 ReasoningStrip: ticket=%s stripped %d chars of model reasoning",

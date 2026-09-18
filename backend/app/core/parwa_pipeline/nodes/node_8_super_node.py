@@ -335,7 +335,11 @@ Then provide the FINAL improved answer.
 
 IMPROVED ANSWER:"""
 
-    return await llm_call(prompt, max_tokens=500)
+    raw = await llm_call(prompt, max_tokens=500)
+    # The prompt ends with "IMPROVED ANSWER:" — the model may echo it as a
+    # header at the top of its reply. Never let workflow headers leak.
+    from app.core.email_utils import strip_meta_headers
+    return strip_meta_headers(raw)
 
 
 # ── 4. Reverse Thinking: Backward validation (LLM) ───────────────

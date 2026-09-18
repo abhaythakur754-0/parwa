@@ -64,6 +64,13 @@ class ProviderPool:
         self._success_counts: Dict[str, int] = defaultdict(int)
         self._fail_counts: Dict[str, int] = defaultdict(int)
         self._last_error: Dict[str, str] = {}  # provider → last error summary
+        # 2026-09-18 live bug: Mistral 429'd on 25/25 calls but each 429
+        # only cooled it down 60s — after a minute it was tried first again
+        # (60 RPM wins the water-filling sort), failed again, and every
+        # call in the ticket paid a dead-provider attempt. Escalate the
+        # cooldown for CONSECUTIVE 429/5xx failures: 60s → 120s → 240s →
+        # 480s → 900s (cap). One success resets the streak.
+        self._consec_429: Dict[str, int] = defaultdict(int)
         self._rr_index: int = 0  # round-robin counter
         self._lock = asyncio.Lock()
 
@@ -92,6 +99,7 @@ class ProviderPool:
         """Record a successful call."""
         self._call_counts[provider_name] += 1
         self._success_counts[provider_name] += 1
+        self._consec_429[provider_name] = 0
         # Clear any cooldown on success
         self._cooldown_until.pop(provider_name, None)
 
@@ -126,10 +134,16 @@ class ProviderPool:
                 provider_name, status_code, self.AUTH_ERROR_COOLDOWN_SECONDS, error_text[:120],
             )
         elif status_code == 429 or status_code >= 500:
-            self._cooldown_until[provider_name] = time.time() + self.COOLDOWN_SECONDS
+            self._consec_429[provider_name] += 1
+            streak = self._consec_429[provider_name]
+            cooldown = min(
+                self.COOLDOWN_SECONDS * (2 ** min(streak - 1, 4)),
+                self.AUTH_ERROR_COOLDOWN_SECONDS,
+            )
+            self._cooldown_until[provider_name] = time.time() + cooldown
             logger.warning(
-                "provider_cooldown name=%s status=%d cooldown_until=%.0fs reason=rate_limited_or_server_error",
-                provider_name, status_code, self.COOLDOWN_SECONDS,
+                "provider_cooldown name=%s status=%d cooldown_until=%.0fs consecutive_failures=%d reason=rate_limited_or_server_error",
+                provider_name, status_code, cooldown, streak,
             )
         elif "timeout" in _err_lower or "timed out" in _err_lower:
             # Timeouts previously got NO cooldown (status 0) — a slow/hanging
@@ -433,8 +447,11 @@ async def llm_call(
             logger.warning("LLM call #%d: %s failed (status=%d): %s", 
                           call_id, provider_name, status_code, str(exc)[:100])
         except Exception as exc:
-            pool.record_failure(provider_name, status_code=0, error_text=str(exc))
-            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, str(exc)[:100])
+            # str(httpx.TimeoutException) is EMPTY — record the TYPE so
+            # /debug/provider-pool never shows "[err] unknown" again.
+            _err = f"{type(exc).__name__}: {exc or 'no message'}"
+            pool.record_failure(provider_name, status_code=0, error_text=_err)
+            logger.warning("LLM call #%d: %s error: %s", call_id, provider_name, _err[:100])
 
     # ── LAST RESORT: Smart Router (LiteLLM — 11 models) ──
     try:

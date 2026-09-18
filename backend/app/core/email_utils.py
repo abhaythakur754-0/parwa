@@ -131,3 +131,55 @@ def strip_reasoning(text: str) -> str:
     cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     cleaned = re.sub(r"<think>.*\Z", "", cleaned, flags=re.DOTALL)
     return cleaned.lstrip() if cleaned != text else cleaned
+
+
+# Internal workflow headers the quality node asks the model to write.
+# Live bug 2026-09-18: CRP's "Write the IMPROVED response" prompt made the
+# model prefix its reply with "**IMPROVED RESPONSE:**" and that marker was
+# delivered to the customer verbatim.
+_HEADER_WORDS = {"IMPROVED", "REVISED", "FINAL"}
+_HEADER_NOUNS = {"RESPONSE", "ANSWER", "VERSION", "REPLY", "DRAFT"}
+_DECORATION_RE = re.compile(r"[\*#_:`\-]")
+_INLINE_HEADER_RE = re.compile(
+    r"^[\*#_\s]*((?:IMPROVED|REVISED|FINAL)\s+(?:RESPONSE|ANSWER|VERSION|REPLY|DRAFT))"
+    r"[\*#_\s]*:[\*#_\s]*(.*)$",
+    re.IGNORECASE,
+)
+
+
+def _is_bare_header_line(line: str) -> bool:
+    """True when a line is ONLY a meta header, e.g. '**IMPROVED RESPONSE:**'
+    or '## FINAL ANSWER' — decorations stripped, exactly header words left."""
+    core = _DECORATION_RE.sub(" ", line)
+    words = re.sub(r"\s+", " ", core).strip().upper().split()
+    return (
+        len(words) == 2
+        and words[0] in _HEADER_WORDS
+        and words[1] in _HEADER_NOUNS
+    )
+
+
+def strip_meta_headers(text: str) -> str:
+    """Remove quality-node workflow headers (e.g. '**IMPROVED RESPONSE:**')
+    from the top of a reply. Applied at the revision source AND at the
+    delivery node so no leak path reaches a customer."""
+    if not text:
+        return text or ""
+    cleaned = text.strip()
+    for _ in range(3):  # tolerate a couple of stacked header lines
+        first, sep, rest = cleaned.partition("\n")
+        if _is_bare_header_line(first):
+            cleaned = rest.strip() if sep else ""
+            continue
+        # Inline form: '**REVISED RESPONSE:* Thank you…' — header words
+        # at the very start of the line, then a colon, then the reply.
+        m = _INLINE_HEADER_RE.match(first)
+        if m:
+            tail = m.group(2).strip()
+            if sep:
+                cleaned = (tail + "\n" + rest) if tail else rest
+            else:
+                cleaned = tail
+            continue
+        break
+    return cleaned

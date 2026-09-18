@@ -158,7 +158,11 @@ QUALITY: X/10"""
             result = "\n".join(lines[:-lines[::-1].index(line)])
             break
 
-    return result.strip(), score
+    # 2026-09-18 live bug: the model prefixed its revision with
+    # "**IMPROVED RESPONSE:**" and the marker was delivered to the
+    # customer. Strip workflow headers before the revision is used.
+    from app.core.email_utils import strip_meta_headers
+    return strip_meta_headers(result).strip(), score
 
 
 # ── ZeroShotValidator: Statistical check (Phase 7: stronger) ──────
