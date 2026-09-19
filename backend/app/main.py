@@ -308,6 +308,58 @@ async def lifespan(app: FastAPI):
         _lg = get_logger("lifespan")
         _lg.warning("superglue_columns_sql_fallback_failed: %s", str(exc))
 
+    # ── Direct SQL fallback for voice BYO schema (migration 040) ──
+    # 040 adds voice_channel_configs.provider, retires parwa_provided, and
+    # creates the voice_call_turns transcript table. ROOT CAUSE (live):
+    # number_source existed ONLY on the model — no migration ever created
+    # it, so 040 crashed and alembic never reached head → voice config
+    # endpoints 500'd. This fallback is idempotent and Postgres-safe.
+    try:
+        from sqlalchemy import text as _sql_text
+        from database.base import SessionLocal as _SL
+        _db = _SL()
+        try:
+            for col_def in [
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "provider VARCHAR(30) NOT NULL DEFAULT 'twilio'",
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "number_source VARCHAR(20) NOT NULL DEFAULT 'bring_own'",
+            ]:
+                _db.execute(_sql_text(col_def))
+            # Retire parwa_provided (BYO-only product decision, 2026-02)
+            _db.execute(_sql_text(
+                "UPDATE voice_channel_configs SET number_source = 'bring_own' "
+                "WHERE number_source <> 'bring_own'"
+            ))
+            # Per-turn transcript table (migration 040 step 3)
+            _db.execute(_sql_text("""
+                CREATE TABLE IF NOT EXISTS voice_call_turns (
+                    id VARCHAR(36) PRIMARY KEY,
+                    company_id VARCHAR(36) NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+                    call_id VARCHAR(36) REFERENCES voice_calls(id) ON DELETE CASCADE,
+                    call_sid VARCHAR(64),
+                    role VARCHAR(20) NOT NULL DEFAULT 'customer',
+                    text TEXT,
+                    tool_id VARCHAR(200),
+                    tool_status VARCHAR(30),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT ck_voice_turn_role CHECK (role IN ('customer','agent','system')),
+                    CONSTRAINT ck_voice_turn_tool_status CHECK (tool_status IS NULL OR tool_status IN ('ok','failed','timeout','refused'))
+                )
+            """))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_voice_turns_call_sid "
+                "ON voice_call_turns (company_id, call_sid, created_at)"
+            ))
+            _db.commit()
+            _lg = get_logger("lifespan")
+            _lg.info("voice_byo_schema_ensured_via_sql_fallback")
+        finally:
+            _db.close()
+    except Exception as exc:
+        _lg = get_logger("lifespan")
+        _lg.warning("voice_byo_sql_fallback_failed: %s", str(exc))
+
     # ── Direct SQL fallback for knowledge_documents columns ──
     # Ensure file_path + storage_file_id columns exist (used for inline
     # content storage when S3/FileStorageService is unavailable).
