@@ -411,6 +411,46 @@ def _turbo_compress(answer: str) -> str:
     return "\n".join(unique)
 
 
+# ── KB synthesis context (KB retrieval fix 2026-09-18) ────────────
+# The non-LLM layers (MAKER bridge → ThoT → compress) keep only the
+# top-3 word-overlap sentences per sub-question. Fast, but they throw
+# away KB sections the customer needs (live bug: KB said
+# "SUPPORT HOURS 24/7" yet the reply never mentioned it because the
+# customer's words didn't overlap that sentence). The synthesis LLM
+# must see the REAL retrieved KB docs, with the matched highlights on top.
+
+_SYNTH_KB_BUDGET = 4000  # chars of real KB docs fed to the synthesis LLM
+_SYNTH_HIGHLIGHT_BUDGET = 1200  # chars of matched highlights
+
+
+def _build_synthesis_knowledge(knowledge_docs: List[Dict[str, Any]], highlights: str) -> str:
+    """Real KB docs (full content, capped) + cleaned matched highlights.
+
+    This is what the LLM synthesis prompt receives as 'knowledge'.
+    """
+    doc_blocks = []
+    for i, doc in enumerate(knowledge_docs, 1):
+        content = (doc.get("content") or "").strip()
+        if content:
+            doc_blocks.append(f"[KB {i}] {content}")
+    kb_text = "\n\n".join(doc_blocks)
+
+    # Drop "Information not available" placeholder lines — they are internal
+    # bookkeeping from _thot_thread, not knowledge, and the LLM would repeat them.
+    highlight_lines = [
+        line for line in (highlights or "").split("\n")
+        if line.strip() and "not available" not in line.lower()
+    ]
+    cleaned_highlights = "\n".join(highlight_lines)[:_SYNTH_HIGHLIGHT_BUDGET]
+
+    parts = []
+    if kb_text:
+        parts.append(kb_text[:_SYNTH_KB_BUDGET])
+    if cleaned_highlights:
+        parts.append(f"Matched highlights:\n{cleaned_highlights}")
+    return "\n\n".join(parts)
+
+
 def _adaptive_budget(technique_count: int, answer_len: int, confidence: float) -> Dict[str, Any]:
     """Track resource usage within the node."""
     return {
@@ -543,13 +583,14 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
         from app.core.parwa_pipeline.llm_client import llm_call
 
         customer_name = state.get("customer_context", {}).get("customer_name", "there")
+        kb_block = _build_synthesis_knowledge(knowledge_docs, turbo)
         synth_prompt = f"""You are PARWA AI customer support. Write a helpful response to the customer.
 
 Customer: {customer_name}
 Their question: {query}
 
-Relevant knowledge from our knowledge base:
-{turbo[:2000]}
+Knowledge base documents retrieved for this ticket:
+{kb_block}
 
 Instructions:
 - Address the customer by name
