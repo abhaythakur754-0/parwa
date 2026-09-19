@@ -508,6 +508,94 @@ THOUGHT:"""
                 except Exception as agent_exc:
                     logger.warning("agent_tool_lookup_failed: %s", str(agent_exc)[:200])
 
+            # ── TOOL-FORGE (2026-09-19, user decision): agent exists but has
+            # no active Superglue tool → create it right here, once, then
+            # execute via the same idempotent + safety-gated service.
+            # First ticket for a capability pays the one-time generation
+            # cost; every later ticket is instant (saved on the agent).
+            if routed_agent_id and observation is None and action != "provide_info":
+                try:
+                    from database.base import SessionLocal as _ForgeSession
+                    from database.models.variant_engine import AIAgentAssignment as _ForgeAgent
+                    _f_db = _ForgeSession()
+                    try:
+                        _f_agent = _f_db.query(_ForgeAgent).filter(
+                            _ForgeAgent.id == routed_agent_id,
+                        ).first()
+                        if _f_agent and (not _f_agent.superglue_tool_id or _f_agent.superglue_tool_status != "active"):
+                            from app.core.superglue_tool_generator import generate_tool_for_agent
+                            import json as _forge_json
+                            try:
+                                _caps_val = _forge_json.loads(_f_agent.capabilities or "[]")
+                                _caps_str = ", ".join(_caps_val) if isinstance(_caps_val, list) else str(_caps_val or action)
+                            except Exception:
+                                _caps_str = action
+                            logger.info(
+                                "node5 tool-forge: creating missing tool agent=%s action=%s",
+                                routed_agent_id[:8], action,
+                            )
+                            _forge = await generate_tool_for_agent(
+                                agent_name=_f_agent.agent_name or "Support Agent",
+                                agent_instructions=(_f_agent.instructions or "")[:2000],
+                                agent_capabilities=_caps_str or action,
+                                sample_ticket=(state.get("query", "") or "")[:500],
+                                tenant_integrations=state.get("tenant_integrations") or {},
+                            )
+                            if _forge.get("success") and _forge.get("tool_id"):
+                                _f_agent.superglue_tool_id = _forge["tool_id"]
+                                _f_agent.superglue_tool_status = "active"
+                                _f_db.commit()
+                                _forge_tool_id = _forge["tool_id"]
+                                _forge_input = _extract_tool_inputs(details, action, knowledge)
+                                _forge_ticket = state.get("ticket_id", "")
+                                _forge_result = await _execute_with_idempotency(
+                                    _forge_tool_id, _forge_input,
+                                    f"{_forge_ticket}:{_forge_tool_id}:{action}",
+                                    _forge_ticket, action, tenant_id,
+                                )
+                                if _forge_result.get("guardrail_blocked"):
+                                    observation = (
+                                        f"ACTION BLOCKED by safety guardrails after tool-forge: "
+                                        f"{_forge_result.get('error', '')}. Tool '{_forge_tool_id}' not executed."
+                                    )
+                                    tool_executed = f"agent:{routed_agent_id}:superglue:{_forge_tool_id} (guardrail_blocked)"
+                                elif _forge_result.get("safety_approval_required"):
+                                    state["pending_approval"] = True
+                                    state["pending_approval_reason"] = (
+                                        f"Safety gate on forged tool '{_forge_tool_id}': "
+                                        f"{_forge_result.get('error', '')}"
+                                    )
+                                    state["pending_approval_tool_id"] = _forge_tool_id
+                                    observation = (
+                                        f"APPROVAL_REQUIRED: newly forged tool '{_forge_tool_id}' "
+                                        f"needs approval. Ticket moved to Pending Approval queue."
+                                    )
+                                    tool_executed = f"pending_approval:agent:{routed_agent_id}:superglue:{_forge_tool_id}"
+                                elif _forge_result.get("success"):
+                                    observation = (
+                                        f"ACTION EXECUTED via newly forged Superglue tool "
+                                        f"'{_forge_tool_id}' (agent '{_f_agent.agent_name}'): "
+                                        f"{str(_forge_result.get('data', ''))[:300]}"
+                                    )
+                                    tool_executed = f"agent:{routed_agent_id}:superglue:{_forge_tool_id}"
+                                    logs.append(
+                                        f"node5: tool-forge created+executed tool={_forge_tool_id[:20]}"
+                                    )
+                                else:
+                                    logs.append(
+                                        f"node5: tool-forge executed but failed: "
+                                        f"{str(_forge_result.get('error', ''))[:100]} — falling back to LLM selection"
+                                    )
+                            else:
+                                logs.append(
+                                    f"node5: tool-forge FAILED: "
+                                    f"{str(_forge.get('error', 'unknown'))[:100]} — falling back to LLM selection"
+                                )
+                    finally:
+                        _f_db.close()
+                except Exception as forge_exc:
+                    logger.warning("node5 tool-forge error: %s", str(forge_exc)[:200])
+
             # ── Fallback: LLM picks from all available tools ────────
             if observation is None:
                 # Step 1: Get available tools from Superglue

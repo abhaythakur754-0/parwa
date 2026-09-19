@@ -95,6 +95,16 @@ import time as _time_mod
 # wins over this default). Paid plans (1GB+) can go higher.
 MAX_CONCURRENT_PIPELINES = int(os.environ.get("MAX_CONCURRENT_PIPELINES", "4"))
 
+# ── SPARE-CAPACITY ADMISSION (2026-09-19, user decision) ──────────────
+# Beyond the 4 base lanes, 2 overflow workers admit EXTRA tickets only
+# when the LLM RPM budget has real room (headroom >= threshold). Base
+# lanes never slow down; queued tickets drain faster when traffic allows.
+# Overflow workers are I/O-bound asyncio waits — negligible RAM vs the
+# pipeline memory math above (pipelines themselves stay capped at 4-ish
+# concurrent heavy states because overflow only fires when LLMs are idle).
+SPARE_CAPACITY_WORKERS = int(os.environ.get("SPARE_CAPACITY_WORKERS", "2"))
+SPARE_CAPACITY_HEADROOM = float(os.environ.get("SPARE_CAPACITY_HEADROOM", "0.35"))
+
 # A 'processing' ticket older than this is a DEAD claim (worker died — OOM
 # restart / deploy restart on Render free). Workers reclaim it. Must be well
 # above the slowest healthy pipeline (~5 min on free LLMs) so a LIVE pipeline
@@ -201,8 +211,12 @@ def _start_pipeline_workers():
             return
         _workers_started = True
 
-        def _worker(worker_id: int):
+        def _worker(worker_id: int, spare: bool = False):
             """Persistent worker — polls DB for open tickets and processes them.
+
+            spare=True → overflow lane (spare-capacity admission): claims a
+            ticket ONLY when the LLM RPM budget has headroom, so base lanes
+            are never starved by extra admissions.
 
             RETRY LOGIC for rate-limited LLM calls:
             - When pipeline fails with "all providers exhausted" (rate limited),
@@ -216,6 +230,16 @@ def _start_pipeline_workers():
 
             while True:
                 try:
+                    if spare:
+                        # Spare-capacity gate: only admit extra work when the
+                        # backbone has room. Base lanes are never gated.
+                        try:
+                            from app.core.parwa_pipeline.llm_client import capacity_headroom
+                            if capacity_headroom() < SPARE_CAPACITY_HEADROOM:
+                                _time_mod.sleep(5)
+                                continue
+                        except Exception:
+                            pass  # headroom check unavailable — behave like a base worker
                     claim = _claim_next_ticket()
                     if claim:
                         ticket_id, company_id, channel = claim
@@ -347,9 +371,15 @@ def _start_pipeline_workers():
                 name=f"pipeline-worker-{i}",
             )
             t.start()
+        for j in range(SPARE_CAPACITY_WORKERS):
+            t = _threading_mod.Thread(
+                target=_worker, args=(MAX_CONCURRENT_PIPELINES + j, True), daemon=True,
+                name=f"pipeline-worker-spare-{j}",
+            )
+            t.start()
         logger.info(
-            "db_backed_worker_pool_started: %d workers polling DB",
-            MAX_CONCURRENT_PIPELINES,
+            "db_backed_worker_pool_started: %d base + %d spare-capacity workers polling DB",
+            MAX_CONCURRENT_PIPELINES, SPARE_CAPACITY_WORKERS,
         )
 
 

@@ -273,6 +273,37 @@ def _provider_disabled(provider_name: str) -> bool:
     return PROVIDER_RPM_LIMITS.get(p, 30) <= 0
 
 
+def capacity_headroom() -> float:
+    """Fraction (0.0-1.0) of the backbone RPM budget still available.
+
+    Sums remaining sliding-window slots across every enabled provider and
+    divides by total configured RPM. Used by the dispatcher's
+    spare-capacity workers: extra tickets beyond the base lanes are only
+    admitted when the LLM budget has real room, so base lanes never slow
+    down (user decision 2026-09-19: accept extra tickets when there is
+    budget, not more base lanes).
+    """
+    try:
+        from app.core.smart_router import PROVIDER_RPM_LIMITS
+    except Exception:
+        return 1.0  # no gating info — don't block
+    if _get_sr_tracker() is None:
+        return 1.0  # cannot measure usage — don't block spare admissions
+    total, remaining = 0, 0
+    for name in _PRIMARY_PIPELINE_PROVIDERS:
+        p = _RPM_NAME_MAP.get(name)
+        if p is None or _provider_disabled(name):
+            continue
+        limit = PROVIDER_RPM_LIMITS.get(p, 0)
+        if limit <= 0:
+            continue
+        total += limit
+        remaining += max(0, min(limit, _rpm_remaining(name)))
+    if total <= 0:
+        return 1.0  # nothing configured — don't block
+    return remaining / total
+
+
 MAX_RETRIES: int = 3
 RETRY_BASE_DELAY: float = 2.0
 

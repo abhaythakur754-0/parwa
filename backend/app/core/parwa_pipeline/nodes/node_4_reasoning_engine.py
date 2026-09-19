@@ -92,15 +92,19 @@ async def run_llm_techniques(state: PipelineV2State) -> tuple:
     """Run the LLM technique pipeline (BC-013) on the current state.
 
     Returns (technique_log_entries, updated_tech_state, token_usage_delta).
-    Only activates for FULL-lane tickets on parwa/high variants.
+    Only activates for FULL-lane tickets (all variants — trial included).
     """
     from app.core.technique_executor import TechniqueExecutor, PipelineResult
 
     lane = state.get("lane", "")
     variant = state.get("variant_tier_short", "")
 
-    # Only run LLM techniques for complex FULL-lane tickets on paid variants
-    if lane != "FULL" or variant not in ("parwa", "high"):
+    # 2026-09-19 user decision: trial == paid quality. The old gate
+    # (`variant not in ("parwa", "high")`) locked all 13 LLM reasoning
+    # frameworks behind paid tiers — trial users never saw the product's
+    # real power. Trial differs ONLY by the 15-ticket quota now.
+    # Simple lane still skips (Node 7 solves those with 0 LLM calls).
+    if lane != "FULL":
         return [], None, 0
 
     try:

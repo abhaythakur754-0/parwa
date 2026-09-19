@@ -738,7 +738,9 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         n2_ml1_features.append("needs_reasoning")
     if complexity == "complex":
         n2_ml1_features.append("complex_input")
-    if action in ("refund", "escalate"):
+    # 2026-09-19: real action vocabulary (Node 1 emits execute_refund, not
+    # "refund") — the old names never matched, so high_stakes never fired.
+    if action in ("execute_refund", "execute_credit", "cancel_account", "plan_change"):
         n2_ml1_features.append("high_stakes")
     n2_ml1 = ",".join(n2_ml1_features) if n2_ml1_features else "routine"
     logs.append({"node": 2, "technique": "MetaLearner", "duration_ms": 0, "result_summary": f"pattern={n2_ml1}"})
@@ -801,8 +803,11 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     logs.append({"node": 2, "technique": "RuleBasedAction.depth2", "duration_ms": 0, "result_summary": n2_rba2})
 
     # SafetyNet.depth2: high-stakes action guard
+    # 2026-09-19: real action vocabulary — "refund"/"cancel_subscription"
+    # never matched Node 1's execute_refund/cancel_account, so this guard
+    # was dead code.
     n2_sn2 = "ok"
-    if action in ("refund", "cancel_subscription") and path == "simple_path":
+    if action in ("execute_refund", "execute_credit", "cancel_account") and path == "simple_path":
         n2_sn2 = "GUARD: high-stakes action on simple path"
     logs.append({"node": 2, "technique": "SafetyNet.depth2", "duration_ms": 0, "result_summary": n2_sn2})
 
@@ -967,8 +972,15 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                     })
                 else:
                     # Tool missing — does this action need one?
-                    needs_tool = action in ("refund", "cancel_subscription", "process_payment",
-                                           "apply_credit", "cancel_order", "update_shipping")
+                    # 2026-09-19 Tool-Forge fix (user decision: any capability
+                    # gets a tool): the old hardcoded 6-name list ("refund",
+                    # "cancel_subscription", …) NEVER matched the real action
+                    # vocabulary Node 1 emits ("execute_refund", "plan_change",
+                    # "investigate_billing", …) — so tool creation silently
+                    # never triggered. Only pure info requests skip tools.
+                    # Dangerous actions still pass Node 5's approval gate +
+                    # action_safety guardrails, so this is safe to widen.
+                    needs_tool = action != "provide_info"
                     if needs_tool:
                         tool_verification_status = "missing_needs_creation"
                         logs.append({
