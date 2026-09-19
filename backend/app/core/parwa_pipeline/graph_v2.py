@@ -345,6 +345,69 @@ def _wiki_finalize_complex(state: PipelineV2State) -> dict:
     cove_blocked = state.get("cove_blocked", False)
     _consume_quota(state)
 
+    # ── ACTION HONESTY GUARD (2026-09-19 live-test finding) ──────────
+    # Live test: tenant with ZERO integrations got "I have processed a
+    # full refund" — the draft claimed a completed action that never ran.
+    # Deterministic DETECTION (regex); when detected, ONE targeted LLM
+    # rewrite removes the false completion claim. Rare path, so the extra
+    # call is acceptable. LLM failure → transparent correction note.
+    try:
+        _req_action = state.get("required_action") or "provide_info"
+        _audit = state.get("action_audit") or {}
+        _tool_ran = bool(_audit.get("tool_executed"))
+        _pending = bool(state.get("pending_approval") or state.get("escalation_required"))
+        if (
+            _req_action not in ("provide_info", "", None)
+            and not _tool_ran
+            and not _pending
+            and not cove_blocked
+            and response
+        ):
+            import re as _re
+            _claim_pat = _re.compile(
+                r"\b(?:has|have)\s+been\s+(?:successfully\s+)?"
+                r"(?:processed|refunded|cancelled|canceled|completed|issued|initiated|submitted)\b"
+                r"|\bI\s+have\s+(?:processed|refunded|cancelled|canceled|issued)\b"
+                r"|\b(?:was|were)\s+(?:successfully\s+)?"
+                r"(?:refunded|cancelled|canceled|completed|issued)\b",
+                _re.IGNORECASE,
+            )
+            if _claim_pat.search(response):
+                _action_word = _req_action.replace("_", " ")
+                _fixed = None
+                try:
+                    from app.core.parwa_pipeline.llm_client import llm_call as _honest_llm
+                    from app.services.pipeline_dispatcher import _run_async_safely as _ras
+                    _fixed = _ras(_honest_llm(
+                        f"Rewrite this customer support reply. CRITICAL: the requested action "
+                        f"({_action_word}) has NOT been executed yet — remove every claim that it "
+                        f"was completed/processed/refunded. Keep the reply helpful: confirm the "
+                        f"request is received, state it is being handled, and give the expected "
+                        f"timeframe from the policy facts. Keep the same tone and structure.\n\n"
+                        f"REPLY:\n{response[:1800]}",
+                        max_tokens=700,
+                        temperature=0.2,
+                    ))
+                except Exception as _rw_exc:
+                    logger.warning(
+                        "wiki_finalize: honesty rewrite failed: %s", str(_rw_exc)[:120],
+                    )
+                if _fixed and len(str(_fixed).strip()) > 50 and not _claim_pat.search(str(_fixed)):
+                    response = str(_fixed).strip()
+                else:
+                    response = (
+                        response.rstrip()
+                        + f"\n\nCorrection: to be fully transparent — your {_action_word} request has "
+                        "been received and is being handled, but it is NOT completed yet. You will "
+                        "receive a confirmation the moment it goes through."
+                    )
+                logger.info(
+                    "wiki_finalize: honesty guard rewrote unexecuted-action claims ticket=%s action=%s",
+                    state.get("ticket_id", "?"), _req_action,
+                )
+    except Exception as _honesty_exc:
+        logger.warning("wiki_finalize: honesty guard error: %s", str(_honesty_exc)[:120])
+
     if cove_blocked:
         # CoVe blocked this response — escalate to human, don't mark as resolved
         logger.info(
