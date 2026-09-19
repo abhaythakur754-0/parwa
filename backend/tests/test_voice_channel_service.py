@@ -25,6 +25,8 @@ def mock_config():
     config = MagicMock()
     config.id = "cfg-001"
     config.company_id = "company-001"
+    config.provider = "twilio"
+    config.number_source = "bring_own"
     config.twilio_phone_number = "+17752583673"
     config.is_enabled = True
     config.default_variant = "parwa"

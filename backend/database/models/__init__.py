@@ -83,6 +83,7 @@ from database.models.sms_channel import (  # noqa: F401
 )
 from database.models.voice_channel import (  # noqa: F401
     VoiceCall,
+    VoiceCallTurn,
     VoiceConversation,
     VoiceChannelConfig,
 )

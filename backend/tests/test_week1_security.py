@@ -516,16 +516,21 @@ class TestM27UserEnumeration:
 # ════════════════════════════════════════════════════════════
 
 class TestM37HardcodedPhone:
-    """Verify no hardcoded phone numbers in voice server."""
+    """Verify no hardcoded phone numbers in the voice channel service."""
 
-    def test_voice_server_no_hardcoded_phone(self):
-        vs_path = "/home/z/my-project/parwa/backend/app/core/parwa_voice_server.py"
-        with open(vs_path) as f:
+    def test_voice_service_no_hardcoded_phone(self):
+        import os
+
+        service_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "app", "services", "voice_channel_service.py",
+        )
+        with open(service_path) as f:
             content = f.read()
         # Should NOT have the old hardcoded number
         assert "+17752583673" not in content, "Hardcoded phone number must be removed"
-        # Should reference config/settings
-        assert "TWILIO_PHONE_NUMBER" in content or "settings" in content, \
+        # Should use config/settings for phone numbers (BYO credentials)
+        assert "twilio_phone_number" in content or "settings" in content, \
             "Should use config for phone number"
 
 

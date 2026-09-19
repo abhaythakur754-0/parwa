@@ -6,8 +6,16 @@ Tables:
   delivery status, recording, transcript, and ticket association.
 - VoiceConversation: Maps phone number pairs to conversations for
   threading (same participants = same conversation).
-- VoiceChannelConfig: Per-company Twilio voice credentials and
-  voice settings (recording, TTS, business hours, rate limits).
+- VoiceChannelConfig: Per-company voice provider credentials (BYO —
+  bring your own account) and voice settings (recording, TTS, rate limits).
+- VoiceCallTurn: One turn of a live AI voice conversation
+  (customer speech / agent reply / tool execution record).
+
+BYO model (2026-02): Parwa NEVER provisions phone numbers or pays for
+telecom. Every tenant connects their OWN calling provider account
+(Twilio today; Exotel/Vonage etc. via the provider field later) and
+pays that provider directly. number_source is always "bring_own";
+"parwa_provided" is retired.
 
 Building Codes:
 - BC-001: Every table has company_id
@@ -53,7 +61,8 @@ _VOICE_STATUSES = (
 )
 _VOICE_ROLES = "'agent','bot','system','visitor'"
 _VOICE_VARIANT_TIERS = "'mini_parwa','parwa','parwa_high'"
-_VOICE_NUMBER_SOURCES = "'parwa_provided','bring_own'"
+_VOICE_NUMBER_SOURCES = "'bring_own'"
+_VOICE_PROVIDERS = "'twilio'"
 _VOICE_GREETING_STYLES = "'professional','friendly','casual'"
 
 
@@ -343,9 +352,10 @@ class VoiceChannelConfig(Base):
         index=True,
     )
 
-    # Number source: "parwa_provided" (default) or "bring_own" (D3)
+    # Number source: always "bring_own" — Parwa never provisions numbers.
     number_source = Column(
-        String(20), nullable=False, default="parwa_provided",
+        String(20), nullable=False, default="bring_own",
+        server_default="bring_own",
     )
 
     # Caller ID name (D3 requirement)
@@ -361,12 +371,20 @@ class VoiceChannelConfig(Base):
         String(10), nullable=False, default="en-US",
     )
 
-    # Parwa-provided number info (populated when number_source="parwa_provided")
-    parwa_phone_number = Column(String(30), nullable=True)   # The Parwa-provisioned number
-    parwa_number_sid = Column(String(64), nullable=True)     # Twilio number SID for cleanup
+    # DEPRECATED (kept so old rows don't break): Parwa-provisioned numbers
+    # were retired — Parwa never provisions numbers or pays for telecom.
+    parwa_phone_number = Column(String(30), nullable=True)
+    parwa_number_sid = Column(String(64), nullable=True)
 
-    # Twilio credentials (encrypted in production via BC-011)
-    # Nullable because only required for "bring_own" mode
+    # Which calling platform the tenant connected (bring-your-own account).
+    # "twilio" today; adapter layer makes "exotel"/"vonage" etc. addable.
+    provider = Column(
+        String(30), nullable=False, default="twilio",
+        server_default="twilio",
+    )
+
+    # Credentials for the tenant's OWN provider account (encrypted at rest
+    # in production via BC-011). Required — Parwa has no telecom account.
     twilio_account_sid = Column(String(64), nullable=True)
     twilio_auth_token_encrypted = Column(Text, nullable=True)
     twilio_phone_number = Column(String(30), nullable=True)
@@ -413,6 +431,10 @@ class VoiceChannelConfig(Base):
             name="ck_voice_cfg_number_source",
         ),
         CheckConstraint(
+            f"provider IN ({_VOICE_PROVIDERS})",
+            name="ck_voice_cfg_provider",
+        ),
+        CheckConstraint(
             f"greeting_style IN ({_VOICE_GREETING_STYLES})",
             name="ck_voice_cfg_greeting_style",
         ),
@@ -434,11 +456,11 @@ class VoiceChannelConfig(Base):
     def to_dict(self) -> dict:
         """Serialize voice config for API responses (no secrets).
 
-        H-17 FIX: twilio_account_sid is masked to prevent credential leakage.
-        D3: Handles both parwa_provided and bring_own number sources.
+        H-17 FIX: account SID is masked to prevent credential leakage.
+        BYO: only the tenant's own number/SID is ever shown.
         """
         def _mask_sid(sid: str) -> str:
-            """Mask a Twilio SID, showing only last 4 chars."""
+            """Mask a provider SID, showing only last 4 chars."""
             if not sid or len(sid) < 8:
                 return "********"
             return f"****{sid[-4:]}"
@@ -446,6 +468,7 @@ class VoiceChannelConfig(Base):
         result = {
             "id": self.id,
             "company_id": self.company_id,
+            "provider": self.provider,
             "number_source": self.number_source,
             "caller_id_name": self.caller_id_name,
             "greeting_style": self.greeting_style,
@@ -470,14 +493,83 @@ class VoiceChannelConfig(Base):
             ),
         }
 
-        if self.number_source == "parwa_provided":
-            # Show the Parwa-provisioned number, mask Parwa's account SID
-            result["twilio_account_sid"] = _mask_sid(self.twilio_account_sid or "")
-            result["twilio_phone_number"] = self.parwa_phone_number or self.twilio_phone_number
-            result["parwa_phone_number"] = self.parwa_phone_number
-        else:
-            # Bring own — show their number, mask their SID
-            result["twilio_account_sid"] = _mask_sid(self.twilio_account_sid or "")
-            result["twilio_phone_number"] = self.twilio_phone_number
+        # Bring your own — show their number, mask their SID
+        result["twilio_account_sid"] = _mask_sid(self.twilio_account_sid or "")
+        result["twilio_phone_number"] = self.twilio_phone_number
 
         return result
+
+
+class VoiceCallTurn(Base):
+    """One turn of a live AI voice conversation.
+
+    Append-only transcript per call: customer speech, agent replies,
+    and tool execution records. Written by VoiceConversationEngine
+    during Gather webhooks; used for post-call summary + ticket.
+
+    BC-001: Scoped to company_id.
+    """
+
+    __tablename__ = "voice_call_turns"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    call_id = Column(
+        String(36),
+        ForeignKey("voice_calls.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    call_sid = Column(String(64), nullable=True, index=True)
+
+    # "customer" | "agent" | "system" (tool results / notes)
+    role = Column(String(20), nullable=False, default="customer")
+    text = Column(Text, nullable=True)
+
+    # Tool linkage — which SuperGlue tool ran for this turn and how it went
+    tool_id = Column(String(200), nullable=True)
+    tool_status = Column(String(30), nullable=True)  # ok | failed | timeout | refused
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('customer','agent','system')",
+            name="ck_voice_turn_role",
+        ),
+        CheckConstraint(
+            "tool_status IS NULL OR tool_status IN "
+            "('ok','failed','timeout','refused')",
+            name="ck_voice_turn_tool_status",
+        ),
+        Index(
+            "ix_voice_turns_call_sid",
+            "company_id", "call_sid", "created_at",
+        ),
+        {"schema": None},
+    )
+
+    def to_dict(self) -> dict:
+        """Serialize a conversation turn for API responses."""
+        return {
+            "id": self.id,
+            "company_id": self.company_id,
+            "call_id": self.call_id,
+            "call_sid": self.call_sid,
+            "role": self.role,
+            "text": self.text,
+            "tool_id": self.tool_id,
+            "tool_status": self.tool_status,
+            "created_at": (
+                self.created_at.isoformat() if self.created_at else None
+            ),
+        }
