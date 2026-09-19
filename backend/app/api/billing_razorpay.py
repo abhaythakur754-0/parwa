@@ -256,6 +256,11 @@ async def get_trial_status(
     expired_reason = None
 
     if is_trial and ends_at:
+        # DB may return a NAIVE datetime (Postgres TIMESTAMP WITHOUT TIME
+        # ZONE) — normalize before subtracting from the aware clock, else
+        # TypeError (same latent bug class fixed in ticket_service 2026-09-19).
+        if ends_at.tzinfo is None:
+            ends_at = ends_at.replace(tzinfo=timezone.utc)
         delta = ends_at - now
         time_remaining_hours = max(0.0, round(delta.total_seconds() / 3600, 2))
         if time_remaining_hours <= 0:

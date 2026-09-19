@@ -662,9 +662,10 @@ class TicketService:
         For trial companies, raises AuthorizationError with a specific
         error_code so the frontend can show an upgrade CTA.
 
-        TEMPORARY: Set env var TRIAL_LIMIT_DISABLED=true to skip the
-        ticket count check entirely (for production testing). The 24-hour
-        time check still applies. Re-enable by removing the env var.
+        Set env var TRIAL_LIMIT_DISABLED=true to skip ALL trial checks
+        (escape hatch for load tests only — enforced by default since
+        2026-09-19: the trial counter must actually count per product
+        decision "trial = paid quality, only 15 tickets").
 
         Raises:
             AuthorizationError: If trial has expired (time) or ticket
@@ -680,14 +681,25 @@ class TicketService:
 
         now = datetime.now(timezone.utc)
 
-        # TEMPORARY: disabled for production testing. Re-enable by setting
-        # TRIAL_LIMIT_DISABLED env var to "false" or removing this early return.
+        # 2026-09-19 product decision (user): trial = paid in every way EXCEPT
+        # the 15-ticket cap — and that cap must actually count. The limit was
+        # disabled by default for production testing which left the counter
+        # stuck at 0/15. Now enforced unless TRIAL_LIMIT_DISABLED is explicitly
+        # set to "true" (escape hatch for load tests).
         import os as _os
-        if _os.environ.get("TRIAL_LIMIT_DISABLED", "true").lower() in ("true", "1", "yes"):
-            return  # Skip ALL trial checks (time + count) — DEFAULT: disabled for testing
+        if _os.environ.get("TRIAL_LIMIT_DISABLED", "false").lower() in ("true", "1", "yes"):
+            return  # Skip ALL trial checks (time + count) — explicit opt-out only
 
-        # Time check: 24 hours since signup (always enforced)
-        if company.trial_ends_at and now >= company.trial_ends_at:
+        # Time check: 24 hours since signup (always enforced).
+        # The DB may hand back a NAIVE datetime (Postgres TIMESTAMP WITHOUT
+        # TIME ZONE / sqlite) — normalize before comparing with the aware
+        # clock, else the comparison raises TypeError. Latent bug surfaced
+        # 2026-09-19 when enforcement was switched on (was disabled since the
+        # check short-circuited before ever reaching this line).
+        ends_at = company.trial_ends_at
+        if ends_at and ends_at.tzinfo is None:
+            ends_at = ends_at.replace(tzinfo=timezone.utc)
+        if ends_at and now >= ends_at:
             raise AuthorizationError(
                 "Your 24-hour free trial has ended. "
                 "Upgrade to a paid plan to continue creating tickets.",

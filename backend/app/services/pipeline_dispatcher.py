@@ -1440,13 +1440,13 @@ def _persist_crm_status_to_metadata(
 # select the ticket and then update the CRM"
 #
 # Before processing a ticket, we check:
-#   1. Does tenant have at least 1 active AI agent?
-#   2. Does that agent have a linked Superglue tool (for action tickets)?
-#   3. Does tenant have KB documents (for FAQ tickets)?
+#   1. Does tenant have at least 1 active AI agent OR KB documents?
 #
-# If NONE of these exist → mark ticket 'review_needed' instead of
-# picking it up + failing + escalating to human after wasting LLM calls.
-# This prevents the "select all tickets then escalate to humans" anti-pattern.
+# If the tenant is truly empty (0 agents AND 0 KB) → mark ticket
+# 'review_needed' instead of picking it up + failing + escalating to human
+# after wasting LLM calls. Missing agents/tools are NOT a reason to block:
+# Node 1/2 create agents from templates and Node 5 (Tool-Forge) creates
+# missing tools at execution time — that is SuperGlue's whole job.
 
 
 def _check_tenant_awareness(ticket_id: str, company_id: str) -> dict:
@@ -1492,11 +1492,16 @@ def _check_tenant_awareness(ticket_id: str, company_id: str) -> dict:
             ).count()
             has_kb = kb_count > 0
 
-            # Decision logic:
-            # - If tenant has 0 agents AND 0 KB → can't solve anything
-            # - If tenant has agents but no tools + no KB → can only acknowledge
-            # - If ticket needs an action (refund/cancel) but no tools → can't solve
-            # - Otherwise → can solve
+            # Decision logic (2026-09-19, user-approved fix):
+            # - Tenant truly empty (0 agents AND 0 KB) → can't solve anything.
+            #   Onboarding incomplete — no template to clone, no KB to answer from.
+            # - Everything else → let through. Missing agents are template-created
+            #   in Node 1/2; missing tools are forged in Node 5 (Tool-Forge).
+            #   The old "action keyword + 0 tools → review_needed" block fired
+            #   BEFORE the pipeline, so SuperGlue never got a chance to create
+            #   the tool it exists to create — live finding 2026-09-18/19.
+            #   If creation genuinely fails, Node 2/5 escalate to human anyway
+            #   ("if can't create → send back"), which is the correct late exit.
             if agent_count == 0 and not has_kb:
                 return {
                     "can_solve": False,
@@ -1504,22 +1509,6 @@ def _check_tenant_awareness(ticket_id: str, company_id: str) -> dict:
                     "agent_count": 0,
                     "tool_count": 0,
                     "has_kb": False,
-                }
-
-            # Check if ticket text suggests an action that needs a tool
-            ticket_text = (ticket.subject or "") + " " + (ticket.description or "")
-            ticket_text = ticket_text.lower()
-            action_keywords = ["refund", "cancel", "chargeback", "delete account",
-                               "block card", "stop subscription", "process return"]
-            needs_action = any(kw in ticket_text for kw in action_keywords)
-
-            if needs_action and tool_count == 0:
-                return {
-                    "can_solve": False,
-                    "reason": f"ticket needs action ({'refund/cancel'}) but tenant has 0 active tools",
-                    "agent_count": agent_count,
-                    "tool_count": 0,
-                    "has_kb": has_kb,
                 }
 
             # Tenant can solve this ticket
