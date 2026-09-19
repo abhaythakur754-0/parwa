@@ -146,6 +146,27 @@ _INLINE_HEADER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# 2026-09-19 live bug: the model answered the revision prompt
+# conversationally — "Here's the **slightly refined** version of your
+# response while preserving its strength…" — and that preamble was
+# delivered to the customer. Any opening line that TALKS ABOUT the
+# response instead of BEING the response is workflow chatter.
+_REFINED_PREAMBLE_RE = re.compile(
+    r"^\W*(?:here[\u2019']?s|here is|below is)\s+the\s+"
+    r".{0,120}?\b(?:refined|revised|improved|polished)\b.{0,60}?"
+    r"\b(?:version|draft|response|reply)\b",
+    re.IGNORECASE,
+)
+
+# Trailing self-rating annotations, e.g. '**QUALITY: 10/10**',
+# 'QUALITY SCORE: 9/10', 'Quality: 10/10' — never customer-facing.
+_QUALITY_TAIL_RE = re.compile(
+    r"^[\*#_\s]*(?:quality(?:\s+score)?|overall\s+quality)"
+    r"[\*#_\s:]*\s*\d+\s*/\s*10[\*#_\s!.]*$",
+    re.IGNORECASE,
+)
+_SEPARATOR_RE = re.compile(r"^\s*-{3,}\s*$")
+
 
 def _is_bare_header_line(line: str) -> bool:
     """True when a line is ONLY a meta header, e.g. '**IMPROVED RESPONSE:**'
@@ -160,13 +181,21 @@ def _is_bare_header_line(line: str) -> bool:
 
 
 def strip_meta_headers(text: str) -> str:
-    """Remove quality-node workflow headers (e.g. '**IMPROVED RESPONSE:**')
-    from the top of a reply. Applied at the revision source AND at the
-    delivery node so no leak path reaches a customer."""
+    """Remove quality-node workflow chatter from a customer reply.
+
+    Handles:
+      - bare headers            '**IMPROVED RESPONSE:**'
+      - inline headers          '**REVISED RESPONSE:* Thank you…'
+      - refined preambles       "Here's the **slightly refined** version of your response…"
+      - trailing self-ratings   '**QUALITY: 10/10**'
+      - orphan '---' separators left behind by the above
+    Applied at the revision source AND at the delivery node so no leak
+    path reaches a customer.
+    """
     if not text:
         return text or ""
     cleaned = text.strip()
-    for _ in range(3):  # tolerate a couple of stacked header lines
+    for _ in range(4):  # tolerate a couple of stacked header lines
         first, sep, rest = cleaned.partition("\n")
         if _is_bare_header_line(first):
             cleaned = rest.strip() if sep else ""
@@ -181,5 +210,26 @@ def strip_meta_headers(text: str) -> str:
             else:
                 cleaned = tail
             continue
+        # Conversational preamble: "Here's the slightly refined version…"
+        if _REFINED_PREAMBLE_RE.match(first):
+            cleaned = rest.strip() if sep else ""
+            continue
         break
-    return cleaned
+
+    # ── Tail pass: trailing QUALITY self-ratings + orphan separators ──
+    lines = cleaned.split("\n")
+    while lines:
+        last = lines[-1].strip()
+        if not last:
+            lines.pop()
+            continue
+        if _QUALITY_TAIL_RE.match(last) or _is_bare_header_line(last) or _SEPARATOR_RE.match(last):
+            lines.pop()
+            continue
+        break
+    cleaned = "\n".join(lines).rstrip()
+
+    # Collapse separator runs ('---' directly after a stripped preamble).
+    cleaned = re.sub(r"\n\s*-{3,}\s*\n\s*-{3,}\s*\n", "\n\n", cleaned)
+    cleaned = re.sub(r"^(?:\s*-{3,}\s*\n)+", "", cleaned)
+    return cleaned.strip()

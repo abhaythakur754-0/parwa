@@ -1869,10 +1869,28 @@ def _version_tracker(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
     active: Dict[str, str] = {}
     superseded = []
     for base, vers in doc_versions.items():
-        vers.sort(key=lambda x: x["version"], reverse=True)
-        active[base] = vers[0]["source"]
-        for v in vers[1:]:
-            superseded.append(v["source"])
+        # Same source string = multiple CHUNKS of one document (every chunk
+        # of "tenant_kb:<uuid>" carries the document-level source). Chunks
+        # are pieces of the SAME version — they must never supersede each
+        # other. Live bug 2026-09-19: a 2-chunk KB doc had chunk 2 flagged
+        # as superseding chunk 1, and removal-by-source-string then wiped
+        # BOTH chunks (they share one source) — the AI answered with zero
+        # KB knowledge and never mentioned the tenant's "SUPPORT HOURS 24/7".
+        distinct_sources = {v["source"] for v in vers}
+        if len(distinct_sources) <= 1:
+            active[base] = vers[0]["source"]
+            continue
+        # Different sources sharing a base only happens with explicit
+        # _vN suffixes — the newest version wins, older SOURCES (which
+        # differ from the winner) are superseded.
+        ver_by_source: Dict[str, int] = {}
+        for v in vers:
+            ver_by_source[v["source"]] = max(v["version"], ver_by_source.get(v["source"], 0))
+        top_source = max(ver_by_source, key=lambda s: ver_by_source[s])
+        active[base] = top_source
+        for s, ver in ver_by_source.items():
+            if s != top_source and ver < ver_by_source[top_source]:
+                superseded.append(s)
 
     return {
         "active_versions": active,
@@ -3116,10 +3134,22 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
                      "result_summary": f"SUPERSEDED={ver_track['superseded']} active={list(ver_track['active_versions'].values())}"})
         # Remove superseded docs (older versions) from the list entirely
         pre_remove = len(filtered)
+        docs_before_version_removal = filtered
         filtered = [d for d in filtered if d.get("source", "") not in ver_track["superseded"]]
         if len(filtered) < pre_remove:
             logs.append({"node": 3, "technique": "VersionTracker.Remove", "duration_ms": 0,
                          "result_summary": f"removed {pre_remove - len(filtered)} superseded docs (older versions)"})
+        # Guard: version removal must NEVER empty the knowledge context.
+        # An empty KB means the AI answers with invented facts — worse than
+        # a stale version (live bug 2026-09-19: whole KB wiped).
+        if not filtered and pre_remove > 0:
+            logger.warning(
+                "VersionTracker would empty knowledge context — keeping all %d docs",
+                pre_remove,
+            )
+            filtered = docs_before_version_removal
+            logs.append({"node": 3, "technique": "VersionTracker.Guard", "duration_ms": 0,
+                         "result_summary": "removal cancelled — would have emptied KB"})
 
     # ────────────────────────────────────────────────────────────────
     # STEP 6: DynamicContext (prioritized by ticket type)

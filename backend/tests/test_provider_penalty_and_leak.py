@@ -123,8 +123,10 @@ def test_runtime_error_429_now_triggers_cooldown():
     "raw,expected_start",
     [
         (
+            # 2026-09-19: orphan '---' separators left by header stripping
+            # are now cleaned too — the reply starts at the real content.
             "**IMPROVED RESPONSE:**  \n---\n**Subject:** How to Reset Your Password",
-            "---",
+            "**Subject:** How to Reset Your Password",
         ),
         (
             "IMPROVED RESPONSE:\nHere is how you reset your password.",
