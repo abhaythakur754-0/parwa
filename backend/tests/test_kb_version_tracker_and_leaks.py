@@ -156,3 +156,112 @@ def test_genuine_content_mentioning_quality_is_kept():
     must survive — the stripper only kills score-style tail lines."""
     text = "We care about quality of service.\n\nBest regards,\nSupport"
     assert strip_meta_headers(text) == text
+
+
+# ── 3. Small-KB coverage top-up (BM25 blind spot) ───────────────────
+
+
+class _FakeResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetchall(self):
+        return self._rows
+
+
+class _FakeDB:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def execute(self, *_a, **_k):
+        return _FakeResult(self._rows)
+
+    def close(self):
+        pass
+
+
+def _patch_db_raises(monkeypatch, boom):
+    import sys
+    import types
+    fake_module = types.ModuleType("database.base")
+    fake_module.SessionLocal = boom
+    monkeypatch.setitem(sys.modules, "database.base", fake_module)
+
+
+def _patch_db(monkeypatch, rows):
+    import sys
+    import types
+    fake_module = types.ModuleType("database.base")
+    fake_module.SessionLocal = lambda: _FakeDB(rows)
+    monkeypatch.setitem(sys.modules, "database.base", fake_module)
+
+
+def test_topup_adds_chunk_bm25_missed(monkeypatch):
+    """THE live bug: BM25 matched only the refund chunk (via 'questions');
+    the hours chunk scored 0 and was dropped. Top-up must restore it."""
+    from app.core.parwa_pipeline.nodes.node_3_knowledge_fetch import (
+        _ensure_small_kb_coverage,
+    )
+
+    refund_chunk = ("# SpeedTest Co Support Policies PASSWORD RESET ... REFUND POLICY ...",
+                    "eb0009cf-f73d-4fac")
+    hours_chunk = ("SUPPORT HOURS Our support team is available 24 hours a day, 7 days a week.",
+                   "3b55946f-0038-4c3e")
+    _patch_db(monkeypatch, [refund_chunk, hours_chunk])
+
+    result = [{"content": refund_chunk[0], "source": f"tenant_kb:{refund_chunk[1]}", "section": "C"}]
+    topped = _ensure_small_kb_coverage(result, "tenant_1")
+
+    assert len(topped) == 2
+    assert topped[1]["source"] == f"tenant_kb:{hours_chunk[1]}"
+    assert "24 hours a day" in topped[1]["content"]
+
+
+def test_topup_skips_when_already_at_target(monkeypatch):
+    from app.core.parwa_pipeline.nodes.node_3_knowledge_fetch import (
+        _ensure_small_kb_coverage,
+    )
+
+    def _boom():
+        raise AssertionError("DB must not be touched when result is at target")
+
+    _patch_db_raises(monkeypatch, _boom)
+    result = [{"content": f"doc {i}", "source": f"tenant_kb:d{i}"} for i in range(5)]
+    assert _ensure_small_kb_coverage(result, "tenant_1") == result
+
+
+def test_topup_survives_db_error(monkeypatch):
+    from app.core.parwa_pipeline.nodes.node_3_knowledge_fetch import (
+        _ensure_small_kb_coverage,
+    )
+
+    def _boom():
+        raise RuntimeError("db down")
+
+    _patch_db_raises(monkeypatch, _boom)
+    result = [{"content": "matched chunk", "source": "tenant_kb:d1"}]
+    assert _ensure_small_kb_coverage(result, "tenant_1") == result
+
+
+def test_topup_no_tenant_id(monkeypatch):
+    from app.core.parwa_pipeline.nodes.node_3_knowledge_fetch import (
+        _ensure_small_kb_coverage,
+    )
+
+    def _boom():
+        raise AssertionError("DB must not be touched without tenant_id")
+
+    _patch_db_raises(monkeypatch, _boom)
+    result = [{"content": "x", "source": "s"}]
+    assert _ensure_small_kb_coverage(result, "") == result
+
+
+def test_topup_dedupes_by_content(monkeypatch):
+    from app.core.parwa_pipeline.nodes.node_3_knowledge_fetch import (
+        _ensure_small_kb_coverage,
+    )
+
+    same = "SUPPORT HOURS available 24/7"
+    _patch_db(monkeypatch, [(same, "doc-1"), (same, "doc-1")])
+    result = [{"content": same, "source": "tenant_kb:doc-1"}]
+    assert len(_ensure_small_kb_coverage(result, "tenant_1")) == 1

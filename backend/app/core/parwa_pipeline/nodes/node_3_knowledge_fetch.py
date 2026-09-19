@@ -158,6 +158,69 @@ List 2-4 specific knowledge areas needed (one line each, no explanation):"""
 # ── Knowledge Retrieval (type-based, non-LLM) ────────────────────
 
 
+# Small-KB coverage top-up (KB retrieval fix 2026-09-19):
+# BM25/hybrid only return chunks whose words overlap the query. Live bug:
+# the tenant KB said "SUPPORT HOURS 24/7" but the customer asked "will I
+# get help on a Sunday night?" — zero overlap — so the hours chunk scored
+# 0 while the refund chunk matched on "question(s)". When BM25 finds SOME
+# match, the fetch-all safety net never fires and the one chunk the
+# customer needs is dropped. For a small tenant KB the right move is to
+# TOP UP the ranked results with the remaining chunks; ranking only
+# matters when the KB is big.
+_SMALL_KB_TOPUP_TARGET = 5   # top up while fewer than this many docs
+_SMALL_KB_TOPUP_CAP = 12     # never exceed this many docs total
+
+
+def _ensure_small_kb_coverage(result: List[Dict[str, Any]], tenant_id: str) -> List[Dict[str, Any]]:
+    """Top up ranked retrieval results with the tenant's remaining KB
+    chunks (bounded by _SMALL_KB_TOPUP_TARGET / _SMALL_KB_TOPUP_CAP).
+    Tenant-scoped (BC-001). Cheap: one query, skipped when the ranked
+    result is already at target."""
+    if not tenant_id or len(result) >= _SMALL_KB_TOPUP_TARGET:
+        return result
+    try:
+        from database.base import SessionLocal
+        from sqlalchemy import text
+        db = SessionLocal()
+        try:
+            rows = db.execute(
+                text(
+                    "SELECT content, document_id FROM document_chunks "
+                    "WHERE company_id = :tenant_id LIMIT 40"
+                ),
+                {"tenant_id": tenant_id},
+            ).fetchall()
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("Node 3: KB top-up query failed: %s", str(exc)[:150])
+        return result
+
+    seen = {d.get("content", "") for d in result}
+    added = 0
+    for content, doc_id in rows:
+        if len(result) >= min(_SMALL_KB_TOPUP_TARGET, _SMALL_KB_TOPUP_CAP):
+            break
+        c = (content or "").strip()
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        result.append({
+            "content": c,
+            "source": f"tenant_kb:{doc_id}",
+            "section": "C",
+            "score": 0.0,  # not ranked — coverage top-up
+        })
+        added += 1
+    if added:
+        logger.info(
+            "Node 3: KB top-up added %d chunk(s) for company_id=%s "
+            "(small-KB coverage: %d → %d docs)",
+            added, tenant_id, len(result) - added, len(result),
+        )
+    return result
+
+
 def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") -> List[Dict[str, Any]]:
     """Retrieve knowledge documents for THIS tenant only.
 
@@ -302,7 +365,7 @@ def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") 
                                 len(vector_rows), len(bm25_rows),
                                 result[0]["score"] if result else 0.0,
                             )
-                            return result
+                            return _ensure_small_kb_coverage(result, tenant_id)
 
                         # ── If hybrid search found 0 chunks but vector_rows exist ──
                         # Return top vector results directly (skip RRF fusion)
@@ -319,7 +382,7 @@ def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") 
                                 "Node 3: Vector-only fallback returned %d chunks (similarity top=%.4f)",
                                 len(result), result[0]["score"] if result else 0.0,
                             )
-                            return result
+                            return _ensure_small_kb_coverage(result, tenant_id)
 
                         logger.info("Node 3: Hybrid search returned 0 chunks — falling back to fetch-all")
                     else:
@@ -422,7 +485,7 @@ def _retrieve_knowledge(ticket_type: str, query: str = "", tenant_id: str = "") 
                     "Node 3: OSS tier returned %d chunks for company_id=%s (bm25=%d)",
                     len(result), tenant_id, len(bm25_rows),
                 )
-                return result
+                return _ensure_small_kb_coverage(result, tenant_id)
         except Exception as oss_exc:
             logger.warning("Node 3: OSS tier failed: %s — falling to next tier", str(oss_exc)[:200])
 
