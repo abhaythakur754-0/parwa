@@ -23,6 +23,7 @@ Building Codes:
 
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -1275,6 +1276,26 @@ class VoiceChannelService:
             f'</Response>'
         )
 
+    def _get_webhook_base_url(self) -> str:
+        """Public base URL of THIS backend — where provider webhooks land.
+
+        Twilio POSTs speech + status callbacks to a public URL. That URL
+        must be the PYTHON backend host, never the Next.js frontend:
+        FRONTEND_URL (parwa.buzz) has no /api/v1/voice routes, so calls
+        would answer with dead air (prod bug caught in live testing).
+
+        Priority: explicit BACKEND_PUBLIC_URL → Render's auto-injected
+        RENDER_EXTERNAL_URL → FRONTEND_URL (legacy fallback) → localhost.
+        """
+        from app.config import get_settings
+        settings = get_settings()
+        return (
+            settings.BACKEND_PUBLIC_URL
+            or os.environ.get("RENDER_EXTERNAL_URL")
+            or settings.FRONTEND_URL
+            or "http://localhost:3000"
+        ).rstrip("/")
+
     def _get_callback_url(self, company_id: str) -> str:
         """Build the status callback URL for a company's calls.
 
@@ -1284,10 +1305,7 @@ class VoiceChannelService:
         Returns:
             Callback URL string.
         """
-        from app.config import get_settings
-        settings = get_settings()
-
-        base_url = settings.FRONTEND_URL or "http://localhost:3000"
+        base_url = self._get_webhook_base_url()
         # Use the API path that's routed through the gateway
         return f"{base_url}/api/v1/voice/webhook/status?company_id={company_id}"
 
@@ -1303,10 +1321,7 @@ class VoiceChannelService:
         Returns:
             Absolute gather webhook URL.
         """
-        from app.config import get_settings
-        settings = get_settings()
-
-        base_url = settings.FRONTEND_URL or "http://localhost:3000"
+        base_url = self._get_webhook_base_url()
         return (
             f"{base_url}/api/v1/voice/webhook/gather?company_id={company_id}"
         )

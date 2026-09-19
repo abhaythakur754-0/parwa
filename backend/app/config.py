@@ -469,6 +469,12 @@ class Settings(BaseSettings):
     # ── Frontend ────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # ── Backend public URL (provider webhooks MUST land here) ────
+    # Twilio/Exotel/Vonage POST speech + status webhooks to the PYTHON
+    # backend, not the Next.js frontend. FRONTEND_URL points at the
+    # frontend host and must never be used for provider callbacks.
+    BACKEND_PUBLIC_URL: str = ""  # e.g. https://parwa-backend.onrender.com
+
     # ── MCP Server ───────────────────────────────────────────────
     MCP_SERVER_URL: str = ""
     MCP_AUTH_TOKEN: str = ""

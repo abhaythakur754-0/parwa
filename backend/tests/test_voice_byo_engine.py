@@ -116,6 +116,24 @@ def test_gather_webhook_route_exists():
     assert "handle_turn" in src
 
 
+def test_webhook_urls_use_backend_public_url_not_frontend():
+    """Regression (live test 2026-02): gather/status webhooks were built from
+    FRONTEND_URL (parwa.buzz) — but parwa.buzz has NO /api/v1/voice routes,
+    so Twilio's callbacks would 404 and every call would be dead air.
+    Provider callbacks MUST land on the Python backend host."""
+    src = _source(SERVICE)
+    assert "_get_webhook_base_url" in src
+    assert "BACKEND_PUBLIC_URL" in src
+    assert "RENDER_EXTERNAL_URL" in src
+    # FRONTEND_URL may only appear as the LAST-resort fallback inside the
+    # base-url helper — never as the direct base for a webhook URL.
+    for line in src.splitlines():
+        if "webhook/gather" in line or "webhook/status" in line:
+            assert "FRONTEND_URL" not in line, (
+                f"webhook URL built from FRONTEND_URL: {line.strip()}"
+            )
+
+
 # ── 2. Engine: static source checks ───────────────────────────────────
 
 def test_engine_uses_superglue_tools():

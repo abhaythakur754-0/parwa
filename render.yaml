@@ -63,6 +63,10 @@ services:
         value: https://parwa.buzz,https://parwa.vercel.app
       - key: FRONTEND_URL
         value: https://parwa.buzz
+      # Provider voice webhooks (Twilio speech/status callbacks) MUST land on
+      # the Python backend host, not the frontend. Used for gather + status URLs.
+      - key: BACKEND_PUBLIC_URL
+        value: https://parwa-backend.onrender.com
       # Run pipeline synchronously in the request thread instead of dispatching
       # to Celery. Celery is unhealthy on Render free tier (no separate worker
       # service); sync is slower (3-5s per ticket) but RELIABLE — no 503s on
