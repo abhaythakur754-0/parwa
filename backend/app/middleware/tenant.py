@@ -89,6 +89,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
         "/api/mfa/",
         "/api/client/",
         "/api/webhooks/",
+        # Provider webhooks identify the tenant via query param + verify the
+        # provider's signature (HMAC) against that tenant's own credentials.
+        # There is no JWT on a Twilio/Exotel callback — live-test finding:
+        # without this, every speech gather 403'd and calls died at greeting.
+        "/api/v1/voice/webhook/",
+        "/api/v1/sms/webhook/",
         "/api/jarvis/",
         "/api/setup/",
         "/api/jarvis",

@@ -169,6 +169,16 @@ def test_csrf_middleware_skips_provider_webhooks():
     assert '"/api/v1/sms/webhook/"' in src, (
         "CSRF must skip sms provider webhooks"
     )
+    # TenantMiddleware must also let provider callbacks through (no JWT on
+    # Twilio/Exotel callbacks — the route self-identifies the tenant).
+    TENANT = BACKEND_DIR / "app/middleware/tenant.py"
+    tsrc = _source(TENANT)
+    assert '"/api/v1/voice/webhook/"' in tsrc, (
+        "TenantMiddleware must skip voice provider webhooks"
+    )
+    assert '"/api/v1/sms/webhook/"' in tsrc, (
+        "TenantMiddleware must skip sms provider webhooks"
+    )
 
 def test_engine_uses_superglue_tools():
     """The voice agent MUST use the same SuperGlue tools as the pipeline."""
