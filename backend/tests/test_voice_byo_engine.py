@@ -224,6 +224,20 @@ def test_twilio_signature_matches_official_sdk():
     assert verify_twilio_signature(url, {}, "", token) is False
 
 
+def test_node6_honesty_gate_exists():
+    """Regression (live test 2026-02): a refund ticket got 'your refund is
+    being processed' while the SuperGlue execution queue was EMPTY — a fake
+    promise. Node 6 must rewrite any action claim when no tool actually ran."""
+    N6 = BACKEND_DIR / "app/core/parwa_pipeline/nodes/node_6_quality_format.py"
+    src = _source(N6)
+    assert "HonestyGate" in src, "Node 6 must run the action-honesty gate"
+    assert "required_action" in src
+    assert "tool_executed" in src
+    assert "No action has been executed yet" in src, (
+        "hard fallback must keep an honest disclaimer when LLM rewrite fails"
+    )
+
+
 def test_engine_uses_superglue_tools():
     """The voice agent MUST use the same SuperGlue tools as the pipeline."""
     tree = _ast_tree(ENGINE)

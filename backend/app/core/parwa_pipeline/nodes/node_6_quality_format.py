@@ -1246,6 +1246,101 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
     llm_calls = 0
 
     # ══════════════════════════════════════════════════════════════
+    # L1-0: ACTION-HONESTY GATE (live-test finding 2026-02)
+    # Parwa replaces humans — the reply must NEVER claim an action was
+    # done when no tool actually ran. Live proof: a refund ticket got
+    # "your refund is being processed" while the SuperGlue execution
+    # queue was EMPTY. If an execute-class action was requested but no
+    # tool ran, strip the fake promise and tell the truth.
+    # ══════════════════════════════════════════════════════════════
+    try:
+        import re as _re_hg
+        _required_action = (state.get("required_action") or "provide_info").strip()
+        _actions_taken = state.get("actions_taken") or []
+        _is_execute_class = _required_action not in ("", "provide_info")
+        if _is_execute_class:
+            _tool_ran = any(
+                isinstance(a, dict)
+                and a.get("action") == _required_action
+                and a.get("tool_executed")
+                and not str(a.get("tool_executed")).startswith("pending_approval")
+                for a in _actions_taken
+            )
+            if not _tool_ran:
+                _claim_patterns = [
+                    # "your refund is being/has been processed" etc.
+                    _re_hg.compile(
+                        r"\b(refund|order|cancellation|subscription|payment|amount)"
+                        r"[^.]{0,80}\b(is being|has been|was|will be|got)\s+"
+                        r"(processed|cancelled|canceled|refunded|issued|initiated|completed|placed|scheduled)",
+                        _re_hg.IGNORECASE,
+                    ),
+                    # "I have processed/issued/initiated your …"
+                    _re_hg.compile(
+                        r"I\s+(?:have|'ve|had)?\s*"
+                        r"(?:processed|issued|initiated|cancelled|canceled|submitted|scheduled)\b"
+                        r"[^.]{0,60}\b(your|the)\b",
+                        _re_hg.IGNORECASE,
+                    ),
+                ]
+                _claims = any(p.search(answer) for p in _claim_patterns)
+                logs.append({
+                    "node": 6, "technique": "HonestyGate", "duration_ms": 0,
+                    "result_summary": (
+                        f"execute_class={_required_action} tool_ran=False "
+                        f"claim_found={_claims}"
+                    ),
+                })
+                if _claims:
+                    _obs = next(
+                        (a.get("observation", "") for a in _actions_taken
+                         if isinstance(a, dict) and a.get("action") == _required_action),
+                        "",
+                    )
+                    _fix_prompt = (
+                        "HONESTY CORRECTION. The draft reply below implies the "
+                        f"customer's '{_required_action}' action was completed. "
+                        "That is FALSE — no tool was executed and nothing was "
+                        "changed in any system.\n"
+                        f"Internal note: {str(_obs)[:400]}\n\n"
+                        "Rewrite the reply so that it:\n"
+                        "1. Confirms the request is understood and registered.\n"
+                        "2. Says clearly that the request is being handed to the "
+                        "system/team and the customer will receive a confirmation "
+                        "once it is actually done.\n"
+                        "3. Does NOT claim anything is already processed, "
+                        "initiated, issued or completed.\n"
+                        "4. Keeps the professional tone and all other true "
+                        "information from the draft.\n\n"
+                        f"Customer message: {query[:600]}\n\n"
+                        f"Draft:\n{answer[:2000]}\n\nCorrected reply:"
+                    )
+                    _fixed = ""
+                    try:
+                        from app.core.parwa_pipeline.llm_client import llm_call
+                        _fixed = await llm_call(_fix_prompt, max_tokens=700, temperature=0.2)
+                    except Exception as _hg_exc:
+                        logger.warning(
+                            "honesty_gate_rewrite_failed: %s", str(_hg_exc)[:200],
+                        )
+                    if _fixed and len(_fixed.strip()) > 40:
+                        answer = _fixed.strip()
+                    else:
+                        # Hard fallback: never leave a fake promise standing.
+                        answer = (
+                            answer
+                            + "\n\nImportant: your request has been registered. "
+                            "No action has been executed yet — you will receive "
+                            "a confirmation once it is actually processed."
+                        )
+                    logs.append({
+                        "node": 6, "technique": "HonestyGate", "duration_ms": 0,
+                        "result_summary": "action_claim_corrected",
+                    })
+    except Exception as _hg_outer:
+        logger.warning("honesty_gate_error: %s", str(_hg_outer)[:200])
+
+    # ══════════════════════════════════════════════════════════════
     # L1: PRE-FLIGHT — PII scrub + smart routing
     # ══════════════════════════════════════════════════════════════
 
