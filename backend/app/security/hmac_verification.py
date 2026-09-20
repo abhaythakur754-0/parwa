@@ -14,12 +14,14 @@ L-06 FIX: Brevo IP ranges are now configurable via environment variable
 BREVO_IP_RANGES (comma-separated CIDR list), falling back to defaults.
 """
 
+import base64
 import hashlib
 import hmac
 import ipaddress
 import logging
 import os
 import time
+import urllib.parse
 
 
 logger = logging.getLogger("parwa.hmac_verification")
@@ -103,37 +105,38 @@ def verify_twilio_signature(
     twilio_signature: str,
     auth_token: str,
 ) -> bool:
-    """Verify Twilio webhook signature (RFC 5849).
+    """Verify Twilio's X-Twilio-Signature header (matches the official SDK).
 
-    Twilio concatenates the URL and sorted parameters into a
-    signature string, then signs with HMAC-SHA1.
+    Twilio's algorithm (twilio.request_validator.RequestValidator):
+      data = full_request_URL + concat of sorted (key + value) BODY params
+      signature = BASE64(HMAC-SHA1(auth_token, data))
 
-    Args:
-        url: The full URL of the webhook endpoint.
-        params: Dictionary of request parameters (form data).
-        twilio_signature: The X-Twilio-Signature header value.
-        auth_token: Twilio auth token for signing.
-
-    Returns:
-        True if signature is valid, False otherwise.
+    Live-test finding (2026-02): the old code compared hexdigest() instead
+    of base64 — no valid Twilio signature could EVER pass.
     """
-    if not url or not params or not twilio_signature or not auth_token:
+    if not url or twilio_signature is None or not auth_token:
         return False
     try:
-        # Sort params and concatenate as key=value pairs
-        sorted_params = sorted(params.items())
-        data = url
-        for key, value in sorted_params:
-            data += key + str(value)
+        items = []
+        for key, value in (params or {}).items():
+            if isinstance(value, (list, tuple)):
+                for one in value:
+                    items.append((key, str(one)))
+            else:
+                items.append((key, str(value)))
+        items.sort()
+        data = url + "".join(f"{k}{v}" for k, v in items)
 
-        expected = hmac.new(
-            auth_token.encode("utf-8"),
-            data.encode("utf-8"),
-            hashlib.sha1,
-        ).hexdigest()
+        expected = base64.b64encode(
+            hmac.new(
+                auth_token.encode("utf-8"),
+                data.encode("utf-8"),
+                hashlib.sha1,
+            ).digest()
+        ).decode("utf-8")
 
         return hmac.compare_digest(
-            expected, twilio_signature.strip(),
+            expected, str(twilio_signature).strip(),
         )
     except Exception:
         return False

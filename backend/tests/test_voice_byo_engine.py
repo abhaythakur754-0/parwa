@@ -197,6 +197,33 @@ def test_twilio_signature_tolerates_proxy_scheme_mismatch():
     )
     assert "--forwarded-allow-ips" in df
 
+def test_twilio_signature_matches_official_sdk():
+    """Regression (live probe 2026-02): the old validator compared HEX digest
+    instead of Twilio's BASE64 — NO valid Twilio signature could ever pass,
+    so every real webhook 401'd. Must byte-match the official SDK."""
+    import base64
+    import hashlib
+    import hmac as hmac_mod
+    sys.path.insert(0, str(BACKEND_DIR))
+    from app.security.hmac_verification import verify_twilio_signature
+
+    token = "unittesttoken1234567890abcdef12345678"
+    url = "https://parwa-backend.onrender.com/api/v1/voice/webhook/gather?company_id=abc"
+    params = {
+        "CallSid": "CAunittest0000000000000000000000000000",
+        "From": "+919652852014",
+        "SpeechResult": "I want a refund for order A-1001",
+    }
+    # Sign exactly like twilio.request_validator.RequestValidator
+    data = url + "".join(k + str(v) for k, v in sorted(params.items()))
+    sig = base64.b64encode(
+        hmac_mod.new(token.encode(), data.encode(), hashlib.sha1).digest()
+    ).decode()
+    assert verify_twilio_signature(url, params, sig, token) is True
+    assert verify_twilio_signature(url, params, sig[:-2] + "xx", token) is False
+    assert verify_twilio_signature(url, {}, "", token) is False
+
+
 def test_engine_uses_superglue_tools():
     """The voice agent MUST use the same SuperGlue tools as the pipeline."""
     tree = _ast_tree(ENGINE)
