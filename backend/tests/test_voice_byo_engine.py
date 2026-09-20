@@ -17,6 +17,7 @@ Run:  cd backend && ../venv/bin/python -m pytest tests/test_voice_byo_engine.py 
 """
 
 import ast
+import re
 import json
 import os
 import subprocess
@@ -32,6 +33,8 @@ MODELS = BACKEND_DIR / "database/models/voice_channel.py"
 BASE_PROVIDER = BACKEND_DIR / "app/core/providers/voice/base_voice_provider.py"
 TWILIO_PROVIDER = BACKEND_DIR / "app/core/providers/voice/twilio_voice_provider.py"
 MIGRATION = BACKEND_DIR / "database/alembic/versions/040_voice_provider_turns.py"
+MIGRATION_029 = BACKEND_DIR / "database/alembic/versions/029_voice_channel_tables.py"
+MAIN = BACKEND_DIR / "app/main.py"
 VENV_PY = BACKEND_DIR.parent / "venv" / "bin" / "python"
 
 
@@ -107,6 +110,25 @@ def test_migration_040_chains_correctly():
     assert 'revision = "040_voice_provider_turns"' in src
     assert 'down_revision = "039_ticket_list_indexes"' in src
     assert "voice_call_turns" in src
+
+
+def test_every_voice_config_model_column_has_db_home():
+    """Regression (live 2026-02, cost us a prod 500): voice_channel_configs
+    had model-only columns (number_source, caller_id_name, greeting_style,
+    language_preference, parwa_phone_number, parwa_number_sid, provider)
+    that NO migration ever created — every config SELECT/INSERT failed on
+    production. Guard: every VoiceChannelConfig model column must appear
+    in migration 029/040 SQL OR the main.py startup SQL fallback."""
+    src = _source(MODELS)
+    m = re.search(r"class VoiceChannelConfig\(Base\):(.*?)(?=\nclass |\Z)", src, re.S)
+    assert m, "VoiceChannelConfig class not found"
+    cols = set(re.findall(r"^\s{4}(\w+)\s*=\s*Column\(", m.group(1), re.M))
+    assert cols, "no model columns parsed"
+    covered = _source(MIGRATION_029) + _source(MIGRATION) + _source(MAIN)
+    missing = [c for c in sorted(cols) if c not in covered]
+    assert not missing, (
+        f"VoiceChannelConfig columns with no migration/fallback: {missing}"
+    )
 
 
 def test_gather_webhook_route_exists():

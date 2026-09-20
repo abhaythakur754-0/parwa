@@ -324,6 +324,18 @@ async def lifespan(app: FastAPI):
                 "provider VARCHAR(30) NOT NULL DEFAULT 'twilio'",
                 "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
                 "number_source VARCHAR(20) NOT NULL DEFAULT 'bring_own'",
+                # Model-only columns that NO migration ever created — every
+                # SELECT/INSERT on this table 500'd without them (live).
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "caller_id_name VARCHAR(100)",
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "greeting_style VARCHAR(20) NOT NULL DEFAULT 'professional'",
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "language_preference VARCHAR(10) NOT NULL DEFAULT 'en-US'",
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "parwa_phone_number VARCHAR(30)",
+                "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS "
+                "parwa_number_sid VARCHAR(64)",
             ]:
                 _db.execute(_sql_text(col_def))
             # Retire parwa_provided (BYO-only product decision, 2026-02)

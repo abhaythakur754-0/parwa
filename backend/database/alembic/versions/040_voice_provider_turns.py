@@ -27,13 +27,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 0. CRITICAL: number_source was NEVER created by any earlier migration
-    #    (it existed only on the model). 040 previously crashed here on every
-    #    fresh `upgrade head`, blocking ALL later migrations. Create it first.
+    # 0. CRITICAL: several model columns were NEVER created by any earlier
+    #    migration (they existed only on the model). 040 previously crashed
+    #    here on every fresh `upgrade head`, blocking ALL later migrations.
     op.execute(
         "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS number_source "
         "VARCHAR(20) NOT NULL DEFAULT 'parwa_provided'"
     )
+    for _col in [
+        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS caller_id_name VARCHAR(100)",
+        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS greeting_style VARCHAR(20) NOT NULL DEFAULT 'professional'",
+        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS language_preference VARCHAR(10) NOT NULL DEFAULT 'en-US'",
+        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS parwa_phone_number VARCHAR(30)",
+        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS parwa_number_sid VARCHAR(64)",
+    ]:
+        op.execute(_col)
 
     # 1. provider column on voice_channel_configs
     op.add_column(
