@@ -88,7 +88,17 @@ class TwilioVoiceProvider(VoiceProviderBase):
         try:
             from app.security.hmac_verification import verify_twilio_signature
 
-            return bool(verify_twilio_signature(url, payload, signature, token))
+            if verify_twilio_signature(url, payload, signature, token):
+                return True
+            # Behind TLS-terminating proxies (Render), the ASGI server may
+            # reconstruct the URL as http:// while Twilio signed https://
+            # (live-test finding). Retry with the scheme swapped.
+            swapped = (
+                url.replace("https://", "http://", 1)
+                if url.startswith("https://")
+                else url.replace("http://", "https://", 1)
+            )
+            return bool(verify_twilio_signature(swapped, payload, signature, token))
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("twilio_signature_check_failed error=%s", str(exc)[:200])
             return False

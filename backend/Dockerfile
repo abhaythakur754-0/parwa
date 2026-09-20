@@ -95,4 +95,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # --no-access-log: disable access logging (saves ~10MB)
 # NOTE: never add --limit-max-requests — worker recycling caused periodic
 # stalls under sustained load (all workers restart simultaneously).
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --no-access-log
+# --proxy-headers + --forwarded-allow-ips: Render terminates TLS and proxies
+# to uvicorn over http. Without this, request.url/request.base_url are http://
+# while providers signed https:// (Twilio HMAC fails) and webhook URLs built
+# from request.base_url go out as http:// (live-test finding 2026-02).
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --no-access-log --proxy-headers --forwarded-allow-ips="*"

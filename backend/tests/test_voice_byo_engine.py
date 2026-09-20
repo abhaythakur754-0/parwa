@@ -180,6 +180,23 @@ def test_csrf_middleware_skips_provider_webhooks():
         "TenantMiddleware must skip sms provider webhooks"
     )
 
+
+def test_twilio_signature_tolerates_proxy_scheme_mismatch():
+    """Regression (live probe 2026-02): behind Render's TLS proxy the ASGI
+    server sees http:// but Twilio signed https:// → every real webhook
+    rejected with 401. The verifier must retry with the scheme swapped."""
+    TP = _source(TWILIO_PROVIDER)
+    assert "https://" in TP and "http://" in TP
+    assert "swapped" in TP or "scheme" in TP.lower(), (
+        "verify_signature must retry with swapped scheme"
+    )
+    dockerfile = (BACKEND_DIR.parent / "backend" / "Dockerfile")
+    df = dockerfile.read_text()
+    assert "--proxy-headers" in df, (
+        "uvicorn must trust proxy headers (request.url must be https behind Render)"
+    )
+    assert "--forwarded-allow-ips" in df
+
 def test_engine_uses_superglue_tools():
     """The voice agent MUST use the same SuperGlue tools as the pipeline."""
     tree = _ast_tree(ENGINE)
