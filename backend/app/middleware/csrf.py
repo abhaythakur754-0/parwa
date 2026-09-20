@@ -45,8 +45,17 @@ _PUBLIC_AUTH_PATHS = (
     "/api/auth/check-email",
 )
 
-# Webhook routes that skip CSRF checks
-_WEBHOOK_SKIP_PREFIXES = ("/api/webhooks/",)
+# ── Webhook routes that providers (Twilio etc.) POST to ──
+# Browser CSRF does not apply to server-to-server provider callbacks:
+# they carry NO Origin/Referer header (a browser concept) and are
+# authenticated inside the handlers via X-Twilio-Signature HMAC.
+# Live-test finding (2026-02): without these, the FIRST speech gather of
+# every voice call was rejected → Twilio error → call died after greeting.
+_WEBHOOK_SKIP_PREFIXES = (
+    "/api/webhooks/",
+    "/api/v1/voice/webhook/",  # voice: status + voice + gather (HMAC-verified)
+    "/api/v1/sms/webhook/",    # sms: status + inbound (HMAC-verified)
+)
 
 # Safe HTTP methods
 _SAFE_METHODS = ("GET", "HEAD", "OPTIONS")

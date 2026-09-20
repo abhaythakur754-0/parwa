@@ -156,7 +156,19 @@ def test_webhook_urls_use_backend_public_url_not_frontend():
             )
 
 
-# ── 2. Engine: static source checks ───────────────────────────────────
+def test_csrf_middleware_skips_provider_webhooks():
+    """Regression (live call 2026-02, call died at 14s): the CSRF middleware
+    rejected Twilio's speech gather POST (providers send no Origin header).
+    Server-to-server provider callbacks are authenticated by X-Twilio-Signature
+    inside the handlers — CSRF (a browser attack) must not apply."""
+    CSRF = BACKEND_DIR / "app/middleware/csrf.py"
+    src = _source(CSRF)
+    assert '"/api/v1/voice/webhook/"' in src, (
+        "CSRF must skip voice provider webhooks (gather/status/voice)"
+    )
+    assert '"/api/v1/sms/webhook/"' in src, (
+        "CSRF must skip sms provider webhooks"
+    )
 
 def test_engine_uses_superglue_tools():
     """The voice agent MUST use the same SuperGlue tools as the pipeline."""
