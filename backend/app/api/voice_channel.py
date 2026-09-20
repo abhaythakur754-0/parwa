@@ -214,6 +214,49 @@ async def get_voice_call(
         return _error_response("INTERNAL_ERROR", "Failed to retrieve call", 500)
 
 
+@router.get("/calls/{call_id}/turns")
+async def get_voice_call_turns(
+    request: Request,
+    call_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get the per-turn live transcript of a voice call.
+
+    Accepts Parwa's call UUID or the provider CallSid (CA...).
+    R-01: Requires JWT authentication via get_current_user.
+    """
+    company_id = current_user.company_id
+
+    try:
+        db = _get_db(request)
+        from app.services.voice_channel_service import VoiceChannelService
+        service = VoiceChannelService(db)
+        turns = service.get_call_turns(call_id, company_id)
+        return {
+            "call_id": call_id,
+            "turns": [
+                {
+                    "role": t.role,
+                    "text": t.text,
+                    "tool_id": t.tool_id,
+                    "tool_status": t.tool_status,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                }
+                for t in turns
+            ],
+        }
+    except Exception as exc:
+        logger.error(
+            "voice_call_turns_error",
+            extra={
+                "company_id": company_id,
+                "call_id": call_id,
+                "error": str(exc)[:200],
+            },
+        )
+        return _error_response("INTERNAL_ERROR", "Failed to retrieve call turns", 500)
+
+
 @router.post("/calls/{call_id}/end")
 async def end_voice_call(
     request: Request,

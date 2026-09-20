@@ -508,6 +508,30 @@ class VoiceChannelService:
             .first()
         )
 
+    def get_call_turns(
+        self,
+        call_id: str,
+        company_id: str,
+    ) -> list:
+        """Get the per-turn transcript of a call (BC-001 tenant isolation).
+
+        call_id may be Parwa's UUID or the provider's CallSid (CA...).
+        Ordered by creation: customer speech → agent reply → tool records.
+        """
+        from database.models.voice_channel import VoiceCallTurn
+        return (
+            self.db.query(VoiceCallTurn)
+            .filter(VoiceCallTurn.company_id == company_id)
+            .filter(
+                or_(
+                    VoiceCallTurn.call_id == call_id,
+                    VoiceCallTurn.call_sid == call_id,
+                )
+            )
+            .order_by(VoiceCallTurn.created_at.asc())
+            .all()
+        )
+
     def list_calls(
         self,
         company_id: str,
