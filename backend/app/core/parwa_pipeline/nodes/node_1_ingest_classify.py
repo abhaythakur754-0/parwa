@@ -1037,6 +1037,17 @@ MULTI_ISSUE_SIGNALS = [
 ]
 
 # Action extraction patterns
+# 2026-09-20 LIVE-TEST FIX: refund/credit amount is NO LONGER taken from the
+# capture group of the detector regex. The old pattern grabbed the FIRST
+# digits after "refund…" — which on real tickets is the ORDER NUMBER
+# ("refund for order A-1002, charged $45" → amount=1002.0). Node 5 then
+# either blocked the refund as "exceeds $500 tier limit" (recommend-only
+# downgrade, tool never ran) or, for small order numbers, would have
+# executed a refund for the WRONG amount. Now the detector only FLAGS the
+# action; the amount comes from _extract_money_amount() which requires a
+# currency anchor ($, ₹, "45 dollars", "USD 45"). No anchor → no amount →
+# Node 5 treats it as zero-amount and stays in the honest recommend-only
+# lane instead of executing a wrong figure.
 ACTION_PATTERNS = [
     (r"\brefund.*?\$?(\d+(?:\.\d{2})?)", "execute_refund", "amount"),
     (r"\bcredit.*?\$?(\d+(?:\.\d{2})?)", "execute_credit", "amount"),
@@ -1048,6 +1059,39 @@ ACTION_PATTERNS = [
     (r"\b(?:different|wrong|incorrect)\s+(?:price|prices|pricing|rate|charge|amount)\b", "investigate_billing", None),
     (r"\bcharged\s+\$?[\d,.]+\s+twice\b", "investigate_billing", "amount"),
 ]
+
+# Currency-anchored money matcher — the ONLY trusted source for amounts.
+# Matches: $45 · $1,250.50 · ₹500 · €9.99 · £12 · USD 45 · Rs. 500
+#          45 dollars · 45.50 USD · 1,299 rupees
+_MONEY_RE = re.compile(
+    r"(?:[$€£₹]\s*(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?))"
+    r"|(?:\b(?:usd|inr|rs\.?|rupees?|dollars?|euros?)\s*(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?))"
+    r"|(?:\b(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:usd|inr|rupees?|dollars?|euros?))",
+    re.IGNORECASE,
+)
+
+
+def _extract_money_amount(query: str) -> Optional[float]:
+    """Extract a REAL money amount from the query, currency-anchored only.
+
+    Bare digits are NEVER trusted: order numbers (A-1002), dates (12 Sept),
+    and ticket IDs (#58210) all look like numbers but are not amounts.
+    Returns None when no currency-anchored amount exists — callers must
+    treat that as "amount unknown" (fail-safe: recommend-only), never
+    guess.
+    """
+    if not query:
+        return None
+    match = _MONEY_RE.search(query)
+    if not match:
+        return None
+    raw = next((g for g in match.groups() if g), None)
+    if raw is None:
+        return None
+    try:
+        return float(raw.replace(",", ""))
+    except (TypeError, ValueError):
+        return None
 
 
 # ── SmartRouter: Classify (non-LLM) ──────────────────────────────
@@ -1120,7 +1164,17 @@ def _extract_action(query: str, ticket_type: str = "") -> tuple:
         if match:
             details = {}
             if detail_key and match.lastindex and match.lastindex >= 1 and match.group(1):
-                details[detail_key] = float(match.group(1))
+                if detail_key == "amount":
+                    # 2026-09-20 LIVE-TEST FIX: the detector group grabs
+                    # order-number digits ("refund for order A-1002" → 1002).
+                    # Only a currency-anchored amount is trustworthy; when
+                    # none exists, leave amount UNSET so downstream Node 5
+                    # stays in the safe recommend-only lane.
+                    amount = _extract_money_amount(query)
+                    if amount is not None:
+                        details["amount"] = amount
+                else:
+                    details[detail_key] = match.group(1)
             matches.append((match.start(), action, details))
 
     if not matches:
