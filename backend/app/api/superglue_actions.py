@@ -17,8 +17,11 @@ BC-008: Every endpoint wrapped in try/except.
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
 
 from app.core.action_safety import classify_action, needs_approval
 from app.core.regulatory_guardrails import get_applicable_frameworks
@@ -104,6 +107,61 @@ def persist_classification(
         return PersistClassificationResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/executions")
+def list_tool_executions(
+    request: Request,
+    limit: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user),
+):
+    """List recent SuperGlue tool executions for the authenticated company.
+
+    Read-only audit view of superglue_call_queue (BC-001: scoped to the
+    user's company_id). Shows what tools RAN, with what input, and whether
+    they succeeded — so tenants can verify actions were really executed
+    instead of trusting the AI's word.
+    R-01: Requires JWT authentication via get_current_user.
+    """
+    try:
+        from database.models.core import SuperglueCallQueue
+
+        def _get_db(_request: Request):
+            try:
+                from database.base import get_db
+                return next(get_db())
+            except Exception:
+                from database.base import SessionLocal
+                return SessionLocal()
+
+        db = _get_db(request)
+        company_id = str(getattr(current_user, "company_id", ""))
+        rows = (
+            db.query(SuperglueCallQueue)
+            .filter(SuperglueCallQueue.company_id == company_id)
+            .order_by(SuperglueCallQueue.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "tool_id": r.tool_id,
+                "ticket_id": r.ticket_id,
+                "agent_id": r.agent_id,
+                "status": r.status,
+                "input_data": r.input_data,
+                "error_message": r.error_message,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            }
+            for r in rows
+        ]
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"code": "INTERNAL_ERROR", "message": str(e)[:200], "details": None}},
+        )
 
 
 @router.get("/{tool_id}", response_model=ActionSafetyResponse)
