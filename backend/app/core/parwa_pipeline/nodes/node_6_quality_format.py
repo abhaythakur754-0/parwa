@@ -1313,7 +1313,10 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
                         "4. Keeps the professional tone and all other true "
                         "information from the draft.\n\n"
                         f"Customer message: {query[:600]}\n\n"
-                        f"Draft:\n{answer[:2000]}\n\nCorrected reply:"
+                        f"Draft:\n{answer[:2000]}\n\n"
+                        "Output ONLY the final customer-facing reply — no "
+                        "preamble, no explanation, no meta commentary, "
+                        "no code fences.\n"
                     )
                     _fixed = ""
                     try:
@@ -1324,7 +1327,18 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
                             "honesty_gate_rewrite_failed: %s", str(_hg_exc)[:200],
                         )
                     if _fixed and len(_fixed.strip()) > 40:
-                        answer = _fixed.strip()
+                        _fixed = _fixed.strip()
+                        # Strip LLM meta-preamble: keep from first greeting line
+                        _greet = _re_hg.search(r"(?m)^(Hello|Hi|Dear)\b", _fixed)
+                        if _greet:
+                            _fixed = _fixed[_greet.start():]
+                        # Dedupe: LLM sometimes repeats the whole reply —
+                        # cut at the first repeat of the opening block.
+                        _open = _fixed[:160]
+                        _dup = _fixed.find(_open, 1) if len(_fixed) > 200 else -1
+                        if _dup > 0:
+                            _fixed = _fixed[:_dup].rstrip().rstrip("-").rstrip()
+                        answer = _fixed
                     else:
                         # Hard fallback: never leave a fake promise standing.
                         answer = (
