@@ -1373,6 +1373,11 @@ class VoiceChannelService:
                     "initiated", "ringing", "answered", "completed",
                 ],
                 record=enable_recording,
+                # 120s ring window: Twilio's 60s default (and carrier-side
+                # ringback setup in India) can end as no-answer before the
+                # customer even sees the call on screen (live test 2026-02:
+                # two no-answers at ~12s with no explicit timeout set).
+                timeout=120,
             )
 
             return {
