@@ -161,7 +161,7 @@ class TestFailoverChains:
         light = FAILOVER_CHAINS.get("light", [])
         assert len(light) > 0
         model_ids = [m for _, m in light]
-        assert "qwen/qwen3.6-27b" in model_ids
+        assert "qwen/qwen3.8-27b" in model_ids
 
     def test_medium_chain_has_mistral(self):
         medium = FAILOVER_CHAINS.get("medium", [])

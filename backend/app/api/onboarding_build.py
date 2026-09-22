@@ -205,6 +205,7 @@ async def trigger_build(
                 agent_capabilities=", ".join(capabilities),
                 sample_ticket=None,
                 tenant_integrations=tenant_integrations_ctx,
+                tenant_id=tenant_id,
             )
 
             if result.get("success"):

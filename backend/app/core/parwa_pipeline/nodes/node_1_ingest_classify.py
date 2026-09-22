@@ -1322,6 +1322,28 @@ Respond with ONLY a number between 0.0 and 1.0. No explanation."""
         return 0.7
 
 
+# ── OSS skills hub: entity enrichment (Phase 1) ──────────────────
+
+
+def _oss_entities_ctx(query: str) -> dict:
+    """Extract order numbers / emails / phones / amounts / dates from the
+    raw query via the oss_stack regex floor (stdlib, ~0ms) — GLiNER
+    enrichment lands on the skills box in Phase 2. Merged into
+    customer_context so downstream nodes (2/5) can pull clean tool inputs
+    without another LLM extraction call. Returns {} when nothing found —
+    keeps customer_context shape unchanged.
+    """
+    try:
+        from app.core.oss_stack import hub as oss_hub
+        ents = oss_hub.extract_entities(query or "")
+        if not ents:
+            return {}
+        found = {k: v for k, v in ents.items() if v}
+        return {"oss_entities": found} if found else {}
+    except Exception:
+        return {}
+
+
 # ── Main Node Function ────────────────────────────────────────────
 
 
@@ -1889,6 +1911,37 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     # like "legal_sensitive". New capability = new agent = automatic routing.
     detected_capability = _detect_capability(query, ticket_type)
 
+    # OSS skills hub (Phase 1, 2026-09): zero-shot capability match BEFORE
+    # the LLM fallback. GLiClass runs on the skills box (SKILLS_BOX_URL) or
+    # locally when OSS_INTENT=1 — milliseconds, $0, kills the paid LLM
+    # capability call (~500ms + $0.0001) whenever the built-in capability
+    # vocabulary covers the query.
+    if not detected_capability:
+        try:
+            from app.core.oss_stack import hub as oss_hub
+            if oss_hub.enabled():
+                _oss_labels = [c.replace("_", " ") for c in ALL_CAPABILITIES]
+                _oss_map = {c.replace("_", " "): c for c in ALL_CAPABILITIES}
+                _oss_t0 = time.time()
+                _oss_ranked = await oss_hub.classify_labels(query, _oss_labels)
+                _oss_ms = int((time.time() - _oss_t0) * 1000)
+                _oss_top = _oss_ranked[0] if _oss_ranked else None
+                if _oss_top and float(_oss_top.get("score", 0)) >= 0.5:
+                    detected_capability = _oss_map.get(_oss_top["label"], _oss_top["label"])
+                    logs.append({
+                        "node": 1, "technique": "CapabilityRouter.ZeroShot",
+                        "duration_ms": _oss_ms,
+                        "result_summary": f"zero-shot matched capability={detected_capability} score={_oss_top.get('score', 0):.2f} — LLM call saved",
+                    })
+                else:
+                    logs.append({
+                        "node": 1, "technique": "CapabilityRouter.ZeroShot",
+                        "duration_ms": _oss_ms,
+                        "result_summary": "no confident zero-shot match — falling to LLM",
+                    })
+        except Exception as oss_exc:
+            logger.warning("oss_zero_shot_capability_failed: %s", str(oss_exc)[:120])
+
     # LLM fallback: if rule-based matcher returned None, use Llama 3.1 8B
     # to classify the query against the 24-capability vocabulary (+ any
     # tenant-defined custom capabilities). This handles tickets that don't
@@ -2419,7 +2472,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 "action_details": action_details,
                 "classification_confidence": 1.0,  # canned response = high confidence
                 "routing_suggestion": "instant_path",
-                "customer_context": {**customer_context, **dynamic_ctx},
+                "customer_context": {**customer_context, **dynamic_ctx, **_oss_entities_ctx(query)},
                 "system_flags": system_flags,
                 "technique_log": logs,
                 "node_1_token_usage": 0,  # 0 LLM calls for INSTANT lane
@@ -2592,7 +2645,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
         "action_details": action_details,
         "classification_confidence": confidence,
         "routing_suggestion": routing_suggestion,
-        "customer_context": {**customer_context, **dynamic_ctx},
+        "customer_context": {**customer_context, **dynamic_ctx, **_oss_entities_ctx(query)},
         "system_flags": system_flags,
         "technique_log": logs,
         "node_1_token_usage": 1,  # 1 LLM call (UoT)

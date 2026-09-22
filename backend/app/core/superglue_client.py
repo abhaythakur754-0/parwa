@@ -275,6 +275,40 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
         return True
 
 
+async def get_tenant_tool_ids(tenant_id: Optional[str] = None) -> set:
+    """Return the set of tool ids that BELONG to this tenant.
+
+    Tools saved via generate_tool_for_agent(tenant_id=...) are stored as
+    "tenant_{tenant_id}__{name}". This helper lists the Superglue server,
+    keeps only ids carrying THIS tenant's namespace, and strips the prefix
+    so callers can compare RAW ids (as an LLM would output them) against
+    what actually exists.
+
+    Returns BOTH forms per tool (raw + namespaced) so either style matches:
+        {"order-status-check", "tenant_52bb..__order-status-check", ...}
+
+    Never raises; on any error returns an empty set (caller then refuses
+    to execute — safe default for multi-tenant isolation).
+    """
+    if not tenant_id:
+        return set()
+    prefix = f"tenant_{tenant_id}__"
+    try:
+        tools = await list_tools()
+    except Exception as exc:
+        logger.warning("get_tenant_tool_ids error: %s", str(exc)[:200])
+        return set()
+    ids: set = set()
+    for tool in tools:
+        if tool.get("archived", False):
+            continue
+        tid = tool.get("id", "") or ""
+        if tid.startswith(prefix):
+            ids.add(tid)
+            ids.add(tid[len(prefix):])  # raw form too
+    return ids
+
+
 async def list_systems() -> List[Dict[str, Any]]:
     """List all connected systems in Superglue."""
     url, token = _get_config()
@@ -723,14 +757,22 @@ async def _poll_run_status(run_id: str, tool_id: str = "", max_polls: int = 30, 
 _get_run_status = _poll_run_status
 
 
-async def get_available_tools_description() -> str:
+async def get_available_tools_description(tenant_id: Optional[str] = None) -> str:
     """Get a human-readable description of available tools for the LLM.
 
     This is what PARWA's LLM sees to decide which tool to call.
     Includes: tool ID, name, instruction (what it does), required inputs.
     Skips archived tools.
+
+    2026-09 tenant isolation: when tenant_id is provided, ONLY that
+    tenant's tools ("tenant_{tenant_id}__*" ids) are shown — previously
+    every tenant's LLM could see and pick ANOTHER tenant's raw tool ids
+    (cross-tenant leak + guaranteed 404 on execute).
     """
     tools = await list_tools()
+    if tenant_id:
+        prefix = f"tenant_{tenant_id}__"
+        tools = [t for t in tools if str(t.get("id", "")).startswith(prefix)]
     if not tools:
         return "No Superglue tools available."
 

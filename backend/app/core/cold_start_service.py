@@ -92,7 +92,7 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
     # Cerebras/Google removed (daily caps / dead keys / 402).
     # LIGHT tier
     PREWARM_COMBO(
-        model_id="qwen/qwen3.6-27b",
+        model_id="qwen/qwen3.8-27b",
         provider="groq",
         tier="light",
         probe_query="Hello",
@@ -107,7 +107,7 @@ PREWARM_COMBOS: List[PREWARM_COMBO] = [
     ),
     # MEDIUM tier
     PREWARM_COMBO(
-        model_id="qwen/qwen3.6-27b",
+        model_id="qwen/qwen3.8-27b",
         provider="groq",
         tier="medium",
         probe_query="Classify: refund",
@@ -361,9 +361,9 @@ class ColdStartService:
         # Hardcoded fallback chain: light → medium → heavy
         # Backbone only (2026-09): Groq + Mistral + NVIDIA
         fallback_chain = [
-            ("groq", "qwen/qwen3.6-27b", "light"),
+            ("groq", "qwen/qwen3.8-27b", "light"),
             ("mistral", "mistral-small-latest", "light"),
-            ("groq", "qwen/qwen3.6-27b", "medium"),
+            ("groq", "qwen/qwen3.8-27b", "medium"),
             ("mistral", "mistral-small-latest", "medium"),
             ("nvidia", "z-ai/glm-5.3-flash", "heavy"),
         ]
@@ -387,7 +387,7 @@ class ColdStartService:
         # No warm model found — return fastest light model as fallback
         return {
             "provider": "groq",
-            "model_id": "qwen/qwen3.6-27b",
+            "model_id": "qwen/qwen3.8-27b",
             "tier": "light",
             "reason": "cold_fallback_to_lightest",
         }

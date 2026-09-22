@@ -47,6 +47,7 @@ from app.core.superglue_client import (
     _get_llm_url,
     _session_headers,
     is_configured,
+    namespaced_tool_id,
 )
 
 logger = logging.getLogger("parwa.superglue_tool_generator")
@@ -61,6 +62,7 @@ async def generate_tool_for_agent(
     sample_ticket: Optional[str] = None,
     tenant_integrations: Optional[Dict[str, Any]] = None,
     trial_run_inputs: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Ask Superglue to generate a multi-step tool for this AI agent.
 
@@ -76,6 +78,12 @@ async def generate_tool_for_agent(
             failure deletes the tool and feeds the error back for a
             corrective retry (catches e.g. hallucinated table names).
             NEVER pass inputs that mutate real customer data.
+        tenant_id: OPTIONAL tenant id. When provided, the tool is SAVED under
+            the tenant-namespaced id "tenant_{tenant_id}__{name}" — matching
+            how execute_tool()/verify_tool_exists() look tools up. Without
+            this, tools were saved under RAW ids while execution namespaced
+            them → guaranteed 404 on every generated tool (the live incident
+            root cause, fixed 2026-09).
 
     Returns:
         {
@@ -105,7 +113,7 @@ async def generate_tool_for_agent(
     # is then saved via POST /v1/tools (verified 201).
     try:
         result = await _generate_tool_via_superglue_llm(
-            instruction, agent_name, trial_run_inputs
+            instruction, agent_name, trial_run_inputs, tenant_id=tenant_id
         )
         if result.get("success"):
             return result
@@ -127,6 +135,7 @@ async def generate_tool_for_agent(
         agent_capabilities=agent_capabilities,
         sample_ticket=sample_ticket,
         tenant_integrations=tenant_integrations,
+        tenant_id=tenant_id,
     )
 
 
@@ -778,6 +787,7 @@ async def _generate_tool_via_superglue_llm(
     instruction: str,
     agent_name: str,
     trial_run_inputs: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate a tool using SUPERGLUE'S OWN LLM (primary path).
 
@@ -881,6 +891,13 @@ async def _generate_tool_via_superglue_llm(
                 "tool_id": None,
                 "tool_definition": None,
             }
+
+        # 2026-09 namespace-at-save: save under tenant_{id}__{name} so
+        # execute_tool()/verify_tool_exists() (which always look the
+        # namespaced id up) find it. Saves under RAW ids were 404ing on
+        # every execution.
+        if tenant_id and tool_def.get("id"):
+            tool_def["id"] = namespaced_tool_id(str(tool_def["id"]), tenant_id)
 
         result = await _save_tool_to_superglue(tool_def)
         if result.get("success"):
@@ -1060,6 +1077,7 @@ async def _generate_tool_via_parwa_llm(
     agent_capabilities: str,
     sample_ticket: Optional[str] = None,
     tenant_integrations: Optional[Dict[str, Any]] = None,
+    tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate a Superglue tool using PARWA's NVIDIA LLM (fallback path).
 
@@ -1151,6 +1169,10 @@ Generate ONLY the JSON. No markdown fences, no explanation."""
                     "tool_id": None,
                     "tool_definition": None,
                 }
+
+        # 2026-09 namespace-at-save (same as the Superglue-LLM path)
+        if tenant_id and tool_def.get("id"):
+            tool_def["id"] = namespaced_tool_id(str(tool_def["id"]), tenant_id)
 
         result = await _save_tool_to_superglue(tool_def)
         if result.get("success"):

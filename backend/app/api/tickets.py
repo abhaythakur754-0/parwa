@@ -1151,7 +1151,7 @@ def resume_pipeline(
         # 2026-09-10: llama-3.1-8b-instant is RETIRED on Groq (404) — the
         # whole resume flow silently 404'd since the model died. Same live
         # model as the pipeline (GROQ_MODEL env-overridable).
-        _resume_model = _os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+        _resume_model = _os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
         r = _httpx.post(
             "https://api.groq.com/openai/v1/chat/completions",
             json={
@@ -1161,7 +1161,7 @@ def resume_pipeline(
                     {"role": "user", "content": direct_prompt},
                 ],
                 "temperature": 0.3,
-                # 2026-09-10: qwen3.6-27b is a hybrid reasoner — the
+                # 2026-09-10: groq hybrid reasoners (qwen3.x) emit <think> — the
                 # <think> block alone consumed the old 500-token budget,
                 # leaving an empty answer after strip_reasoning (resume
                 # returned 200 with status:error). 1500 gives room for

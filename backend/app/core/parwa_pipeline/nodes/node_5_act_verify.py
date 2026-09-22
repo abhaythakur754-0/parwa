@@ -540,26 +540,49 @@ THOUGHT:"""
                                 agent_capabilities=_caps_str or action,
                                 sample_ticket=(state.get("query", "") or "")[:500],
                                 tenant_integrations=state.get("tenant_integrations") or {},
+                                tenant_id=tenant_id,
                             )
                             if _forge.get("success") and _forge.get("tool_id"):
-                                _f_agent.superglue_tool_id = _forge["tool_id"]
-                                _f_agent.superglue_tool_status = "active"
-                                _f_db.commit()
-                                _forge_tool_id = _forge["tool_id"]
-                                _forge_input = _extract_tool_inputs(details, action, knowledge)
-                                _forge_ticket = state.get("ticket_id", "")
-                                _forge_result = await _execute_with_idempotency(
-                                    _forge_tool_id, _forge_input,
-                                    f"{_forge_ticket}:{_forge_tool_id}:{action}",
-                                    _forge_ticket, action, tenant_id,
-                                )
-                                if _forge_result.get("guardrail_blocked"):
+                                _forge_result = None  # set only when verify passes + execution runs
+                                # 2026-09 fix: VERIFY the tool actually exists on
+                                # Superglue BEFORE linking it to the agent. Linking
+                                # an unverified id corrupted the agent (status=active
+                                # + tool that 404s on every run).
+                                from app.core.superglue_client import verify_tool_exists as _forge_verify
+                                _forge_ok = await _forge_verify(_forge["tool_id"], tenant_id=tenant_id)
+                                if not _forge_ok:
+                                    _f_agent.superglue_tool_status = "failed"
+                                    try:
+                                        _f_agent.superglue_tool_definition = _forge_json.dumps({
+                                            "error": "post-save verify failed: tool not found on Superglue",
+                                            "tool_id": _forge.get("tool_id"),
+                                        })
+                                    except Exception:
+                                        pass
+                                    _f_db.commit()
+                                    logs.append(
+                                        f"node5: tool-forge saved but verify failed "
+                                        f"tool={str(_forge.get('tool_id'))[:40]} — NOT linked, falling back"
+                                    )
+                                else:
+                                    _f_agent.superglue_tool_id = _forge["tool_id"]
+                                    _f_agent.superglue_tool_status = "active"
+                                    _f_db.commit()
+                                    _forge_tool_id = _forge["tool_id"]
+                                    _forge_input = _extract_tool_inputs(details, action, knowledge)
+                                    _forge_ticket = state.get("ticket_id", "")
+                                    _forge_result = await _execute_with_idempotency(
+                                        _forge_tool_id, _forge_input,
+                                        f"{_forge_ticket}:{_forge_tool_id}:{action}",
+                                        _forge_ticket, action, tenant_id,
+                                    )
+                                if _forge_result and _forge_result.get("guardrail_blocked"):
                                     observation = (
                                         f"ACTION BLOCKED by safety guardrails after tool-forge: "
                                         f"{_forge_result.get('error', '')}. Tool '{_forge_tool_id}' not executed."
                                     )
                                     tool_executed = f"agent:{routed_agent_id}:superglue:{_forge_tool_id} (guardrail_blocked)"
-                                elif _forge_result.get("safety_approval_required"):
+                                elif _forge_result and _forge_result.get("safety_approval_required"):
                                     state["pending_approval"] = True
                                     state["pending_approval_reason"] = (
                                         f"Safety gate on forged tool '{_forge_tool_id}': "
@@ -571,7 +594,7 @@ THOUGHT:"""
                                         f"needs approval. Ticket moved to Pending Approval queue."
                                     )
                                     tool_executed = f"pending_approval:agent:{routed_agent_id}:superglue:{_forge_tool_id}"
-                                elif _forge_result.get("success"):
+                                elif _forge_result and _forge_result.get("success"):
                                     observation = (
                                         f"ACTION EXECUTED via newly forged Superglue tool "
                                         f"'{_forge_tool_id}' (agent '{_f_agent.agent_name}'): "
@@ -599,7 +622,9 @@ THOUGHT:"""
             # ── Fallback: LLM picks from all available tools ────────
             if observation is None:
                 # Step 1: Get available tools from Superglue
-                tools_desc = await get_available_tools_description()
+                # 2026-09 tenant isolation: LLM sees ONLY this tenant's tools —
+                # previously it saw every tenant's raw ids (cross-tenant leak).
+                tools_desc = await get_available_tools_description(tenant_id=tenant_id)
 
                 # Step 2: Build context with connected database info
                 connected_dbs = state.get("connected_databases", [])
@@ -636,6 +661,27 @@ If no tool matches, respond with:
                 if match:
                     decision = _json.loads(match.group())
                     tool_id = decision.get("tool_id", "none")
+
+                    # 2026-09 fix (live incident): the LLM used to invent tool
+                    # names (e.g. "order-status-tracker" instead of the real
+                    # "order-status-check") → namespaced 404 → KB fallback →
+                    # escalate. Validate the chosen id against the tenant's
+                    # ACTUAL tool list before anything else.
+                    if tool_id and tool_id != "none":
+                        from app.core.superglue_client import get_tenant_tool_ids
+                        _tenant_ids = await get_tenant_tool_ids(tenant_id)
+                        if _tenant_ids and tool_id not in _tenant_ids:
+                            logger.warning(
+                                "node5: LLM picked non-existent/foreign tool '%s' — refusing (tenant=%s)",
+                                str(tool_id)[:60], tenant_id,
+                            )
+                            observation = (
+                                f"No matching Superglue tool for action '{action}' "
+                                f"(suggested tool '{tool_id}' does not exist for this tenant). "
+                                f"Answer from knowledge or escalate honestly."
+                            )
+                            tool_executed = None
+                            tool_id = "none"
 
                     if tool_id and tool_id != "none":
                         # Step 3: Run Action Safety Gate before execution
@@ -674,7 +720,9 @@ If no tool matches, respond with:
                             )
                         else:
                             # Step 4: Execute the tool via Superglue
-                            result = await execute_tool(tool_id, tool_input)
+                            # 2026-09: tenant-scoped on this path — the namespaced
+                            # id must match how the tool was SAVED.
+                            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
 
                             if result.get("success"):
                                 observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
@@ -1235,9 +1283,29 @@ def _safety_net_scrub(text: str) -> Dict[str, Any]:
     Catches email addresses, phone numbers, card numbers, SSNs, and
     long numeric identifiers that could be payment cards. Replaces
     each match with [REDACTED] to preserve readability.
+
+    2026-09 upgrade: when the skills box (SKILLS_BOX_URL) or local
+    Presidio (OSS_PII=1) is configured, the smarter engine runs first —
+    the regex patterns below stay as the always-available floor.
     """
     if not text:
         return {"scrubbed": text, "pii_found": False, "count": 0}
+
+    try:
+        from app.core.oss_stack import hub as oss_hub
+        from app.core.oss_stack import pii as oss_pii
+
+        if oss_hub.box_url() or oss_pii.is_available():
+            masked = oss_hub.mask_pii(text)
+            if masked is not None:
+                changed = masked != text
+                return {
+                    "scrubbed": masked,
+                    "pii_found": changed,
+                    "count": 1 if changed else 0,
+                }
+    except Exception:
+        pass  # regex floor below
 
     scrubbed = text
     count = 0

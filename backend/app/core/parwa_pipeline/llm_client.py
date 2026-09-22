@@ -982,7 +982,7 @@ async def _call_litellm_direct(messages: list, temperature: float, max_tokens: i
         if not os.environ.get("GEMINI_API_KEY") and os.environ.get("GOOGLE_AI_API_KEY"):
             os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_AI_API_KEY"]
 
-        model = os.environ.get("AI_LIGHT_MODEL", "groq/qwen/qwen3.6-27b")
+        model = os.environ.get("AI_LIGHT_MODEL", "groq/qwen/qwen3.8-27b")
 
         response = await litellm.acompletion(
             model=model,

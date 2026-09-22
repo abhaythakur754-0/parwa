@@ -497,7 +497,7 @@ class CRMAnalyzerService:
         payload = {
             # 2026-09-10: llama-3.1-8b-instant RETIRED on Groq (404).
             # Same live model as the pipeline (GROQ_MODEL env-overridable).
-            "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b"),
+            "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b"),
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,

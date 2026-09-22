@@ -1693,11 +1693,11 @@ async def _call_single_provider_async(
     # (qwen — hybrid reasoner) is the live default; <think> is stripped
     # from the response below. Mistral: mistral-small-latest.
     if provider_name == "groq":
-        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
     elif provider_name == "mistral":
         model = "mistral-small-latest"
     else:
-        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+        model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
 
     payload = {
         "model": model,

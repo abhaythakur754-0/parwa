@@ -226,7 +226,7 @@ async def test_user_keys(request: Request) -> Dict[str, Any]:
     if groq_key:
         t0 = _time.time()
         # 2026-09-10: llama-3.1-8b-instant retired (404) — use live pipeline model
-        _groq_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+        _groq_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 r = await client.post(

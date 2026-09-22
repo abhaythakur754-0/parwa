@@ -1578,6 +1578,7 @@ async def _request_superglue_tool_for_agent(
         agent_capabilities=agent_capabilities,
         sample_ticket=sample_ticket,
         tenant_integrations=tenant_integrations,
+        tenant_id=tenant_id,
     )
 
     if result.get("success"):

@@ -461,6 +461,7 @@ async def _build_single_agent(
                     agent_capabilities=capability,
                     sample_ticket=kb_context[:500] if kb_context else "",
                     tenant_integrations={i.get("type", ""): i.get("config", {}) for i in integrations},
+                    tenant_id=company_id,
                 )
                 if tool_result.get("success") and tool_result.get("tool_id"):
                     agent.superglue_tool_id = tool_result["tool_id"]
@@ -472,6 +473,14 @@ async def _build_single_agent(
                     )
                 else:
                     agent.superglue_tool_status = "failed"
+                    # 2026-09: persist the failure reason (was invisible before)
+                    import json as _err_json
+                    try:
+                        agent.superglue_tool_definition = _err_json.dumps({
+                            "error": str(tool_result.get("error", "unknown"))[:500],
+                        })
+                    except Exception:
+                        pass
                     _db.commit()
                     logger.warning(
                         "onboarding_build: superglue tool failed capability=%s err=%s",

@@ -103,7 +103,7 @@ class CircuitBreaker:
 DEFAULT_PROVIDERS = ["groq", "mistral", "nvidia"]
 
 DEFAULT_MODELS: Dict[str, str] = {
-    "groq": "qwen/qwen3.6-27b",
+    "groq": "qwen/qwen3.8-27b",
     "mistral": "mistral-small-latest",
     "nvidia": "z-ai/glm-5.3-flash",
 }
@@ -113,17 +113,17 @@ DEFAULT_MODELS: Dict[str, str] = {
 # Each tier has its own chain; on full exhaustion, falls to lower tier.
 FAILOVER_CHAINS: Dict[str, List[Tuple[str, str]]] = {
     "light": [
-        ("groq", "qwen/qwen3.6-27b"),
+        ("groq", "qwen/qwen3.8-27b"),
         ("mistral", "mistral-small-latest"),
     ],
     "medium": [
-        ("groq", "qwen/qwen3.6-27b"),
+        ("groq", "qwen/qwen3.8-27b"),
         ("mistral", "mistral-small-latest"),
         # Falls to LIGHT if all MEDIUM exhausted
-        ("groq", "qwen/qwen3.6-27b"),
+        ("groq", "qwen/qwen3.8-27b"),
     ],
     "heavy": [
-        ("groq", "qwen/qwen3.6-27b"),
+        ("groq", "qwen/qwen3.8-27b"),
         ("mistral", "mistral-small-latest"),
         ("nvidia", "nvidia/nemotron-3-super-120b-a12b"),
     ],

@@ -139,7 +139,10 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
     # is topped up.
     # LIGHT priority order: live Groq models first, then NVIDIA/Mistral
     # fallbacks, then Cerebras (needs credits), then AI21 (no key yet).
-    "groq-qwen3.6-27b": ModelConfig(
+    # 2026-09 purge: removed the stale "groq-qwen3.6-27b" registry entry
+    # (dead id kept as a duplicate key pointing at 3.8 — confusing + the
+    # dead name leaked into logs).
+    "groq-qwen3.8-27b": ModelConfig(
         provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
         display_name="Qwen3.8 27B (Groq)", tier=ModelTier.LIGHT, priority=1,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,
@@ -163,7 +166,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         max_requests_per_day=7000, max_tokens_per_minute=6000, context_window=8192,
         api_endpoint_base="https://api.groq.com/openai/v1/chat/completions", is_openai_compatible=True,
     ),
-    "groq-qwen3.8-27b": ModelConfig(
+    "groq-qwen3.8-27b-b5": ModelConfig(
         provider=ModelProvider.GROQ, model_id="qwen/qwen3.8-27b",
         display_name="Qwen3.8 27B (Groq)", tier=ModelTier.LIGHT, priority=5,
         max_requests_per_day=1000, max_tokens_per_minute=8000, context_window=32768,

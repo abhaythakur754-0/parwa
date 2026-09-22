@@ -287,6 +287,7 @@ async def create_agent(
                 agent_capabilities=str(_capabilities),
                 sample_ticket=None,
                 tenant_integrations=None,
+                tenant_id=company_id,
             )
             if result.get("success"):
                 agent.superglue_tool_id = result.get("tool_id")
@@ -301,6 +302,13 @@ async def create_agent(
                 )
             else:
                 agent.superglue_tool_status = "failed"
+                # 2026-09: persist WHY it failed — 'failed' status used to be
+                # unexplainable from the admin UI (refund agents failed 2/2
+                # with zero visible error).
+                agent.superglue_tool_definition = json.dumps({
+                    "error": str(result.get("error", "unknown"))[:500],
+                    "failed_at": datetime.now(timezone.utc).isoformat(),
+                })
                 logger.warning(
                     "superglue_tool_generation_failed | company_id=%s | agent=%s | error=%s",
                     company_id, body.agent_name, str(result.get("error"))[:200],
