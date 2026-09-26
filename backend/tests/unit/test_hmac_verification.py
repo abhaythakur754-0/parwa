@@ -7,6 +7,7 @@ No database connection required — pure function tests.
 Run: cd /home/z/my-project/parwa && python -m pytest backend/tests/unit/test_hmac_verification.py -v
 """
 
+import base64
 import hashlib
 import hmac
 import os
@@ -92,7 +93,13 @@ class TestVerifyTwilioSignature:
     """Tests for Twilio RFC 5849 signature verification."""
 
     def test_valid_signature(self):
-        """Correct Twilio signature should pass."""
+        """Correct Twilio signature should pass.
+
+        Twilio sends BASE64(HMAC-SHA1) in X-Twilio-Signature — NOT hex.
+        The verifier was fixed to base64 (2026-02 live-test finding: the old
+        hexdigest comparison rejected EVERY real Twilio webhook); this test
+        must build the expected value the same way the official SDK does.
+        """
         url = "https://api.parwa.io/api/webhooks/twilio"
         params = {"AccountSid": "AC123", "Body": "hello"}
         auth_token = "twilio_test_token"
@@ -100,11 +107,30 @@ class TestVerifyTwilioSignature:
         data = url
         for key, value in sorted_params:
             data += key + str(value)
-        expected = hmac.new(
-            auth_token.encode(), data.encode(), hashlib.sha1,
-        ).hexdigest()
+        expected = base64.b64encode(
+            hmac.new(auth_token.encode(), data.encode(), hashlib.sha1).digest()
+        ).decode()
         assert verify_twilio_signature(
             url, params, expected, auth_token,
+        )
+
+    def test_valid_signature_golden_base64_value(self):
+        """Golden regression value — proves the verifier expects BASE64.
+
+        Guards against anyone silently regressing to hexdigest(): with the
+        hex value '08918d81...' this exact input MUST stay False.
+        """
+        assert verify_twilio_signature(
+            "https://api.parwa.io/api/webhooks/twilio",
+            {"AccountSid": "AC123", "Body": "hello"},
+            "CJGNgfwovRD37qMhB9niwSFNvCg=",  # base64(HMAC-SHA1) of url+params
+            "twilio_test_token",
+        )
+        assert not verify_twilio_signature(
+            "https://api.parwa.io/api/webhooks/twilio",
+            {"AccountSid": "AC123", "Body": "hello"},
+            "08918d81fc28bd10f7eea32107d9e2c1214dbc28",  # OLD broken hex form
+            "twilio_test_token",
         )
 
     def test_invalid_signature(self):
@@ -143,9 +169,9 @@ class TestVerifyTwilioSignature:
         data = url
         for key, value in sorted_params:
             data += key + str(value)
-        expected = hmac.new(
-            auth_token.encode(), data.encode(), hashlib.sha1,
-        ).hexdigest()
+        expected = base64.b64encode(
+            hmac.new(auth_token.encode(), data.encode(), hashlib.sha1).digest()
+        ).decode()
         assert verify_twilio_signature(url, params1, expected, auth_token)
         assert verify_twilio_signature(url, params2, expected, auth_token)
 
