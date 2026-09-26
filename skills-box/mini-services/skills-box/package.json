@@ -1,0 +1,9 @@
+{
+  "name": "parwa-skills-box",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bash -c 'PY=${SKILLS_PYTHON:-python3}; cd \"$(dirname \"$0\")\" 2>/dev/null; exec $PY -m uvicorn main:app --host 0.0.0.0 --port ${SKILLS_PORT:-8055}' 2>&1 | tee /tmp/skills-box.log",
+    "start": "bash start.sh"
+  }
+}
