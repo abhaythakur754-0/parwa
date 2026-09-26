@@ -44,6 +44,17 @@ class ModelHandle:
         self.last_error: Optional[str] = None
 
 
+def _malloc_trim() -> None:
+    """Return freed heap to the OS. Without this, Python/torch keep the
+    pages and RSS never drops after an unload — fatal on small boxes."""
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class Registry:
     def __init__(self) -> None:
         self._handles: Dict[str, ModelHandle] = {}
@@ -110,8 +121,13 @@ class Registry:
                 self._lru.move_to_end(name)
             log.info("model load done name=%s ram_delta_mb=%d load_ms=%d rss_mb=%.0f",
                      name, h.ram_mb, h.load_ms, self.rss_mb())
+        # capture BEFORE enforce(): if the load itself pushed RSS over the
+        # limit, the guard will evict THIS model right now — the caller must
+        # still receive a usable object for THIS request (it finishes on the
+        # in-memory reference; the unload only affects future requests).
+        obj = h.obj
         self.enforce()
-        return h.obj
+        return obj
 
     # ── unload ────────────────────────────────────────────────────
     def unload(self, name: str) -> bool:
@@ -129,6 +145,7 @@ class Registry:
             finally:
                 h.obj = None
                 gc.collect()
+                _malloc_trim()
                 h.unloads += 1
             log.info("model unloaded name=%s rss_mb=%.0f", name, self.rss_mb())
         return True

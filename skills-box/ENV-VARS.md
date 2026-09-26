@@ -31,8 +31,14 @@ Dashboard → your service → Environment → add, then redeploy:
 |---|---|---|
 | `SKILLS_BOX_URL` | `https://xxxx.trycloudflare.com` (temp) or `https://skills.parwa.buzz` (permanent) | Printed by `cloudflared tunnel --url http://localhost:8055` (QUICKSTART step 4) or your named tunnel (step 6) |
 | `SKILLS_BOX_KEY` | the exact string from `cat ~/skills-box/.skills_key` | QUICKSTART step 3 |
-| `OSS_SKILLS_BOX` | `1` | Static flag — turns the box connection ON |
-| `OSS_SKILLS_MEDIA` | `1` | Static flag — OCR + voice-notes on tickets (activates with the media patch) |
+
+That is ALL. The backend reads only these two env vars (hub.py checked
+2026-09-26): setting `SKILLS_BOX_URL` alone turns the box connection ON —
+there is no extra flag (`OSS_SKILLS_BOX` / `OSS_SKILLS_MEDIA` are NOT read
+by the current backend; do not add them).
+
+Box down ≠ tickets down: hub.py has a 3s timeout and falls back to the
+local regex/classifier on every failure — it never raises.
 
 ## 3) Credentials you may create (optional)
 

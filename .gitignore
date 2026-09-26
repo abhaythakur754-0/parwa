@@ -60,3 +60,6 @@ tool-results/
 tmp/
 download/
 *.tsbuildinfo
+
+# the OSS skills box ships its own python package also named skills/ — never ignore it
+!skills-box/mini-services/skills-box/skills/
