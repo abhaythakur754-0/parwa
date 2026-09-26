@@ -11,7 +11,7 @@ numpy>=1.26
 
 # Phase 1 — classify / entities / mask
 # NOTE: transformers pinned <5 — 5.x breaks mdeberta spm tokenizer (GLiNER)
-transformers==4.51.3
+transformers==5.10.1
 gliclass>=0.1.4
 gliner>=0.2.13
 protobuf>=4.25        # gliner/xlm-roberta tokenizer conversion — was MISSING, /entities could never load
