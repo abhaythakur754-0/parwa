@@ -34,10 +34,17 @@ jobs:
     steps:
       - name: Ping backend /health
         run: |
-          code=$(curl -s -o /tmp/health.json -w "%{http_code}" -m 90 \
-            https://parwa-backend.onrender.com/health || echo "000")
+          # NOTE: this step runs under `bash -e`. ANY failing command kills
+          # the script before `exit 0` — every command below must never
+          # fail. (Bug fixed 2026-09-26: on curl timeout the health.json
+          # file never exists, `head` exited 1 and the workflow failed
+          # 6/6 times — the keepalive NEVER actually ran clean before.)
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" -m 150 \
+            https://parwa-backend.onrender.com/health || true)
+          [ -z "$code" ] && code=000
           echo "HTTP $code"
-          head -c 300 /tmp/health.json 2>/dev/null; echo
+          head -c 300 /tmp/health.json 2>/dev/null || true
+          echo
           # 000 = timed out (cold start can be slow) — the request still
           # woke the service. Never fail the workflow on a slow wake.
           exit 0
