@@ -12,6 +12,8 @@ so all downstream code (DB auto-injection, Redis key scoping, Celery task header
 can access the current tenant without explicit parameter passing.
 """
 
+import logging
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -19,6 +21,8 @@ from app.core.tenant_context import (
     clear_tenant_context,
     set_tenant_context,
 )
+
+logger = logging.getLogger("parwa.middleware.tenant")
 
 # BC-001: Max allowed length for company_id
 MAX_COMPANY_ID_LENGTH = 128
@@ -53,7 +57,37 @@ def _extract_company_id_from_jwt(request: Request) -> str | None:
         settings = get_settings()
         payload = parwa_verify_access_token(token, settings.JWT_SECRET_KEY)
         return payload.get("company_id")
-    except Exception:
+    except Exception as exc:
+        # 2026-09-26: NEVER silent again. Live testing showed intermittent
+        # 403 "Tenant identification required" right after re-login; the
+        # bare `except: return None` made the cause invisible in Render
+        # logs. Log the failure class (never the token itself).
+        logger.warning(
+            "tenant_jwt_verify_failed err=%s tok_prefix=%s...",
+            type(exc).__name__,
+            token[:12],
+        )
+        # Claim-only recovery with small leeway. The middleware does NOT
+        # authenticate (route-level deps do that strictly) — it only needs
+        # the tenant claim for scoping. jose's default zero leeway rejects
+        # tokens whose nbf/iat sits a few seconds in the future (clock skew
+        # between the issuing and verifying code path) → spurious 403s.
+        try:
+            from jose import jwt as _jose_jwt
+            from app.config import get_settings as _gs
+            claims = _jose_jwt.decode(
+                token,
+                _gs().JWT_SECRET_KEY,
+                algorithms=["HS256"],
+                leeway=10,
+                options={"verify_exp": True, "verify_nbf": True},
+            )
+            cid = claims.get("company_id")
+            if cid:
+                logger.warning("tenant_jwt_claim_recovered_with_leeway")
+                return cid
+        except Exception:
+            pass
         return None
 
 

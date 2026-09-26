@@ -537,7 +537,12 @@ async def check_external_service(
 
 
 async def check_disk_space() -> SubsystemHealth:
-    """Check disk space using os.statvfs().
+    """Check WRITABLE disk space using os.statvfs().
+
+    2026-09-26: was os.statvfs("/") — on Render that reads the HOST
+    filesystem, which the container cannot control (live health showed
+    permanent "degraded" noise). The app's actual scratch space is /tmp
+    (Render docs: writes belong there) — measure that instead.
 
     Returns healthy if > 20% free.
     Returns degraded if < 20% free.
@@ -545,7 +550,7 @@ async def check_disk_space() -> SubsystemHealth:
     """
     start = time.monotonic()
     try:
-        stat = os.statvfs("/")
+        stat = os.statvfs("/tmp")
         total_blocks = stat.f_blocks
         free_blocks = stat.f_bavail
         block_size = stat.f_frsize

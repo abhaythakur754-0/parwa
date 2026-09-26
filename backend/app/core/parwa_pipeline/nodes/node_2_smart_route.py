@@ -952,6 +952,52 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                     except Exception:
                         pass
 
+                if not agent and all_agents:
+                    # FALLBACK (2026-09-26): no agent claims this exact
+                    # capability. Prefer the tenant's OWN general agent over
+                    # template-creation/escalation — Node 3 answers from the
+                    # KB through any agent, and live testing (2026-09-26:
+                    # "how long does shipping take" ticket) showed template
+                    # creation failing → needless escalation while a capable
+                    # general agent sat idle. Priority:
+                    #   1. domain labelled general
+                    #   2. capabilities include faq_general/other
+                    #   3. any active agent (last resort — Node 6 honesty
+                    #      gates still block fake/overclaimed answers)
+                    def _agent_caps(_a):
+                        try:
+                            return _n2_json.loads(_a.capabilities or "[]")
+                        except Exception:
+                            return []
+
+                    _general_domains = ("general", "general_support", "general support")
+                    _pick = next(
+                        (a for a in all_agents
+                         if (a.domain or "").strip().lower() in _general_domains),
+                        None,
+                    )
+                    _fallback_kind = "general_domain"
+                    if _pick is None:
+                        _pick = next(
+                            (a for a in all_agents
+                             if any(c in ("faq_general", "other") for c in _agent_caps(a))),
+                            None,
+                        )
+                        _fallback_kind = "general_capability"
+                    if _pick is None:
+                        _pick = all_agents[0]
+                        _fallback_kind = "any_active"
+                    agent = _pick
+                    verified_agent_id = _pick.id
+                    logs.append({
+                        "node": 2, "technique": "AgentFallback",
+                        "duration_ms": 0,
+                        "result_summary": (
+                            f"capability={detected_capability} no exact agent → "
+                            f"using {_fallback_kind} agent {str(_pick.id)[:8]}"
+                        ),
+                    })
+
             if agent:
                 # Agent found ✅
                 agent_verification_status = "exists"

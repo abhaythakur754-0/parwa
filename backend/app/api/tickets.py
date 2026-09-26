@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from database.models.core import User
@@ -122,6 +122,53 @@ async def create_ticket(
         logger.warning("burst_protection_check_error company_id=%s error=%s", company_id, str(burst_err)[:200])
 
     service = TicketService(db, company_id)
+
+    def _find_recent_duplicate() -> Optional[Dict[str, str]]:
+        """PS05 friendly duplicate probe (read-only, never raises).
+
+        Used ONLY when ticket creation crashed, so the user gets a clean
+        409 instead of a 500 when they double-submit (same customer email
+        + near-identical subject within 24h). Mirrors the Jaccard rule
+        used by TicketService._check_duplicate (threshold 0.8).
+        """
+        try:
+            from datetime import timedelta as _td
+            from database.base import SessionLocal as _SL
+            from database.models.tickets import Ticket as _Ticket, Customer as _Customer
+            if not data.customer_email or not data.subject:
+                return None
+            _db = _SL()
+            try:
+                since = datetime.now(timezone.utc) - _td(hours=24)
+                rows = (
+                    _db.query(_Ticket)
+                    .join(_Customer, _Ticket.customer_id == _Customer.id)
+                    .filter(
+                        _Ticket.company_id == company_id,
+                        _Customer.email == data.customer_email,
+                        _Ticket.created_at >= since,
+                    )
+                    .order_by(_Ticket.created_at.desc())
+                    .limit(20)
+                    .all()
+                )
+                words_a = set(data.subject.lower().strip().split())
+                if not words_a:
+                    return None
+                for t in rows:
+                    if not t.subject:
+                        continue
+                    words_b = set(t.subject.lower().strip().split())
+                    if not words_b:
+                        continue
+                    if len(words_a & words_b) / len(words_a | words_b) >= 0.8:
+                        return {"ticket_id": t.id, "subject": t.subject}
+                return None
+            finally:
+                _db.close()
+        except Exception:  # noqa: BLE001 — probe must never mask the real error
+            logger.warning("duplicate_probe_failed company_id=%s", company_id)
+            return None
 
     try:
         ticket = service.create_ticket(
@@ -249,6 +296,37 @@ async def create_ticket(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        # PS05-hardening (2026-09-26): duplicate submissions crashed with a
+        # raw 500 (correlation c90ab523: identical subject+message re-post).
+        # Root cause lives deeper (needs Render traceback — now captured by
+        # logger.exception below). Users must NEVER see a 500 for a
+        # double-submit: return a friendly 409 pointing at the original.
+        logger.exception(
+            "ticket_create_failed company_id=%s subject=%s",
+            company_id,
+            (data.subject or "")[:120],
+        )
+        dup = _find_recent_duplicate()
+        if dup:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "DUPLICATE_TICKET",
+                    "message": "This looks like a repeat of a recent ticket. We are already on it.",
+                    "existing_ticket_id": dup["ticket_id"],
+                    "existing_subject": dup["subject"],
+                },
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "TICKET_CREATE_FAILED",
+                "message": "We could not create the ticket right now. Please try again in a moment.",
+            },
         )
 
 
