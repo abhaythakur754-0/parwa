@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-json
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  redis-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": false,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "bytes" } },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 1,
+          "title": "Redis Memory Usage",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "redis_memory_used_bytes", "legendFormat": "Used", "refId": "A" },
+            { "expr": "redis_memory_max_bytes", "legendFormat": "Max", "refId": "B" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 2,
+          "title": "Redis Keys",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "redis_db_keys", "legendFormat": "{{ db }}", "refId": "A" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "percentunit", "max": 1, "min": 0 } },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 3,
+          "title": "Redis Hit Rate",
+          "type": "gauge",
+          "targets": [
+            { "expr": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))", "legendFormat": "Hit Rate", "refId": "A" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 4,
+          "title": "Redis Evicted Keys",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "rate(redis_evicted_keys_total[5m])", "legendFormat": "Evicted/sec", "refId": "A" }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" } },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "id": 5,
+          "title": "Redis Connected Clients",
+          "type": "timeseries",
+          "targets": [
+            { "expr": "redis_connected_clients", "legendFormat": "Clients", "refId": "A" }
+          ]
+        }
+      ],
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["redis", "parwa", "database"],
+      "templating": { "list": [{ "current": {}, "hide": 0, "name": "DS_PROMETHEUS", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "type": "datasource" }] },
+      "time": { "from": "now-1h", "to": "now" },
+      "title": "Parwa Redis",
+      "uid": "parwa-redis",
+      "version": 1
+    }

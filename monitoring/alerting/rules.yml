@@ -1,0 +1,159 @@
+# PARWA Alerting Rules (Day 21, GAP 2.1)
+#
+# Alertmanager rules for critical thresholds.
+# Mount in docker-compose.prod.yml under prometheus config.
+
+groups:
+  # Subsystem Health Alerts
+  - name: parwa_health
+    rules:
+      - alert: ParwaSubsystemUnhealthy
+        expr: parwa_subsystem_up{subsystem="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL is unhealthy"
+          description: "PostgreSQL subsystem has been unhealthy for more than 1 minute."
+
+      - alert: ParwaSubsystemUnhealthy
+        expr: parwa_subsystem_up{subsystem="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis is unhealthy"
+          description: "Redis subsystem has been unhealthy for more than 1 minute."
+
+      - alert: ParwaSubsystemDegraded
+        expr: parwa_health_check{status="checks_degraded"} > 0
+          and parwa_health_check{status="checks_healthy"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PARWA is in degraded state"
+          description: "{{ $value }} subsystem(s) are degraded."
+
+  # Celery Queue Alerts
+  - name: parwa_celery
+    rules:
+      - alert: CeleryQueueDepthHigh
+        expr: parwa_celery_queue_depth > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue depth is high ({{ $value }})"
+          description: "Queue '{{ $labels.queue_name }}' has {{ $value }} pending tasks."
+
+      - alert: CeleryQueueDepthCritical
+        expr: parwa_celery_queue_depth > 5000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery queue depth is critical ({{ $value }})"
+          description: "Queue '{{ $labels.queue_name }}' has {{ $value }} pending tasks. Immediate action required."
+
+      - alert: CeleryTaskFailureRate
+        expr: >
+          sum(rate(parwa_celery_task_total{status="failure"}[5m])) by (task_name)
+          / sum(rate(parwa_celery_task_total[5m])) by (task_name)
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Celery task failure rate for {{ $labels.task_name }}"
+          description: "Task failure rate exceeds 10%."
+
+  # API Performance Alerts
+  - name: parwa_api
+    rules:
+      - alert: HighAPIErrorRate
+        expr: >
+          sum(rate(parwa_http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(parwa_http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error rate exceeds 5%"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors."
+
+      - alert: HighAPILatency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(parwa_http_request_duration_seconds_bucket[5m])) by (le, method, path)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency on {{ $labels.method }} {{ $labels.path }}"
+          description: "P95 latency is {{ $value }}s (threshold: 2s)."
+
+      - alert: HighAPILatencyP99
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(parwa_http_request_duration_seconds_bucket[5m])) by (le, method, path)
+          ) > 5.0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical API latency on {{ $labels.method }} {{ $labels.path }}"
+          description: "P99 latency is {{ $value }}s (threshold: 5s)."
+
+  # Database Alerts
+  - name: parwa_database
+    rules:
+      - alert: DBPoolExhausted
+        expr: parwa_db_pool_size{state="used"} >= parwa_db_pool_size{state="max"} * 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool is 90%+ used"
+          description: "Pool usage: {{ $value }} connections."
+
+      - alert: DBQuerySlow
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(parwa_db_query_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database queries are slow (P95 > 1s)"
+          description: "P95 query duration is {{ $value }}s."
+
+  # Redis Alerts
+  - name: parwa_redis
+    rules:
+      - alert: RedisCommandSlow
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(parwa_redis_operation_duration_seconds_bucket[5m])) by (le, command)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis {{ $labels.command }} commands are slow"
+          description: "P95 duration is {{ $value }}s."
+
+      - alert: RedisCommandErrorRate
+        expr: sum(rate(parwa_redis_commands_total[5m])) by (command) == 0
+          and parwa_subsystem_up{subsystem="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis commands failing"
+          description: "No Redis commands are being processed successfully."

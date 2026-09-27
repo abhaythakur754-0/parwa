@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-exporter-queries
+  namespace: parwa
+  labels:
+    app.kubernetes.io/name: postgres-exporter
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: parwa-platform
+data:
+  queries.yml: |
+    pg_stat_activity:
+      query: |
+        SELECT
+          datname,
+          state,
+          count(*) AS count
+        FROM pg_stat_activity
+        GROUP BY datname, state
+      metrics:
+        - datname:
+            usage: "LABEL"
+            description: "Database name"
+        - state:
+            usage: "LABEL"
+            description: "Connection state"
+        - count:
+            usage: "GAUGE"
+            description: "Number of connections"
+
+    pg_stat_database:
+      query: |
+        SELECT
+          datname,
+          numbackends,
+          xact_commit,
+          xact_rollback,
+          blks_read,
+          blks_hit,
+          tup_returned,
+          tup_fetched,
+          tup_inserted,
+          tup_updated,
+          tup_deleted,
+          deadlocks
+        FROM pg_stat_database
+        WHERE datname IS NOT NULL
+      metrics:
+        - datname:
+            usage: "LABEL"
+            description: "Database name"
+        - numbackends:
+            usage: "GAUGE"
+            description: "Number of active backends"
+        - xact_commit:
+            usage: "COUNTER"
+            description: "Number of committed transactions"
+        - xact_rollback:
+            usage: "COUNTER"
+            description: "Number of rolled back transactions"
+        - blks_read:
+            usage: "COUNTER"
+            description: "Number of disk blocks read"
+        - blks_hit:
+            usage: "COUNTER"
+            description: "Number of buffer hits"
+        - tup_returned:
+            usage: "COUNTER"
+            description: "Number of rows returned"
+        - tup_fetched:
+            usage: "COUNTER"
+            description: "Number of rows fetched"
+        - tup_inserted:
+            usage: "COUNTER"
+            description: "Number of rows inserted"
+        - tup_updated:
+            usage: "COUNTER"
+            description: "Number of rows updated"
+        - tup_deleted:
+            usage: "COUNTER"
+            description: "Number of rows deleted"
+        - deadlocks:
+            usage: "COUNTER"
+            description: "Number of deadlocks"
+
+    pg_replication:
+      query: |
+        SELECT
+          client_addr,
+          state,
+          sent_lsn - replay_lsn AS replication_lag_bytes
+        FROM pg_stat_replication
+      metrics:
+        - client_addr:
+            usage: "LABEL"
+            description: "Replica client address"
+        - state:
+            usage: "LABEL"
+            description: "Replication state"
+        - replication_lag_bytes:
+            usage: "GAUGE"
+            description: "Replication lag in bytes"

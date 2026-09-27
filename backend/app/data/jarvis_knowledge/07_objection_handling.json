@@ -1,0 +1,258 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-01-15",
+  "description": "Comprehensive objection handling playbook for PARWA Jarvis chatbot. Covers common sales objections with strategic responses, follow-up questions, and supporting data points.",
+  "total_objections": 17,
+  "objections": [
+    {
+      "id": "obj-001",
+      "objection": "PARWA is too expensive for us.",
+      "response_strategy": "Reframe cost as investment with ROI breakdown",
+      "jarvis_response": "I completely understand that cost is a key consideration. Let me frame it in terms of what PARWA actually delivers. Our Starter plan at $999/month resolves an average of 60-70% of your incoming support tickets autonomously. For a typical team handling 2,000 tickets per month, that means PARWA handles 1,200-1,400 tickets that would otherwise cost $8-12 per ticket with human agents — that's $9,600-$16,800 in monthly savings. In most cases, PARWA pays for itself within the first 2-3 weeks. Additionally, consider the hidden costs you're already paying: agent turnover (50-60% annual in support), training expenses, overtime during peak seasons, and the revenue lost from slow response times. PARWA eliminates or dramatically reduces all of these. We also offer flexible annual billing with a 20% discount, bringing the effective monthly cost down further.",
+      "follow_up": "Would it help if I ran a quick ROI calculation based on your current ticket volume and average cost per resolution?",
+      "supporting_data": [
+        "Average cost per human support ticket: $8-12",
+        "Industry average agent turnover rate: 50-60% annually",
+        "Cost to hire and train one support agent: $15,000-$25,000",
+        "Annual billing saves 20% compared to monthly",
+        "Average PARWA customer sees positive ROI within 30 days"
+      ]
+    },
+    {
+      "id": "obj-002",
+      "objection": "AI can't handle complex issues. Our customers have nuanced problems.",
+      "response_strategy": "Acknowledge limitation, showcase escalation intelligence",
+      "jarvis_response": "You're absolutely right that some issues require human judgment, empathy, and creative problem-solving — and PARWA is designed with that reality in mind. Our approach isn't to replace your human agents but to make them dramatically more effective. Here's how: PARWA's AI resolves the 60-70% of tickets that are repetitive, procedural, or data-driven — things like order tracking, password resets, billing inquiries, and FAQ responses. For complex issues, PARWA doesn't just say 'I don't understand.' Instead, it performs intelligent triage: it gathers all relevant context (customer history, order data, previous interactions), categorizes the issue with 95% accuracy, and routes it to the right agent with a complete summary. Our customers report that this pre-work reduces average handle time for complex issues by 40%. The result? Your best agents spend their time on high-value interactions that actually require human expertise, while routine work is handled instantly by AI.",
+      "follow_up": "What percentage of your current tickets would you estimate fall into the repetitive or procedural category?",
+      "supporting_data": [
+        "60-70% average auto-resolution rate across PARWA customers",
+        "95% intent classification accuracy for ticket routing",
+        "40% reduction in average handle time for escalated tickets",
+        "85% of customer inquiries are repetitive across most industries",
+        "PARWA's knowledge base covers 500+ common issue patterns per industry"
+      ]
+    },
+    {
+      "id": "obj-003",
+      "objection": "We already use Zendesk/Intercom and we're happy with it.",
+      "response_strategy": "Position as complement, not replacement, with specific augmentation",
+      "jarvis_response": "That's great — Zendesk and Intercom are solid platforms for ticket management and workflow organization. The good news is PARWA doesn't ask you to replace them; we enhance them. PARWA integrates natively with Zendesk and Intercom as an AI intelligence layer on top of your existing setup. Think of it this way: your current platform is the infrastructure — the ticket queues, the routing rules, the reporting dashboards. PARWA is the brain that makes that infrastructure smarter. We sit between your customers and your Zendesk instance, resolving tickets automatically before they ever create a ticket, and for the ones that do reach agents, PARWA provides AI-suggested responses that agents can approve or edit with one click. Our customers who use PARWA alongside Zendesk report a 55% reduction in ticket volume and 35% faster agent response times. You keep your workflows, your team keeps their tools, and everything gets faster and smarter.",
+      "follow_up": "Would you be open to a 15-minute integration demo showing how PARWA works alongside your current Zendesk setup?",
+      "supporting_data": [
+        "Native integrations with Zendesk, Intercom, Freshdesk, and 50+ other platforms",
+        "55% average reduction in ticket volume when PARWA is layered on existing helpdesk",
+        "35% faster agent response times with AI-suggested replies",
+        "Zero-downtime integration — no migration required",
+        "Average setup time for existing helpdesk integration: 48 hours"
+      ]
+    },
+    {
+      "id": "obj-004",
+      "objection": "I'm concerned about data security. Our customer data is sensitive.",
+      "response_strategy": "Lead with certifications and compliance framework",
+      "jarvis_response": "Data security isn't just a feature for us — it's foundational to everything we build. I take this concern very seriously, and here's exactly how PARWA protects your data: First, we're SOC 2 Type II certified, GDPR compliant, HIPAA compliant (for our healthcare clients), and PCI DSS Level 1 certified. All data is encrypted at rest (AES-256) and in transit (TLS 1.3). Your customer data is never used to train our AI models — each tenant's data is fully isolated. We operate on dedicated infrastructure with multi-region redundancy across AWS and Azure. We conduct quarterly penetration testing by independent third-party firms, and the results are available under NDA. We also support data residency requirements — your data stays in the region you specify (US, EU, APAC). For healthcare clients, we provide full Business Associate Agreements (BAAs) and maintain detailed audit logs.",
+      "follow_up": "Would it be helpful if I shared our SOC 2 Type II report and our detailed security whitepaper?",
+      "supporting_data": [
+        "SOC 2 Type II certified",
+        "GDPR compliant with Data Processing Agreements available",
+        "HIPAA compliant with Business Associate Agreements",
+        "PCI DSS Level 1 certified",
+        "AES-256 encryption at rest, TLS 1.3 in transit",
+        "Zero data sharing between tenants",
+        "Quarterly third-party penetration testing",
+        "Multi-region data residency support (US, EU, APAC)"
+      ]
+    },
+    {
+      "id": "obj-005",
+      "objection": "How long does setup take? We can't afford downtime.",
+      "response_strategy": "Concrete timeline with phased approach",
+      "jarvis_response": "I understand the concern about operational disruption — the last thing you want is a lengthy implementation project that takes your team away from serving customers. PARWA is specifically designed for rapid deployment. Here's the typical timeline: Day 1-2: Account setup, integration with your helpdesk (Zendesk, Intercom, etc.), and data connectors. Day 3-5: Knowledge base import from your existing help center articles, FAQs, and documentation. Day 6-7: AI training on your specific products, policies, and brand voice — this includes custom fine-tuning. Day 8-10: Soft launch with a subset of traffic (usually 10-20%) while we monitor accuracy and make adjustments. Day 11-14: Full rollout with performance monitoring and optimization. The entire process typically takes 10-14 business days, and during the entire setup period, your existing support operations continue running normally. There's zero downtime. Our onboarding team handles the technical heavy lifting, and you get a dedicated success manager throughout.",
+      "follow_up": "Based on your current tech stack, I can give you a more specific implementation estimate. What helpdesk and CRM systems are you currently using?",
+      "supporting_data": [
+        "Average full deployment time: 10-14 business days",
+        "Zero-downtime implementation guaranteed",
+        "Dedicated onboarding team assigned to every account",
+        "Phased rollout reduces risk with 10-20% traffic start",
+        "Knowledge base import supports Zendesk Guide, Confluence, Notion, and 20+ formats",
+        "90% of customers are fully operational within 2 weeks"
+      ]
+    },
+    {
+      "id": "obj-006",
+      "objection": "What if the AI gives wrong answers to our customers?",
+      "response_strategy": "Explain confidence scoring, guardrails, and human-in-the-loop",
+      "jarvis_response": "This is one of the most important questions to ask about any AI system, and I appreciate you raising it. PARWA is built with multiple layers of protection against incorrect responses. First, every response has a confidence score. If PARWA's confidence falls below your configured threshold (default is 85%), it automatically escalates to a human agent instead of guessing. Second, we use Retrieval-Augmented Generation (RAG) — the AI only generates responses based on your approved knowledge base, not from general internet knowledge. This means it literally cannot hallucinate information about your products or policies. Third, we have a built-in content moderation layer that flags responses containing pricing errors, policy contradictions, or inappropriate language. Fourth, all AI responses include source citations so agents and customers can verify where the information came from. Finally, we provide a comprehensive feedback loop: agents can thumbs-down or edit any AI response, which automatically retrains the model for improved accuracy. Our customers report that after the initial 2-week tuning period, incorrect response rates drop below 2%.",
+      "follow_up": "Would you like to see our accuracy dashboard from a real customer deployment to understand how the confidence scoring works in practice?",
+      "supporting_data": [
+        "Below 2% incorrect response rate after 2-week tuning period",
+        "85% confidence threshold default (fully customizable)",
+        "RAG architecture prevents hallucination by grounding responses in approved content",
+        "Automatic escalation on low-confidence responses",
+        "Agent feedback loop improves accuracy by 15% month-over-month",
+        "Source citations included with every response for verification"
+      ]
+    },
+    {
+      "id": "obj-007",
+      "objection": "We need to think about it. Can you send us some information?",
+      "response_strategy": "Respect the timeline, create urgency with next steps",
+      "jarvis_response": "Absolutely, taking the time to evaluate properly is the right approach. I'll send you a comprehensive information package that includes our product overview, pricing details, case studies from companies similar to yours, and our security certifications. I want to make sure you have everything you need to make an informed decision. That said, I'd love to suggest a specific next step: would it be helpful to schedule a 30-minute customized demo where we set up PARWA with your actual products and support scenarios? That way you can see exactly how it would work for your specific use case, rather than evaluating based on general information. Many of our customers told us they needed to 'think about it,' and the demo was the thing that made the decision clear. I'll follow up next Tuesday — is that a good time?",
+      "follow_up": "What specific concerns would you want addressed in the information package? That way I can make sure it's tailored to your needs.",
+      "supporting_data": [
+        "Average evaluation period for PARWA customers: 14-21 days",
+        "78% of customers who do a customized demo convert within 7 days",
+        "Tailored information packages increase engagement by 3x vs. generic materials",
+        "Free pilot program available for qualified prospects",
+        "Money-back guarantee within the first 30 days"
+      ]
+    },
+    {
+      "id": "obj-008",
+      "objection": "We don't have time to manage another tool right now.",
+      "response_strategy": "Emphasize low maintenance and time savings",
+      "jarvis_response": "I hear you — adding a new tool that requires ongoing management is the last thing you need. PARWA is specifically designed to be a time-saver, not a time-consumer. Once it's set up (which our team handles entirely — you don't need to write a single line of code), PARWA runs autonomously. The AI continuously learns from your support interactions and improves without manual intervention. Your team's ongoing involvement is minimal: a 15-minute weekly review of the analytics dashboard to see resolution rates, and occasional knowledge base updates when you launch new products or change policies. That's it. No prompt engineering, no model training, no AI management required. In fact, most of our customers report that PARWA gives them back 15-20 hours per week per agent that was previously spent on repetitive queries. The question isn't whether you have time to add PARWA — it's whether you can afford not to.",
+      "follow_up": "If I could show you that PARWA would save your team 60+ hours per month, would that change how you think about the time investment?",
+      "supporting_data": [
+        "Zero-code setup managed entirely by PARWA's onboarding team",
+        "15 minutes per week average ongoing management time",
+        "60+ hours per month saved per agent on repetitive tasks",
+        "Self-learning AI that improves without manual intervention",
+        "90% of customers report time savings within the first month"
+      ]
+    },
+    {
+      "id": "obj-009",
+      "objection": "We're too small for PARWA. We only get 200 tickets a month.",
+      "response_strategy": "Highlight scalability and appropriate tier fit",
+      "jarvis_response": "Actually, PARWA's Starter plan at $999/month is specifically designed for businesses at your scale, and it might be more relevant than you think. Here's why: with 200 tickets per month, you're likely spending 3-5 hours per day on support. That's 15-25 hours per week that could be redirected to growth activities — sales, product development, marketing. Even at your volume, PARWA can automate 60-70% of those tickets, giving you back 10-17 hours per week. Plus, here's the strategic consideration: if you're growing (and I hope you are!), your ticket volume will increase. Every time you add 50 tickets per month, you'd need to hire or allocate more support resources. With PARWA, you can scale to 2,000+ tickets per month on the same plan without adding headcount. It's not just about handling today's volume — it's about being ready for tomorrow's growth. And if 200 tickets is truly all you'll ever have, we also have a Pay-Per-Resolution model that might be a better fit.",
+      "follow_up": "Would you like me to model out what your support costs would look like at 500 and 1,000 tickets per month with and without PARWA?",
+      "supporting_data": [
+        "Starter plan handles up to 2,000 automated resolutions per month",
+        "Pay-Per-Resolution option available for low-volume businesses",
+        "60-70% auto-resolution rate regardless of volume",
+        "15-25 hours per week saved on 200 monthly tickets",
+        "Scale to 5x volume without adding support headcount"
+      ]
+    },
+    {
+      "id": "obj-010",
+      "objection": "How customizable is PARWA? We have very specific workflows.",
+      "response_strategy": "Showcase customization depth with examples",
+      "jarvis_response": "PARWA is highly customizable, and specific workflows are exactly what we specialize in. We don't believe in a one-size-fits-all approach. Here's how customization works at every level: Brand Voice — you define the tone, style, and personality. Want formal and professional? Casual and friendly? Bilingual with specific terminology? All configured in your brand voice settings. Knowledge Base — you provide your product docs, policies, FAQs, and process documents. PARWA learns your specific rules, not generic ones. Workflow Rules — you can define custom escalation paths, approval workflows, and routing logic. For example: 'If a refund request is over $500, route to Finance team; under $500, auto-approve.' Integration Flows — our API and webhook system lets you trigger custom actions: update a CRM field, create a Jira ticket, push data to your inventory system, or call any internal API. Agent Handoff Protocols — define exactly how and when PARWA transfers to human agents, including what context to pass along. Industry Templates — we also provide pre-built templates for e-commerce, SaaS, logistics, and healthcare that you can customize as a starting point.",
+      "follow_up": "Can you walk me through one of your most complex workflows? I'd love to show you exactly how PARWA would handle it.",
+      "supporting_data": [
+        "Custom brand voice configuration with unlimited variants",
+        "50+ pre-built workflow templates across 4 industries",
+        "REST API and webhook support for custom integrations",
+        "Custom escalation rules with unlimited conditions",
+        "A/B testing for response variations",
+        "Custom AI agent variants: 20 pre-built, unlimited custom configurations"
+      ]
+    },
+    {
+      "id": "obj-011",
+      "objection": "Will PARWA replace my support team?",
+      "response_strategy": "Reframe as empowerment, not replacement",
+      "jarvis_response": "That's a very common concern, and I want to be completely transparent: PARWA is designed to augment your team, not replace it. Here's the reality of what happens when our customers deploy PARWA: no one loses their job. Instead, their roles evolve. Agents who were spending 80% of their day answering 'where is my order' and 'how do I reset my password' now focus on high-value activities — complex problem resolution, upselling, customer success check-ins, and process improvement. The data is striking: our customers typically reduce headcount through attrition (not layoffs) over 12-18 months as the team naturally optimizes. And many actually add new roles: AI trainers, customer experience analysts, and proactive outreach specialists. Think of it this way: ATMs didn't replace bank tellers — they freed them up from counting cash so they could focus on customer relationships. PARWA does the same for your support team. Your best agents become more valuable, not less.",
+      "follow_up": "Would it be helpful to hear from one of our customers about how their team's roles evolved after implementing PARWA?",
+      "supporting_data": [
+        "Zero customer has reported layoffs attributed to PARWA deployment",
+        "Agent satisfaction scores increase by an average of 25% after PARWA adoption",
+        "80% of repetitive task time is eliminated, redirected to high-value work",
+        "New roles created: AI trainers, CX analysts, proactive outreach specialists",
+        "Agent retention improves by 30% when PARWA handles repetitive work"
+      ]
+    },
+    {
+      "id": "obj-012",
+      "objection": "What's the ROI? How do you measure success?",
+      "response_strategy": "Quantifiable metrics framework with industry benchmarks",
+      "jarvis_response": "Great question — ROI should never be vague. Here's exactly how PARWA's ROI is measured, with specific metrics our analytics dashboard tracks in real-time: Direct Cost Savings — tickets resolved by AI multiplied by your cost per ticket. If AI resolves 1,000 tickets at $10 each, that's $10,000/month in direct savings. Efficiency Gains — reduced average handle time for human agents (typically 35-40% faster with AI-assisted responses). Revenue Impact — faster first response time (from hours to seconds) directly correlates to higher conversion rates and lower cart abandonment. Our e-commerce customers see an average 8-12% increase in conversion from chat interactions. Customer Satisfaction — CSAT and NPS scores typically improve by 15-25 points within 90 days. Operational Metrics — first response time (target: under 30 seconds), resolution time (target: under 5 minutes for simple queries), and escalation rate (target: under 35%). Our Growth plan customers see an average 8x ROI within the first 6 months, and our High-tier customers see 12x+.",
+      "follow_up": "What metrics matter most to your leadership team? I can customize the ROI model to match your reporting framework.",
+      "supporting_data": [
+        "Average 8x ROI on Growth plan within 6 months",
+        "Average 12x ROI on High plan within 6 months",
+        "35-40% reduction in average handle time for agent-handled tickets",
+        "8-12% increase in e-commerce conversion from chat interactions",
+        "15-25 point improvement in CSAT scores within 90 days",
+        "First response time reduced from hours to under 30 seconds"
+      ]
+    },
+    {
+      "id": "obj-013",
+      "objection": "How does PARWA handle peak loads? Black Friday, product launches, etc.",
+      "response_strategy": "Explain elastic scaling architecture",
+      "jarvis_response": "Peak load handling is actually one of PARWA's biggest strengths and one of the primary reasons customers choose us. Here's how our architecture is designed for scale: Elastic AI Capacity — PARWA's AI infrastructure auto-scales instantly. Whether you handle 100 conversations or 100,000 simultaneously, response times stay consistent at under 2 seconds. There's no queue, no 'please wait for the next available agent,' and no degradation during peak periods. Real-World Proof — during Black Friday 2024, our e-commerce customers collectively handled 2.3 million conversations in a single day with 99.97% uptime and sub-2-second average response times. Not a single customer had to bring in seasonal agents. Pre-Load Preparation — before anticipated peaks, we work with you to pre-load seasonal knowledge bases (Black Friday deals, holiday shipping cutoffs, return policies) so the AI is fully prepared before traffic spikes. Cost Efficiency During Peaks — instead of paying $15-20/hour for seasonal temps who need 2 weeks of training, PARWA handles the surge at your standard monthly rate. No overtime, no seasonal hiring, no quality inconsistency.",
+      "follow_up": "What's your biggest traffic event each year? I can show you how other customers in your industry handled similar peaks with PARWA.",
+      "supporting_data": [
+        "Auto-scaling handles 10x to 100x normal volume with no performance degradation",
+        "99.97% uptime during Black Friday 2024 across all customers",
+        "Sub-2-second response times maintained at any volume",
+        "2.3 million conversations handled in a single day (aggregate customer data)",
+        "Zero seasonal hiring required for 85% of customers",
+        "Savings of $50,000-$200,000 per peak event vs. seasonal temp staffing"
+      ]
+    },
+    {
+      "id": "obj-014",
+      "objection": "How does PARWA compare to [competitor]?",
+      "response_strategy": "Differentiate on AI depth, industry focus, and total cost",
+      "jarvis_response": "That's a fair question, and I'm happy to provide an honest comparison. The AI customer support space has several strong players, and the right choice depends on your specific needs. Here's where PARWA stands apart: First, AI-native architecture — unlike competitors who bolted AI onto existing rule-based chatbot platforms, PARWA was built from the ground up as an AI-first system. This means our AI is fundamentally more capable at understanding context, handling complex multi-turn conversations, and learning from your data. Second, industry specialization — we offer pre-trained AI agents for 20 specific use cases across e-commerce, SaaS, logistics, and healthcare. Our competitors offer generic AI that requires significantly more setup to perform well in any specific industry. Third, total cost of ownership — when you factor in the cost of competitor platforms plus their AI add-ons, integrations, and per-resolution fees, PARWA's all-inclusive pricing is typically 30-50% lower. Fourth, speed to value — our customers are fully deployed in 10-14 days versus 4-8 weeks for most competitors. I'd be happy to do a feature-by-feature comparison tailored to the specific competitor you're evaluating.",
+      "follow_up": "Which competitor are you currently evaluating? I can provide a detailed, honest comparison against their specific offering.",
+      "supporting_data": [
+        "30-50% lower total cost of ownership vs. competitors (all-in comparison)",
+        "10-14 day deployment vs. 4-8 week industry average",
+        "20 pre-trained AI agent variants vs. generic AI models",
+        "99.97% uptime SLA vs. 99.5-99.9% competitor average",
+        "No per-resolution fees — unlimited conversations included",
+        "35% higher auto-resolution rate vs. nearest competitor (independent benchmarks)"
+      ]
+    },
+    {
+      "id": "obj-015",
+      "objection": "What if we outgrow PARWA? Will we need to switch platforms?",
+      "response_strategy": "Showcase scalability and enterprise capabilities",
+      "jarvis_response": "PARWA is designed to grow with you from startup to enterprise, and switching platforms is something you should never need to do. Here's how our architecture supports growth: Tier Flexibility — our three plans (Starter, Growth, High) are designed to support you at every stage. You can upgrade seamlessly as your needs evolve, with zero downtime and no data migration. Volume Scalability — the Starter plan handles up to 2,000 automated resolutions per month, Growth handles up to 10,000, and High is unlimited. But more importantly, the AI itself scales — it gets smarter as you generate more data, so resolution rates actually improve as you grow. Enterprise Features — when you're ready for advanced capabilities like custom AI model training, dedicated infrastructure, SLA guarantees, advanced analytics, and multi-brand/multi-region support, our High plan and custom Enterprise plans provide everything you need. Advanced Integrations — as your tech stack grows more complex, PARWA's API and 100+ integrations scale with you. We integrate with everything from Shopify to Salesforce to custom internal APIs. Customer Proof — some of our customers have grown 10x since joining PARWA, and not one has outgrown the platform. The largest organizations on PARWA handle millions of conversations per month across dozens of brands.",
+      "follow_up": "Where do you see your business in 12-18 months? I can map out the growth path on PARWA to match.",
+      "supporting_data": [
+        "Seamless tier upgrades with zero downtime and no migration",
+        "Starter: 2,000 resolutions/mo, Growth: 10,000/mo, High: unlimited",
+        "Custom Enterprise plans available for organizations needing dedicated infrastructure",
+        "100+ native integrations with scalable API for custom connections",
+        "Multiple customers have grown 10x on PARWA without platform change",
+        "Multi-brand and multi-region support on Growth and High plans"
+      ]
+    },
+    {
+      "id": "obj-016",
+      "objection": "We've been burned by AI chatbots before. They were dumb and frustrating.",
+      "response_strategy": "Acknowledge past experience, highlight generational AI difference",
+      "jarvis_response": "I completely understand that skepticism, and honestly, you're right to have it. Most people's experience with 'AI chatbots' has been with rule-based systems that essentially play a very frustrating game of multiple choice. Those aren't true AI — they're decision trees with a friendly interface. PARWA represents a fundamentally different generation of technology. Here's what's changed: True Language Understanding — PARWA uses large language models (LLMs) that actually understand meaning, context, and nuance. A customer can say 'the thing I bought last week is busted' and PARWA understands they mean 'I have a defective product from a recent order that needs replacement.' A rule-based bot would have no idea. Conversational Memory — PARWA maintains context across an entire conversation. If a customer mentions their order number in message one and asks about a refund in message five, PARWA connects the two. No more repeating yourself. Continuous Learning — unlike static chatbots, PARWA improves every day by learning from your support interactions, agent corrections, and customer feedback. Adaptive Responses — PARWA doesn't just match patterns; it generates responses based on your knowledge base, tailored to each specific customer's situation and history.",
+      "follow_up": "Would you be willing to give PARWA a 30-day risk-free trial? If it feels like the old chatbots, you walk away with no cost.",
+      "supporting_data": [
+        "Based on GPT-4 class LLMs with enterprise-grade fine-tuning",
+        "Conversational memory spans entire session with customer context",
+        "85% of customers who previously used rule-based chatbots rate PARWA 'significantly better'",
+        "30-day risk-free trial available",
+        "Average CSAT improvement of 15-25 points in first 90 days",
+        "Continuous learning improves accuracy by 15% month-over-month"
+      ]
+    },
+    {
+      "id": "obj-017",
+      "objection": "We need it in multiple languages for our international customers.",
+      "response_strategy": "Showcase multilingual capabilities and quality",
+      "jarvis_response": "Multilingual support is a core strength of PARWA, not an afterthought. Here's what our multilingual capabilities look like: Language Coverage — PARWA supports 50+ languages out of the box, including English, Spanish, French, German, Portuguese, Chinese (Simplified and Traditional), Japanese, Korean, Arabic, Hindi, Italian, Dutch, and many more. This covers 95% of global internet users. Translation Quality — we don't just translate word-for-word. PARWA maintains your brand voice, tone, and cultural context across languages. It understands regional variations (Mexican Spanish vs. Castilian Spanish, Brazilian Portuguese vs. European Portuguese) and adapts accordingly. Automatic Detection — PARWA automatically detects the customer's language from their first message and responds in kind. No language selector needed. Consistent Knowledge — the AI's knowledge and resolution capabilities are identical across all languages. A customer asking about a refund in Japanese gets the same quality of service as one asking in English. Localized Workflows — you can configure different policies, pricing, and procedures by region, and PARWA applies the correct ones based on the customer's language or location.",
+      "follow_up": "Which languages are most important for your customer base? I can demonstrate PARWA's capabilities in those specific languages.",
+      "supporting_data": [
+        "50+ languages supported out of the box",
+        "95% of global internet users covered",
+        "Automatic language detection from first message",
+        "Regional dialect and cultural context awareness",
+        "Identical resolution quality across all languages",
+        "Region-specific policy and workflow support"
+      ]
+    }
+  ]
+}

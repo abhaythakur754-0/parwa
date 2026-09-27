@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket Reopened{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2 style="color: #fd7e14; margin-bottom: 20px;">🔄 Ticket Reopened</h2>
+    
+    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+        A support ticket has been reopened and requires attention.
+    </p>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #888; width: 120px;">Ticket ID:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">{{ ticket_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Subject:</td>
+                <td style="padding: 8px 0; color: #333;">{{ ticket_subject }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Reopened by:</td>
+                <td style="padding: 8px 0; color: #333;">{{ reopened_by }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Reopen Count:</td>
+                <td style="padding: 8px 0; color: #333;">{{ reopen_count }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Reopened at:</td>
+                <td style="padding: 8px 0; color: #333;">{{ reopened_at }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    {% if reopen_reason %}
+    <div style="background: #fff3cd; border-left: 4px solid #fd7e14; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <strong style="color: #333;">Reopen Reason:</strong>
+        <p style="margin: 5px 0 0 0; color: #666;">{{ reopen_reason }}</p>
+    </div>
+    {% endif %}
+    
+    {% if reopen_count > 2 %}
+    <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <strong style="color: #721c24;">⚠️ Multiple Reopens Detected</strong>
+        <p style="margin: 5px 0 0 0; color: #721c24;">This ticket has been reopened {{ reopen_count }} times. Consider escalating to a senior agent.</p>
+    </div>
+    {% endif %}
+    
+    <div style="margin: 20px 0;">
+        <a href="{{ ticket_url }}" style="background: #fd7e14; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Ticket</a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px; margin-top: 30px;">
+        Please review the ticket and continue working on the issue.
+    </p>
+</div>
+{% endblock %}

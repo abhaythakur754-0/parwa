@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>MFA Enabled Successfully</h2>
+<p>Hi {{ user_name }},</p>
+<p>Multi-factor authentication (MFA) has been enabled on your
+PARWA account. This adds an extra layer of security to protect
+your account from unauthorized access.</p>
+<p><strong>What this means:</strong></p>
+<ul>
+<li>You'll be asked for a verification code when signing in</li>
+<li>Use your authenticator app to generate codes</li>
+<li>Keep your recovery codes safe in case you lose access</li>
+</ul>
+<p>Your account is now significantly more secure. If you did not
+enable MFA, please contact support immediately.</p>
+<p style="color:#999;font-size:14px">
+This change was made from IP address: {{ ip_address }} at {{ timestamp }}.
+</p>
+{% endblock %}

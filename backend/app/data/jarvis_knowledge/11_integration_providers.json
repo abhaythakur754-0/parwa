@@ -1,0 +1,334 @@
+{
+  "version": "1.0",
+  "description": "Integration provider data for Jarvis onboarding setup flow",
+  "categories": {
+    "email": {
+      "name": "Email",
+      "description": "Send customer emails through your preferred provider",
+      "icon": "\ud83d\udce7",
+      "providers": {
+        "brevo": {
+          "name": "Brevo",
+          "description": "Formerly Sendinblue. Affordable email marketing + transactional email.",
+          "setup_difficulty": "Easy",
+          "setup_time": "2 minutes",
+          "required_fields": ["api_key"],
+          "credentials_help": "Find your API key at Settings > SMTP & API > API Keys",
+          "capabilities": ["Transactional email", "Email templates", "Webhooks", "Contact lists"],
+          "free_tier": "300 emails/day free",
+          "popular_for": ["ecommerce", "saas", "logistics"],
+          "troubleshooting": ["Ensure API key has 'Send transactional emails' permission", "Check if account is activated", "Verify sender email is registered"]
+        },
+        "sendgrid": {
+          "name": "SendGrid",
+          "description": "Industry-standard email delivery platform by Twilio.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["api_key"],
+          "credentials_help": "Create API key at Settings > API Keys with 'Mail Send' permission",
+          "capabilities": ["Transactional email", "Email templates", "Webhooks", "Analytics"],
+          "free_tier": "100 emails/day free",
+          "popular_for": ["saas", "ecommerce"],
+          "troubleshooting": ["Verify API key has 'Mail Send' permission", "Check sender verification status", "Ensure domain authentication is complete"]
+        },
+        "aws_ses": {
+          "name": "AWS SES",
+          "description": "Amazon Simple Email Service. High-volume, low-cost email delivery.",
+          "setup_difficulty": "Medium",
+          "setup_time": "10 minutes",
+          "required_fields": ["access_key_id", "secret_access_key", "region"],
+          "credentials_help": "Create IAM user with SES permissions in AWS Console",
+          "capabilities": ["Transactional email", "Email templates", "Configuration sets"],
+          "free_tier": "3,000 messages/month free (first 12 months)",
+          "popular_for": ["saas", "logistics"],
+          "troubleshooting": ["Verify IAM user has ses:SendEmail permission", "Check if sending limits have been increased from sandbox", "Verify email/domain in SES console"]
+        },
+        "mailgun": {
+          "name": "Mailgun",
+          "description": "Email automation platform built for developers.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["api_key", "domain"],
+          "credentials_help": "Get API key from Domain Settings > API Keys",
+          "capabilities": ["Transactional email", "Email templates", "Webhooks", "Analytics", "Routes"],
+          "free_tier": "1,000 emails/month free",
+          "popular_for": ["saas"],
+          "troubleshooting": ["Verify domain DNS records are properly configured", "Check API key has sending permissions", "Ensure domain is verified"]
+        },
+        "postmark": {
+          "name": "Postmark",
+          "description": "Fast email delivery with excellent inbox placement.",
+          "setup_difficulty": "Easy",
+          "setup_time": "2 minutes",
+          "required_fields": ["server_token"],
+          "credentials_help": "Get Server Token from your Server > API Tokens",
+          "capabilities": ["Transactional email", "Email templates", "Webhooks", "Analytics"],
+          "free_tier": "100 emails/month free",
+          "popular_for": ["saas"],
+          "troubleshooting": ["Verify Server Token is correct", "Check sender signature is verified", "Ensure message stream is 'outbound'"]
+        },
+        "custom_smtp": {
+          "name": "Custom SMTP",
+          "description": "Connect any SMTP server for email delivery.",
+          "setup_difficulty": "Medium",
+          "setup_time": "5 minutes",
+          "required_fields": ["host", "port", "username", "password", "use_tls"],
+          "credentials_help": "Contact your email administrator for SMTP credentials",
+          "capabilities": ["Transactional email"],
+          "free_tier": "Depends on your provider",
+          "popular_for": ["others"],
+          "troubleshooting": ["Verify SMTP host and port are correct", "Check firewall allows outbound SMTP", "Test with STARTTLS if port 587, SSL if port 465"]
+        }
+      }
+    },
+    "sms": {
+      "name": "SMS",
+      "description": "Send SMS/text messages to customers",
+      "icon": "\ud83d\udcf1",
+      "providers": {
+        "twilio": {
+          "name": "Twilio",
+          "description": "Industry-leading SMS, voice, and verification platform.",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["account_sid", "auth_token", "from_number"],
+          "credentials_help": "Find Account SID and Auth Token at Console > Account > Keys & Credentials",
+          "capabilities": ["SMS", "Voice calls", "OTP verification", "Phone numbers", "Webhooks"],
+          "free_tier": "Trial account with free credit",
+          "popular_for": ["ecommerce", "saas", "logistics"],
+          "troubleshooting": ["Verify Account SID format starts with 'AC'", "Check phone number is in E.164 format (+1...)", "Ensure account is not in trial mode for production"]
+        },
+        "vonage": {
+          "name": "Vonage",
+          "description": "Global SMS and voice API platform (formerly Nexmo).",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["api_key", "api_secret", "from_number"],
+          "credentials_help": "Get API key and secret from Dashboard > Settings",
+          "capabilities": ["SMS", "Voice calls", "Number insight", "Webhooks"],
+          "free_tier": "Free trial credit",
+          "popular_for": ["logistics", "ecommerce"],
+          "troubleshooting": ["Verify API key is active", "Check from_number is a registered Vonage number", "Ensure account balance is sufficient"]
+        },
+        "messagebird": {
+          "name": "MessageBird",
+          "description": "Omnichannel communication platform with SMS and WhatsApp.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["api_key", "from_number"],
+          "credentials_help": "Get API key from Dashboard > Developers > API Keys",
+          "capabilities": ["SMS", "WhatsApp", "Voice", "Webhooks"],
+          "free_tier": "Free trial available",
+          "popular_for": ["ecommerce"],
+          "troubleshooting": ["Verify API key has SMS sending permission", "Check from_number is registered", "Ensure sufficient balance"]
+        },
+        "aws_sns": {
+          "name": "AWS SNS",
+          "description": "Amazon Simple Notification Service for SMS delivery.",
+          "setup_difficulty": "Medium",
+          "setup_time": "10 minutes",
+          "required_fields": ["access_key_id", "secret_access_key", "region"],
+          "credentials_help": "Create IAM user with SNS permissions in AWS Console",
+          "capabilities": ["SMS", "Push notifications", "Topics"],
+          "free_tier": "Pay per message",
+          "popular_for": ["saas", "logistics"],
+          "troubleshooting": ["Verify IAM user has sns:Publish permission", "Check SMS sandbox status", "Ensure originating number is configured"]
+        }
+      }
+    },
+    "payment": {
+      "name": "Payment",
+      "description": "Process customer payments and manage subscriptions",
+      "icon": "\ud83d\udcb3",
+      "providers": {
+        "paddle": {
+          "name": "Paddle",
+          "description": "Complete payments platform for SaaS. Handles tax, compliance, and billing.",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["api_key", "client_token"],
+          "credentials_help": "Get API key at Settings > Authentication > API Keys",
+          "capabilities": ["Subscriptions", "One-time payments", "Webhooks", "Refunds", "Tax handling", "Invoicing"],
+          "free_tier": "Pay per transaction (5% + $0.50)",
+          "popular_for": ["saas"],
+          "troubleshooting": ["Verify API key is for correct environment (sandbox/production)", "Check webhook endpoint is configured", "Ensure products and prices are created in Paddle dashboard"]
+        },
+        "stripe": {
+          "name": "Stripe",
+          "description": "Industry-standard payment processing platform.",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["api_key"],
+          "credentials_help": "Get API key at Developers > API Keys (use secret key)",
+          "capabilities": ["Subscriptions", "One-time payments", "Webhooks", "Refunds", "Disputes", "Invoicing"],
+          "free_tier": "Pay per transaction (2.9% + $0.30)",
+          "popular_for": ["ecommerce", "saas"],
+          "troubleshooting": ["Use secret key (sk_live_...) not publishable key", "Verify webhook signing secret is configured", "Check if account is fully activated"]
+        },
+        "razorpay": {
+          "name": "Razorpay",
+          "description": "India-focused payment gateway supporting UPI, cards, and wallets.",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["api_key", "api_secret"],
+          "credentials_help": "Get keys at Settings > API Keys",
+          "capabilities": ["Subscriptions", "One-time payments", "Webhooks", "Refunds", "UPI", "Cards"],
+          "free_tier": "Pay per transaction (2% per transaction)",
+          "popular_for": ["ecommerce"],
+          "troubleshooting": ["Use live keys (rzp_live_...) for production", "Verify webhook secret is configured", "Check if account is KYC verified"]
+        }
+      }
+    },
+    "crm": {
+      "name": "CRM",
+      "description": "Sync customer data with your CRM system",
+      "icon": "\ud83d\udc65",
+      "providers": {
+        "hubspot": {
+          "name": "HubSpot",
+          "description": "All-in-one CRM with marketing, sales, and service hubs.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["api_key"],
+          "credentials_help": "Get API key at Settings > Integrations > API Key",
+          "capabilities": ["Contact sync", "Ticket creation", "Deal tracking", "Company data"],
+          "popular_for": ["saas", "ecommerce"],
+          "troubleshooting": ["Verify API key has required scopes", "Check portal ID matches", "Ensure contacts API is accessible"]
+        },
+        "salesforce": {
+          "name": "Salesforce",
+          "description": "Enterprise CRM platform for customer relationship management.",
+          "setup_difficulty": "Medium",
+          "setup_time": "10 minutes",
+          "required_fields": ["client_id", "client_secret", "username", "password", "security_token"],
+          "credentials_help": "Create connected app in Salesforce Setup > App Manager",
+          "capabilities": ["Contact sync", "Case creation", "Lead management", "Custom objects"],
+          "popular_for": ["saas"],
+          "troubleshooting": ["Verify connected app has correct OAuth scopes", "Check security token is current", "Ensure API access is enabled for your edition"]
+        }
+      }
+    },
+    "ecommerce": {
+      "name": "E-commerce",
+      "description": "Connect your online store for order and product data",
+      "icon": "\ud83d\uded2",
+      "providers": {
+        "shopify": {
+          "name": "Shopify",
+          "description": "Leading e-commerce platform. Sync orders, products, and customers.",
+          "setup_difficulty": "Easy",
+          "setup_time": "5 minutes",
+          "required_fields": ["shop_domain", "access_token"],
+          "credentials_help": "Create custom app in Shopify Admin > Apps > Develop apps",
+          "capabilities": ["Order management", "Product catalog", "Customer data", "Inventory", "Refunds"],
+          "popular_for": ["ecommerce"],
+          "troubleshooting": ["Verify access token has required scopes (read_orders, read_products)", "Check shop domain format (your-store.myshopify.com)", "Ensure custom app is installed"]
+        }
+      }
+    },
+    "helpdesk": {
+      "name": "Help Desk",
+      "description": "Import tickets and sync with your existing help desk",
+      "icon": "\ud83c\udfa7",
+      "providers": {
+        "zendesk": {
+          "name": "Zendesk",
+          "description": "Customer service platform. Import tickets and sync data.",
+          "setup_difficulty": "Medium",
+          "setup_time": "5 minutes",
+          "required_fields": ["subdomain", "api_token", "email"],
+          "credentials_help": "Create API token at Admin > Channels > API > Token Access",
+          "capabilities": ["Ticket import", "Knowledge base sync", "Customer data", "Agent handoff"],
+          "popular_for": ["saas", "ecommerce"],
+          "troubleshooting": ["Verify API token is active", "Check email has agent role", "Ensure subdomain format is correct (your-brand.zendesk.com)"]
+        },
+        "freshdesk": {
+          "name": "Freshdesk",
+          "description": "Freshworks customer support platform.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["domain", "api_key"],
+          "credentials_help": "Get API key from Profile Settings > API Key",
+          "capabilities": ["Ticket import", "Knowledge base sync", "Customer data"],
+          "popular_for": ["ecommerce", "saas"],
+          "troubleshooting": ["Verify API key is correct", "Check domain format (your-brand.freshdesk.com)", "Ensure API rate limits are not exceeded"]
+        }
+      }
+    },
+    "communication": {
+      "name": "Communication",
+      "description": "Connect team communication tools",
+      "icon": "\ud83d\udcac",
+      "providers": {
+        "slack": {
+          "name": "Slack",
+          "description": "Team communication platform. Get notifications and alerts.",
+          "setup_difficulty": "Easy",
+          "setup_time": "3 minutes",
+          "required_fields": ["webhook_url"],
+          "credentials_help": "Create incoming webhook at your Slack workspace > Apps > Manage > Custom Integrations",
+          "capabilities": ["Notifications", "Alerts", "Ticket updates"],
+          "popular_for": ["saas"],
+          "troubleshooting": ["Verify webhook URL format (https://hooks.slack.com/...)", "Check channel exists and app has posting permission", "Test webhook with curl first"]
+        }
+      }
+    }
+  },
+  "industry_defaults": {
+    "ecommerce": {
+      "recommended": [
+        {"category": "email", "provider": "brevo", "reason": "Free tier covers most small stores"},
+        {"category": "sms", "provider": "twilio", "reason": "Best delivery rates for order updates"},
+        {"category": "payment", "provider": "stripe", "reason": "Most widely supported by e-commerce platforms"},
+        {"category": "ecommerce", "provider": "shopify", "reason": "Direct order and product sync"}
+      ],
+      "typical_setup": ["email", "sms", "payment", "ecommerce"]
+    },
+    "saas": {
+      "recommended": [
+        {"category": "email", "provider": "sendgrid", "reason": "Industry standard for SaaS products"},
+        {"category": "sms", "provider": "twilio", "reason": "OTP verification built-in"},
+        {"category": "payment", "provider": "paddle", "reason": "Handles tax and compliance for SaaS"},
+        {"category": "communication", "provider": "slack", "reason": "Get ticket alerts in your team channel"}
+      ],
+      "typical_setup": ["email", "sms", "payment", "communication"]
+    },
+    "logistics": {
+      "recommended": [
+        {"category": "email", "provider": "aws_ses", "reason": "High volume, low cost"},
+        {"category": "sms", "provider": "twilio", "reason": "Reliable delivery for shipment updates"},
+        {"category": "payment", "provider": "stripe", "reason": "Flexible payment processing"}
+      ],
+      "typical_setup": ["email", "sms", "payment"]
+    },
+    "others": {
+      "recommended": [
+        {"category": "email", "provider": "brevo", "reason": "Easy setup, free tier available"},
+        {"category": "sms", "provider": "twilio", "reason": "Most versatile SMS platform"}
+      ],
+      "typical_setup": ["email", "sms"]
+    }
+  },
+  "jarvis_conversation_templates": {
+    "email_setup": {
+      "opening": "Let's connect your email provider first. This is how Jarvis will send customer emails on your behalf \u2014 order confirmations, shipping updates, ticket responses, all through YOUR email service.",
+      "follow_up": "Which email service do you use? Or paste your API key and I'll auto-detect the provider."
+    },
+    "sms_setup": {
+      "opening": "Now let's set up SMS. This lets Jarvis send text messages to your customers \u2014 appointment reminders, delivery updates, verification codes.",
+      "follow_up": "Which SMS provider do you use?"
+    },
+    "payment_setup": {
+      "opening": "Payment provider time! This is how Jarvis will handle billing, refunds, and payment-related customer queries. If you already use a payment platform, we'll connect it so Jarvis can look up transactions and process refunds.",
+      "follow_up": "Which payment platform does your business use?"
+    },
+    "optional_setup": {
+      "opening": "Great progress! Now for some optional integrations. These aren't required, but they make Jarvis even more powerful by connecting to your existing tools.",
+      "follow_up": "Would you like to connect any of these? You can always set them up later from your dashboard."
+    },
+    "completion": {
+      "opening": "Excellent! Your integrations are all set up. Here's a summary of what's connected and what you've skipped for now. Skipped integrations can be configured anytime from your dashboard settings.",
+      "follow_up": "Ready to upload your knowledge base and activate your AI agents?"
+    }
+  }
+}

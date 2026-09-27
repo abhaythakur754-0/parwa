@@ -1,0 +1,890 @@
+"""
+Debug endpoint for testing LLM connectivity.
+
+GET /api/v1/debug/llm-test
+Returns: { groq, mistral, nvidia, smart_router, litellm: {ok, error?} } — backbone only (2026-09)
+
+This endpoint is for debugging only — it makes a real LLM call to each
+provider and reports whether it succeeded or failed.
+"""
+from __future__ import annotations
+
+import os
+import logging
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger("parwa.api.debug")
+
+router = APIRouter(prefix="/debug", tags=["debug"])
+
+
+@router.get("/llm-test")
+async def llm_test() -> Dict[str, Any]:
+    """Test LLM connectivity to all configured providers."""
+    results: Dict[str, Any] = {}
+    # Test messages
+    messages = [{"role": "user", "content": "Reply with the single word: ok"}]
+
+    # ── 1. Test Groq directly ──
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not groq_key:
+        results["groq"] = {"ok": False, "error": "GROQ_API_KEY not set"}
+    else:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    json={
+                        # 2026-09-18: Groq rotated qwen3.6-27b to 404 (the
+                        # 4.5-min-ticket root cause). qwen3.8-27b verified
+                        # live via this endpoint's model list. Env wins.
+                        "model": os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b"),
+                        "messages": messages,
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["groq"] = {"ok": True, "response": content[:50]}
+            else:
+                results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+        except Exception as exc:
+            results["groq"] = {"ok": False, "error": str(exc)[:300] or type(exc).__name__}
+
+    # ── 1.5. Test Mistral directly ──
+    mistral_key = os.environ.get("MISTRAL_API_KEY", "")
+    if not mistral_key:
+        results["mistral"] = {"ok": False, "error": "MISTRAL_API_KEY not set"}
+    else:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    json={
+                        "model": "mistral-small-latest",
+                        "messages": messages,
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {mistral_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                if r.status_code == 200:
+                    content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                    results["mistral"] = {"ok": True, "response": content[:50]}
+                else:
+                    results["mistral"] = {"ok": False, "status": r.status_code, "error": r.text[:300]}
+        except Exception as exc:
+            results["mistral"] = {"ok": False, "error": str(exc)[:300]}
+
+    # ── 3. Test Smart Router ──
+    try:
+        from app.core.smart_router import SmartRouter, AtomicStepType
+        router_sr = SmartRouter()
+        routing = router_sr.route(
+            company_id="debug",
+            variant_type="parwa",
+            atomic_step=AtomicStepType.DRAFT_RESPONSE_SIMPLE,
+        )
+        result = await router_sr.async_execute_llm_call(
+            company_id="debug",
+            routing_decision=routing,
+            messages=messages,
+            temperature=0,
+            max_tokens=10,
+        )
+        content = result.get("content", "")
+        error = result.get("error", "")
+        results["smart_router"] = {
+            "ok": bool(content and len(content) > 0),
+            "content": content[:50] if content else "",
+            "error": error[:300] if error else "",
+            "model": result.get("model", ""),
+            "provider": result.get("provider", ""),
+            "fallback_used": result.get("fallback_used", False),
+        }
+    except Exception as exc:
+        results["smart_router"] = {"ok": False, "error": str(exc)[:300]}
+
+    # ── 3.5. Test NVIDIA directly ──
+    # 2026-09 backbone: NVIDIA runs z-ai/glm-5.3-flash (llama-3.1-8b
+    # is EOL 410; deepseek swapped out per user directive). Env-overridable.
+    # Captures exception type + duration so we can distinguish:
+    #   - 401/403  → bad key
+    #   - 404      → wrong model name
+    #   - 429      → rate limit
+    #   - 5xx      → NVIDIA outage
+    #   - TimeoutException (≥90s) → cold start OR network firewall
+    #   - ConnectError → DNS / network unreachable from Render
+    import time as _nv_time
+    nvidia_key = os.environ.get("NVIDIA_API_KEY", "").strip()
+    if not nvidia_key:
+        results["nvidia"] = {"ok": False, "error": "NVIDIA_API_KEY not set"}
+    else:
+        _nv_t0 = _nv_time.time()
+        try:
+            import httpx
+            # 90s timeout — GLM-5.2 has a ~60s cold-start on first call after idle.
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {nvidia_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"),
+                        "messages": messages,
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                )
+            _nv_latency = int((_nv_time.time() - _nv_t0) * 1000)
+            if r.status_code == 200:
+                # 2026-09-18 guard: NVIDIA sometimes 200s with "choices": null
+                # or an empty body → old code crashed ('NoneType' object is
+                # not subscriptable) and HID the real provider state.
+                _nv_data = r.json() or {}
+                _nv_choices = _nv_data.get("choices") or [{}]
+                _nv_msg = (_nv_choices[0] or {}).get("message") or {}
+                content = _nv_msg.get("content") or ""
+                results["nvidia"] = {
+                    "ok": True, "response": content[:50],
+                    "model": os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash"), "latency_ms": _nv_latency,
+                }
+            else:
+                results["nvidia"] = {
+                    "ok": False, "status": r.status_code,
+                    "error": r.text[:300], "latency_ms": _nv_latency,
+                }
+        except Exception as exc:
+            _nv_latency = int((_nv_time.time() - _nv_t0) * 1000)
+            # str(exc) is empty for httpx.TimeoutException — include type name.
+            results["nvidia"] = {
+                "ok": False,
+                "error": str(exc)[:300] or "(no message)",
+                "exception_type": type(exc).__name__,
+                "latency_ms": _nv_latency,
+            }
+
+    # ── 4. Check litellm ──
+    try:
+        import litellm
+        # Some litellm builds drop __version__ — probe importability, not the attr
+        results["litellm"] = {"ok": True, "version": getattr(litellm, "__version__", "unknown")}
+    except Exception as exc:
+        results["litellm"] = {"ok": False, "error": str(exc)[:300]}
+
+    if groq_key:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.get(
+                    "https://api.groq.com/openai/v1/models",
+                    headers={"Authorization": f"Bearer {groq_key}"},
+                )
+                if r.status_code == 200:
+                    models = r.json().get("data", [])
+                    results["groq_models"] = [m.get("id", "") for m in models[:20]]
+                else:
+                    results["groq_models"] = f"HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as exc:
+            results["groq_models"] = f"Error: {str(exc)[:200]}"
+
+    return results
+
+
+@router.post("/test-user-keys")
+async def test_user_keys(request: Request) -> Dict[str, Any]:
+    """Test user-provided Groq + Mistral + NVIDIA API keys from Render's server.
+
+    This lets users verify their keys work BEFORE updating Render env vars.
+    (2026-09: backbone-only — cerebras_key param is accepted but ignored.)
+    """
+    import httpx
+    import time as _time
+
+    body = await request.json()
+    groq_key = body.get("groq_key", "")
+    mistral_key = body.get("mistral_key", "")
+    nvidia_key = body.get("nvidia_key", "")
+
+    results: Dict[str, Any] = {}
+    messages = [{"role": "user", "content": "Reply with: ok"}]
+
+    # Test Groq
+    if groq_key:
+        t0 = _time.time()
+        # 2026-09-10: llama-3.1-8b-instant retired (404) — use live pipeline model
+        _groq_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    json={"model": _groq_model, "messages": messages, "max_tokens": 10},
+                    headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                )
+            latency_ms = int((_time.time() - t0) * 1000)
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["groq"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": _groq_model}
+            else:
+                results["groq"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
+        except Exception as exc:
+            results["groq"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        results["groq"] = {"ok": False, "error": "No groq_key provided"}
+
+    # Test Mistral
+    if mistral_key:
+        t0 = _time.time()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "https://api.mistral.ai/v1/chat/completions",
+                    json={"model": "mistral-small-latest", "messages": messages, "max_tokens": 10},
+                    headers={"Authorization": f"Bearer {mistral_key}", "Content-Type": "application/json"},
+                )
+            latency_ms = int((_time.time() - t0) * 1000)
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["mistral"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": "mistral-small-latest"}
+            else:
+                results["mistral"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
+        except Exception as exc:
+            results["mistral"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        results["mistral"] = {"ok": False, "error": "No mistral_key provided"}
+
+    # Test NVIDIA (backbone model: GLM 5.3 Flash)
+    if nvidia_key:
+        t0 = _time.time()
+        _nv_model = os.environ.get("NVIDIA_MODEL", "z-ai/glm-5.3-flash")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.post(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    json={"model": _nv_model, "messages": messages, "max_tokens": 10},
+                    headers={"Authorization": f"Bearer {nvidia_key}", "Content-Type": "application/json"},
+                )
+            latency_ms = int((_time.time() - t0) * 1000)
+            if r.status_code == 200:
+                content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                results["nvidia"] = {"ok": True, "response": content[:50], "latency_ms": latency_ms, "model": _nv_model}
+            else:
+                results["nvidia"] = {"ok": False, "status": r.status_code, "error": r.text[:300], "latency_ms": latency_ms}
+        except Exception as exc:
+            results["nvidia"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        results["nvidia"] = {"ok": False, "error": "No nvidia_key provided"}
+
+    return results
+
+
+@router.post("/test-google-models")
+async def test_google_models(request: Request) -> Dict[str, Any]:
+    """Test multiple Google AI models to see which share quota.
+
+    Tests gemma-3-27b-it, gemini-2.5-flash, gemini-2.5-flash-lite,
+    and gemini-3.5-flash — all with the same API key.
+
+    This answers: if one Google model runs out of quota, do ALL stop?
+    """
+    import httpx
+    import asyncio
+
+    body = await request.json()
+    google_key = body.get("google_key", "")
+
+    if not google_key:
+        return {"error": "No google_key provided"}
+
+    models_to_test = [
+        ("gemma-3-27b-it", "Gemma 3 27B (14,400 RPD)"),
+        ("gemma-3-12b-it", "Gemma 3 12B (14,400 RPD)"),
+        ("gemma-3-4b-it", "Gemma 3 4B (14,400 RPD)"),
+        ("gemini-2.5-flash", "Gemini 2.5 Flash (20 RPD)"),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash-Lite (20 RPD)"),
+        ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite (500 RPD)"),
+        ("gemini-3-flash", "Gemini 3 Flash (20 RPD)"),
+        ("gemini-3.5-flash", "Gemini 3.5 Flash (20 RPD)"),
+    ]
+
+    results: Dict[str, Any] = {}
+    messages = [{"role": "user", "content": "Reply with: ok"}]
+
+    for model_id, display_name in models_to_test:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={google_key}",
+                    json={
+                        "contents": [{"parts": [{"text": "Reply with: ok"}]}],
+                        "generationConfig": {"maxOutputTokens": 10},
+                    },
+                )
+            if r.status_code == 200:
+                content = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                results[model_id] = {"ok": True, "response": content[:30], "name": display_name}
+            else:
+                error = r.text[:200]
+                results[model_id] = {"ok": False, "status": r.status_code, "error": error, "name": display_name}
+        except Exception as exc:
+            results[model_id] = {"ok": False, "error": str(exc)[:200], "name": display_name}
+
+        await asyncio.sleep(0.5)  # Small delay to not trigger rate limits
+
+    # Summary
+    working = [k for k, v in results.items() if v.get("ok")]
+    failed = [k for k, v in results.items() if not v.get("ok")]
+    results["_summary"] = {
+        "working_models": working,
+        "failed_models": failed,
+        "total_tested": len(models_to_test),
+        "total_working": len(working),
+        "total_failed": len(failed),
+    }
+
+    return results
+
+
+@router.post("/test-google-quota-isolation")
+async def test_google_quota_isolation(request: Request) -> Dict[str, Any]:
+    """Exhaust one Google model's quota, then test if other models still work.
+
+    This answers: "If I use up all 20 RPD of gemini-2.5-flash, can I still
+    use gemini-3.1-flash-lite (500 RPD) and gemini-3.5-flash (20 RPD)?"
+
+    Steps:
+    1. Fire 25 calls to gemini-2.5-flash (limit is 20 RPD) — exhaust it
+    2. Test gemini-3.1-flash-lite — does it still work?
+    3. Test gemini-3.5-flash — does it still work?
+    4. Report results
+    """
+    import httpx
+    import asyncio
+
+    body = await request.json()
+    google_key = body.get("google_key", "")
+
+    if not google_key:
+        return {"error": "No google_key provided"}
+
+    results: Dict[str, Any] = {}
+
+    # ── Step 1: Exhaust gemini-2.5-flash (20 RPD limit) ──
+    results["step1_exhaust_gemini_2_5_flash"] = {
+        "model": "gemini-2.5-flash",
+        "limit": "20 RPD",
+        "calls_made": 0,
+        "calls_succeeded": 0,
+        "calls_failed": 0,
+        "first_error": None,
+    }
+
+    for i in range(25):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={google_key}",
+                    json={
+                        "contents": [{"parts": [{"text": f"Reply with the number {i}"}]}],
+                        "generationConfig": {"maxOutputTokens": 5},
+                    },
+                )
+            results["step1_exhaust_gemini_2_5_flash"]["calls_made"] += 1
+            if r.status_code == 200:
+                results["step1_exhaust_gemini_2_5_flash"]["calls_succeeded"] += 1
+            else:
+                results["step1_exhaust_gemini_2_5_flash"]["calls_failed"] += 1
+                if results["step1_exhaust_gemini_2_5_flash"]["first_error"] is None:
+                    results["step1_exhaust_gemini_2_5_flash"]["first_error"] = f"HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as exc:
+            results["step1_exhaust_gemini_2_5_flash"]["calls_made"] += 1
+            results["step1_exhaust_gemini_2_5_flash"]["calls_failed"] += 1
+            if results["step1_exhaust_gemini_2_5_flash"]["first_error"] is None:
+                results["step1_exhaust_gemini_2_5_flash"]["first_error"] = str(exc)[:200]
+
+        await asyncio.sleep(0.3)
+
+    # ── Step 2: Test gemini-3.1-flash-lite AFTER exhausting 2.5-flash ──
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={google_key}",
+                json={
+                    "contents": [{"parts": [{"text": "Reply with: ok"}]}],
+                    "generationConfig": {"maxOutputTokens": 10},
+                },
+            )
+        if r.status_code == 200:
+            content = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            results["step2_test_gemini_3_1_flash_lite"] = {"ok": True, "response": content[:30], "verdict": "QUOTA IS INDEPENDENT — this model still works after 2.5-flash was exhausted"}
+        else:
+            results["step2_test_gemini_3_1_flash_lite"] = {"ok": False, "status": r.status_code, "error": r.text[:200], "verdict": "QUOTA MAY BE SHARED — this model also failed"}
+    except Exception as exc:
+        results["step2_test_gemini_3_1_flash_lite"] = {"ok": False, "error": str(exc)[:200]}
+
+    # ── Step 3: Test gemini-3.5-flash AFTER exhausting 2.5-flash ──
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={google_key}",
+                json={
+                    "contents": [{"parts": [{"text": "Reply with: ok"}]}],
+                    "generationConfig": {"maxOutputTokens": 10},
+                },
+            )
+        if r.status_code == 200:
+            content = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            results["step3_test_gemini_3_5_flash"] = {"ok": True, "response": content[:30], "verdict": "QUOTA IS INDEPENDENT — this model still works after 2.5-flash was exhausted"}
+        else:
+            results["step3_test_gemini_3_5_flash"] = {"ok": False, "status": r.status_code, "error": r.text[:200], "verdict": "QUOTA MAY BE SHARED — this model also failed"}
+    except Exception as exc:
+        results["step3_test_gemini_3_5_flash"] = {"ok": False, "error": str(exc)[:200]}
+
+    # ── Summary ──
+    step1 = results["step1_exhaust_gemini_2_5_flash"]
+    step2_ok = results.get("step2_test_gemini_3_1_flash_lite", {}).get("ok", False)
+    step3_ok = results.get("step3_test_gemini_3_5_flash", {}).get("ok", False)
+
+    if step2_ok or step3_ok:
+        results["_conclusion"] = "QUOTA IS PER-MODEL (INDEPENDENT). You can exhaust one model and still use others."
+    else:
+        results["_conclusion"] = "QUOTA MAY BE SHARED across Google models. Exhausting one affects others."
+
+    return results
+
+
+@router.get("/test-connector-fetch")
+async def test_connector_fetch(
+    action: str = "get_invoice",
+    invoice_id: str = "INV-2026-001",
+) -> Dict[str, Any]:
+    """Test if Node 3's connector fetch actually works.
+
+    This simulates exactly what Node 3 does: call_custom_action with
+    the tenant's company_id and the action name.
+    """
+    from app.api.deps import get_current_user
+    from app.core.react_tools.custom_connector_client import (
+        call_custom_action,
+        has_action,
+        has_any_connector,
+        _list_connectors,
+        _find_action,
+    )
+
+    # Get company_id from JWT
+    from fastapi import Request as _Req
+    # We need the user's company_id — use the settings approach
+    from app.config import get_settings
+    settings = get_settings()
+
+    # Use the test tenant's company_id directly (hardcoded for testing)
+    company_id = "6dc85e4f-ce81-45c0-a995-12b410cee2c7"
+
+    results: Dict[str, Any] = {}
+
+    # Step 1: List connectors
+    connectors = _list_connectors(company_id)
+    results["connectors_found"] = len(connectors)
+    for c in connectors:
+        results[f"connector_{c.get('name','?')}"] = {
+            "base_url": c.get("base_url", ""),
+            "auth_type": c.get("auth_type", ""),
+            "actions": [a.get("name") for a in c.get("actions", [])],
+        }
+
+    # Step 2: Check if action exists
+    results["has_get_invoice"] = await has_action(company_id, "get_invoice")
+    results["has_any_connector"] = await has_any_connector(company_id)
+
+    # Step 3: Actually call the connector — with detailed error capture
+    params = {"id": invoice_id, "invoice_id": invoice_id}
+
+    # Manual call to see exactly what happens
+    connectors = _list_connectors(company_id)
+    found = _find_action(connectors, action)
+    if found:
+        connector, act = found
+        base_url = connector["base_url"].rstrip("/")
+        path_template = act.get("path", "")
+        # Substitute path params
+        import re as _re2
+        path = path_template
+        for k, v in params.items():
+            path = path.replace(f"{{{k}}}", str(v))
+        url = f"{base_url}{path}"
+        method = act.get("method", "GET").upper()
+        auth_type = connector["auth_type"]
+        auth_config = connector["auth_config"]
+
+        results["debug_url"] = url
+        results["debug_method"] = method
+        results["debug_auth_type"] = auth_type
+        results["debug_auth_config"] = auth_config
+        results["debug_path_template"] = path_template
+        results["debug_path_resolved"] = path
+
+        # Build headers
+        from app.core.react_tools.custom_connector_client import _build_auth_headers
+        headers = _build_auth_headers(auth_type, auth_config)
+        headers["Origin"] = "https://parwa.buzz"
+        results["debug_headers"] = headers
+
+        # Make the call
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                if method == "GET":
+                    resp = await client.get(url, headers=headers)
+                else:
+                    resp = await client.post(url, headers=headers)
+            results["debug_response_status"] = resp.status_code
+            results["debug_response_body"] = resp.text[:500]
+            if 200 <= resp.status_code < 300:
+                results["call_result"] = resp.json()
+                results["call_success"] = True
+            else:
+                results["call_result"] = None
+                results["call_success"] = False
+                results["debug_error"] = f"HTTP {resp.status_code}: {resp.text[:300]}"
+        except Exception as exc:
+            results["call_result"] = None
+            results["call_success"] = False
+            results["debug_error"] = str(exc)[:300]
+    else:
+        results["call_result"] = None
+        results["call_success"] = False
+        results["debug_error"] = "Action not found in any connector"
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# REAL SUPABASE CRM — queries the tenant's real Supabase database
+# This is NOT mock data. Real SQL queries against real Postgres.
+# Delete these endpoints after testing is complete.
+# ═══════════════════════════════════════════════════════════════════════
+
+import os as _os
+import json as _json
+
+_SUPABASE_HOST = _os.environ.get("TEST_SUPABASE_HOST", "")
+_SUPABASE_PORT = int(_os.environ.get("TEST_SUPABASE_PORT", "5432"))
+_SUPABASE_DB = _os.environ.get("TEST_SUPABASE_DB", "")
+_SUPABASE_USER = _os.environ.get("TEST_SUPABASE_USER", "")
+_SUPABASE_PASS = _os.environ.get("TEST_SUPABASE_PASS", "")
+_SUPABASE_API_KEY = _os.environ.get("SUPABASE_DEBUG_API_KEY", "")
+
+
+def _verify_supabase_key(authorization: Optional[str]) -> None:
+    """Verify the Supabase CRM API key."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.replace("Bearer ", "").strip()
+    if token != _SUPABASE_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+
+def _supabase_query(sql: str, params: tuple = ()) -> list:
+    """Execute a real SQL query against Supabase Postgres."""
+    import psycopg2
+    conn = psycopg2.connect(
+        host=_SUPABASE_HOST, port=_SUPABASE_PORT, dbname=_SUPABASE_DB,
+        user=_SUPABASE_USER, password=_SUPABASE_PASS,
+    )
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(sql, params)
+    cols = [desc[0] for desc in cur.description] if cur.description else []
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [dict(zip(cols, row)) for row in rows]
+
+
+def _supabase_execute(sql: str, params: tuple = ()) -> str:
+    """Execute a real INSERT/UPDATE/DELETE against Supabase Postgres."""
+    import psycopg2
+    conn = psycopg2.connect(
+        host=_SUPABASE_HOST, port=_SUPABASE_PORT, dbname=_SUPABASE_DB,
+        user=_SUPABASE_USER, password=_SUPABASE_PASS,
+    )
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(sql, params)
+    result = cur.statusmessage
+    cur.close()
+    conn.close()
+    return result
+
+
+@router.get("/supabase-crm/invoices/{invoice_id}")
+async def supabase_get_invoice(invoice_id: str, authorization: Optional[str] = Header(None)):
+    """Real Supabase CRM: get invoice by ID from the real database."""
+    _verify_supabase_key(authorization)
+    rows = _supabase_query(
+        "SELECT id, customer_id, customer_email, amount, currency, status, items, created_at FROM parwa_invoices WHERE id = %s",
+        (invoice_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_id} not found")
+    row = rows[0]
+    # Convert Decimal to float for JSON
+    if row.get("amount"):
+        row["amount"] = float(row["amount"])
+    if row.get("items") and isinstance(row["items"], str):
+        row["items"] = _json.loads(row["items"])
+    return row
+
+
+@router.get("/supabase-crm/orders/{order_id}")
+async def supabase_get_order(order_id: str, authorization: Optional[str] = Header(None)):
+    """Real Supabase CRM: get order by ID from the real database."""
+    _verify_supabase_key(authorization)
+    rows = _supabase_query(
+        "SELECT id, customer_id, customer_email, order_name, total_price, currency, financial_status, fulfillment_status, line_items, created_at FROM parwa_orders WHERE id = %s",
+        (order_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
+    row = rows[0]
+    if row.get("total_price"):
+        row["total_price"] = float(row["total_price"])
+    if row.get("line_items") and isinstance(row["line_items"], str):
+        row["line_items"] = _json.loads(row["line_items"])
+    return row
+
+
+@router.get("/supabase-crm/payments")
+async def supabase_get_payments(authorization: Optional[str] = Header(None)):
+    """Real Supabase CRM: get payment history from the real database."""
+    _verify_supabase_key(authorization)
+    rows = _supabase_query(
+        "SELECT id, invoice_id, customer_id, amount, currency, status, method, created_at FROM parwa_payments ORDER BY created_at DESC"
+    )
+    for row in rows:
+        if row.get("amount"):
+            row["amount"] = float(row["amount"])
+    total_succeeded = sum(r["amount"] for r in rows if r.get("status") == "succeeded")
+    return {"payments": rows, "total_count": len(rows), "total_succeeded_amount": round(total_succeeded, 2)}
+
+
+@router.post("/supabase-crm/refunds")
+async def supabase_process_refund(request: Request, authorization: Optional[str] = Header(None)):
+    """Real Supabase CRM: process a refund — INSERT into real database."""
+    _verify_supabase_key(authorization)
+    body = await request.json()
+    import uuid as _uuid
+    refund_id = f"REF-{_uuid.uuid4().hex[:10].upper()}"
+    _supabase_execute(
+        "INSERT INTO parwa_refunds (id, order_id, amount, reason, status) VALUES (%s, %s, %s, %s, 'processed')",
+        (refund_id, body.get("order_id", ""), float(body.get("amount", 0)), body.get("reason", "Customer requested")),
+    )
+    return {
+        "refund_id": refund_id,
+        "order_id": body.get("order_id", ""),
+        "amount": float(body.get("amount", 0)),
+        "reason": body.get("reason", "Customer requested"),
+        "status": "processed",
+        "processed_at": "2026-07-11T18:00:00Z",
+    }
+
+
+@router.post("/test-groq-quota")
+async def test_groq_quota(request: Request) -> Dict[str, Any]:
+    """Fire 50 rapid calls to Groq llama-3.1-8b-instant to find the real RPM limit.
+
+    Groq doesn't show rate limit headers, so we have to test by brute force.
+    """
+    import httpx
+    import asyncio
+    import time as _time
+
+    body = await request.json()
+    groq_key = body.get("groq_key", "")
+
+    if not groq_key:
+        return {"error": "No groq_key provided"}
+
+    _groq_quota_model = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+    results: Dict[str, Any] = {
+        "model": _groq_quota_model,
+        "calls_made": 0,
+        "calls_succeeded": 0,
+        "calls_failed": 0,
+        "first_error": None,
+        "first_error_call": None,
+        "rate_limit_found": False,
+        "max_rpm_before_limit": 0,
+        "call_timeline": [],
+    }
+
+    start_time = _time.time()
+
+    for i in range(50):
+        call_start = _time.time()
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    json={
+                        "model": _groq_quota_model,
+                        "messages": [{"role": "user", "content": f"Reply with: {i}"}],
+                        "max_tokens": 5,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+            elapsed = round(_time.time() - call_start, 2)
+            results["calls_made"] += 1
+
+            if r.status_code == 200:
+                results["calls_succeeded"] += 1
+                results["max_rpm_before_limit"] += 1
+                results["call_timeline"].append({"call": i, "status": 200, "elapsed_ms": int(elapsed * 1000)})
+            elif r.status_code == 429:
+                results["calls_failed"] += 1
+                results["rate_limit_found"] = True
+                if results["first_error"] is None:
+                    results["first_error"] = f"HTTP 429: {r.text[:300]}"
+                    results["first_error_call"] = i
+                    # Check headers for rate limit info
+                    rate_headers = {}
+                    for h in r.headers:
+                        if "rate" in h.lower() or "limit" in h.lower() or "remaining" in h.lower() or "reset" in h.lower():
+                            rate_headers[h] = r.headers[h]
+                    results["rate_limit_headers"] = rate_headers
+                results["call_timeline"].append({"call": i, "status": 429, "elapsed_ms": int(elapsed * 1000)})
+            else:
+                results["calls_failed"] += 1
+                if results["first_error"] is None:
+                    results["first_error"] = f"HTTP {r.status_code}: {r.text[:300]}"
+                    results["first_error_call"] = i
+                results["call_timeline"].append({"call": i, "status": r.status_code, "elapsed_ms": int(elapsed * 1000)})
+        except Exception as exc:
+            results["calls_made"] += 1
+            results["calls_failed"] += 1
+            if results["first_error"] is None:
+                results["first_error"] = str(exc)[:200]
+                results["first_error_call"] = i
+            results["call_timeline"].append({"call": i, "status": "error", "elapsed_ms": 0})
+
+        # NO delay — fire as fast as possible to find the real RPM limit
+
+    total_time = round(_time.time() - start_time, 2)
+    results["total_time_seconds"] = total_time
+    results["actual_rpm_observed"] = round(results["calls_succeeded"] / total_time * 60) if total_time > 0 else 0
+    results["conclusion"] = (
+        f"Made {results['calls_succeeded']} successful calls in {total_time}s "
+        f"before hitting rate limit at call #{results['first_error_call']}. "
+        f"Observed rate: ~{results['actual_rpm_observed']} RPM."
+        if results["rate_limit_found"]
+        else f"Made {results['calls_succeeded']} successful calls in {total_time}s with NO rate limit hit. "
+    )
+
+    return results
+
+
+@router.get("/provider-pool")
+async def provider_pool_status() -> Dict[str, Any]:
+    """Get the current LLM provider pool status — shows which providers are
+    available, which are cooling down (rate limited), and call statistics.
+
+    Use this to diagnose why tickets show 'Unable to generate a response'.
+    """
+    try:
+        from app.core.parwa_pipeline.llm_client import get_provider_pool
+        pool = get_provider_pool()
+        status = pool.get_status()
+        return {
+            "pool_status": status,
+            "total_providers_configured": 4,
+            "providers_available": sum(1 for v in status.values() if v.get("available")),
+            "providers_cooling_down": sum(1 for v in status.values() if not v.get("available")),
+        }
+    except Exception as exc:
+        return {"error": str(exc)[:200]}
+
+
+@router.get("/celery-config")
+async def celery_config_debug() -> Dict[str, Any]:
+    """Debug endpoint to inspect actual Celery broker configuration.
+
+    Shows:
+      - The broker_url + result_backend the celery app is ACTUALLY using
+      - Whether the DB 0 force-fix ran
+      - Raw env vars (CELERY_BROKER_URL, REDIS_URL) before validation
+      - Test connection attempt to the broker
+
+    Use this to diagnose 'Only 0th database is supported' errors.
+    """
+    import os
+    result: Dict[str, Any] = {}
+
+    # 1. Raw env vars (unvalidated)
+    result["env"] = {
+        "CELERY_BROKER_URL_raw": os.environ.get("CELERY_BROKER_URL", "(not set)")[:120],
+        "CELERY_RESULT_BACKEND_raw": os.environ.get("CELERY_RESULT_BACKEND", "(not set)")[:120],
+        "REDIS_URL_raw": os.environ.get("REDIS_URL", "(not set)")[:120],
+    }
+
+    # 2. Validated settings (after pydantic validator)
+    try:
+        from app.config import get_settings
+        s = get_settings()
+        result["validated_settings"] = {
+            "CELERY_BROKER_URL": s.CELERY_BROKER_URL[:120],
+            "CELERY_RESULT_BACKEND": s.CELERY_RESULT_BACKEND[:120],
+            "REDIS_URL": s.REDIS_URL[:120],
+        }
+    except Exception as exc:
+        result["validated_settings_error"] = str(exc)[:300]
+
+    # 3. What the celery app is actually using
+    try:
+        from app.tasks.celery_app import app
+        result["celery_app_conf"] = {
+            "broker_url": (app.conf.broker_url or "")[:120],
+            "result_backend": (app.conf.result_backend or "")[:120],
+        }
+    except Exception as exc:
+        result["celery_app_error"] = str(exc)[:300]
+
+    # 4. Test direct Redis connection (bypass Celery)
+    try:
+        import redis
+        url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        r = redis.from_url(url, socket_connect_timeout=5, socket_timeout=5)
+        r.ping()
+        result["redis_direct_test"] = {"ok": True, "url": url[:80]}
+        # Try SELECT 0
+        r.select(0)
+        result["redis_direct_test"]["select_0"] = "ok"
+    except Exception as exc:
+        result["redis_direct_test"] = {"ok": False, "error": str(exc)[:200]}
+
+    # 5. Test Celery broker connection (the actual failing path)
+    try:
+        from app.tasks.celery_app import app
+        with app.connection_or_acquire() as conn:
+            conn.ensure_connection(max_retries=1, timeout=3)
+            result["celery_connection_test"] = {"ok": True}
+    except Exception as exc:
+        result["celery_connection_test"] = {"ok": False, "error": str(exc)[:300]}
+
+    return result

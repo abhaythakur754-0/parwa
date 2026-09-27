@@ -1,0 +1,21 @@
+PARWA Password Reset Guide
+
+To reset your password:
+1. Go to parwa.buzz/login
+2. Click Forgot Password
+3. Enter your email address
+4. Check your inbox for the reset link
+5. Click the link and set a new password
+
+If you do not receive the email, check your spam folder or contact support at parwa.buzz.
+
+PARWA Account Setup
+1. Sign up at parwa.buzz with your business email
+2. Choose your variant Starter Growth or High
+3. Upload your knowledge base documents
+4. Configure your support channels
+
+PARWA Billing
+Starter: 100 tickets per month email only
+Growth: 500 tickets per month email plus chat
+High: Unlimited tickets all channels

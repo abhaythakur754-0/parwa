@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Ticket Assigned{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2 style="color: #333; margin-bottom: 20px;">📌 Ticket Assigned to You</h2>
+    
+    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+        A support ticket has been assigned to you for handling.
+    </p>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #888; width: 120px;">Ticket ID:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: bold;">{{ ticket_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Subject:</td>
+                <td style="padding: 8px 0; color: #333;">{{ ticket_subject }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Assigned by:</td>
+                <td style="padding: 8px 0; color: #333;">{{ assigned_by }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Assignee Type:</td>
+                <td style="padding: 8px 0; color: #333; text-transform: capitalize;">{{ assignee_type }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #888;">Assigned at:</td>
+                <td style="padding: 8px 0; color: #333;">{{ assigned_at }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    {% if priority %}
+    <div style="background: {% if priority == 'critical' %}#fff3cd{% elif priority == 'high' %}#ffeeba{% else %}#e7f3ff{% endif %}; border-left: 4px solid {% if priority == 'critical' %}#dc3545{% elif priority == 'high' %}#fd7e14{% else %}#007bff{% endif %}; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <strong style="color: #333;">Priority: {{ priority|upper }}</strong>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+            {% if priority == 'critical' %}This ticket requires immediate attention.{% elif priority == 'high' %}Please handle this ticket as soon as possible.{% else %}Handle this ticket according to your queue.{% endif %}
+        </p>
+    </div>
+    {% endif %}
+    
+    <div style="margin: 20px 0;">
+        <a href="{{ ticket_url }}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View & Respond</a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px; margin-top: 30px;">
+        Please review the ticket and take appropriate action.
+    </p>
+</div>
+{% endblock %}

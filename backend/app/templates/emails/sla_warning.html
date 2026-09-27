@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}SLA Warning{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2 style="color: #ffc107; margin-bottom: 20px;">⚠️ SLA Warning - Action Required</h2>
+    
+    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+        A ticket SLA deadline is approaching. Please take action to avoid SLA breach.
+    </p>
+    
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; color: #856404; width: 140px; font-weight: bold;">Ticket ID:</td>
+                <td style="padding: 8px 0; color: #856404;">{{ ticket_id }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #856404; font-weight: bold;">Subject:</td>
+                <td style="padding: 8px 0; color: #856404;">{{ ticket_subject }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #856404; font-weight: bold;">SLA Type:</td>
+                <td style="padding: 8px 0; color: #856404; text-transform: capitalize;">{{ sla_type }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #856404; font-weight: bold;">Time Remaining:</td>
+                <td style="padding: 8px 0; color: #856404; font-size: 18px; font-weight: bold;">{{ time_remaining }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #856404; font-weight: bold;">Deadline:</td>
+                <td style="padding: 8px 0; color: #856404;">{{ deadline }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #856404; font-weight: bold;">Warning Level:</td>
+                <td style="padding: 8px 0; color: #856404;">{{ warning_level }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #495057; margin: 0 0 10px 0; font-size: 16px;">What to do:</h3>
+        <ul style="color: #666; margin: 0; padding-left: 20px; line-height: 1.8;">
+            <li>Respond to the customer as soon as possible</li>
+            <li>Provide an update or resolution</li>
+            <li>Escalate if additional help is needed</li>
+        </ul>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <a href="{{ ticket_url }}" style="background: #ffc107; color: #333; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Respond Now</a>
+    </div>
+    
+    <p style="color: #888; font-size: 14px; margin-top: 30px;">
+        Avoiding SLA breaches helps maintain customer satisfaction and service quality metrics.
+    </p>
+</div>
+{% endblock %}

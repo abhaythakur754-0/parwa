@@ -1,0 +1,138 @@
+# PARWA AI Pipeline Alert Rules
+# Week 8 - Production Deployment (DEPLOY-06)
+#
+# Alertmanager group for AI pipeline health monitoring.
+# Rules cover LLM errors, routing, latency, consensus, overrides, budgets, and load.
+
+groups:
+  - name: parwa_ai_pipeline
+    rules:
+      # ── Critical Alerts ──────────────────────────────────────────────
+
+      - alert: HighLLMErrorRate
+        expr: |
+          sum(rate(parwa_llm_error_total{provider="openrouter|openai|anthropic"}[5m])) by (provider)
+          /
+          sum(rate(parwa_llm_requests_total[5m])) by (provider)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "LLM error rate above 5% for provider {{ $labels.provider }}"
+          description: >
+            Provider {{ $labels.provider }} is returning errors at
+            {{ $value | humanizePercentage }}. This exceeds the 5% threshold
+            sustained for 5 minutes. Immediate investigation required.
+            Check provider status page, API keys, and rate limits.
+
+      - alert: TokenBudgetExceeded
+        expr: |
+          sum(increase(parwa_ai_tokens_total[1h])) by (tier)
+          /
+          sum(parwa_ai_token_budget{tier=~"mini_parwa|parwa|parwa_high"}) by (tier)
+          > 0.90
+        for: 1h
+        labels:
+          severity: critical
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "Token usage exceeded 90% of budget for tier {{ $labels.tier }}"
+          description: >
+            Tier {{ $labels.tier }} has consumed more than 90% of its token budget
+            in the last hour. Current usage ratio is {{ $value | humanizePercentage }}.
+            If the budget is fully exhausted, the AI pipeline will degrade to
+            Mini PARWA responses. Review usage patterns and consider raising the
+            budget or adding rate limiting.
+
+      # ── Warning Alerts ───────────────────────────────────────────────
+
+      - alert: SmartRouterExcessiveFallbacks
+        expr: |
+          sum(rate(parwa_smart_router_fallback_total[5m]))
+          /
+          sum(rate(parwa_smart_router_requests_total[5m]))
+          > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "Smart Router fallback rate above 20%"
+          description: >
+            The Smart Router is falling back to alternative providers at
+            {{ $value | humanizePercentage }} of total requests (sustained 5m).
+            This indicates that primary providers may be rate-limited, down, or
+            returning errors. Check individual provider health in the LLM Error
+            Rates panel.
+
+      - alert: TechniqueLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(parwa_ai_technique_duration_seconds_bucket[5m]))
+            by (le, technique)
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "P95 latency exceeds 10s for technique {{ $labels.technique }}"
+          description: >
+            Technique {{ $labels.technique }} has a P95 latency of
+            {{ $value | humanizeDuration }} which exceeds the 10-second warning
+            threshold (sustained for 5 minutes). This may cause degraded user
+            experience and timeouts. Check for slow LLM responses, network
+            issues, or resource contention.
+
+      - alert: FakeVotingLowConsensus
+        expr: |
+          avg(parwa_fake_voting_consensus_score) < 0.6
+        for: 5m
+        labels:
+          severity: warning
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "FAKE Voting consensus score below 0.6"
+          description: >
+            The average FAKE Voting consensus score has dropped to {{ $value }},
+            below the 0.6 warning threshold (sustained for 5 minutes). Low
+            consensus indicates that evaluators disagree on response quality,
+            which may signal model drift, degraded prompt effectiveness, or
+            adversarial input patterns. Review recent evaluation logs.
+
+      - alert: JarvisOverrideRateHigh
+        expr: |
+          sum(rate(parwa_jarvis_override_total[10m]))
+          /
+          sum(rate(parwa_jarvis_decisions_total[10m]))
+          > 0.30
+        for: 10m
+        labels:
+          severity: warning
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "Jarvis override rate above 30%"
+          description: >
+            Jarvis is overriding AI responses at {{ $value | humanizePercentage }}
+            of total decisions (sustained 10 minutes). A high override rate
+            suggests the AI pipeline is generating responses that require
+            frequent human correction. This may indicate quality regression,
+            policy changes not reflected in prompts, or edge case patterns.
+
+      - alert: ActiveConversationSpike
+        expr: |
+          sum(parwa_active_conversations) > 200
+        for: 5m
+        labels:
+          severity: warning
+          parwa_service: ai_pipeline
+        annotations:
+          summary: "Active conversations spike above 200"
+          description: >
+            Total active conversations across all verticals is {{ $value }},
+            exceeding the 200 threshold (sustained for 5 minutes). This may
+            indicate a traffic surge, marketing event, or incident driving
+            increased contact volume. Verify worker capacity and consider
+            scaling up Celery workers if response times degrade.

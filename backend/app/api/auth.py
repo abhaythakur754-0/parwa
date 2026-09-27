@@ -1,0 +1,502 @@
+"""
+PARWA Auth Router (F-010, F-011, F-012, F-013, F-014, C5)
+
+Endpoints for user registration, login, token refresh,
+logout, profile, email check, Google OAuth,
+email verification, password reset, and phone OTP login.
+
+All public endpoints (no JWT required):
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/refresh
+- POST /api/auth/google
+- GET  /api/auth/check-email
+- GET  /api/auth/verify
+- POST /api/auth/resend-verification
+- POST /api/auth/forgot-password
+- POST /api/auth/reset-password
+- POST /api/auth/phone/send
+- POST /api/auth/phone/verify
+
+Protected endpoints (JWT required):
+- POST /api/auth/logout
+- GET  /api/auth/me
+"""
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.schemas.auth import (
+    AuthResponse,
+    EmailCheckResponse,
+    GoogleAuthRequest,
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
+from app.schemas.email import (
+    EmailVerifyResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+)
+from app.schemas.phone_otp import (
+    SendOTPRequest,
+    SendOTPResponse,
+    VerifyOTPRequest,
+    VerifyOTPResponse,
+)
+from app.services.auth_service import (
+    authenticate_user,
+    check_email_availability,
+    google_auth,
+    logout_user,
+    refresh_tokens,
+    register_user,
+)
+from app.services.password_reset_service import (
+    initiate_password_reset,
+    reset_password,
+)
+from app.services.verification_service import (
+    resend_verification_email,
+    verify_email,
+)
+from app.services.phone_otp_service import (
+    send_otp,
+    verify_otp,
+)
+from database.base import get_db
+from database.models.core import Company, User
+
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
+
+
+# ── Public Endpoints ───────────────────────────────────────────────
+
+
+@router.get("/check-email", response_model=EmailCheckResponse)
+def check_email(
+    email: str = Query(..., min_length=1, max_length=254),
+    db: Session = Depends(get_db),
+) -> EmailCheckResponse:
+    """Check if an email is available for registration.
+
+    L04: F-010 spec requires email availability check.
+    Rate limited by middleware (20/IP/min).
+    M-27 FIX: Always returns the same generic response regardless
+    of whether the email exists, preventing user enumeration.
+    """
+    # Always return the same response — do not reveal email existence
+    return EmailCheckResponse()
+
+
+@router.post(
+    "/register",
+    response_model=AuthResponse,
+    status_code=201,
+)
+def register(
+    body: RegisterRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Register a new user and create their company.
+
+    Creates both a Company (with 'starter' tier) and a User
+    with 'owner' role. Returns JWT tokens for immediate use.
+
+    F-010: User registration.
+    BC-001: User scoped to company from creation.
+    L01: confirm_password must match password.
+    L02: Password must include special character.
+    L12: Also sets HTTP-only cookies for tokens.
+    """
+    result = register_user(
+        db=db,
+        email=body.email,
+        password=body.password,
+        full_name=body.full_name,
+        company_name=body.company_name,
+        industry=body.industry,
+        unique_id=body.unique_id,
+    )
+    _set_token_cookies(response, result.tokens)
+    return result
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(
+    body: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Authenticate with email and password.
+
+    F-010: Email/password login.
+    BC-011: bcrypt verification.
+    L11: Progressive lockout after 5 failures.
+    L12: Also sets HTTP-only cookies for tokens.
+    """
+    result = await authenticate_user(
+        db=db,
+        email=body.email,
+        password=body.password,
+    )
+    _set_token_cookies(response, result.tokens)
+    return result
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Refresh an expired access token.
+
+    F-013: Token refresh with rotation.
+    L07: Reuse detection invalidates ALL user tokens.
+    L12: Also updates HTTP-only cookies.
+
+    Reads refresh_token from JSON body OR from the httpOnly parwa_rt cookie
+    (so the Next.js proxy can call this with an empty body when forwarding
+    browser cookies — C-03 fix).
+    """
+    # Try JSON body first (direct API client use-case)
+    refresh_token_value: Optional[str] = None
+    try:
+        body = request.json()
+        if isinstance(body, dict):
+            refresh_token_value = body.get("refresh_token")
+    except Exception:
+        pass
+
+    # Fallback: read from httpOnly cookie (proxy / browser use-case)
+    if not refresh_token_value:
+        cookie_val = request.cookies.get("parwa_rt")
+        if cookie_val:
+            refresh_token_value = cookie_val
+
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=422,
+            detail="refresh_token is required (in body or parwa_rt cookie)",
+        )
+
+    result = refresh_tokens(
+        db=db, raw_token=refresh_token_value
+    )
+    _set_token_cookies(response, result)
+    return result
+
+
+@router.post("/google", response_model=AuthResponse)
+def google_login(
+    body: GoogleAuthRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    """Authenticate or register via Google OAuth.
+
+    F-011: Google OAuth sign-in.
+    L08: Returns is_new_user flag.
+    L12: Also sets HTTP-only cookies for tokens.
+    """
+    try:
+        result = google_auth(db=db, id_token=body.id_token)
+        _set_token_cookies(response, result.tokens)
+        return result
+    except Exception as exc:
+        # Ensure we ALWAYS return a structured JSON error, never plain text.
+        # This prevents "Unexpected token" errors on the frontend when
+        # the backend encounters an unexpected condition (e.g. DB issues,
+        # import errors, missing env vars during Google token verification).
+        from app.exceptions import ParwaBaseError
+        if isinstance(exc, ParwaBaseError):
+            raise  # Already structured — let error handler middleware handle it
+        from app.logger import get_logger
+        get_logger("auth").error(
+            "google_auth_unexpected_error",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=500,
+            detail="Google sign-in failed. Please try again.",
+        )
+
+
+# ── C5: Phone OTP Login ──────────────────────────────────────────
+
+
+@router.post(
+    "/phone/send",
+    response_model=SendOTPResponse,
+    status_code=200,
+)
+def phone_send_otp(
+    body: SendOTPRequest,
+    db: Session = Depends(get_db),
+) -> SendOTPResponse:
+    """Send a 6-digit OTP to a phone number.
+
+    C5: Phone OTP Login via Twilio Verify.
+    Validates E.164 format, generates OTP, stores hash in DB.
+    """
+    # Verify company exists (BC-001)
+    company = db.query(Company).filter(
+        Company.id == body.company_id,
+    ).first()
+    if not company:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail="Company not found",
+        )
+
+    result = send_otp(
+        db=db,
+        phone_number=body.phone,
+        company_id=body.company_id,
+    )
+    return SendOTPResponse(**result)
+
+
+@router.post(
+    "/phone/verify",
+    response_model=VerifyOTPResponse,
+)
+def phone_verify_otp(
+    body: VerifyOTPRequest,
+    db: Session = Depends(get_db),
+) -> VerifyOTPResponse:
+    """Verify a phone OTP code.
+
+    C5: Constant-time comparison, max 5 attempts,
+    5-minute expiry, anti-enumeration error messages.
+    L23: Validate company exists for consistency with send.
+    """
+    # L23: Verify company exists (BC-001)
+    company = db.query(Company).filter(
+        Company.id == body.company_id,
+    ).first()
+    if not company:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=404,
+            detail="Company not found",
+        )
+
+    result = verify_otp(
+        db=db,
+        phone_number=body.phone,
+        code=body.code,
+        company_id=body.company_id,
+    )
+    return VerifyOTPResponse(**result)
+
+
+# ── F-012: Email Verification ──────────────────────────────────────
+
+
+@router.get("/verify", response_model=EmailVerifyResponse)
+def verify_email_endpoint(
+    token: str = Query(
+        ..., min_length=32, max_length=64,
+        description="Verification token (URL-safe)",
+    ),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Verify an email address with a token.
+
+    F-012: Validates token (exists, not expired, not used).
+    Sets users.email_verified = True on success.
+    L27: Token length validated (32-64 chars).
+    """
+    return verify_email(db=db, token=token)
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+def resend_verification(
+    body: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Resend a verification email.
+
+    F-012: Rate limited to 3 per email per hour.
+    Invalidates previous unused tokens.
+    """
+    return resend_verification_email(
+        db=db, email=body.email
+    )
+
+
+# ── F-014: Password Reset ──────────────────────────────────────────
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Initiate password reset flow.
+
+    F-014: Generic response (no account enumeration).
+    Rate limited to 3 per email per hour.
+    """
+    return initiate_password_reset(
+        db=db, email=body.email
+    )
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+def reset_password_endpoint(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Reset password using a valid token.
+
+    F-014: Single-use, 15-min expiry.
+    BC-011: ALL sessions invalidated on reset.
+    """
+    return reset_password(
+        db=db,
+        token=body.token,
+        new_password=body.new_password,
+    )
+
+
+# ── Protected Endpoints ────────────────────────────────────────────
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    body: RefreshRequest,
+    response: Response,
+    authorization: Optional[str] = Header(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    """Revoke a refresh token (logout) and blacklist the access token.
+
+    Deletes the refresh token from the database.
+    CROSS-6: Also blacklists the current access token's jti in Redis
+    so it is immediately rejected on subsequent requests.
+    L12: Clears HTTP-only cookies.
+    """
+    logout_user(db=db, raw_token=body.refresh_token)
+
+    # CROSS-6: Blacklist the current access token so it cannot
+    # be reused even before JWT expiry.
+    if authorization and authorization.startswith("Bearer "):
+        access_token = authorization.split(" ", 1)[1]
+        from app.core.jwt_auth import blacklist_current_token
+        await blacklist_current_token(access_token)
+
+    _clear_token_cookies(response)
+    return MessageResponse(
+        message="Logged out successfully"
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+def get_me(
+    user: User = Depends(get_current_user),
+) -> UserResponse:
+    """Get the current authenticated user's profile.
+
+    BC-001: User is always scoped to a company.
+    """
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        avatar_url=user.avatar_url,
+        role=user.role,
+        is_active=user.is_active,
+        is_verified=user.is_verified,
+        company_id=user.company_id,
+        created_at=(
+            user.created_at.isoformat()
+            if user.created_at else None
+        ),
+    )
+
+
+# ── Cookie Helpers (L12) ──────────────────────────────────────────
+
+
+def _should_use_secure_cookies() -> bool:
+    """Determine if cookies should use the Secure flag.
+
+    In production, Secure=True is mandatory (browsers only send
+    cookies over HTTPS). In development (HTTP), browsers silently
+    reject Secure cookies, breaking local auth flows.
+    """
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        return settings.ENVIRONMENT == "production"
+    except Exception:
+        # If settings can't be loaded, default to True for safety
+        return True
+
+
+def _set_token_cookies(
+    response: Response, tokens: TokenResponse
+) -> None:
+    """L12: Set HTTP-only, Secure, SameSite=Lax cookies.
+
+    Cookie names match the frontend expectations:
+    - parwa_at (access token) — read by auth-cookies.ts
+    - parwa_rt (refresh token) — read by auth-cookies.ts
+
+    SameSite=Lax (not Strict) because:
+    - Strict drops cookies on cross-site navigation (e.g. Google OAuth redirect)
+    - Lax still prevents CSRF on POST/PUT/DELETE while allowing GET from links
+
+    Secure flag is conditional on ENVIRONMENT:
+    - production: Secure=True (HTTPS required)
+    - development/test: Secure=False (HTTP local dev)
+    """
+    secure = _should_use_secure_cookies()
+    response.set_cookie(
+        key="parwa_at",
+        value=tokens.access_token,
+        max_age=tokens.expires_in,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+    )
+    response.set_cookie(
+        key="parwa_rt",
+        value=tokens.refresh_token,
+        max_age=7 * 24 * 60 * 60,  # 7 days
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_token_cookies(response: Response) -> None:
+    """L12: Clear auth cookies on logout."""
+    response.delete_cookie(
+        key="parwa_at", path="/"
+    )
+    response.delete_cookie(
+        key="parwa_rt", path="/"
+    )
