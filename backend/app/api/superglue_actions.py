@@ -22,6 +22,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from database.base import get_db
+from database.models.core import User
 
 from app.core.action_safety import classify_action, needs_approval
 from app.core.regulatory_guardrails import get_applicable_frameworks
@@ -58,8 +60,8 @@ def _row_to_response(r) -> ActionSafetyResponse:
 def list_actions(
     safety_level: Optional[str] = Query(None),
     active_only: bool = Query(False),
-    db: Session = Depends(lambda: None),
-    user=Depends(lambda: None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """List safety classifications for the authenticated user's company. BC-001."""
     try:
@@ -72,7 +74,10 @@ def list_actions(
 
 
 @router.post("/classify", response_model=ClassifyActionResponse)
-def classify_tool(body: ClassifyActionRequest, user=Depends(lambda: None)):
+def classify_tool(
+    body: ClassifyActionRequest,
+    user: User = Depends(get_current_user),
+):
     """Classify a tool name (ephemeral — does not persist). BC-008."""
     try:
         result = classify_action(body.tool_name, body.tool_description or "")
@@ -91,8 +96,8 @@ def classify_tool(body: ClassifyActionRequest, user=Depends(lambda: None)):
 @router.post("/persist", response_model=PersistClassificationResponse)
 def persist_classification(
     body: PersistClassificationRequest,
-    db: Session = Depends(lambda: None),
-    user=Depends(lambda: None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Classify AND persist a tool's safety classification. BC-001."""
     try:
@@ -167,8 +172,8 @@ def list_tool_executions(
 @router.get("/{tool_id}", response_model=ActionSafetyResponse)
 def get_action(
     tool_id: str,
-    db: Session = Depends(lambda: None),
-    user=Depends(lambda: None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Get safety classification for a specific tool. BC-001."""
     try:
@@ -186,8 +191,8 @@ def get_action(
 def override_approval(
     tool_id: str,
     body: OverrideRequest,
-    db: Session = Depends(lambda: None),
-    user=Depends(lambda: None),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Toggle approval_required_override for a tool. BC-001."""
     try:

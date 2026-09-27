@@ -26,9 +26,9 @@ Flow (stable stack, verified live 2026-09-08):
 Cost: $0 on PARWA side for the primary path (LLM cost absorbed by Superglue).
 
 Env vars (one URL is enough — the rest derive from it):
-  SUPERGLUE_API_URL=https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi
-  SUPERGLUE_AUTH_TOKEN=sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b
-  SUPERGLUE_LLM_API_KEY=sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f  (optional)
+  SUPERGLUE_API_URL=https://<your-superglue-host>/sgapi
+  SUPERGLUE_AUTH_TOKEN=<environment only — never in code>
+  SUPERGLUE_LLM_API_KEY=<environment only — never in code>
 """
 
 from __future__ import annotations

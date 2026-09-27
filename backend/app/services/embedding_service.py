@@ -41,6 +41,29 @@ _NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
 _NVIDIA_EMBEDDING_DIMENSION = 1024
 
 
+def _dim_ok(values: Optional[List[float]]) -> bool:
+    """Guard: stored embeddings MUST match EMBEDDING_DIMENSION (768).
+
+    document_chunks.embedding is consumed via `embedding::vector(768)`
+    casts (migration 033) — any other dimension (LiteLLM 1536, NVIDIA
+    1024) crashes the cosine index/queries at runtime. A wrong-dim
+    vector is rejected here so the caller degrades gracefully (chunk
+    saved without embedding, re-embed later) instead of 500-ing the
+    live RAG path.
+    """
+    if not values:
+        return False
+    if len(values) != EMBEDDING_DIMENSION:
+        logger.error(
+            "embedding_dimension_mismatch got=%d expected=%d — rejecting "
+            "vector (provider fallback returned a different model dimension; "
+            "mixed-dim rows break pgvector casts)",
+            len(values), EMBEDDING_DIMENSION,
+        )
+        return False
+    return True
+
+
 # ── Standalone Sync Function (for Celery tasks) ───────────────────────
 
 
@@ -223,7 +246,7 @@ class EmbeddingService:
 
                 if response.status_code == 200:
                     values = response.json().get("embedding", {}).get("values")
-                    if values:
+                    if values and _dim_ok(values):
                         logger.debug(
                             "EmbeddingService.generate_embedding: success, "
                             "company_id=%s, dim=%d",
@@ -273,11 +296,14 @@ class EmbeddingService:
             )
 
         # LiteLLM fallback
+        # NOTE: text-embedding-3-small returns 1536-dim vectors — rejected by
+        # _dim_ok() because the pgvector lane is pinned to 768. Kept behind
+        # the guard so a future 768-capable model slots in safely.
         try:
             import litellm
             response = litellm.embedding(model="text-embedding-3-small", input=[text])
             values = response.data[0]["embedding"]
-            if values:
+            if values and _dim_ok(values):
                 logger.info("EmbeddingService: used LiteLLM fallback (company_id=%s)", self.company_id)
                 return values
         except Exception as litellm_exc:
@@ -305,7 +331,10 @@ class EmbeddingService:
                     embeddings = data.get("data", [])
                     if embeddings:
                         values = embeddings[0].get("embedding", [])
-                        if values:
+                        # _NVIDIA_EMBEDDING_DIMENSION is 1024 — a mismatch vs
+                        # the 768 pgvector lane. _dim_ok() rejects it so the
+                        # 500-on-insert failure mode can never happen.
+                        if values and _dim_ok(values):
                             logger.info(
                                 "EmbeddingService: used NVIDIA fallback "
                                 "(company_id=%s, dim=%d)",

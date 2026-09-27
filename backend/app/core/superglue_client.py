@@ -23,9 +23,15 @@ Execution endpoint:
   POST /v1/runs                  — only for LOGGING a run record (NOT execution)
 
 Env vars (set on Render — one URL is enough, the rest derive from it):
-  SUPERGLUE_API_URL=https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi
-  SUPERGLUE_AUTH_TOKEN=sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b
-  SUPERGLUE_LLM_API_KEY=sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f  (optional; default built in)
+  SUPERGLUE_API_URL=https://<your-superglue-host>/sgapi
+  SUPERGLUE_AUTH_TOKEN=<set in environment ONLY — never in code>
+  SUPERGLUE_LLM_API_KEY=<set in environment ONLY — never in code>  (required by the LLM lane)
+
+SECURITY (2026-09-27): credentials are resolved from the environment ONLY.
+No default tokens exist in this file. Missing SUPERGLUE_AUTH_TOKEN disables
+all Superglue calls (fail-closed); missing SUPERGLUE_LLM_API_KEY disables
+the LLM lane. If a token ever leaks, rotate it on the Superglue side and
+update the env var — never paste secrets into source.
 """
 
 from __future__ import annotations
@@ -51,7 +57,7 @@ HTTP_TIMEOUT = 30.0
 # DELETE /v1/tools/{id} 200, /sgq/jobs 202→done<1s, /sgai/v1 Mistral 200.
 # NOTE: PATCH /v1/tools/{id} does NOT exist on this stack — use DELETE.
 DEFAULT_SUPERGLUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi"
-DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
+# SECURITY: no default token. SUPERGLUE_AUTH_TOKEN must come from the env.
 DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi/v1/tools"
@@ -59,7 +65,7 @@ DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226
 # Superglue's own LLM (OpenAI-compatible /sgai/v1) — used by the tool
 # generator so PARWA pays $0 for generation. Verified live 2026-09-08.
 DEFAULT_SUPERGLUE_LLM_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions"
-DEFAULT_SUPERGLUE_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
+# SECURITY: no default LLM key. SUPERGLUE_LLM_API_KEY must come from the env.
 DEFAULT_SUPERGLUE_LLM_MODEL = "open-mistral-7b"
 
 # Legacy gateway ports (kept for import compatibility; no longer appended
@@ -81,15 +87,17 @@ def _session_headers() -> dict:
 def _get_config() -> tuple[str, str]:
     """Get Superglue URL + token.
 
-    Uses hardcoded defaults (no env var needed on Render).
-    Env vars still work if set (overrides default).
+    Token comes from the environment ONLY (fail-closed): if
+    SUPERGLUE_AUTH_TOKEN is unset, an empty token is returned and every
+    call site skips the request (they all guard on empty token). This
+    kills the hardcoded-credential failure mode for good.
     """
     url = os.environ.get("SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL).strip().rstrip("/")
-    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN).strip()
-    if not os.environ.get("SUPERGLUE_AUTH_TOKEN"):
-        logger.warning(
-            "SUPERGLUE_AUTH_TOKEN not set — using built-in default token. "
-            "Set a real token before production traffic."
+    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", "").strip()
+    if not token:
+        logger.error(
+            "SUPERGLUE_AUTH_TOKEN is not set — Superglue calls are DISABLED "
+            "(fail-closed). Set it in the environment, never in code."
         )
     return url, token
 
@@ -160,8 +168,18 @@ def _get_llm_url() -> str:
 
 
 def _get_llm_key() -> str:
-    """Superglue LLM API key (sgai_…). SUPERGLUE_LLM_API_KEY wins if set."""
-    return os.environ.get("SUPERGLUE_LLM_API_KEY", DEFAULT_SUPERGLUE_LLM_KEY).strip()
+    """Superglue LLM API key (sgai_…). Environment ONLY — no default.
+
+    An empty key means the LLM lane is disabled; the request will be
+    rejected upstream rather than silently falling back to a baked-in
+    credential.
+    """
+    key = os.environ.get("SUPERGLUE_LLM_API_KEY", "").strip()
+    if not key:
+        logger.error(
+            "SUPERGLUE_LLM_API_KEY is not set — LLM lane DISABLED (fail-closed)."
+        )
+    return key
 
 
 def _get_llm_model() -> str:

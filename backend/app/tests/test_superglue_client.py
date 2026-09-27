@@ -27,7 +27,6 @@ from app.core.superglue_client import (
     namespaced_tool_id,
     _get_config,
     DEFAULT_SUPERGLUE_URL,
-    DEFAULT_SUPERGLUE_TOKEN,
 )
 
 
@@ -35,12 +34,30 @@ from app.core.superglue_client import (
 
 
 class TestGetConfig:
-    def test_returns_defaults_when_no_env(self):
+    def test_fails_closed_when_no_env(self):
+        """SECURITY (2026-09-27): no hardcoded token — env-only, fail-closed.
+
+        With no SUPERGLUE_AUTH_TOKEN in the environment, _get_config()
+        returns an empty token (call sites then skip the request). It must
+        NEVER fall back to a baked-in credential again.
+        """
         with patch.dict(os.environ, {}, clear=True):
-            # Remove env vars to test defaults
             url, token = _get_config()
             assert url == DEFAULT_SUPERGLUE_URL
-            assert token == DEFAULT_SUPERGLUE_TOKEN
+            assert token == ""
+
+    def test_no_token_in_source(self):
+        """Guard against regression: the module must not carry any sg_/sgai_
+        literal (hardcoded Superglue credential)."""
+        import inspect
+        import app.core.superglue_client as mod
+        source = inspect.getsource(mod)
+        assert "sg_" not in source.replace("sgai_", ""), (
+            "hardcoded Superglue token leaked back into superglue_client.py"
+        )
+        assert "sgai_" not in source, (
+            "hardcoded LLM key leaked back into superglue_client.py"
+        )
 
     def test_env_overrides_defaults(self):
         with patch.dict(os.environ, {

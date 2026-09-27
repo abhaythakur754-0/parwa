@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, desc, func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.exceptions import (
@@ -53,6 +54,11 @@ class TicketService:
 
     # PS05: Duplicate detection threshold
     DUPLICATE_SIMILARITY_THRESHOLD = 0.85
+
+    # FIX (2026-09-27, duplicate-ticket 500): identical re-POSTs within this
+    # window return the EXISTING ticket instead of creating a row (and
+    # instead of 500-ing when a race hits a DB constraint).
+    IDEMPOTENCY_WINDOW_MINUTES = 5
 
     def __init__(self, db: Session, company_id: str):
         self.db = db
@@ -140,6 +146,16 @@ class TicketService:
         # PS05: Check for duplicates
         duplicate_of = self._check_duplicate(customer.id, subject)
 
+        # FIX (duplicate-ticket 500): idempotent create — an exact re-POST
+        # (same customer + subject, within a short tenant-scoped window)
+        # returns the existing ticket so double-clicks and webhook retries
+        # get a 200 with the original id instead of a second ticket/500.
+        existing = self._find_recent_identical_ticket(
+            customer.id, subject, description
+        )
+        if existing is not None:
+            return existing
+
         # Create ticket
         ticket = Ticket(
             id=str(uuid.uuid4()),
@@ -158,7 +174,19 @@ class TicketService:
         )
 
         self.db.add(ticket)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # FIX (duplicate-ticket 500): a concurrent request inserted the
+            # same row first (any unique constraint). Roll back, surface the
+            # winner — never a 500 on an idempotent retry.
+            self.db.rollback()
+            existing = self._find_recent_identical_ticket(
+                customer.id, subject, description
+            )
+            if existing is not None:
+                return existing
+            raise
         self.db.refresh(ticket)
 
         # ── Increment trial ticket counter (if company is on free trial) ──
@@ -186,6 +214,55 @@ class TicketService:
             self.db.commit()
 
         return ticket
+
+    def _find_recent_identical_ticket(
+        self,
+        customer_id: str,
+        subject: Optional[str],
+        description: Optional[str],
+    ) -> Optional[Ticket]:
+        """FIX (duplicate-ticket 500): idempotent-create lookup.
+
+        Finds a ticket from the SAME customer with the SAME subject created
+        within IDEMPOTENCY_WINDOW_MINUTES (tenant-scoped by self.company_id).
+        When description is provided it must also match the stored first
+        message, so genuinely new issues are never swallowed.
+
+        Returns the existing Ticket (caller returns it as-is → HTTP 200
+        with the original id), or None when this is a genuinely new issue.
+        """
+        if not subject:
+            return None
+        window_start = datetime.now(timezone.utc) - timedelta(
+            minutes=self.IDEMPOTENCY_WINDOW_MINUTES
+        )
+        candidate = (
+            self.db.query(Ticket)
+            .filter(
+                Ticket.company_id == self.company_id,
+                Ticket.customer_id == customer_id,
+                Ticket.subject == subject,
+                Ticket.created_at >= window_start,
+            )
+            .order_by(Ticket.created_at.desc())
+            .first()
+        )
+        if candidate is None:
+            return None
+        if description:
+            from database.models.tickets import TicketMessage
+            first_msg = (
+                self.db.query(TicketMessage)
+                .filter(
+                    TicketMessage.ticket_id == candidate.id,
+                    TicketMessage.role == "customer",
+                )
+                .order_by(TicketMessage.created_at.asc())
+                .first()
+            )
+            if first_msg is None or (first_msg.content or "") != description:
+                return None
+        return candidate
 
     def _resolve_or_create_customer(
         self,
@@ -235,7 +312,21 @@ class TicketService:
             updated_at=datetime.now(timezone.utc),
         )
         self.db.add(customer)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # FIX (duplicate-ticket 500): uq_customer_company_email race —
+            # a concurrent request created this customer first. Roll back
+            # and return the winner instead of 500-ing.
+            self.db.rollback()
+            if email:
+                winner = self.db.query(Customer).filter(
+                    Customer.company_id == self.company_id,
+                    Customer.email == email,
+                ).first()
+                if winner:
+                    return winner
+            raise
         self.db.refresh(customer)
         return customer
 
