@@ -268,52 +268,70 @@ async def create_agent(
     # ── Superglue tool generation (SG hook, mirrors onboarding_build.py) ──
     try:
         from app.core.superglue_client import is_configured as superglue_is_configured
-        from app.core.superglue_tool_generator import generate_tool_for_agent
+        from app.core.superglue_tool_generator import (
+            agent_tool_lock,
+            generate_tool_for_agent,
+        )
 
         if superglue_is_configured():
-            agent.superglue_tool_status = "pending"
-            db.commit()
+            # CONCURRENCY FIX (2026-09-27): one tool-generation per agent at a
+            # time. Double-fire (double-click, webhook retry, parallel
+            # requests) used to create TWO Superglue tools for the same agent
+            # — one linked, one orphaned on Superglue. The lock serializes
+            # same-agent generation; the re-check reuses an already-active
+            # tool instead of regenerating.
+            async with agent_tool_lock(f"{company_id}:{agent.id}"):
+                db.refresh(agent)  # another request may have finished while we waited for the lock
+                if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                    logger.info(
+                        "superglue_tool_reuse | company_id=%s | agent=%s | tool_id=%s "
+                        "— already active, skipping duplicate generation",
+                        company_id, body.agent_name, agent.superglue_tool_id,
+                    )
+                else:
+                    agent.superglue_tool_status = "pending"
+                    db.commit()
 
-            _capabilities = body.capabilities or ""
-            if isinstance(_capabilities, (list, tuple)):
-                _capabilities = ", ".join(str(c) for c in _capabilities)
-            _instructions = body.instructions or (
-                f"Handle {body.agent_name}-related customer tickets."
-            )
+                    _capabilities = body.capabilities or ""
+                    if isinstance(_capabilities, (list, tuple)):
+                        _capabilities = ", ".join(str(c) for c in _capabilities)
+                    _instructions = body.instructions or (
+                        f"Handle {body.agent_name}-related customer tickets."
+                    )
 
-            result = await generate_tool_for_agent(
-                agent_name=body.agent_name,
-                agent_instructions=_instructions,
-                agent_capabilities=str(_capabilities),
-                sample_ticket=None,
-                tenant_integrations=None,
-                tenant_id=company_id,
-            )
-            if result.get("success"):
-                agent.superglue_tool_id = result.get("tool_id")
-                agent.superglue_tool_status = "active"
-                agent.superglue_tool_definition = json.dumps(
-                    result.get("tool_definition", {})
-                )
-                agent.superglue_tool_created_at = datetime.now(timezone.utc)
-                logger.info(
-                    "superglue_tool_created | company_id=%s | agent=%s | tool_id=%s",
-                    company_id, body.agent_name, result.get("tool_id"),
-                )
-            else:
-                agent.superglue_tool_status = "failed"
-                # 2026-09: persist WHY it failed — 'failed' status used to be
-                # unexplainable from the admin UI (refund agents failed 2/2
-                # with zero visible error).
-                agent.superglue_tool_definition = json.dumps({
-                    "error": str(result.get("error", "unknown"))[:500],
-                    "failed_at": datetime.now(timezone.utc).isoformat(),
-                })
-                logger.warning(
-                    "superglue_tool_generation_failed | company_id=%s | agent=%s | error=%s",
-                    company_id, body.agent_name, str(result.get("error"))[:200],
-                )
-            db.commit()
+                    result = await generate_tool_for_agent(
+                        agent_name=body.agent_name,
+                        agent_instructions=_instructions,
+                        agent_capabilities=str(_capabilities),
+                        sample_ticket=None,
+                        tenant_integrations=None,
+                        tenant_id=company_id,
+                    )
+                    if result.get("success"):
+                        agent.superglue_tool_id = result.get("tool_id")
+                        agent.superglue_tool_status = "active"
+                        agent.superglue_tool_definition = json.dumps(
+                            result.get("tool_definition", {})
+                        )
+                        agent.superglue_tool_created_at = datetime.now(timezone.utc)
+                        logger.info(
+                            "superglue_tool_created | company_id=%s | agent=%s | tool_id=%s",
+                            company_id, body.agent_name, result.get("tool_id"),
+                        )
+                    else:
+                        agent.superglue_tool_status = "failed"
+                        # 2026-09: persist WHY it failed — 'failed' status used to be
+                        # unexplainable from the admin UI (refund agents failed 2/2
+                        # with zero visible error).
+                        agent.superglue_tool_definition = json.dumps({
+                            "error": str(result.get("error", "unknown"))[:500],
+                            "failed_at": datetime.now(timezone.utc).isoformat(),
+                        })
+                        logger.warning(
+                            "superglue_tool_generation_failed | company_id=%s | agent=%s | error=%s",
+                            company_id, body.agent_name, str(result.get("error"))[:200],
+                        )
+                    db.commit()
         else:
             agent.superglue_tool_status = "failed"
             db.commit()

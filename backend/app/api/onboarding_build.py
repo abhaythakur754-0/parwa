@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core import superglue_client
-from app.core.superglue_tool_generator import generate_tool_for_agent
+from app.core.superglue_tool_generator import agent_tool_lock, generate_tool_for_agent
 from database.base import get_db
 from database.models.core import User
 from database.models.variant_engine import AIAgentAssignment
@@ -198,15 +198,34 @@ async def trigger_build(
         db.refresh(agent)
 
         # 5. Call Superglue to generate the tool (async, may take 10-30s)
+        # CONCURRENCY FIX (2026-09-27): agent_tool_lock + active re-check —
+        # double-submit of onboarding used to create duplicate Superglue
+        # tools for the same agent (one linked, one orphaned).
         try:
-            result = await generate_tool_for_agent(
-                agent_name=agent_name,
-                agent_instructions=f"Handle {agent_name}-related customer tickets.",
-                agent_capabilities=", ".join(capabilities),
-                sample_ticket=None,
-                tenant_integrations=tenant_integrations_ctx,
-                tenant_id=tenant_id,
-            )
+            async with agent_tool_lock(f"{tenant_id}:{agent.id}"):
+                db.refresh(agent)  # another request may have finished while we waited
+                if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                    logger.info(
+                        "superglue_tool_reuse (onboarding) | tenant=%s | agent=%s | tool_id=%s "
+                        "— already active, skipping duplicate generation",
+                        tenant_id, agent_name, agent.superglue_tool_id,
+                    )
+                    # Synthesize a success result so the shared block below
+                    # records the status without regenerating anything.
+                    result = {
+                        "success": True,
+                        "tool_id": agent.superglue_tool_id,
+                        "tool_definition": json.loads(agent.superglue_tool_definition or "{}"),
+                    }
+                else:
+                    result = await generate_tool_for_agent(
+                        agent_name=agent_name,
+                        agent_instructions=f"Handle {agent_name}-related customer tickets.",
+                        agent_capabilities=", ".join(capabilities),
+                        sample_ticket=None,
+                        tenant_integrations=tenant_integrations_ctx,
+                        tenant_id=tenant_id,
+                    )
 
             if result.get("success"):
                 agent.superglue_tool_id = result.get("tool_id")

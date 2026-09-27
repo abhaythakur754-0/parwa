@@ -33,6 +33,7 @@ Env vars (one URL is enough — the rest derive from it):
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -53,6 +54,31 @@ from app.core.superglue_client import (
 logger = logging.getLogger("parwa.superglue_tool_generator")
 
 HTTP_TIMEOUT = 90.0  # tool generation takes longer than execution (LLM involved)
+
+# ── Concurrency guard (2026-09-27) ────────────────────────────────────
+# ONE tool-generation per agent at a time. Keyed "<company_id>:<agent_id>".
+# Without this, a double-fire on the same agent (double-click, webhook
+# retry, parallel regenerate calls) created TWO Superglue tools — one got
+# linked to the agent, the other stayed on Superglue as an orphan.
+#
+# The two AIs (PARWA's NVIDIA + Superglue's Mistral) never talk to each
+# other — THIS code is the only connection point: it sends the agent's
+# identity with the request and writes the returned tool_id back onto
+# that exact agent row. The lock guarantees one writer per agent.
+#
+# In-process locks are sufficient on single-instance Render. If the API
+# ever scales to multiple instances, replace with a Redis lock
+# (SET NX PX) keyed the same way.
+_tool_gen_locks: Dict[str, asyncio.Lock] = {}
+
+
+def agent_tool_lock(key: str) -> asyncio.Lock:
+    """Return the per-agent tool-generation lock (created on first use)."""
+    lock = _tool_gen_locks.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _tool_gen_locks[key] = lock
+    return lock
 
 
 async def generate_tool_for_agent(
