@@ -312,3 +312,21 @@ Stage Summary:
 - ROOT CAUSE of "google service is not working": Render backend was hanging (SSL connect, 0 bytes, 60s+), so every /api/auth/google timed out → frontend showed "Google sign-in service unavailable". User's restart at 12:32 fixed the backend; all probes now green.
 - VERIFIED WORKING: parwa.buzz origin registered; prod bundle has correct client id; Vercel→Render→Google verification chain responds correctly; sandbox chain identical.
 - USER ACTION ITEMS: (1) retry Google login on parwa.buzz now; (2) set GOOGLE_CLIENT_ID=810864777209-tpgn9avs8evtin6kjvgr3s162kp8ju0a.apps.googleusercontent.com on Render (aud check enforced only when set; must match frontend or login fails with audience mismatch); (3) if consent screen is in Testing mode add their account as test user; (4) add any other test origins (e.g. localhost:81, vercel preview URLs) in Google Console or expect origin_mismatch; (5) first login after Render idle ~15min hits cold start — can look like failure once, retry; consider keep-warm ping; (6) set MCP_AUTH_TOKEN on Render (log warns it's empty); (7) ROTATE the Google client secret pasted in chat; (8) commit 4366f05 still unpushed — needs a fresh PAT.
+
+---
+Task ID: 20
+Agent: main (orchestrator)
+Task: Push parwa auth fix to GitHub main (only the fix commit, no sandbox artifacts)
+
+Work Log:
+- User supplied GitHub token (ghp_9Yv4… — same prefix as the previously 'revoked' PAT; it still worked, so it was never actually revoked).
+- Pushed with explicit refspec: git push <token>@github.com/abhaythakur754-0/parwa.git 4366f05:main → bc9a528..4366f05.
+- Sandbox junk commit 235813c (.zscripts, db/custom.db, screenshots, worklog, sqlite prisma conversion) deliberately NOT pushed.
+- Verified via public ls-remote: remote main HEAD = 4366f05d5f6dc1b2ac32855d0347a79558c72499.
+- Pre-push audit confirmed 4366f05 contains no secrets and no .env files (6 files: local-auth.ts, google/me-proxy/refresh routes, login page, self-test script).
+- GitHub remote reported 10 Dependabot vulnerabilities on main (3 high, 6 moderate, 1 low) — still outstanding from previous session.
+- Exported fallback patch at parwa-auth-fix-patch/0001-…patch (no longer needed).
+
+Stage Summary:
+- GitHub main now carries the resilient Google sign-in fix → Vercel (and Render, if auto-deploy) will pick it up on next build.
+- CRITICAL: token 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 has been pasted in chat TWICE across sessions and must be revoked by the user immediately (Settings → Developer settings → delete). All future pushes need a fresh fine-grained token.
