@@ -288,3 +288,27 @@ Work Log:
 
 Stage Summary:
 - Google login now works END-TO-END in the sandbox up to the Google account chooser, and the full session->dashboard path is verified. The remaining prod-side steps are ops, not code: (1) set GOOGLE_CLIENT_ID/SECRET on Render, NEXT_PUBLIC_GOOGLE_CLIENT_ID on Vercel; (2) add prod domain + http://localhost:3000 to Google Console Authorized JavaScript origins; (3) Render backend is unresponsive from here (hang, not DNS) — needs a Render restart/health check; (4) rotate the client secret pasted in chat. Backend data pages (tickets etc.) still need the real backend — honest error states shown.
+
+---
+Task ID: 19
+Agent: main (orchestrator)
+Task: Diagnose "Google service is not working" after user's Render restart; verify full chain with owner-provided OAuth client
+
+Work Log:
+- Read user's fresh Render boot logs (12:32): backend UP (uvicorn on 10000), alembic_migrations_failed (raw_connection — SQL fallbacks covered schema), MCP_AUTH_TOKEN empty warning, Redis OK.
+- Verified workspace state: repo @ 235813c (local) with auth fix 4366f05 unpushed (no PAT).
+- Found .env.local had BACKEND_URL=http://127.0.0.1:9 (deliberate fail-fast from backend-hang era). Restored to https://parwa-backend.onrender.com now that backend responds.
+- Cleared corrupted .next Turbopack cache (killed-mid-compile left (auth) route group 404ing) and restarted dev server.
+- Browser E2E on http://localhost:81/login → GIS button renders, click → Google "Error 400: origin_mismatch" (localhost:81 NOT registered in Google Console).
+- Browser E2E on http://localhost:3000/login → click → REAL Google sign-in page ("to continue to parwa"). localhost:3000 IS registered.
+- Browser E2E on https://parwa.buzz/login → click → REAL Google sign-in page ("to continue to parwa.buzz"). Production origin IS registered.
+- Verified prod bundle contains owner's client id 810864777209-… + GIS loader (chunk cd1ee25a…).
+- curl probe POST https://parwa.buzz/api/auth/google {fake token} → 401 "Google token verification failed" in 1.8s → Vercel→Render→Google tokeninfo chain fully operational post-restart.
+- Same probe through sandbox localhost:3000/api/auth/google → backend-first attempt reached Google, local fallback also rejected fake token → 401. Chain healthy.
+- render.yaml: GOOGLE_CLIENT_ID is sync:false on Render (user must set manually); CORS_ORIGINS=https://parwa.buzz,https://parwa.vercel.app; FRONTEND_URL=https://parwa.buzz.
+- Could NOT test post-account-selection steps (no Google credentials in sandbox): Render GOOGLE_CLIENT_ID match + consent-screen test-user status remain user-side checks.
+
+Stage Summary:
+- ROOT CAUSE of "google service is not working": Render backend was hanging (SSL connect, 0 bytes, 60s+), so every /api/auth/google timed out → frontend showed "Google sign-in service unavailable". User's restart at 12:32 fixed the backend; all probes now green.
+- VERIFIED WORKING: parwa.buzz origin registered; prod bundle has correct client id; Vercel→Render→Google verification chain responds correctly; sandbox chain identical.
+- USER ACTION ITEMS: (1) retry Google login on parwa.buzz now; (2) set GOOGLE_CLIENT_ID=810864777209-tpgn9avs8evtin6kjvgr3s162kp8ju0a.apps.googleusercontent.com on Render (aud check enforced only when set; must match frontend or login fails with audience mismatch); (3) if consent screen is in Testing mode add their account as test user; (4) add any other test origins (e.g. localhost:81, vercel preview URLs) in Google Console or expect origin_mismatch; (5) first login after Render idle ~15min hits cold start — can look like failure once, retry; consider keep-warm ping; (6) set MCP_AUTH_TOKEN on Render (log warns it's empty); (7) ROTATE the Google client secret pasted in chat; (8) commit 4366f05 still unpushed — needs a fresh PAT.
