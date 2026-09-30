@@ -1,17 +1,25 @@
 /**
  * PARWA Google OAuth API Route
  *
- * Forwards the Google id_token to the backend (sole token issuer), which
- * verifies it with Google and returns PARWA JWT tokens. The frontend never
- * mints its own tokens — this was the root cause of the dual-JWT auth bug.
+ * Primary path: forwards the Google id_token to the backend (sole token
+ * issuer), which verifies it with Google and returns PARWA JWT tokens.
  *
- * If the backend is unreachable, returns 503 (no local fallback that
- * would create divergent auth state).
+ * Fallback path (only when ENABLE_LOCAL_GOOGLE_AUTH=1): when the backend is
+ * unreachable or rejects the token (e.g. missing GOOGLE_CLIENT_ID on the
+ * backend), the id_token is verified SERVER-SIDE against Google's tokeninfo
+ * endpoint (same checks as the backend) and a local session is issued.
+ * Production deployments do not set the flag, so behaviour there is unchanged.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { setAuthCookies } from "@/lib/auth-cookies";
 import { backendProxy } from "@/lib/backend-proxy";
+import {
+  isLocalAuthEnabled,
+  verifyGoogleIdTokenLocally,
+  upsertLocalGoogleUser,
+  mintLocalTokens,
+} from "@/lib/local-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +34,11 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Backend is the sole token issuer ──────────────────────
+    let backendFailed = false;
+    let backendErrorStatus = 503;
+    let backendErrorMessage =
+      "Google sign-in service unavailable. Please try again.";
+
     try {
       const { response: backendRes } = await backendProxy("/api/auth/google", {
         method: "POST",
@@ -38,49 +51,52 @@ export async function POST(request: NextRequest) {
           data = await backendRes.json();
         } catch {
           console.error("[google-auth] Backend returned 200 but non-JSON body");
-          return NextResponse.json(
-            { status: "error", message: "Google sign-in service unavailable. Please try again." },
-            { status: 503 }
-          );
+          backendFailed = true;
+          data = {};
         }
 
-        const authData = (data.data || data) as Record<string, unknown>;
-        const userObj = (authData.user || data.user) as Record<string, unknown> | undefined;
-        const tokensObj = (authData.tokens || data.tokens) as Record<string, unknown> | undefined;
-        const isNewUser = (authData.is_new_user ?? data.is_new_user ?? true) as boolean;
+        if (!backendFailed) {
+          const authData = (data.data || data) as Record<string, unknown>;
+          const userObj = (authData.user || data.user) as
+            | Record<string, unknown>
+            | undefined;
+          const tokensObj = (authData.tokens || data.tokens) as
+            | Record<string, unknown>
+            | undefined;
+          const isNewUser = (authData.is_new_user ??
+            data.is_new_user ??
+            true) as boolean;
 
-        if (userObj && tokensObj) {
-          const userData = {
-            id: userObj.id,
-            email: userObj.email,
-            fullName: userObj.full_name || userObj.name,
-            isVerified: userObj.is_verified ?? true,
-            industry: userObj.industry,
-            companyName: userObj.company_name,
-          };
+          if (userObj && tokensObj) {
+            const userData = {
+              id: userObj.id,
+              email: userObj.email,
+              fullName: userObj.full_name || userObj.name,
+              isVerified: userObj.is_verified ?? true,
+              industry: userObj.industry,
+              companyName: userObj.company_name,
+            };
 
-          const response = NextResponse.json({
-            status: "success",
-            is_new_user: isNewUser,
-            user: userData,
-          });
+            const response = NextResponse.json({
+              status: "success",
+              is_new_user: isNewUser,
+              user: userData,
+            });
 
-          setAuthCookies(
-            response,
-            String(tokensObj.access_token),
-            String(tokensObj.refresh_token),
-            userData,
-            Number(tokensObj.expires_in) || undefined,
-          );
+            setAuthCookies(
+              response,
+              String(tokensObj.access_token),
+              String(tokensObj.refresh_token),
+              userData,
+              Number(tokensObj.expires_in) || undefined,
+            );
 
-          return response;
+            return response;
+          }
+
+          console.error("[google-auth] Backend returned 200 but unexpected format");
+          backendFailed = true;
         }
-
-        console.error("[google-auth] Backend returned 200 but unexpected format");
-        return NextResponse.json(
-          { status: "error", message: "Google sign-in service unavailable. Please try again." },
-          { status: 503 }
-        );
       } else {
         // Backend returned an error
         let errorData: Record<string, unknown> = {};
@@ -104,25 +120,77 @@ export async function POST(request: NextRequest) {
         );
 
         if (backendRes.status === 401 || backendRes.status === 403) {
-          return NextResponse.json(
-            { status: "error", message: message || "Google sign-in failed. Please try again." },
-            { status: backendRes.status }
-          );
+          backendFailed = true;
+          backendErrorStatus = backendRes.status;
+          backendErrorMessage =
+            message || "Google sign-in failed. Please try again.";
+        } else {
+          console.error("[google-auth] Backend returned", backendRes.status);
+          backendFailed = true;
         }
-
-        console.error("[google-auth] Backend returned", backendRes.status);
-        return NextResponse.json(
-          { status: "error", message: "Google sign-in service unavailable. Please try again." },
-          { status: 503 }
-        );
       }
     } catch {
       console.error("[google-auth] Backend unreachable");
-      return NextResponse.json(
-        { status: "error", message: "Google sign-in service unavailable. Please try again." },
-        { status: 503 }
-      );
+      backendFailed = true;
     }
+
+    // ── Local fallback (gated): verify with Google directly ────
+    if (backendFailed && isLocalAuthEnabled()) {
+      const claims = await verifyGoogleIdTokenLocally(id_token);
+      if (claims) {
+        const user = await upsertLocalGoogleUser(claims);
+        if (user) {
+          try {
+            const tokens = await mintLocalTokens(user.id, user.email);
+
+            const userData = {
+              id: user.id,
+              email: user.email,
+              fullName: user.full_name || user.email.split("@")[0],
+              isVerified: user.is_verified,
+              industry: user.industry,
+              companyName: user.company_name,
+            };
+
+            const response = NextResponse.json({
+              status: "success",
+              is_new_user: false,
+              user: userData,
+              session: "local",
+            });
+
+            setAuthCookies(
+              response,
+              tokens.accessToken,
+              tokens.refreshToken,
+              userData,
+              tokens.expiresIn,
+            );
+
+            console.info(
+              "[google-auth] Local session issued (backend unavailable) for %s",
+              user.email,
+            );
+            return response;
+          } catch (err) {
+            console.error("[google-auth] Local token minting failed:", err);
+          }
+        } else {
+          console.error("[google-auth] Local user upsert failed");
+        }
+      } else {
+        console.error("[google-auth] Local fallback: Google rejected the token");
+        return NextResponse.json(
+          { status: "error", message: "Google sign-in failed. Please try again." },
+          { status: 401 },
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { status: "error", message: backendErrorMessage },
+      { status: backendErrorStatus },
+    );
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";

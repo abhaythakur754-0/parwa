@@ -7,12 +7,35 @@
  * This is used by the AuthContext to verify the current session.
  * Since parwa_at now contains the BACKEND's JWT token, the backend
  * can successfully verify it.
+ *
+ * Local fallback (ENABLE_LOCAL_GOOGLE_AUTH=1 only): when the backend is
+ * unreachable or rejects a locally-issued session token, the token is
+ * verified locally (lib/jwt) and the user is loaded from the local DB.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/backend-url';
+import { getLocalUserFromToken } from '@/lib/local-auth';
+
+function extractToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+  const cookieToken = req.cookies.get('parwa_at')?.value;
+  return cookieToken || null;
+}
 
 export async function GET(req: NextRequest) {
+  const token = extractToken(req);
+
+  if (!token) {
+    return NextResponse.json(
+      { status: 'error', message: 'Authentication required.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const backendUrl = getBackendUrl();
     // Dynamic origin — matches whatever deployment we're on
@@ -23,34 +46,8 @@ export async function GET(req: NextRequest) {
       'Content-Type': 'application/json',
       'Origin': origin,
       'Referer': `${origin}/`,
+      'Authorization': `Bearer ${token}`,
     };
-
-    // Forward auth token from cookie
-    const cookieHeader = req.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = Object.fromEntries(
-        cookieHeader.split(';').map((c) => {
-          const [key, ...val] = c.trim().split('=');
-          return [key, val.join('=')];
-        })
-      );
-      if (cookies.parwa_at) {
-        headers['Authorization'] = `Bearer ${cookies.parwa_at}`;
-      }
-    }
-
-    // Also check Authorization header
-    const authHeader = req.headers.get('authorization');
-    if (authHeader && !headers['Authorization']) {
-      headers['Authorization'] = authHeader;
-    }
-
-    if (!headers['Authorization']) {
-      return NextResponse.json(
-        { status: 'error', message: 'Authentication required.' },
-        { status: 401 }
-      );
-    }
 
     const res = await fetch(`${backendUrl}/api/auth/me`, {
       method: 'GET',
@@ -58,22 +55,36 @@ export async function GET(req: NextRequest) {
       signal: AbortSignal.timeout(8000),
     });
 
-    // Safely parse JSON — guard against non-JSON responses (e.g. from proxy/gateway)
-    let data: Record<string, unknown>;
-    try {
-      const text = await res.text();
-      data = JSON.parse(text);
-    } catch {
-      console.error('[me-proxy] Backend returned non-JSON:', res.status);
-      return NextResponse.json(
-        { status: 'error', message: 'Authentication service unavailable.' },
-        { status: 502 },
-      );
+    if (res.ok) {
+      // Safely parse JSON — guard against non-JSON responses (e.g. from proxy/gateway)
+      try {
+        const text = await res.text();
+        const data = JSON.parse(text);
+        return NextResponse.json(data, { status: 200 });
+      } catch {
+        console.error('[me-proxy] Backend returned 200 but non-JSON body');
+      }
     }
 
-    return NextResponse.json(data, { status: res.status });
+    // ── Local fallback (gated) before surfacing the backend error ──
+    const localUser = await getLocalUserFromToken(token, 'access');
+    if (localUser) {
+      return NextResponse.json(localUser, { status: 200 });
+    }
+
+    return NextResponse.json(
+      { status: 'error', message: 'Authentication failed.' },
+      { status: res.status === 401 ? 401 : 502 },
+    );
   } catch (error) {
     console.error('[me-proxy] Backend unreachable:', error);
+
+    // ── Local fallback (gated): backend is unreachable ──
+    const localUser = await getLocalUserFromToken(token, 'access');
+    if (localUser) {
+      return NextResponse.json(localUser, { status: 200 });
+    }
+
     return NextResponse.json(
       { status: 'error', message: 'Backend unreachable' },
       { status: 503 }
