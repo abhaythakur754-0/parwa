@@ -43,6 +43,13 @@ function LoginContent() {
   // ── After successful login, redirect to target ──────────────────
 
   async function redirectAfterLogin(_isNewUser?: boolean) {
+    // Sandbox/dev bypass: when set, go straight to the dashboard without
+    // the subscription check (used for local testing — see .env.local).
+    if (process.env.NEXT_PUBLIC_SKIP_SUBSCRIPTION_CHECK === '1') {
+      router.push('/dashboard/tickets');
+      return;
+    }
+
     // Netflix rule: no subscription = no dashboard.
     // Check if user has any active subscriptions.
     let hasSubscription = false;
