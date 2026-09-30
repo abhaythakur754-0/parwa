@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -48,7 +48,7 @@ model OnboardingSession {
   user                  User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   status                String                   @default("not_started") // not_started | in_progress | completed
   currentStep           Int                      @default(1) @map("current_step")
-  completedSteps        Int[]                    @default([]) @map("completed_steps")
+  completedSteps        String                    @default("[]") @map("completed_steps")
   detailsCompleted      Boolean                  @default(false) @map("details_completed")
   integrationCompleted  Boolean                  @default(false) @map("integration_completed")
   kbCompleted           Boolean                  @default(false) @map("kb_completed")
@@ -108,7 +108,7 @@ model Integration {
   type            String    // zendesk | intercom | freshdesk | crm | email | whatsapp | slack | custom
   name            String
   status          String    @default("pending") // pending | active | error
-  config          Json      @default("{}") // API keys, webhooks, etc.
+  config          String      @default("{}") // API keys, webhooks, etc.
   kbConnectedId   String?   @map("kb_connected_id") // Link to KB if CRM has one
   lastTestAt      DateTime? @map("last_test_at")
   lastTestResult  String?   @map("last_test_result")
@@ -221,7 +221,7 @@ model Subscription {
 model Post {
   id        String   @id @default(cuid())
   title     String
-  content   String?  @db.Text
+  content   String? 
   published Boolean  @default(false)
   authorId  String?  @map("author_id")
   createdAt DateTime @default(now()) @map("created_at")

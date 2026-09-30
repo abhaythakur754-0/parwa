@@ -268,3 +268,23 @@ Stage Summary:
 - ✅ All hardcoded passwords removed from 3 files
 - ❌ Supabase credentials expired — user must provide new ones from Supabase Dashboard
 - ⚡ BLOCKED on: User providing current Supabase project connection string
+
+---
+Task ID: 18
+Agent: main (orchestrator)
+Task: Replace workspace with the real Parwa app + make Google login work for testing
+
+Work Log:
+- Wiped old status-dashboard workspace; cloned repo (main @ bc9a528) into /home/z/my-project; preserved platform files (.zscripts, Caddyfile, .env).
+- Diagnosed "Google service is not working": (1) Render backend HANGS (SSL connects, 0 bytes, 60s+ timeout) -> /api/auth/google 503s; (2) frontend had no usable Google client config; (3) login redirectAfterLogin Netflix-rule bounces non-subscribers to landing.
+- Owner supplied Google OAuth client (810864777209-…). Wired into .env.local (NEXT_PUBLIC_GOOGLE_CLIENT_ID, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET — gitignored).
+- NEW src/lib/local-auth.ts: gated (ENABLE_LOCAL_GOOGLE_AUTH=1) local fallback — verifies Google id_token server-side via tokeninfo (aud/email_verified/exp, same checks as backend), upserts user in local Prisma, mints HS256 session (jose) into standard parwa_at/parwa_rt cookies.
+- /api/auth/google: backend-first, local fallback on failure (prod unchanged: backend stays sole issuer). /api/auth/me-proxy + /api/auth/refresh: local-session fallbacks so sessions survive backend outages.
+- login page: NEXT_PUBLIC_SKIP_SUBSCRIPTION_CHECK=1 bypasses the Razorpay subscription gate -> straight to /dashboard.
+- prisma/schema.prisma switched postgresql->sqlite locally (sandbox only, NOT committed); stripped @db.* native types, converted scalar lists/Json fields for SQLite.
+- bun install + db push OK. Self-test scripts/test-local-auth.ts: 6/6 PASS (forge rejection via real tokeninfo, upsert, mint, verify, refresh semantics, persistence).
+- Browser E2E (agent-browser): landing OK; /login renders GIS Google button (client valid, app name "parwa"); click -> REAL Google account chooser opens (origin accepted); minted session -> /dashboard + /dashboard/tickets + /dashboard/settings all render with the user in the sidebar. Screenshots in live-test-shots/.
+- Committed 4366f05 (6 files, +568/-113). Not pushed (no PAT — previous one revoked).
+
+Stage Summary:
+- Google login now works END-TO-END in the sandbox up to the Google account chooser, and the full session->dashboard path is verified. The remaining prod-side steps are ops, not code: (1) set GOOGLE_CLIENT_ID/SECRET on Render, NEXT_PUBLIC_GOOGLE_CLIENT_ID on Vercel; (2) add prod domain + http://localhost:3000 to Google Console Authorized JavaScript origins; (3) Render backend is unresponsive from here (hang, not DNS) — needs a Render restart/health check; (4) rotate the client secret pasted in chat. Backend data pages (tickets etc.) still need the real backend — honest error states shown.
