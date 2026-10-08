@@ -100,8 +100,18 @@ def _extract_tool_inputs(details: Dict, action: str, knowledge: str) -> Dict[str
         inputs["orderNumber"] = order_match.group(1)
 
     # Amount ($50, $99.99, 100 cents)
+    # 2026-10 FIX: prefer the currency-anchored amount Node 1 already
+    # extracted (details["amount"]). The old regex re-scanned the combined
+    # text — including KB knowledge — and grabbed unrelated "$" amounts
+    # (e.g. "$500" from pricing docs) as the refund amount.
+    _details_amount = details.get("amount") if isinstance(details, dict) else None
+    if _details_amount:
+        try:
+            inputs["amount"] = int(round(float(_details_amount) * 100))
+        except (TypeError, ValueError):
+            pass
     amount_match = re.search(r'\$(\d+(?:\.\d+)?)', text)
-    if amount_match:
+    if amount_match and "amount" not in inputs:
         # Convert dollars to cents (Superglue tools expect cents)
         try:
             dollars = float(amount_match.group(1))
@@ -367,7 +377,10 @@ THOUGHT:"""
 
         if sg_configured():
             from app.core.superglue_client import get_available_tools_description, execute_tool
-            from app.core.parwa_pipeline.llm_client import llm_call
+            # 2026-10 FIX: do NOT re-import llm_call here — the function-scope
+            # import shadowed the module-level llm_call and produced
+            # "UnboundLocalError: local variable 'llm_call'" at the THOUGHT
+            # call above (line ~352), corrupting every ReAct execution.
 
             # ── NEW: Agent-aware tool routing ────────────────────────
             # If a Builder-created agent is handling this ticket AND it has
@@ -685,10 +698,12 @@ If no tool matches, respond with:
 
                     if tool_id and tool_id != "none":
                         # Step 3: Run Action Safety Gate before execution
+                        # 2026-10 FIX: classify by tool name only — the ticket's
+                        # action text must not inflate a read-only tool's risk.
                         tool_input = decision.get("input", {})
                         variant_tier = state.get("variant_tier", "parwa")
                         safety_gate = _run_action_safety_gate(
-                            tool_id, action, tool_input, tenant_id, variant_tier)
+                            tool_id, "", tool_input, tenant_id, variant_tier)
 
                         if safety_gate["blocked"]:
                             # Guardrail blocked — do not execute
@@ -731,12 +746,19 @@ If no tool matches, respond with:
                             else:
                                 observation = f"Superglue tool '{tool_id}' failed: {result.get('error', 'unknown')}"
                                 tool_executed = f"superglue:{tool_id} (failed)"
+                    else:
+                        observation = f"No matching Superglue tool for action '{action}'. LLM said: {decision.get('reasoning', '')}"
+                        tool_executed = None
                 else:
-                    observation = f"No matching Superglue tool for action '{action}'. LLM said: {decision.get('reasoning', '')}"
+                    # 2026-10 CRITICAL FIX: this else belongs to `if match:` —
+                    # NOT to `if observation is None:`. The old (flattened)
+                    # indentation attached it to the outer guard, so EVERY
+                    # successful agent-aware tool execution was CLOBBERED
+                    # with "Could not parse LLM tool selection response."
+                    # and tool_executed=None — auto tool results never
+                    # survived. Re-indented to the correct branch.
+                    observation = "Could not parse LLM tool selection response."
                     tool_executed = None
-            else:
-                observation = "Could not parse LLM tool selection response."
-                tool_executed = None
         else:
             observation = None  # Superglue not configured → fall through to LLM executor
 
@@ -1993,6 +2015,19 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
         "maker_final_block": maker_final.get("should_block", False),
         "policy_cited": policy_check.get("cited", True),
         "sufficiency": sufficiency.get("sufficient", True),
+        # ── 2026-10 FIX: LangGraph drops in-node mutations to `state` —
+        # the approval gate wrote state["pending_approval"]=True but never
+        # RETURNED it, so the Pending-Approval routing never engaged.
+        # Read the values back from the mutated dict and return them.
+        "pending_approval": state.get("pending_approval", False),
+        "pending_approval_reason": state.get("pending_approval_reason"),
+        "pending_approval_tool_input": state.get("pending_approval_tool_input"),
+        "pending_approval_agent_id": state.get("pending_approval_agent_id"),
+        "pending_approval_tool_id": state.get("pending_approval_tool_id"),
+        "tool_executed": next(
+            (at.get("tool_executed") for at in actions_taken if at.get("tool_executed")),
+            None,
+        ),
         "meta_confidence_adjustment": meta.get("confidence_adjustment", 0.0),
     }
 
@@ -2028,6 +2063,12 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         guardrail_result = None
         if safety.level == ActionSafetyLevel.FINANCIAL:
             amount = float(tool_input.get("amount", 0)) if isinstance(tool_input, dict) else 0.0
+            # 2026-10 FIX: tool inputs carry amounts in CENTS (Superglue
+            # convention — see _extract_tool_inputs) but PARWA_TIER_LIMITS
+            # are in DOLLARS. Without conversion a $25 refund (2500 cents)
+            # was compared as $2500 and always guardrail-blocked.
+            if amount:
+                amount = amount / 100.0
             gr = check_financial_guardrails(safety.level.value, amount, variant_tier, tool_id)
             guardrail_result = {"allowed": gr.allowed, "reason": gr.reason,
                                 "limit": gr.limit, "remaining": gr.remaining}
@@ -2058,8 +2099,12 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
     from sqlalchemy import text as _sql_text
 
     # ── ACTION SAFETY GATE (runs before idempotency check) ──
+    # 2026-10 FIX: classify by the TOOL's identity (name), NOT the ticket's
+    # action text. Passing the action (e.g. "investigate_billing") matched
+    # FINANCIAL keywords ("billing") and parked even read-only lookup tools
+    # in the approval queue — so NO tool ever auto-executed.
     try:
-        _sg = _run_action_safety_gate(tool_id, action, tool_input or {}, tenant_id, "parwa")
+        _sg = _run_action_safety_gate(tool_id, "", tool_input or {}, tenant_id, "parwa")
         if _sg["blocked"]:
             return {"success": False, "error": _sg["reason"],
                     "guardrail_blocked": True, "safety_level": _sg["safety_level"]}
