@@ -37,6 +37,29 @@ logger = logging.getLogger("parwa.remote_builder")
 # The correct public URL (uses chat_id, not session_id)
 DEFAULT_BUILDER_URL = "https://preview-chat-ac11d6a7-6c3d-42a0-acb8-a37ecf9e8dea.space-z.ai"
 
+# ── Auth (Builder service enforces X-API-Key on ALL routes except /api/health) ──
+# Accepted header styles: X-API-Key, ?api_key=, Authorization: Bearer — we use X-API-Key.
+# NOTE: keep the GitHub repo PRIVATE while a real key sits in code.
+DEFAULT_BUILDER_API_KEY = "bld_16983ffb226ec89575dea48c5b6ee245cc56ebb649ae04b5"
+
+
+def _builder_headers() -> Dict[str, str]:
+    """Headers for Builder service requests.
+
+    Resolution: env var BUILDER_API_KEY wins, then the code default.
+    Tenant scoping rides in the request body (tenant_id), no extra header needed.
+    """
+    headers = {"Content-Type": "application/json"}
+    key = os.environ.get("BUILDER_API_KEY", DEFAULT_BUILDER_API_KEY).strip()
+    if key:
+        headers["X-API-Key"] = key
+    else:
+        logger.warning(
+            "BUILDER_API_KEY not set (env) and DEFAULT_BUILDER_API_KEY empty — "
+            "Builder service will reject with 401."
+        )
+    return headers
+
 
 def get_builder_url() -> str:
     """Get the Builder service URL.
@@ -97,7 +120,7 @@ async def call_remote_builder(
             r = await client.post(
                 url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=_builder_headers(),
             )
             r.raise_for_status()
             result = r.json()
