@@ -401,3 +401,20 @@ Work Log:
 
 Stage Summary:
 - Awaiting from user: (1) repo flipped private, (2) current Superglue auth token (from the 98e04084 instance dashboard), (3) optionally the sgai_ LLM key. On paste: fill two strings, live-test, cherry-pick push, verify.
+
+---
+Task ID: 25
+Agent: main (orchestrator)
+Task: User supplied live Superglue tokens — verify, bake into code, push (gated on repo going private)
+
+Work Log:
+- User pasted connection package: SG token sg_fbde45…, LLM key sgai_39ff17…, base URL matches DEFAULT_SUPERGLUE_URL.
+- Independent live verification: tool run round-trip returned runId; wrong token 401; LLM gateway 200 Mistral. Client already sends "inputs" field correctly (line 416).
+- Filled DEFAULT_SUPERGLUE_TOKEN + DEFAULT_SUPERGLUE_LLM_KEY. Integration test through REAL client with ZERO env vars: is_configured=True, list_tools=15 tools (incl. tenant_2e8c89db__* namespaced prod tools), execute_tool full round-trip OK.
+- Finding: crm_* demo tools fail server-side ('demo_db does not exist') — Superglue instance's demo DB was wiped in a revival; instance-side data issue, plumbing unaffected. Other assistant's 'all 5 tools work' only true once demo_db re-seeded.
+- verify_tool_exists: both tenant-namespaced production tools exist for tenant 2e8c89db.
+- Local commits: 8064f33 (scaffolding) + 72f891b (token fill). NOT pushed: repo verified STILL PUBLIC via anonymous ls-remote (GitHub API 403-rate-limited, ls-remote definitive).
+- Launched /tmp/auto_push_when_private.sh watcher (pid 7786): polls visibility every 30s x 10min; on private -> worktree at fb3aa7d, cherry-pick both commits, sanity-grep token, push, verify remote, log to /tmp/push_status.log.
+
+Stage Summary:
+- 100% ready to ship; push auto-fires when user flips repo private. Remaining user-side: flip private (one click), re-seed demo_db on Superglue instance (or ignore — prod tenant tools unaffected), revoke ghp_9Yv4 PAT after push lands.
