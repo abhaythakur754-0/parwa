@@ -16,7 +16,10 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
   const buttonRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  // Baked-in fallback so Vercel needs no env var (client id is public info).
+  const clientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    '810864777209-tpgn9avs8evtin6kjvgr3s162kp8ju0a.apps.googleusercontent.com';
   const isConfigured = !!clientId;
 
   // ── Stable ref for the callback (prevents re-init loop) ──
