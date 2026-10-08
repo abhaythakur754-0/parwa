@@ -418,3 +418,19 @@ Work Log:
 
 Stage Summary:
 - 100% ready to ship; push auto-fires when user flips repo private. Remaining user-side: flip private (one click), re-seed demo_db on Superglue instance (or ignore — prod tenant tools unaffected), revoke ghp_9Yv4 PAT after push lands.
+
+---
+Task ID: 26
+Agent: main (orchestrator)
+Task: Builder service now enforces X-API-Key auth — wire key into code; relaunch push watcher with full commit queue
+
+Work Log:
+- Builder owner's agent minted bld_16983ffb… and enabled auth on all 11 routes (except /api/health). Until wired, Parwa's builder calls would 401 in production.
+- Probed DEFAULT_BUILDER_URL (ac11d6a7 space): 502 across /api/health, /api/runs — service mid-restart after auth change. Builder watch poller launched (/tmp/builder_watch.sh, 15x60s) to auto-verify when up.
+- Confirmed remote_builder_client.py is the ONLY outbound builder path (API routes have no own URLs).
+- Implemented _builder_headers(): X-API-Key, env BUILDER_API_KEY overrides code default; tenant scoping stays in body tenant_id (no X-Company-Id needed). All 3 header paths verified by simulation.
+- Commit 82a2ab0 (local). Push watcher v2 (/tmp/auto_push_v2.sh) relaunched with 3-commit queue 8064f33 -> 72f891b -> 82a2ab0 onto fb3aa7d, double sanity-grep (sg_ + bld_ creds), verified alive + logging.
+- NOTE: first watcher silently died after 1 log line (cause unclear) — v2 confirmed writing attempt lines.
+
+Stage Summary:
+- Pending push queue: superglue scaffolding + superglue tokens + builder auth key. Auto-push when user flips repo private. Open items: builder URL may change (user said 'changing builder agent url' — if new URL differs from ac11d6a7, one-string swap needed); builder 502 watch; demo_db reseed; revoke ghp_9Yv4 PAT.
