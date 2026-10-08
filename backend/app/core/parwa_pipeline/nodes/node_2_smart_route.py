@@ -915,7 +915,18 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     # This is the VERIFICATION layer — Node 2 decides "go forward" or
     # "send back" based on whether agent + tool are ready.
 
-    detected_capability = state.get("ticket_type", "general")
+    # 2026-10 FIX: map ticket_type → canonical capability BEFORE matching
+    # agents. Agents are built with vocabulary keys (e.g. "refund_processing")
+    # while the raw ticket_type is "refund_request" — without this mapping the
+    # exact-match search below NEVER found the right agent, so tickets fell
+    # through to the any-active fallback and the agent's Superglue tool never
+    # ran.
+    _ticket_type_raw = state.get("ticket_type", "general")
+    try:
+        from app.core.parwa_pipeline.nodes.node_1_ingest_classify import TICKET_TYPE_TO_CAPABILITY as _T2C
+        detected_capability = _T2C.get(_ticket_type_raw, _ticket_type_raw)
+    except Exception:  # noqa: BLE001 — mapping unavailable, keep raw type
+        detected_capability = _ticket_type_raw
     verified_agent_id = state.get("builder_agent_id")  # may have been set by Node 1
     verified_tool_id = None
     agent_verification_status = "exists"  # exists | created | failed
