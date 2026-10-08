@@ -355,3 +355,18 @@ Stage Summary:
 - GitHub main now carries the pipeline fix (bf97511) — Render auto-deploy will pick it up; production tickets should now auto-execute agent tools (read-only instantly, financial via approval queue).
 - User must still set SUPERGLUE_AUTH_TOKEN + SUPERGLUE_API_URL on Render (mock proved the plumbing; real Superglue token was rotated — user must supply the current one).
 - Token ghp_9Yv4… used again for this push — MUST be revoked (3rd time in chat).
+
+---
+Task ID: 22
+Agent: main (orchestrator)
+Task: Re-verify every previously-reported error; answer user's "are all errors solved?" honestly
+
+Work Log:
+- Git: remote main = bf97511 (auth fix 4366f05 + pipeline fix). Local backend byte-identical to bf97511 (only pycache/mode diffs) -> last session's E2E proofs apply to pushed code.
+- Render live probe: /health timed out at 60s (asleep), 200 at 86s cold start (uptime 111s, postgres+redis healthy, celery+disk degraded). Confirms free-tier sleep = the original "Google sign-in service unavailable" trigger.
+- parwa.buzz auth chain: POST /api/auth/google fake id_token -> structured 401 "Google token verification failed" in 1.2s -> Vercel->Render->Google chain healthy. Old code's "service unavailable" string no longer exists in new frontend code (deploy fingerprint inconclusive from outside; Vercel auto-deploy implies new build live).
+- Fresh E2E rerun attempt: FAILED environmentally — llm-shim upstream (Z.ai) 429 rate-limited for 6+ min (likely hourly quota from prior session). Node 1/2 still classified correctly in degraded run (action=investigate_billing, agent=exists tool=exists) but ReAct/tool selection needs the LLM. Mock Superglue alive (401 fail-closed correct).
+- No code changes made today.
+
+Stage Summary:
+- Code errors: SOLVED + proven (previous session E2E) + pushed. Ops items still open on user side: SUPERGLUE_AUTH_TOKEN/API_URL on Render (old token rotated/rejected), GOOGLE_CLIENT_ID on Render, one real Google login click, revoke ghp_9Yv4 token (pasted 3x), rotate Google client secret. Fresh sandbox rerun blocked by upstream 429 today.
