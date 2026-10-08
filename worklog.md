@@ -387,3 +387,17 @@ Work Log:
 Stage Summary:
 - Google sign-in now needs ZERO env config on Render/Vercel after next auto-deploy.
 - Superglue tools in prod remain gated on SUPERGLUE_AUTH_TOKEN: user must either make repo private (then token can be baked) or set the one var once on Render (free, no trial impact). Old token dead-verified.
+
+---
+Task ID: 24
+Agent: main (orchestrator)
+Task: User-approved plan — bake Superglue token into code (repo going private); exhaustive token hunt first
+
+Work Log:
+- Deep-searched ALL git history for valid Superglue credentials: only a truncated dead token (41d385c7…, live-tested 401), k8s secrets.yaml is CHANGE_ME placeholders, code has anti-commit assertions for sg_/sgai_ keys.
+- Found 3 other historical instance URLs: two 502-dead, one alive but is a 'CRM Analyser Agent' app (not Superglue). Token hunt exhausted: NO valid token exists in anything accessible.
+- Implemented credential scaffolding in superglue_client.py: DEFAULT_SUPERGLUE_TOKEN + DEFAULT_SUPERGLUE_LLM_KEY constants; resolution env->code-default->fail-closed. Verified all 3 paths via simulation (import reload, code default flows, env wins).
+- Committed locally (NOT pushed — single deploy when real token arrives).
+
+Stage Summary:
+- Awaiting from user: (1) repo flipped private, (2) current Superglue auth token (from the 98e04084 instance dashboard), (3) optionally the sgai_ LLM key. On paste: fill two strings, live-test, cherry-pick push, verify.
