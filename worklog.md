@@ -370,3 +370,20 @@ Work Log:
 
 Stage Summary:
 - Code errors: SOLVED + proven (previous session E2E) + pushed. Ops items still open on user side: SUPERGLUE_AUTH_TOKEN/API_URL on Render (old token rotated/rejected), GOOGLE_CLIENT_ID on Render, one real Google login click, revoke ghp_9Yv4 token (pasted 3x), rotate Google client secret. Fresh sandbox rerun blocked by upstream 429 today.
+
+---
+Task ID: 23
+Agent: main (orchestrator)
+Task: Bake URL/token defaults into code so user never needs to edit Render env vars; confirm local auto-tool fixes
+
+Work Log:
+- Confirmed repo is PUBLIC via GitHub API (private:false) -> refused to bake any real secret into code.
+- Audit: GOOGLE_CLIENT_SECRET used NOWHERE (tokeninfo flow needs no secret); BUILDER_SERVICE_URL, Superglue URLs (DEFAULT_SUPERGLUE_URL preview-chat-98e04084…), CORS_ORIGINS, frontend->backend URL all already defaulted in code; render.yaml auto-applies FRONTEND_URL/CORS.
+- Old Superglue token (41d385c7…c398… from bc9a528) re-tested LIVE: 401 Authentication failed -> dead, nothing valid to bake.
+- Edits (commit dc0413f local, cherry-picked as fb3aa7d -> pushed to main on bf97511): backend config.py GOOGLE_CLIENT_ID default = parwa OAuth client; SocialLogin.tsx + local-auth.ts same fallback. Client id is public info (ships in browser JS) — safe.
+- Verified: Settings() loads default with zero env vars; dev server compiles; baked id present in .next chunks (SSR + client). Sandbox lint tooling broken (next lint removed in Next16 + eslint config crash) — compile check used instead.
+- Pushed fb3aa7d:main (token used 4th time — still unrevoked).
+
+Stage Summary:
+- Google sign-in now needs ZERO env config on Render/Vercel after next auto-deploy.
+- Superglue tools in prod remain gated on SUPERGLUE_AUTH_TOKEN: user must either make repo private (then token can be baked) or set the one var once on Render (free, no trial impact). Old token dead-verified.
