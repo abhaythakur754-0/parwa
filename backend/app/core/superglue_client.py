@@ -60,8 +60,8 @@ DEFAULT_SUPERGLUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc
 # ── Credentials (code defaults; env vars still win if ever set) ──
 # NOTE: keep the GitHub repo PRIVATE while a real token sits here.
 # Paste the current token from the Superglue instance dashboard below.
-DEFAULT_SUPERGLUE_TOKEN = ""
-DEFAULT_SUPERGLUE_LLM_KEY = ""
+DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
+DEFAULT_SUPERGLUE_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
 # SECURITY: prefer env vars in shared/public checkouts.
 DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
