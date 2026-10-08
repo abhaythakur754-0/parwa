@@ -3085,6 +3085,25 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
             "result_summary": f"tenant_kb_docs={len(filtered)} → proceeding to Node 4 (no interrupt)",
         })
 
+    # ── ACTION-TICKET OVERRIDE (2026-10): never pause ACTION tickets for
+    # KB sufficiency. A refund/cancel/plan-change ticket is executed via the
+    # agent's Superglue tool (Node 5) with its own safety gates + approval
+    # queue — it does not need KB docs. Pausing here left ACTION tickets
+    # stuck in "awaiting guidance" forever (auto tools never fired).
+    _ACTION_REQUIRED = "provide_info,recommend,escalate,pause_for_agent_approval".split(",")
+    _required_action_3 = (state.get("required_action") or "provide_info")
+    if _required_action_3 and _required_action_3 not in _ACTION_REQUIRED:
+        sufficiency["knowledge_sufficient"] = True
+        clara_result["knowledge_sufficient"] = True
+        logs.append({
+            "node": 3, "technique": "ActionTicketOverride",
+            "duration_ms": 0,
+            "result_summary": (
+                f"required_action={_required_action_3} is an ACTION ticket → "
+                f"skip KB-sufficiency interrupt, proceed to tool execution path"
+            ),
+        })
+
     if not sufficiency["knowledge_sufficient"]:
         # ── APPROACH A: Pause + ask for guidance ───────────────────
         # Node 3 has doubt (KB insufficient). Instead of continuing blind,
