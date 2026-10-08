@@ -442,8 +442,11 @@ class Settings(BaseSettings):
     GRAFANA_API_KEY: str = ""
 
     # ── Google OAuth (F-011) ───────────────────────────────────
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
+    # Client ID baked in as default so Render needs ZERO manual env setup.
+    # This is a PUBLIC identifier (it ships in browser JS anyway), not a secret.
+    # A GOOGLE_CLIENT_ID env var on Render still overrides this if ever set.
+    GOOGLE_CLIENT_ID: str = "810864777209-tpgn9avs8evtin6kjvgr3s162kp8ju0a.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET: str = ""  # not needed: id_token verified via tokeninfo
 
     # ── GCP Storage (file uploads, model weights) ──────────────
     GCP_STORAGE_BUCKET: str = ""

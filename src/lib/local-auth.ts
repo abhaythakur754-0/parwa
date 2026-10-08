@@ -71,7 +71,9 @@ export async function verifyGoogleIdTokenLocally(
   idToken: string,
 ): Promise<LocalGoogleClaims | null> {
   const clientId =
-    process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "810864777209-tpgn9avs8evtin6kjvgr3s162kp8ju0a.apps.googleusercontent.com";
   if (!clientId || !idToken) return null;
 
   try {
