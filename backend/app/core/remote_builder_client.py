@@ -34,8 +34,11 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("parwa.remote_builder")
 
-# The correct public URL (uses chat_id, not session_id)
-DEFAULT_BUILDER_URL = "https://preview-chat-ac11d6a7-6c3d-42a0-acb8-a37ecf9e8dea.space-z.ai"
+# Builder service URL (migrated 2026-10-09 from preview-chat-ac11d6a7… which died).
+# Live-verified: /api/health 200, service=parwa-builder-agent v1.0.0.
+# NOTE: that deployment currently runs auth:open + llm_ready:false — owner must
+# configure LLM keys in .env.secrets there; our X-API-Key is sent regardless.
+DEFAULT_BUILDER_URL = "https://p11668uhxhd1-d.space-z.ai"
 
 # ── Auth (Builder service enforces X-API-Key on ALL routes except /api/health) ──
 # Accepted header styles: X-API-Key, ?api_key=, Authorization: Bearer — we use X-API-Key.
