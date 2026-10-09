@@ -434,3 +434,18 @@ Work Log:
 
 Stage Summary:
 - Pending push queue: superglue scaffolding + superglue tokens + builder auth key. Auto-push when user flips repo private. Open items: builder URL may change (user said 'changing builder agent url' — if new URL differs from ac11d6a7, one-string swap needed); builder 502 watch; demo_db reseed; revoke ghp_9Yv4 PAT.
+
+---
+Task ID: 27
+Agent: main (orchestrator)
+Task: User supplied NEW builder URL — verify, swap in code, relaunch persistent watcher
+
+Work Log:
+- New URL https://p11668uhxhd1-d.space-z.ai live-verified: parwa-builder-agent v1.0.0, /api/health 200, /api/runs 200.
+- FINDINGS on new deployment: auth:"open" (bld_ key accepted but NOT enforced — old instance enforced 401) AND llm_ready:false (groq/mistral/nvidia all configured:false). Owner must configure LLM keys (.env.secrets) on new deployment or builds run degraded; auth can be re-enabled anytime (Parwa sends X-API-Key regardless).
+- Swapped DEFAULT_BUILDER_URL (commit 98e6060). Push queue now 4 commits: 8064f33, 72f891b, 82a2ab0, 98e6060 onto fb3aa7d.
+- ROOT CAUSE of watcher deaths: /tmp wiped between turns by sandbox cleanup. v3 moved to persistent /home/z/my-project/.watch/, budget 120x60s=2h, triple sanity-grep (sg token, bld key, new URL), confirmed alive + logging.
+- Repo STILL PUBLIC as of 14:40 UTC.
+
+Stage Summary:
+- All code work complete; single blocker remains: user flips repo private -> auto-push fires -> Render/Vercel deploy -> zero-env production. User-side builder config: LLM keys on new deployment, optional auth re-enable.
