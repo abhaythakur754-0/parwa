@@ -1,0 +1,38 @@
+# Parwa Skills Box — all deps for the 9-skill box (CPU only)
+# torch is installed FIRST by start.sh with the CPU index-url.
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+psutil>=5.9
+pydantic>=2.7
+python-multipart>=0.0.9
+requests>=2.31
+numpy>=1.26
+
+# Phase 1 — classify / entities / mask
+# NOTE: transformers pinned <5 — 5.x breaks mdeberta spm tokenizer (GLiNER)
+transformers==4.51.3
+gliclass>=0.1.4
+gliner>=0.2.13
+tiktoken>=0.7
+presidio-analyzer>=2.2.35
+presidio-anonymizer>=2.2.35
+spacy>=3.7
+
+# Phase 2 — ocr / transcribe
+faster-whisper>=1.0
+paddlepaddle>=3.3
+paddleocr>=3.0
+
+# Phase 3 — translate / speak
+argostranslate>=1.9.6
+sentencepiece>=0.1.99
+# piper ships as a standalone binary (downloaded by download_models.py);
+# no pip package needed.
+
+# Phase 3 — remember (customer memory in a DATABASE — free space):
+#   sqlite (default, stdlib) needs nothing; postgres mode = Supabase free tier
+psycopg[binary]>=3.1
+
+# Phase 3 — pending decision (uncomment after Abhay picks):
+# browser-use       # /browse   — after LLM-brain choice (+ playwright install chromium)

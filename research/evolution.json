@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://gurusup.com",
+    "name": "Evolution API WhatsApp: Open Source Alternative to",
+    "snippet": "Jun 14, 2026 — Prerequisites A server with Docker and Docker Compose installed. Any VPS with 1 GB of RAM and Ubuntu 22.04+ is sufficient for testing. A phone ...",
+    "host_name": "gurusup.com",
+    "rank": 0,
+    "date": "Jun 14, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.hostinger.com",
+    "name": "Evolution API VPS Docker | WhatsApp Integration",
+    "snippet": "Deploy Evolution API on your VPS in one click. Open-source WhatsApp integration platform with chatbots, automation, and multi-service support.",
+    "host_name": "www.hostinger.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.freecodecamp.org",
+    "name": "How to Build and Deploy a Production-Ready WhatsApp",
+    "snippet": "Feb 20, 2026 — Evolution API is a self-hosted WhatsApp automation server built on top of Baileys. ... Docker is needed to run EasyPanel and the Evolution API. Read more",
+    "host_name": "www.freecodecamp.org",
+    "rank": 2,
+    "date": "Feb 20, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Evolution API is an open-source WhatsApp integration API",
+    "snippet": "Evolution API is a powerful, production-ready REST API for WhatsApp and multi-channel messaging. Docker docker pull. Evolution API is licensed under the Apache ...",
+    "host_name": "github.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wasenderapi.com",
+    "name": "Evolution API Architecture: Scaling Multi-Tenant WhatsApp",
+    "snippet": "Jul 17, 2026 — We will break down the infrastructure required to scale multi-tenant WhatsApp operations, examine the hidden costs of self - hosting , and provide ... Read more",
+    "host_name": "wasenderapi.com",
+    "rank": 4,
+    "date": "Jul 17, 2026",
+    "favicon": ""
+  }
+]

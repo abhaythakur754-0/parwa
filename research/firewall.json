@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://ai.meta.com",
+    "name": "An open source guardrail system for building secure AI agents",
+    "snippet": "Apr 29, 2025 — We introduce LlamaFirewall , an open-source security focused guardrail framework designed to serve as a final layer of defense against security ...",
+    "host_name": "ai.meta.com",
+    "rank": 0,
+    "date": "Apr 29, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.alphaxiv.org",
+    "name": "LlamaFirewall: An open source guardrail system for",
+    "snippet": "May 6, 2025 — LlamaFirewall introduces an open-source security framework that combines three specialized guardrails (PromptGuard 2, AlignmentCheck, ...",
+    "host_name": "www.alphaxiv.org",
+    "rank": 1,
+    "date": "May 6, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://meta-llama.github.io",
+    "name": "About LlamaFirewall",
+    "snippet": "Feel free to read our LlamaFirewall : An open source guardrail system for building secure AI agents paper to dive deeper into design and benchmark results.",
+    "host_name": "meta-llama.github.io",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org",
+    "name": "An open source guardrail system for building secure AI",
+    "snippet": "by S Chennabasappa · 2025 · Cited by 116 — LlamaFirewall, an open-source security focused guardrail . Our framework mitigates risks such as prompt injection, agent misalignment, and ...",
+    "host_name": "arxiv.org",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

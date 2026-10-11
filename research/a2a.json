@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://developers.googleblog.com",
+    "name": "Announcing the Agent2Agent Protocol (A2A)",
+    "snippet": "Apr 9, 2025 — A2A is an open protocol that complements Anthropic's Model Context Protocol ( MCP ), which provides helpful tools and context to agents.",
+    "host_name": "developers.googleblog.com",
+    "rank": 0,
+    "date": "Apr 9, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.forbes.com",
+    "name": "Agent2Agent Joins The Agentic AI Foundation Alongside",
+    "snippet": "Aug 19, 2026 — The Agent2Agent ( A2A ) protocol has officially joined the Agentic AI Foundation (AAIF), a Linux Foundation body, as announced August 17. Read more",
+    "host_name": "www.forbes.com",
+    "rank": 1,
+    "date": "Aug 19, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.glukhov.org",
+    "name": "Google A2A Protocol in 2026: Adoption, Hype, and Reality",
+    "snippet": "A2A stands for Agent2Agent Protocol , It is an open standard for communication and interoperability between independent AI agent systems",
+    "host_name": "www.glukhov.org",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://airia.com",
+    "name": "AI Agent Interoperability: What MCP and A2A Mean for",
+    "snippet": "May 23, 2026 — MCP and A2A protocols are reshaping how AI agents connect to tools and each other . MCP and A2A enable agent interoperability — and open ...",
+    "host_name": "airia.com",
+    "rank": 3,
+    "date": "May 23, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.elastic.co",
+    "name": "A2A Protocol and MCP: When to use which in Elasticsearch",
+    "snippet": "Nov 12, 2025 — Agent2Agent (A2A ) is a standardized protocol for interaction between independent LLM agents. Rather than a single monolithic system handling ... Read more",
+    "host_name": "www.elastic.co",
+    "rank": 4,
+    "date": "Nov 12, 2025",
+    "favicon": ""
+  }
+]

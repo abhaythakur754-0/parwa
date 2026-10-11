@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://turingpi.com",
+    "name": "Whisper.cpp + Piper TTS on ARM64: Local Voice AI on",
+    "snippet": "Jun 1, 2026 — Voice interfaces for self-hosted applications . The entire pipeline operates without cloud APIs, external services, or recurring usage fees. Read more",
+    "host_name": "turingpi.com",
+    "rank": 0,
+    "date": "Jun 1, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://news.ycombinator.com",
+    "name": "Does it need a newer GPU? Or can it run on just CPU?",
+    "snippet": "Jun 25, 2025 — Best CPU TTS that can run on something like a raspberry pi is Piper . It can do real time synthesis on a raspberry pi and on a real computer ... Read more",
+    "host_name": "news.ycombinator.com",
+    "rank": 1,
+    "date": "Jun 25, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.ssdnodes.com",
+    "name": "Run Whisper and Piper TTS for Your VPS",
+    "snippet": "Aug 11, 2026 — Run Whisper transcription and Piper TTS on your own CPU VPS . See the honest disk and CPU costs, plus how to expose an OpenAI-compatible HTTP ...",
+    "host_name": "www.ssdnodes.com",
+    "rank": 2,
+    "date": "Aug 11, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.jocheojeda.com",
+    "name": "Self-Hosting Whisper and TTS on a CPU VPS",
+    "snippet": "Jul 3, 2026 — It was purpose-built for CPU — the voices are tiny (~60 MB each) and it runs faster than real-time even on a Raspberry Pi . On real server ... Read more",
+    "host_name": "www.jocheojeda.com",
+    "rank": 3,
+    "date": "Jul 3, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Piper tts not functioning properly on RPI5 #359",
+    "snippet": "May 6, 2024 — Hello all! I have run into an issue with using Piper tts on my pi 5. I have followed directions for installation and when running a default ... Read more",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "May 6, 2024",
+    "favicon": ""
+  }
+]

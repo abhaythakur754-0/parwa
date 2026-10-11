@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://danubedata.ro",
+    "name": "Self-Host Sentry or GlitchTip: Open-Source Error Tracking",
+    "snippet": "On DanubeData's dedicated plans you have the full RAM to yourself — no swap needed . On shared plans, add a 4 GB swap file. Session Replay is huge. Each replay ...",
+    "host_name": "danubedata.ro",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://glitchtip.com",
+    "name": "Install — Documentation",
+    "snippet": "Minimum system requirements: 256 MB RAM when using all-in-one setup. Careful configuration will allow 128 MB + swap. Disk usage varies on usage and event size. Read more",
+    "host_name": "glitchtip.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.bugsink.com",
+    "name": "GlitchTip vs. Sentry vs. Bugsink",
+    "snippet": "The documented baseline is 16GB RAM , and that's just to get started. GlitchTip is easier than Sentry, The self-hosted. The default install needs 16GB RAM just ...",
+    "host_name": "www.bugsink.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://xgenious.com",
+    "name": "7 Best Self-Hosted Sentry Alternatives for 2026 (Compared)",
+    "snippet": "Aug 9, 2026 — 16GB of RAM as a floor . GlitchTip Free / $15+. RAM: 16 GB+. It needs Kafka, ClickHouse, Snuba, Relay, Symbolicator, Postgres, Redis, and dozens ...",
+    "host_name": "xgenious.com",
+    "rank": 3,
+    "date": "Aug 9, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://temps.sh",
+    "name": "8 Best Sentry Alternatives 2026: Free & Self-Hosted - Temps",
+    "snippet": "Mar 29, 2026 — For pure error-tracking-only with a Sentry SDK swap, GlitchTip is a zero-code migration that runs on 512MB RAM . If your team already runs ... Read more",
+    "host_name": "temps.sh",
+    "rank": 4,
+    "date": "Mar 29, 2026",
+    "favicon": ""
+  }
+]

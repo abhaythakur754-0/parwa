@@ -1,0 +1,56 @@
+[
+  {
+    "url": "https://arize.com",
+    "name": "What is Arize Phoenix?",
+    "snippet": "Phoenix helps you understand and improve AI applications by giving you a workflow for debugging and iteration. You can send detailed logging information, known ...",
+    "host_name": "arize.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://railway.com",
+    "name": "Deploy & Host Phoenix | Open Source LLM Observability",
+    "snippet": "May 1, 2026 — Hardware Requirements for Self-Hosting Phoenix on Railway Resource Minimum Recommended. RAM 512 MB 1 GB (2 GB+ for heavy trace volume) Storage ...",
+    "host_name": "railway.com",
+    "rank": 1,
+    "date": "May 1, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.arize.com",
+    "name": "Improving Performance of Self-Hosted Phoenix with Docker",
+    "snippet": "Oct 22, 2025 — Hi Arize AX Support I have self hosted phoenix using docker . When I run a batch of 100 questions it is taking 35-40 mins to write the traces ...",
+    "host_name": "community.arize.com",
+    "rank": 2,
+    "date": "Oct 22, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://langfuse.com",
+    "name": "Langfuse vs. Arize AX and Arize Phoenix",
+    "snippet": "This guide compares Langfuse, Arize Phoenix , and Arize AX. You accept span + ingested-GB billing, 30-day Pro retention, and custom code evaluators on ...",
+    "host_name": "langfuse.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://perlod.com",
+    "name": "Self-Host Arize Phoenix with Docker | Best LLM Observability",
+    "snippet": "Jul 21, 2026 — This guide shows you how to self-host Arize Phoenix with Docker. least 2 vCPU, 4GB RAM, and 40GB SSD storage.",
+    "host_name": "perlod.com",
+    "rank": 4,
+    "date": "Jul 21, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://myengineeringpath.dev",
+    "name": "Langfuse vs Phoenix Arize — LLM Observability Compared",
+    "snippet": "Mar 20, 2026 — Phoenix can run as a local Python process with a single pip install — no Docker required — making it the easiest self-hosted option. Arize ...",
+    "host_name": "myengineeringpath.dev",
+    "rank": 5,
+    "date": "Mar 20, 2026",
+    "favicon": ""
+  }
+]

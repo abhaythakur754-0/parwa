@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Vanna 2.0: Turn Questions into Data Insights",
+    "snippet": "Mar 29, 2026 — Chat with your SQL database . Accurate Text-to-SQL Generation via LLMs . Natural language → SQL → Answers. Works with React, Vue, or plain HTML. ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "Mar 29, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://pub.towardsai.net",
+    "name": "I Turned an Archived 23K-Star Text-to-SQL Project Into a",
+    "snippet": "Apr 6, 2026 — Vanna.ai is a text-to-SQL framework that lets you ask questions in plain English and get SQL queries, results, and charts back. RAG (Retrieval- ...",
+    "host_name": "pub.towardsai.net",
+    "rank": 1,
+    "date": "Apr 6, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://themenonlab.blog",
+    "name": "Vanna AI: The Open-Source Text-to-SQL That Actually Works",
+    "snippet": "Mar 4, 2026 — A deep dive into Vanna AI 2.0 — the MIT-licensed framework that turns natural language into SQL queries. Works with any LLM (including local ...",
+    "host_name": "themenonlab.blog",
+    "rank": 2,
+    "date": "Mar 4, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://try.vanna.ai",
+    "name": "Generating SQL for Postgres using Other LLM",
+    "snippet": "This notebook runs through the process of using the vanna Python package to generate SQL using AI (RAG + LLMs) including connecting to a database and training. Read more",
+    "host_name": "try.vanna.ai",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

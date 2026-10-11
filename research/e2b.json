@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "e2b-dev/E2B: Open-source, secure environment with real-",
+    "snippet": "E2B is an open-source infrastructure that allows you to run AI-generated code in secure isolated sandboxes in the cloud. Code execution with Code Interpreter",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://e2b.dev",
+    "name": "AutoGen Code Interpreter with E2B",
+    "snippet": "Feb 19, 2024 — The E2B Sandbox is a secure way to run your AI app. E2B is fully open sourced including the infrastructure layer.",
+    "host_name": "e2b.dev",
+    "rank": 1,
+    "date": "Feb 19, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.beam.cloud",
+    "name": "How to Self-Host a Code Execution Sandbox for AI Agents",
+    "snippet": "Jun 15, 2026 — Self-hosting a sandbox puts the execution layer inside your own perimeter : your VPC, your compliance boundary, your GPU reservations, your cost ...",
+    "host_name": "www.beam.cloud",
+    "rank": 2,
+    "date": "Jun 15, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://skillsllm.com",
+    "name": "E2B - AI Agents on GitHub (13.9k★)",
+    "snippet": "Dec 27, 2025 — E2B is an open-source infrastructure that allows you to run AI-generated code in secure isolated sandboxes in the cloud. To start and control ... Read more",
+    "host_name": "skillsllm.com",
+    "rank": 3,
+    "date": "Dec 27, 2025",
+    "favicon": ""
+  }
+]

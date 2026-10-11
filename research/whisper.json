@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Benchmark faster whisper turbo v3 · Issue #1030",
+    "snippet": "Oct 1, 2024 — The large - v3 -turbo model achieves a WER of 9.5%, which is significantly better than the base model and comparable to large-v2 . In terms of ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "Oct 1, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.promptquorum.com",
+    "name": "Whisper.cpp vs faster-whisper 2026: STT Speed Test",
+    "snippet": "Aug 28, 2026 — Best model for most use cases: Whisper small — 3.4% WER, runs in 2 GB RAM , 6× real-time on modern CPU. RTX 4070 benchmark (large-v3): faster- ... Read more",
+    "host_name": "www.promptquorum.com",
+    "rank": 1,
+    "date": "Aug 28, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://openwhispr.com",
+    "name": "Whisper Model Sizes: Complete Guide",
+    "snippet": "Feb 17, 2026 — Memory usage at runtime ranges from around 273 MB for tiny to 3.9 GB for large . The right model depends on your hardware, your language, and how ... Read more",
+    "host_name": "openwhispr.com",
+    "rank": 2,
+    "date": "Feb 17, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.spheron.network",
+    "name": "Self-Host Faster-Whisper on GPU Cloud: Production",
+    "snippet": "May 21, 2026 — Start with large-v3 at INT8 for most production use cases. INT8 uses ~3GB VRAM for large-v3 vs ~6GB at FP16 - it cuts memory … processes 6x  ...",
+    "host_name": "www.spheron.network",
+    "rank": 3,
+    "date": "May 21, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://modal.com",
+    "name": "faster-whisper, insanely-fast-whisper, WhisperX",
+    "snippet": "Nov 1, 2025 — To hit its benchmark speeds, you'll need to enable FlashAttention-2, which means compiling extra libraries and having a GPU with plenty of VRAM. Read more",
+    "host_name": "modal.com",
+    "rank": 4,
+    "date": "Nov 1, 2025",
+    "favicon": ""
+  }
+]

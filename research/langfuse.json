@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://langfuse.com",
+    "name": "Deployment Guide - Self-hosting Langfuse v2",
+    "snippet": "This guide covers Langfuse v2. For Langfuse v3 , see the v3 documentation. Langfuse v2 receives security updates until end of Q1 2025.",
+    "host_name": "langfuse.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Langfuse v3 K8s resource recommendations #5377",
+    "snippet": "Feb 5, 2025 — ClickHouse recommends at least 8 GB of RAM with a 4:1 RAM to CPU ratio. Postgres: 2 Cores and 4 GB of RAM should work well. Postgres: 2 Cores ...",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "Feb 5, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://clickhouse.com",
+    "name": "Langfuse and ClickHouse: A new data stack for modern",
+    "snippet": "Jun 23, 2025 — Langfuse rebuilt its observability platform for LLM applications with ClickHouse at the core, boosting performance, unlocking scalability, ...",
+    "host_name": "clickhouse.com",
+    "rank": 2,
+    "date": "Jun 23, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://jangwook.net",
+    "name": "Langfuse v3 Self-Hosting — Complete LLM Tracing Guide",
+    "snippet": "May 3, 2026 — Minimum 4GB RAM (8GB recommended ) 20GB+ disk space available. ClickHouse initialization takes the longest. PostgreSQL and Redis usually reach ...",
+    "host_name": "jangwook.net",
+    "rank": 3,
+    "date": "May 3, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://builder.aws.com",
+    "name": "Self-Hosting Langfuse on the Cheap: Two EC2 Instances",
+    "snippet": "Jun 27, 2026 — small (2 GB RAM ) risks OOM kills — ClickHouse in particular is memory -hungry and can affect the other containers. So I separated the stack into ...",
+    "host_name": "builder.aws.com",
+    "rank": 4,
+    "date": "Jun 27, 2026",
+    "favicon": ""
+  }
+]

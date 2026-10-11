@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://langbly.com",
+    "name": "LibreTranslate vs Google Translate vs Langbly",
+    "snippet": "Mar 23, 2026 — Loading all 30+ language models requires significant memory . If you only need 5-6 languages , you can reduce memory by loading only those models. Read more",
+    "host_name": "langbly.com",
+    "rank": 0,
+    "date": "Mar 23, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.machinetranslation.com",
+    "name": "LibreTranslate vs Google Translate: which is right for you?",
+    "snippet": "Mar 19, 2026 — For most deployments, coverage runs to approximately 40–55 languages . The languages supported are primarily European and major world languages . Read more",
+    "host_name": "www.machinetranslation.com",
+    "rank": 1,
+    "date": "Mar 19, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.libretranslate.com",
+    "name": "Free and Open Source Machine Translation API - General",
+    "snippet": "Apr 2, 2024 — Translation models, and language models in general are incredibly resource-heavy. Ideally it'd need to use around 16gb of RAM at all times and ... Read more",
+    "host_name": "community.libretranslate.com",
+    "rank": 2,
+    "date": "Apr 2, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://globalaiforce.com",
+    "name": "LibreTranslate: How to Install and Set Up (2026 Guide)",
+    "snippet": "Jun 17, 2026 — LibreTranslate is designed to be accessible , but running machine translation models locally does require some RAM: Docker (Recommended) — The ... Read more",
+    "host_name": "globalaiforce.com",
+    "rank": 3,
+    "date": "Jun 17, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "LibreTranslate/LibreTranslate: Free and",
+    "snippet": "Free and Open Source Machine Translation API. Self-hosted, offline capable and easy to setup . - LibreTranslate/LibreTranslate.",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]

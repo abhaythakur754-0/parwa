@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Memory of Uptime Kuma Slim is increasing over time #7537",
+    "snippet": "Jun 22, 2026 — I have noticed in my monitoring (cadvisor) that the memory from the uptime kuma container (slim) version is increasing memory overtime from ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "Jun 22, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://dev.to",
+    "name": "The Cheapest Way to Self-Host Uptime Kuma in 2026",
+    "snippet": "Mar 19, 2026 — Can I set up a public status page? Yes. Uptime Kuma has built-in status pages you can make public . Add your monitors, customize the look ... Read more",
+    "host_name": "dev.to",
+    "rank": 1,
+    "date": "Mar 19, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.ssdnodes.com",
+    "name": "Uptime Kuma: self-hosted status monitoring",
+    "snippet": "Jul 15, 2026 — Uptime Kuma is one Node process backed by a SQLite file , so it runs comfortably in 256-512 MB of RAM, and gives you a live dashboard, history ... Read more",
+    "host_name": "www.ssdnodes.com",
+    "rank": 2,
+    "date": "Jul 15, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://rdp.sh",
+    "name": "Self-Host Uptime Kuma on a VPS for Free Status Monitoring",
+    "snippet": "Feb 7, 2026 — In Uptime Kuma , go to Status Pages , then New Status Page . Give it a slug like public , set a title, then drag the monitors you want ... Read more",
+    "host_name": "rdp.sh",
+    "rank": 3,
+    "date": "Feb 7, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://massivegrid.com",
+    "name": "Self-Host Uptime Kuma on Ubuntu VPS",
+    "snippet": "Feb 28, 2026 — Uptime Kuma is a self-hosted, open-source monitoring tool that gives you unlimited monitors, unlimited notifications, customizable status pages, ... Read more",
+    "host_name": "massivegrid.com",
+    "rank": 4,
+    "date": "Feb 28, 2026",
+    "favicon": ""
+  }
+]
