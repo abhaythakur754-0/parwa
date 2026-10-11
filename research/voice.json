@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://www.forasoft.com",
+    "name": "Pipecat vs LiveKit vs OpenAI: Voice Agent Frameworks",
+    "snippet": "Jul 13, 2026 — Pipecat is a pipeline you assemble , LiveKit Agents is a framework welded to a WebRTC media server, and the OpenAI Agents SDK is an agent-logic ... Read more",
+    "host_name": "www.forasoft.com",
+    "rank": 0,
+    "date": "Jul 13, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.evalgent.com",
+    "name": "Pipecat vs LiveKit: Which Voice Framework? (2026) - Evalgent",
+    "snippet": "Jul 3, 2026 — Choose Pipecat for pipeline control, LiveKit for full real-time infrastructure . Both are free, both run very low latency, and both can self- ...",
+    "host_name": "www.evalgent.com",
+    "rank": 1,
+    "date": "Jul 3, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.cekura.ai",
+    "name": "Pipecat vs. LiveKit: The Real Difference (Not What You Think)",
+    "snippet": "Mar 7, 2026 — The main difference is how they think about voice agents. Pipecat uses a pipeline model where data flows through connected pieces you arrange ... Read more",
+    "host_name": "www.cekura.ai",
+    "rank": 2,
+    "date": "Mar 7, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://soniox.com",
+    "name": "Voice agent frameworks: Pipecat, LiveKit Agents, and friends",
+    "snippet": "Jul 2, 2026 — LiveKit Agents bundles the media infrastructure with the agent logic ; Pipecat does not. Pick LiveKit when you want transport and telephony from ... Read more",
+    "host_name": "soniox.com",
+    "rank": 3,
+    "date": "Jul 2, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://webrtc.ventures",
+    "name": "Bedrock vs Vertex vs LiveKit vs Pipecat: Choosing a Voice",
+    "snippet": "Mar 20, 2026 — LiveKit is the stronger choice for WebRTC-first cloud deployments that require a media server; Pipecat for custom or existing media ...",
+    "host_name": "webrtc.ventures",
+    "rank": 4,
+    "date": "Mar 20, 2026",
+    "favicon": ""
+  }
+]

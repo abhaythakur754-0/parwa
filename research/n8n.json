@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://community.n8n.io",
+    "name": "Self-Host Hardware Requirements - Questions",
+    "snippet": "Apr 4, 2022 — Are there any minimum suggested hardware requirements for self - hosted solution? I'm asking this because I've experienced MySQL DB memory issue. Read more",
+    "host_name": "community.n8n.io",
+    "rank": 0,
+    "date": "Apr 4, 2022",
+    "favicon": ""
+  },
+  {
+    "url": "https://latenode.com",
+    "name": "N8N System Requirements 2025: Complete Hardware",
+    "snippet": "Jun 11, 2026 — N8N's official documentation lists the minimum system requirements as 2GB of RAM , 2 CPU cores, 20GB of storage, and Node.js version 16 or ...",
+    "host_name": "latenode.com",
+    "rank": 1,
+    "date": "Jun 11, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.scalahosting.com",
+    "name": "n8n System Requirements: Do I Need a Separate Server?",
+    "snippet": "Jan 13, 2026 — RAM: 2GB CPU: Dual-core Storage: 20GB . The automation platform should run smoothly. For moderately complex workflows, you may need 8–16 GB of  ...",
+    "host_name": "www.scalahosting.com",
+    "rank": 2,
+    "date": "Jan 13, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://vps.us",
+    "name": "n8n Self-Hosting Requirements: What You Need to Run It",
+    "snippet": "Nov 17, 2025 — A small setup can start with 1 vCPU and 1GB RAM , but production environments benefit from 2 or more CPU cores and at least 2–4GB of memory . Read more",
+    "host_name": "vps.us",
+    "rank": 3,
+    "date": "Nov 17, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.cherryservers.com",
+    "name": "n8n Self-Hosting Requirements Guide (2026)",
+    "snippet": "May 7, 2026 — RAM: 8 GB minimum, 16 GB for concurrent or file-heavy workflows . Storage: 50-100 GB NVMe SSD. Database: PostgreSQL 13-17. Reverse proxy: Nginx ... Read more",
+    "host_name": "www.cherryservers.com",
+    "rank": 4,
+    "date": "May 7, 2026",
+    "favicon": ""
+  }
+]

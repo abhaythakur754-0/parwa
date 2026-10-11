@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://pinggy.io",
+    "name": "Best Open Source Self-Hosted Text-to-Speech Models in",
+    "snippet": "Aug 26, 2026 — Size has almost stopped predicting quality . Kokoro sits 6th at 82M , ahead of models fifty times larger, and NVIDIA's Magpie does nine languages ... Read more",
+    "host_name": "pinggy.io",
+    "rank": 0,
+    "date": "Aug 26, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://offlinetts.com",
+    "name": "Self-Hosted TTS in 2026: Run Your Own AI Voice Server",
+    "snippet": "Jul 24, 2026 — Kokoro is a compact 82-million-parameter option whose model card lists Apache-2.0. That license is permissive, but users must still review voice ... Read more",
+    "host_name": "offlinetts.com",
+    "rank": 1,
+    "date": "Jul 24, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://gigagpu.com",
+    "name": "Self-Hosted TTS Comparison: Bark, XTTS, Kokoro, Piper",
+    "snippet": "May 5, 2026 — Self-Hosted TTS Comparison: Bark, XTTS, Kokoro, Piper . Four leading open-weight TTS models compared on quality, speed, voice cloning, and VRAM. Read more",
+    "host_name": "gigagpu.com",
+    "rank": 2,
+    "date": "May 5, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://picovoice.ai",
+    "name": "On-device TTS Comparison: Open-source Benchmark 2026",
+    "snippet": "Jul 14, 2026 — Kokoro generates high- quality speech and supports English, French, Korean, Japanese, and Mandarin. It runs on CPU, but the benchmark shows 3,658 ... Read more",
+    "host_name": "picovoice.ai",
+    "rank": 3,
+    "date": "Jul 14, 2026",
+    "favicon": ""
+  }
+]

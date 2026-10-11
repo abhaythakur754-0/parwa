@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://machinelearningmastery.com",
+    "name": "Top 7 Small Language Models You Can Run on a Laptop",
+    "snippet": "Feb 17, 2026 — Quantized (4-bit) requires 8GB RAM · Full precision (16-bit) requires 16GB RAM · Recommended: 12GB RAM for best performance. Qwen 3 32b a3b",
+    "host_name": "machinelearningmastery.com",
+    "rank": 0,
+    "date": "Feb 17, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.gopenai.com",
+    "name": "Finding the Capable Small Language Model for Your",
+    "snippet": "Aug 22, 2025 — instruction-tuned Qwen model . my code used Ollama to run the models . Set up Ollama & Open WebUI to run LLMs, explore models , integrate web ...",
+    "host_name": "blog.gopenai.com",
+    "rank": 1,
+    "date": "Aug 22, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.promptquorum.com",
+    "name": "Best Beginner Local LLMs 2026: Llama, Phi, Gemma, Qwen",
+    "snippet": "Aug 28, 2026 — All run on 4-8 GB RAM with a single Ollama command. Llama 3.2 3B — 2 GB download, ly low RAM (2 GB), Llama 3.2 1B is the smallest usable option ...",
+    "host_name": "www.promptquorum.com",
+    "rank": 2,
+    "date": "Aug 28, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://daily.dev",
+    "name": "The Best Local LLM Models to Run in 2026",
+    "snippet": "Jun 22, 2026 — Compare six top local LLM families and choose by memory first, then task—recommendations for 8GB to 48GB+ setups and core use cases.",
+    "host_name": "daily.dev",
+    "rank": 3,
+    "date": "Jun 22, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.aimagicx.com",
+    "name": "Local AI in 2026: The Best Models to Run on Your Own",
+    "snippet": "Mar 23, 2026 — The smaller Qwen 3.5 32B variant runs at 25-30 tokens/sec on the same hardware -- faster than most people can read -- and handles coding, ...",
+    "host_name": "www.aimagicx.com",
+    "rank": 4,
+    "date": "Mar 23, 2026",
+    "favicon": ""
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Crawl4AI: Open-source LLM Friendly Web Crawler & Scraper",
+    "snippet": "Crawl4AI turns the web into clean, LLM ready Markdown for RAG , agents, and data pipelines. Fast, controllable, battle tested by a 50k+ star community. ✨ Check ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://fastcrw.com",
+    "name": "Best Self-Hosted Web Scraping Tools for AI Agents and",
+    "snippet": "Jul 12, 2026 — Self-host requirements: Python 3.10+, Playwright, Chromium . Docker image ~2 GB. Idle RAM 300 MB+. Crawl4AI is the better fit for Python-native ... Read more",
+    "host_name": "fastcrw.com",
+    "rank": 1,
+    "date": "Jul 12, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://docs.crawl4ai.com",
+    "name": "Self-Hosting Guide - Crawl4AI Documentation (v0.9.x)",
+    "snippet": "- At least 4GB of RAM available for the container (more recommended for heavy use). - Python 3.10+ (if using the Python SDK). - Node.js 16+ (if using the Node. Read more",
+    "host_name": "docs.crawl4ai.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.scrapingbee.com",
+    "name": "The complete Crawl4AI guide for LLM-ready data and AI",
+    "snippet": "Crawl4AI is an open-source, async Python crawler built on Playwright that turns web pages into clean, LLM-ready Markdown (and structured JSON) for RAG ... Read more",
+    "host_name": "www.scrapingbee.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

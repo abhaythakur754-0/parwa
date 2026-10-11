@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://qdrant.tech",
+    "name": "with pgvector: Why You'll Outgrow It Faster Than You Think",
+    "snippet": "Mar 17, 2026 — When all six hold, pgvector is genuinely the right call: you get vector search without operational overhead, and the tradeoffs don't bite you. Read more",
+    "host_name": "qdrant.tech",
+    "rank": 0,
+    "date": "Mar 17, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.instaclustr.com",
+    "name": "pgvector vs Qdrant: 5 key differences and how to choose",
+    "snippet": "Qdrant offers generally superior performance, accuracy, and scalability for pure vector workloads compared to pgvector, but pgvector is a better choice if you ... Read more",
+    "host_name": "www.instaclustr.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Qdrant memory and specs requirement for billions of vectors",
+    "snippet": "If 135 MB is indeed for 1 million vectors , then extrapolating that 1 billion vectors , it becomes 135 GB. That's just about 1 single EC2 node with 150 GB RAM . Read more",
+    "host_name": "github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.tigerdata.com",
+    "name": "Pgvector vs. Qdrant",
+    "snippet": "Apr 29, 2025 — Looking for an open-source, high-performance vector database for large-scale workloads? We compare Qdrant vs . Postgres + pgvector + ...",
+    "host_name": "www.tigerdata.com",
+    "rank": 3,
+    "date": "Apr 29, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.firecrawl.dev",
+    "name": "Best Vector Databases in 2026: A Complete Comparison",
+    "snippet": "Aug 3, 2026 — PostgreSQL users with under 100M vectors , Qdrant : budget-conscious teams, best free tier, Resource usage becomes a concern above 100 million  ...",
+    "host_name": "www.firecrawl.dev",
+    "rank": 4,
+    "date": "Aug 3, 2026",
+    "favicon": ""
+  }
+]

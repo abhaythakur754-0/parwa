@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://deepeval.com",
+    "name": "All DeepEval Alternatives, Compared",
+    "snippet": "Ragas provides a data science approach and can feel more rigid and lackluster in comparison. Ragas is more narrowly focused on RAG-specific evaluation metrics.",
+    "host_name": "deepeval.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://machinelearningmastery.com",
+    "name": "LLM Evaluation Frameworks Compared: How to Actually",
+    "snippet": "Jul 14, 2026 — RAGAS vs. DeepEval vs. Promptfoo , Head to Head. RAGAS is research-backed, with academic-grade methodology behind metrics like faithfulness, ... Read more",
+    "host_name": "machinelearningmastery.com",
+    "rank": 1,
+    "date": "Jul 14, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://datatalks.club",
+    "name": "Open Source and Free AI Agent Evaluation Tools",
+    "snippet": "Dec 25, 2025 — Compare 7 free and open-source AI agent evaluation tools including Arize Phoenix, LangSmith, DeepEval, Ragas, and Promptfoo.",
+    "host_name": "datatalks.club",
+    "rank": 2,
+    "date": "Dec 25, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://genai.qa",
+    "name": "Promptfoo vs DeepEval vs RAGAS: 2026 LLM Evaluation",
+    "snippet": "Sep 6, 2026 — In-depth comparison of Promptfoo, DeepEval, and RAGAS - the three leading open-source GenAI evaluation frameworks. Features, metrics, code ... Read more",
+    "host_name": "genai.qa",
+    "rank": 3,
+    "date": "Sep 6, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.braintrust.dev",
+    "name": "DeepEval alternatives (2026): Best tools for LLM evals, RAG",
+    "snippet": "Jun 21, 2026 — Compare the best DeepEval alternatives for LLM evaluation, RAG testing, and agent scoring. See how Braintrust, RAGAS, Promptfoo, ...",
+    "host_name": "www.braintrust.dev",
+    "rank": 4,
+    "date": "Jun 21, 2026",
+    "favicon": ""
+  }
+]

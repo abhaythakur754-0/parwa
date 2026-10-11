@@ -1,0 +1,29 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "langchain-ai/deepagents: The batteries-included agent",
+    "snippet": "Deep Agents is an open source agent harness — an opinionated agent that runs out of the box. Extend, override, or replace any piece. Principles:. Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.langchain.com",
+    "name": "Deep Agents: Open Source Agent Harness",
+    "snippet": "Deep Agents handles planning, context management, and subagent orchestration , so agents can run long, complex work like research and coding.",
+    "host_name": "www.langchain.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pub.towardsai.net",
+    "name": "DeepAgents: The Open-Source Framework for Building",
+    "snippet": "Apr 18, 2026 — Built by the LangChain team, DeepAgents is an open-source framework designed for long-horizon, artifact-heavy, multi-step agent workflows. It is ... Read more",
+    "host_name": "pub.towardsai.net",
+    "rank": 2,
+    "date": "Apr 18, 2026",
+    "favicon": ""
+  }
+]

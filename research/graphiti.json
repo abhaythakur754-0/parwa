@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "getzep/graphiti: Build Real-Time Knowledge Graphs for AI",
+    "snippet": "Graphiti is the open-source framework for building temporal knowledge graphs at the core of Zep's context infrastructure. Zep manages context graphs at scale, ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.getzep.com",
+    "name": "Graphiti — Zep",
+    "snippet": "Graphiti is the open-source Context Graph framework that powers Zep . Temporal context graphs that track facts across time and ingest every source the agent ...",
+    "host_name": "www.getzep.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://arxiv.org",
+    "name": "Zep: A Temporal Knowledge Graph Architecture for Agent",
+    "snippet": "by P Rasmussen · 2025 · Cited by 427 — We introduce Zep , a novel memory layer service for AI agents that outperforms the current state-of-the-art system, MemGPT, in the Deep Memory ... Read more",
+    "host_name": "arxiv.org",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://pub.towardsai.net",
+    "name": "I Needed Memory for My AI Agent and Found This",
+    "snippet": "Dec 11, 2025 — Then I found Graphiti from Zep . It's a framework for building temporal knowledge graphs specifically designed for AI agents. Instead of just ... Read more",
+    "host_name": "pub.towardsai.net",
+    "rank": 3,
+    "date": "Dec 11, 2025",
+    "favicon": ""
+  }
+]

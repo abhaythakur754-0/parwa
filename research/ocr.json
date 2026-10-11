@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://gigagpu.com",
+    "name": "PaddleOCR vs Tesseract vs EasyOCR: OCR Model",
+    "snippet": "Apr 16, 2026 — PaddleOCR leads on every test category . The gap widens dramatically on challenging inputs: curved text (88.7% vs Tesseract's 52.1%), noisy scans ... Read more",
+    "host_name": "gigagpu.com",
+    "rank": 0,
+    "date": "Apr 16, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://reducto.ai",
+    "name": "Best OCR Models in 2026: Accuracy, Speed and Cost",
+    "snippet": "Aug 14, 2026 — PaddleOCR is the best general open-source starting point for multilingual OCR and document parsing. Tesseract remains the lightest dependable ... Read more",
+    "host_name": "reducto.ai",
+    "rank": 1,
+    "date": "Aug 14, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "PaddlePaddle/PaddleOCR: Turn any PDF or image",
+    "snippet": "PaddleOCR converts PDF documents and images into structured, LLM-ready data industry-leading accuracy . It achieves 96.3% accuracy on OmniDocBench v1.6, formula ...",
+    "host_name": "github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://imagetotable.ai",
+    "name": "Best Open Source OCR Tools 2026: Tesseract, EasyOCR,",
+    "snippet": "Jun 29, 2026 — Among the tools reviewed, PaddleOCR leads on handwriting at approximately 73% accuracy in independent benchmarks (vs Tesseract's 45% and ... Read more",
+    "host_name": "imagetotable.ai",
+    "rank": 3,
+    "date": "Jun 29, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://intuitionlabs.ai",
+    "name": "Technical Analysis of Modern Non-LLM OCR Engines",
+    "snippet": "Jul 31, 2025 — EasyOCR outperforms Tesseract on scene text or when GPU is available, but PaddleOCR often yields higher accuracy if one is willing to handle ...",
+    "host_name": "intuitionlabs.ai",
+    "rank": 4,
+    "date": "Jul 31, 2025",
+    "favicon": ""
+  }
+]

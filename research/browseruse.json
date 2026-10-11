@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Agents that use the browser. · GitHub",
+    "snippet": "Browser Use is the open-source browser agent (Python and TypeScript), a $0.02 per browser-hour cloud browser with stealth, CAPTCHA solving and residential ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://python.plainenglish.io",
+    "name": "I Built Autonomous Browser Agents in Python That Could",
+    "snippet": "May 27, 2026 — In this article, I'll walk through how I built autonomous browser agents in Python using LLMs, Playwright, memory systems, planning loops, and ... Read more",
+    "host_name": "python.plainenglish.io",
+    "rank": 1,
+    "date": "May 27, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.firecrawl.dev",
+    "name": "11 Best AI Browser Agents in 2026",
+    "snippet": "Jun 16, 2026 — Browser agents use LLMs to reason about what they see. A Playwright script breaks when a button's class name changes from btn-primary to button ...",
+    "host_name": "www.firecrawl.dev",
+    "rank": 2,
+    "date": "Jun 16, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://codecut.ai",
+    "name": "Turn Plain English Prompts into Working Browser Automation",
+    "snippet": "Apr 7, 2026 — browser - use is a Python library that gives an LLM a working browser . Playwright to drive the browser , 32GB RAM constraint: Silently dropped. ...",
+    "host_name": "codecut.ai",
+    "rank": 3,
+    "date": "Apr 7, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.tomayac.com",
+    "name": "Testing browser-use, a scriptable AI browser agent",
+    "snippet": "Feb 5, 2025 — Create a new Python environment and activate it. This is from browser - use's quickstart instructions. · Install the dependencies and Playwright . Read more",
+    "host_name": "blog.tomayac.com",
+    "rank": 4,
+    "date": "Feb 5, 2025",
+    "favicon": ""
+  }
+]

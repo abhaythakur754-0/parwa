@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://localaimaster.com",
+    "name": "Best Small Language Models 2026: Top SLMs Ranked (1B",
+    "snippet": "Mar 17, 2026 — Phi-4-mini (3.8B) is the best small reasoner (~3GB VRAM at Q4), and Gemma 3 4B is the best pick if you need multimodal/vision or 140+ languages ...",
+    "host_name": "localaimaster.com",
+    "rank": 0,
+    "date": "Mar 17, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.promptquorum.com",
+    "name": "Best Local LLMs 2026: Qwen3.8-27B, Gemma 4, Phi-4-mini",
+    "snippet": "Sep 6, 2026 — ... RAM). Phi-4-mini is the best CPU-only pick (~2.5 GB RAM, 30–50 tok/s). Gemma 4 E2B is the best tiny model (~2 GB RAM). →Best overall: Qwen3.",
+    "host_name": "www.promptquorum.com",
+    "rank": 1,
+    "date": "Sep 6, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://omidsaffari.com",
+    "name": "Best Local LLMs 2026: Qwen, Gemma, gpt-oss",
+    "snippet": "Aug 9, 2026 — Gemma Phi-4 Mini Instruct can fit in memory ・ 4 GB dedicated VRAM: Phi-4-mini's 2.5 GB file is the credible small-model choice ・ only machine ...",
+    "host_name": "omidsaffari.com",
+    "rank": 2,
+    "date": "Aug 9, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://daily.dev",
+    "name": "The Best Local LLM Models to Run in 2026",
+    "snippet": "Jun 22, 2026 — Gemma: good for chat, images, and tool use ; Phi-4-mini can run in about 2.5–2.8 GB. Phi-4-mini is a good fit for CPU-only laptops. For an 8 GB  ...",
+    "host_name": "daily.dev",
+    "rank": 3,
+    "date": "Jun 22, 2026",
+    "favicon": ""
+  }
+]
