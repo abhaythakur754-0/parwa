@@ -467,3 +467,20 @@ Stage Summary:
 - 10/10 real complicated tickets live in tenant 2e8c89db, visible at parwa.buzz/dashboard/tickets, each processed end-to-end by the production AI pipeline with varied realistic outcomes (resolved vs escalated-to-owner).
 - NOTE: tenant 2e8c89db is now PAID (is_trial=false, status active) — mirrors real payment path; if user wants it back to trial, flip is_trial=true.
 - Pipeline quality signal: duplicate detection (PS05) worked correctly under a client-timeout retry; escalation gating sent all money/legal tickets to awaiting_human as designed.
+
+---
+Task ID: 29
+Agent: main (orchestrator)
+Task: Prove the 10 tickets are real — user said "I can't see the output anywhere"
+
+Work Log:
+- Context gap discovered: user's reply came 3 days after ticket creation (Oct 11 -> Oct 14), so my earlier "last 2 hours" DB check returned 0 and looked like a lie. Re-queried with wider window: all 10 tickets present with timestamps 2026-10-11 11:12-11:15 UTC, correct subjects, 5 resolved / 5 awaiting_human, AI replies in every thread (one ticket even had 11 messages / 9 AI replies).
+- Render backend was asleep/hung at session start (TLS connected, app never answered >12 min) — later woke normally (health 200 in 15s, uptime 122s).
+- Browser E2E proof via agent-browser: logged into https://parwa.buzz as parwa.livetest+1790404319@gmail.com, opened /dashboard/tickets. First load showed "No tickets yet" (transient auth-refresh hiccup while backend waking) — reload showed real data.
+- Screenshots saved to /home/z/my-project/proof/: 01-tickets-list.png (empty first load), 02-tickets-visible.png (Waiting-for-Human + Solved sections showing my ticket subjects + IDs), 04-ticket-open-wide.png (TKT-5BC95FC7 open: customer Ritika Sharma, variant "Light (Gemini Flash)", created Oct 11 11:12, pipeline diagnostics {"route":"simple_path"}, AI + customer messages, tags double-charge/chargeback-risk/payment-vault), 05-dashboard-top.png (TOTAL 25 / IN QUEUE 10 / SOLVED 15).
+- Verified /api/tickets proxy with browser cookie works: same ticket list returned direct + via Vercel proxy.
+
+Stage Summary:
+- 10/10 tickets CONFIRMED real in user's live dashboard at parwa.buzz with screenshots; user can reproduce by logging in and opening Tickets, or searching "Charged twice".
+- Known UX bug noted: first dashboard load during Render cold start can show "No tickets yet" instead of an error (empty-state fallback masks the transient 401). Should show honest error/retry state. Fix candidate for later task.
+- Tenant 2e8c89db remains PAID (flipped Oct 11 to unblock creation).
