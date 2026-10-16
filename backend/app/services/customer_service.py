@@ -234,7 +234,7 @@ class CustomerService:
                     TicketStatus.assigned.value,
                     TicketStatus.in_progress.value,
                     TicketStatus.awaiting_client.value,
-                    TicketStatus.awaiting_human.value,
+                    TicketStatus.crm_pending.value,
                 ]),
             ).distinct()
 

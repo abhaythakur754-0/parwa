@@ -42,24 +42,25 @@ const STATUS_COLORS: Record<TicketStatus, { dot: string; badge: string }> = {
   in_progress: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
   resolved: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
   closed: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  awaiting_human: { dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  crm_pending: { dot: 'bg-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   awaiting_client: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  review_needed: { dot: 'bg-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
 };
 
 // Simplified status display — 3 options only (per user request):
 //   Solved = resolved + closed
 //   Not Solved = open + in_progress + awaiting_client
-//   Waiting for Human = awaiting_human
+//   Waiting for CRM = crm_pending (HumanReplacement — request is with the CRM)
 function getDisplayStatus(status: TicketStatus): 'solved' | 'not_solved' | 'waiting' {
   if (status === 'resolved' || status === 'closed') return 'solved';
-  if (status === 'awaiting_human') return 'waiting';
+  if (status === 'crm_pending') return 'waiting';
   return 'not_solved';
 }
 
 const DISPLAY_STATUS_LABELS: Record<'solved' | 'not_solved' | 'waiting', string> = {
   solved: 'Solved',
   not_solved: 'Not Solved',
-  waiting: 'Waiting for Human',
+  waiting: 'Waiting for CRM',
 };
 
 const DISPLAY_STATUS_COLORS: Record<'solved' | 'not_solved' | 'waiting', { dot: string; badge: string }> = {
@@ -644,7 +645,7 @@ function TicketDetailPanel({
             Resolve
           </button>
         )}
-        {ticket.status !== 'awaiting_human' && ticket.status !== 'resolved' && ticket.status !== 'closed' && (
+        {ticket.status !== 'crm_pending' && ticket.status !== 'resolved' && ticket.status !== 'closed' && (
           <button
             onClick={handleEscalate}
             className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
@@ -652,7 +653,7 @@ function TicketDetailPanel({
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
             </svg>
-            Escalate to Human
+            Escalate to CRM
           </button>
         )}
 
@@ -693,8 +694,8 @@ function TicketDetailPanel({
         {/* Discuss with Jarvis — always available */}
         <DiscussWithJarvis ticket={ticket} />
 
-        {/* Resume with Guidance — shown when AI paused (awaiting_human) */}
-        {ticket.status === 'awaiting_human' && (
+        {/* Resume with Guidance — shown when the request is with the CRM (crm_pending) or needs review */}
+        {(ticket.status === 'crm_pending' || ticket.status === 'review_needed') && (
           <div className="w-full mt-2 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-2">
             <div className="flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -213,7 +213,7 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 
     # 2026-09 RESERVE: last-resort LIGHT entry so a total primary-pool
     # outage (Groq + NVIDIA + Mistral all down at once) still has a
-    # fallback instead of "All providers exhausted" → awaiting_human.
+    # fallback instead of "All providers exhausted" → crm_pending.
     # NEVER used while any primary is healthy — capacity-weighted
     # water-filling always prefers the PRIMARY pool.
     "google-gemini-3.5-flash-light-reserve": ModelConfig(

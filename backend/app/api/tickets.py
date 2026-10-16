@@ -273,7 +273,7 @@ async def create_ticket(
             "parent_ticket_id": None,
             "duplicate_of_id": None,
             "is_spam": False,
-            "awaiting_human": False,
+            "crm_pending": False,
             "awaiting_client": False,
             "escalation_level": 1,
             "sla_breached": False,
@@ -1103,7 +1103,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         parent_ticket_id=ticket.parent_ticket_id,
         duplicate_of_id=ticket.duplicate_of_id,
         is_spam=ticket.is_spam or False,
-        awaiting_human=ticket.awaiting_human or False,
+        crm_pending=(ticket.status == "crm_pending"),
         awaiting_client=ticket.awaiting_client or False,
         escalation_level=ticket.escalation_level or 1,
         sla_breached=ticket.sla_breached or False,
@@ -1170,13 +1170,14 @@ def resume_pipeline(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    # Check ticket is actually paused (awaiting_human) or awaiting review
-    # (review_needed = fresh tenant without agents/KB — also needs human
-    # guidance; before 2026-09-10 these were invisible in Escalations).
-    if ticket.status not in ("awaiting_human", "review_needed"):
+    # Check ticket is actually paused (crm_pending — request with the tenant's
+    # CRM) or awaiting review
+    # (review_needed = fresh tenant without agents/KB — also needs guidance;
+    # before 2026-09-10 these were invisible in Escalations).
+    if ticket.status not in ("crm_pending", "awaiting_human", "review_needed"):
         raise HTTPException(
             status_code=400,
-            detail=f"Ticket is not paused (status={ticket.status}). Only awaiting_human / review_needed tickets can be resumed.",
+            detail=f"Ticket is not paused (status={ticket.status}). Only crm_pending / review_needed tickets can be resumed.",
         )
 
     logger.info("resume_pipeline ticket=%s guidance_len=%d", ticket_id, len(body.guidance))

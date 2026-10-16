@@ -33,7 +33,12 @@ class TicketStatus:
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
     AWAITING_CLIENT = "awaiting_client"
+    # LEGACY — kept only so old rows still validate; no ticket may ENTER
+    # awaiting_human anymore (HumanReplacement: escalations go to CRM).
     AWAITING_HUMAN = "awaiting_human"
+    # HumanReplacement: AI couldn't resolve → request pushed to the tenant's
+    # CRM; resolution returns via the CRM webhook and the AI learns from it.
+    CRM_PENDING = "crm_pending"
     RESOLVED = "resolved"
     REOPENED = "reopened"
     CLOSED = "closed"
@@ -43,11 +48,11 @@ class TicketStatus:
 
     VALID_STATUSES = [
         OPEN, ASSIGNED, IN_PROGRESS, AWAITING_CLIENT, AWAITING_HUMAN,
-        RESOLVED, REOPENED, CLOSED, FROZEN, QUEUED, STALE,
+        CRM_PENDING, RESOLVED, REOPENED, CLOSED, FROZEN, QUEUED, STALE,
     ]
 
     OPEN_STATUSES = [OPEN, ASSIGNED, IN_PROGRESS, AWAITING_CLIENT,
-                     AWAITING_HUMAN, REOPENED, QUEUED]
+                     CRM_PENDING, REOPENED, QUEUED]
     RESOLVED_STATUSES = [RESOLVED]
     CLOSED_STATUSES = [CLOSED, FROZEN]
 
@@ -358,9 +363,9 @@ class TicketResponse(BaseModel):
         description="Original ticket ID if this is a duplicate",
     )
     is_spam: bool = Field(default=False, description="Spam flag")
-    awaiting_human: bool = Field(
+    crm_pending: bool = Field(
         default=False,
-        description="Flag for AI-to-human handoff",
+        description="HumanReplacement: request pushed to the tenant's CRM, awaiting CRM resolution",
     )
     awaiting_client: bool = Field(
         default=False,

@@ -900,11 +900,12 @@ export default function EscalationsPage() {
   const [searchInput, setSearchInput] = useState(filters.search);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // ── Fetch awaiting_human tickets directly from tickets API ──
+  // ── Fetch CRM-pending tickets directly from tickets API ──
   // The escalation vault (InMemoryVaultDB) only stores pipeline-escalated
   // tickets and loses everything on backend restart. This fetches ALL
-  // tickets with status='awaiting_human' so they always show up here
-  // regardless of how they were escalated (pipeline or manual).
+  // tickets with status='crm_pending' (HumanReplacement: request is with
+  // the tenant's CRM) so they always show up here. Legacy awaiting_human
+  // rows (pre-migration) are included so nothing gets lost.
   interface AwaitingTicket {
     id: string;
     ticket_number: string;
@@ -928,7 +929,7 @@ export default function EscalationsPage() {
     setAwaitingLoading(true);
     // 2026-09-10: also show review_needed tickets (fresh tenants without
     // agents/KB land there). Backend supports repeated status params.
-    fetch('/api/v1/tickets?status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
+    fetch('/api/v1/tickets?status=crm_pending&status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (cancelled) return;
@@ -942,7 +943,7 @@ export default function EscalationsPage() {
 
   // Refresh awaiting tickets when guidance is submitted
   const refreshAwaiting = useCallback(() => {
-    fetch('/api/v1/tickets?status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
+    fetch('/api/v1/tickets?status=crm_pending&status=awaiting_human&status=review_needed&page=1&page_size=50', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         const items = data?.items || data?.tickets || (Array.isArray(data) ? data : []);
@@ -1056,7 +1057,7 @@ export default function EscalationsPage() {
             </div>
             <div>
               <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
-                Waiting for Human
+                Waiting for CRM
               </p>
               <p className="text-xl font-bold text-white tabular-nums">
                 {awaitingLoading ? '…' : awaitingTickets.length}
@@ -1066,7 +1067,7 @@ export default function EscalationsPage() {
           <div className="h-8 w-px bg-white/[0.06]" />
           <p className="text-xs text-zinc-400">
             {awaitingTickets.length === 0
-              ? 'No tickets are waiting for you right now'
+              ? 'No requests are waiting on the CRM right now'
               : 'Click a ticket to open the guidance chat'}
           </p>
         </div>

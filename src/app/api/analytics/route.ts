@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     summary: {
       total_tickets: 0, open: 0, in_progress: 0, resolved: 0, closed: 0,
-      awaiting_client: 0, awaiting_human: 0, critical: 0, high: 0, medium: 0, low: 0,
+      awaiting_client: 0, crm_pending: 0, critical: 0, high: 0, medium: 0, low: 0,
       resolution_rate: 0, avg_resolution_time_hours: 0, avg_first_response_time_hours: 0,
     },
     sla: {

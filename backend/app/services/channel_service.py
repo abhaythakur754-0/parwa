@@ -558,7 +558,7 @@ class ChannelService:
         ticket_id: str,
         reason: str = "variant_unavailable",
     ) -> Dict[str, Any]:
-        """Escalate queued ticket to human agent.
+        """Escalate queued ticket to the tenant's CRM (HumanReplacement).
 
         Args:
             ticket_id: Ticket ID
@@ -577,9 +577,10 @@ class ChannelService:
 
         old_status = ticket.status
 
-        # Update status
-        ticket.status = TicketStatus.awaiting_human.value
-        ticket.awaiting_human = True
+        # Update status — HumanReplacement: the request goes to the
+        # tenant's CRM, nothing waits for an in-app human.
+        ticket.status = TicketStatus.crm_pending.value
+        ticket.awaiting_human = False
 
         # Update metadata
         metadata = json.loads(ticket.metadata_json or "{}")
@@ -601,6 +602,6 @@ class ChannelService:
         return {
             "ticket_id": ticket_id,
             "old_status": old_status,
-            "new_status": TicketStatus.awaiting_human.value,
+            "new_status": TicketStatus.crm_pending.value,
             "escalation_reason": reason,
         }

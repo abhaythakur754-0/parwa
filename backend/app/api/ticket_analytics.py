@@ -53,7 +53,7 @@ class TicketSummaryResponse(BaseModel):
     resolved_tickets: int
     closed_tickets: int
     awaiting_client_tickets: int
-    awaiting_human_tickets: int
+    crm_pending_tickets: int
     critical_tickets: int
     high_tickets: int
     medium_tickets: int
@@ -176,7 +176,7 @@ async def get_ticket_summary(
         resolved_tickets=summary.resolved_tickets,
         closed_tickets=summary.closed_tickets,
         awaiting_client_tickets=summary.awaiting_client_tickets,
-        awaiting_human_tickets=summary.awaiting_human_tickets,
+        crm_pending_tickets=summary.crm_pending_tickets,
         critical_tickets=summary.critical_tickets,
         high_tickets=summary.high_tickets,
         medium_tickets=summary.medium_tickets,
@@ -432,7 +432,7 @@ async def get_analytics_dashboard(
             "resolved": summary.resolved_tickets,
             "closed": summary.closed_tickets,
             "awaiting_client": summary.awaiting_client_tickets,
-            "awaiting_human": summary.awaiting_human_tickets,
+            "crm_pending": summary.crm_pending_tickets,
             "critical": summary.critical_tickets,
             "high": summary.high_tickets,
             "medium": summary.medium_tickets,

@@ -962,12 +962,12 @@ class TicketService:
             TicketStatus.assigned.value: [
                 TicketStatus.in_progress.value,
                 TicketStatus.awaiting_client.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
                 TicketStatus.open.value,
             ],
             TicketStatus.in_progress.value: [
                 TicketStatus.awaiting_client.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
                 TicketStatus.resolved.value,
             ],
             TicketStatus.awaiting_client.value: [
@@ -978,6 +978,7 @@ class TicketService:
             TicketStatus.awaiting_human.value: [
                 TicketStatus.in_progress.value,
                 TicketStatus.resolved.value,
+                TicketStatus.crm_pending.value,  # legacy rows migrate to HumanReplacement flow
             ],
             TicketStatus.resolved.value: [
                 TicketStatus.closed.value,
@@ -985,7 +986,7 @@ class TicketService:
             ],
             TicketStatus.reopened.value: [
                 TicketStatus.in_progress.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
             ],
             TicketStatus.closed.value: [
                 TicketStatus.reopened.value,

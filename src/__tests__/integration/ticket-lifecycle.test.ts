@@ -106,7 +106,7 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       useTicketStore.getState().escalateToHuman(ticket.id);
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(escalated.status).toBe('awaiting_human');
+      expect(escalated.status).toBe('crm_pending');
       expect(escalated.assigned_agent).toBe('Human Agent');
       expect(escalated.messages).toHaveLength(2); // AI response + escalation message
       expect(escalated.messages[1].sender).toBe('system');
@@ -260,13 +260,13 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       // Progress t2 to resolved
       useTicketStore.getState().resolveTicket(t2.id);
 
-      // Progress t3 to awaiting_human
+      // Progress t3 to crm_pending (HumanReplacement)
       useTicketStore.getState().escalateToHuman(t3.id);
 
       expect(useTicketStore.getState().getTicketsByStatus('open')).toHaveLength(0);
       expect(useTicketStore.getState().getTicketsByStatus('in_progress')).toHaveLength(1);
       expect(useTicketStore.getState().getTicketsByStatus('resolved')).toHaveLength(1);
-      expect(useTicketStore.getState().getTicketsByStatus('awaiting_human')).toHaveLength(1);
+      expect(useTicketStore.getState().getTicketsByStatus('crm_pending')).toHaveLength(1);
     });
   });
 });

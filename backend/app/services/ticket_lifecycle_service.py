@@ -122,20 +122,21 @@ class TicketLifecycleService:
         
         # Check if limit reached
         if attempt_count >= self.AI_ATTEMPT_LIMIT:
-            # Escalate to human
+            # HumanReplacement: push the request to the tenant's CRM —
+            # nothing waits for an in-app human.
             from app.services.ticket_state_machine import TicketStateMachine
             
             state_machine = TicketStateMachine(self.db, self.company_id)
             
             state_machine.transition(
                 ticket=ticket,
-                to_status=TicketStatus.awaiting_human,
+                to_status=TicketStatus.crm_pending,
                 reason="ai_cant_solve",
                 metadata={"attempt_count": attempt_count, "reason": reason},
             )
             
             result["escalated"] = True
-            result["status"] = TicketStatus.awaiting_human.value
+            result["status"] = TicketStatus.crm_pending.value
             
             # Update escalation level
             ticket.escalation_level = (ticket.escalation_level or 0) + 1
@@ -155,7 +156,8 @@ class TicketLifecycleService:
         """
         PS03: Handle client request for human agent.
         
-        Immediately escalates with AI conversation summary.
+        Immediately escalates the request to the tenant's CRM (HumanReplacement —
+        the CRM queue replaces the human queue) with AI conversation summary.
         """
         ticket = self._get_ticket(ticket_id)
         
@@ -163,10 +165,10 @@ class TicketLifecycleService:
         
         state_machine = TicketStateMachine(self.db, self.company_id)
         
-        # Transition to awaiting_human
+        # Transition to crm_pending (request goes to the tenant's CRM)
         state_machine.transition(
             ticket=ticket,
-            to_status=TicketStatus.awaiting_human,
+            to_status=TicketStatus.crm_pending,
             reason="ps03",
             actor_id=requested_by,
             metadata={"ai_summary": ai_summary[:1000]},  # Limit summary length
@@ -190,7 +192,7 @@ class TicketLifecycleService:
         
         return {
             "ticket_id": ticket_id,
-            "status": TicketStatus.awaiting_human.value,
+            "status": TicketStatus.crm_pending.value,
             "escalated": True,
         }
     
@@ -223,8 +225,8 @@ class TicketLifecycleService:
         
         # Determine target status
         if TransitionValidator.should_auto_escalate(ticket):
-            # Auto-escalate to human after multiple reopens
-            target_status = TicketStatus.awaiting_human
+            # Auto-escalate to the tenant's CRM after multiple reopens
+            target_status = TicketStatus.crm_pending
             transition_reason = "auto_escalate"
         else:
             target_status = TicketStatus.reopened
@@ -311,7 +313,7 @@ class TicketLifecycleService:
             TicketStatus.assigned.value,
             TicketStatus.in_progress.value,
             TicketStatus.awaiting_client.value,
-            TicketStatus.awaiting_human.value,
+            TicketStatus.crm_pending.value,
         ]
         
         tickets = self.db.query(Ticket).filter(

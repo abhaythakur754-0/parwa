@@ -17,7 +17,7 @@ describe('Ticket Store Constants', () => {
     expect(ALL_STATUSES).toContain('resolved');
     expect(ALL_STATUSES).toContain('closed');
     expect(ALL_STATUSES).toContain('awaiting_client');
-    expect(ALL_STATUSES).toContain('awaiting_human');
+    expect(ALL_STATUSES).toContain('crm_pending');
   });
 
   it('has 4 priorities', () => {
@@ -408,7 +408,7 @@ describe('useTicketStore', () => {
   });
 
   describe('escalateToHuman', () => {
-    it('sets status to awaiting_human and assigns Human Agent', () => {
+    it('sets status to crm_pending and assigns CRM Team', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Escalation test',
         description: 'Testing escalation',
@@ -422,7 +422,7 @@ describe('useTicketStore', () => {
       useTicketStore.getState().escalateToHuman(ticket.id);
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(escalated.status).toBe('awaiting_human');
+      expect(escalated.status).toBe('crm_pending');
       expect(escalated.assigned_agent).toBe('Human Agent');
       expect(escalated.messages).toHaveLength(1);
       expect(escalated.messages[0].content).toContain('escalated to a human agent');
@@ -737,7 +737,7 @@ describe('useTicketStore', () => {
       useTicketStore.getState().escalateToHuman(ticket.id);
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(escalated.status).toBe('awaiting_human');
+      expect(escalated.status).toBe('crm_pending');
       expect(escalated.assigned_agent).toBe('Human Agent');
       expect(escalated.messages).toHaveLength(2);
     });

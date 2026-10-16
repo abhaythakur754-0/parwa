@@ -84,7 +84,7 @@ export const COMPLEXITY_LABELS: Record<Complexity, string> = {
 };
 
 export const HUMAN_STATUS_LABELS: Record<HumanStatus, string> = {
-  pending: 'Awaiting Human',
+  pending: 'Awaiting Guidance',
   guidance_provided: 'Guidance Provided',
   resolved: 'Resolved',
 };

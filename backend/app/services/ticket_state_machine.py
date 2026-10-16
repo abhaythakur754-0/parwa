@@ -8,7 +8,7 @@ Handles:
 - Audit logging of state changes
 
 PS handlers covered:
-- PS02: AI can't solve → awaiting_human
+- PS02: AI can't solve → crm_pending (request pushed to the tenant's CRM)
 - PS04: Disputes/reopen flow
 - PS06: Stale detection
 - PS07: Account suspended/frozen
@@ -34,13 +34,15 @@ class TicketStateMachine:
     
     State Transitions:
     - open → assigned, queued, frozen, closed, crm_pending
-    - assigned → in_progress, awaiting_client, awaiting_human, crm_pending, open
-    - in_progress → awaiting_client, awaiting_human, crm_pending, resolved
+    - assigned → in_progress, awaiting_client, crm_pending, open
+    - in_progress → awaiting_client, crm_pending, resolved
     - awaiting_client → in_progress, stale, resolved
-    - awaiting_human → in_progress, resolved, crm_pending  (legacy rows can migrate)
+    - awaiting_human → in_progress, resolved, crm_pending  (LEGACY source only —
+      nothing may ENTER awaiting_human anymore; HumanReplacement escalations
+      go to crm_pending: the request is pushed to the tenant's CRM)
     - crm_pending → in_progress, resolved  (CRM resolution came back)
     - resolved → closed, reopened
-    - reopened → in_progress, awaiting_human, crm_pending
+    - reopened → in_progress, crm_pending
     - closed → reopened
     - frozen → open, closed
     - queued → open
@@ -59,13 +61,11 @@ class TicketStateMachine:
         TicketStatus.assigned: [
             TicketStatus.in_progress,
             TicketStatus.awaiting_client,
-            TicketStatus.awaiting_human,
             TicketStatus.crm_pending,
             TicketStatus.open,
         ],
         TicketStatus.in_progress: [
             TicketStatus.awaiting_client,
-            TicketStatus.awaiting_human,
             TicketStatus.crm_pending,
             TicketStatus.resolved,
         ],
@@ -89,7 +89,7 @@ class TicketStateMachine:
         ],
         TicketStatus.reopened: [
             TicketStatus.in_progress,
-            TicketStatus.awaiting_human,
+            TicketStatus.crm_pending,
         ],
         TicketStatus.closed: [
             TicketStatus.reopened,
@@ -122,13 +122,11 @@ class TicketStateMachine:
         # assigned → *
         (TicketStatus.assigned, TicketStatus.in_progress): ["agent_started"],
         (TicketStatus.assigned, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
-        (TicketStatus.assigned, TicketStatus.awaiting_human): ["ai_cant_solve", "ps02"],
         (TicketStatus.assigned, TicketStatus.crm_pending): ["ai_cant_solve", "crm_escalation"],
         (TicketStatus.assigned, TicketStatus.open): ["unassigned"],
         
         # in_progress → *
         (TicketStatus.in_progress, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
-        (TicketStatus.in_progress, TicketStatus.awaiting_human): ["escalated", "ps02", "ps03"],
         (TicketStatus.in_progress, TicketStatus.crm_pending): ["ai_cant_solve", "crm_escalation", "escalated"],
         (TicketStatus.in_progress, TicketStatus.resolved): ["issue_fixed"],
         
@@ -137,7 +135,7 @@ class TicketStateMachine:
         (TicketStatus.awaiting_client, TicketStatus.stale): ["no_response", "ps06"],
         (TicketStatus.awaiting_client, TicketStatus.resolved): ["client_confirmed"],
         
-        # awaiting_human → *
+        # awaiting_human → *  (LEGACY rows only — migrate out to crm_pending)
         (TicketStatus.awaiting_human, TicketStatus.in_progress): ["human_picked_up"],
         (TicketStatus.awaiting_human, TicketStatus.resolved): ["human_resolved"],
         (TicketStatus.awaiting_human, TicketStatus.crm_pending): ["crm_escalation", "human_replacement"],
@@ -152,7 +150,7 @@ class TicketStateMachine:
         
         # reopened → *
         (TicketStatus.reopened, TicketStatus.in_progress): ["work_resumed"],
-        (TicketStatus.reopened, TicketStatus.awaiting_human): ["auto_escalate", "ps04"],
+        (TicketStatus.reopened, TicketStatus.crm_pending): ["auto_escalate", "ps04"],
         
         # closed → *
         (TicketStatus.closed, TicketStatus.reopened): ["within_reopen_window", "ps04"],
@@ -283,7 +281,7 @@ class TicketStateMachine:
                     return "Reopen window has expired (7 days after closing)"
         
         # PS04: Auto-escalate on multiple reopens
-        if from_status == TicketStatus.reopened and to_status == TicketStatus.awaiting_human:
+        if from_status == TicketStatus.reopened and to_status == TicketStatus.crm_pending:
             if ticket.reopen_count and ticket.reopen_count < 2:
                 return "Auto-escalation requires at least 2 reopens"
         
@@ -340,9 +338,11 @@ class TicketStateMachine:
         elif from_status == TicketStatus.awaiting_client:
             ticket.awaiting_client = False
         
-        # Track awaiting human
-        if to_status == TicketStatus.awaiting_human:
-            ticket.awaiting_human = True
+        # Track awaiting human (LEGACY boolean — no ticket enters awaiting_human
+        # anymore; clear the flag when leaving the legacy state or entering
+        # crm_pending so old rows migrate cleanly)
+        if to_status == TicketStatus.crm_pending:
+            ticket.awaiting_human = False
         elif from_status == TicketStatus.awaiting_human:
             ticket.awaiting_human = False
     

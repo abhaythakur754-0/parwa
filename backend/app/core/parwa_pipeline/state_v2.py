@@ -137,11 +137,12 @@ class PipelineV2State(TypedDict, total=False):
     cove_blocked: bool                   # Phase 10: True if score < 0.5 even after regen → safe fallback + escalate
     node_4_5_token_usage: int
 
-    # ── NODE 4/5: HUMAN ESCALATION SIGNAL ──────────────────────────
+    # ── NODE 4/5: ESCALATION SIGNAL ────────────────────────────────
     # Set by Node 4 (hallucination strict-mode) or Node 5 (legal/sensitive
     # short-circuit) to force the dispatcher to mark the ticket as
-    # awaiting_human instead of resolved. Without this field declared in
-    # state, LangGraph drops it from the return dict.
+    # crm_pending (request pushed to the tenant's CRM) instead of resolved.
+    # Without this field declared in state, LangGraph drops it from the
+    # return dict.
     force_human_handoff: bool
 
     # ── NODE 5: ACT + VERIFY ───────────────────────────────────────

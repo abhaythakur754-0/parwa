@@ -752,10 +752,10 @@ class TestGAP10PriorityEscalation:
         assert "sla" in reason.lower()
 
     def test_should_escalate_awaiting_human(self, priority_service, sample_ticket):
-        """Test that tickets awaiting human too long are escalated."""
+        """Test that tickets awaiting CRM resolution too long are escalated."""
         sample_ticket.reopen_count = 0
         sample_ticket.sla_breached = False
-        sample_ticket.awaiting_human = True
+        sample_ticket.status = "crm_pending"
         sample_ticket.escalation_level = 1
 
         should_escalate, reason = priority_service.should_escalate(

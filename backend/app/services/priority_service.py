@@ -207,9 +207,9 @@ class PriorityService:
             ]:
                 return True, "SLA breached"
 
-        # Escalate if waiting too long for human
-        if ticket.awaiting_human and ticket.escalation_level < 3:
-            return True, "Awaiting human response too long"
+        # Escalate if waiting too long for the CRM resolution (HumanReplacement)
+        if ticket.status == TicketStatus.crm_pending.value and ticket.escalation_level < 3:
+            return True, "Awaiting CRM resolution too long"
 
         return False, ""
 
