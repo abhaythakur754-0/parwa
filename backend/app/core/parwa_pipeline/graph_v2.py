@@ -230,7 +230,7 @@ def _route_after_node_6(state: PipelineV2State) -> Literal["node_4", "node_8", "
     the safe fallback doesn't need quality checks, just deliver it.
 
     PASS (quality >= 90%) → wiki_finalize → END (resolved)
-    COVE_BLOCKED → wiki_finalize → END (awaiting_human, safe fallback)
+    COVE_BLOCKED → wiki_finalize → END (crm_pending, safe fallback)
     FAIL + loops < MAX → Node 4 (retry)
     FAIL + loops >= MAX → Node 8 (Super Node)
     """
@@ -337,8 +337,10 @@ def _wiki_finalize_complex(state: PipelineV2State) -> dict:
 
     Phase 10: CoVe Hard Gate — if cove_blocked=True, the response has been
     replaced with a safe fallback by Node 4.5, and the ticket status is set
-    to "awaiting_human" instead of "resolved". The customer still gets a
-    response (the safe fallback), but a human agent is flagged to follow up.
+    to "crm_pending" instead of "resolved": the request is pushed to the
+    tenant's CRM and the resolution comes back via the CRM webhook. The
+    customer still gets a response (the safe fallback) — no human sits in
+    between.
     """
     _wiki_write_on_resolve(state)
     response = state.get("formatted_response", "") or state.get("combined_answer", "")
@@ -409,14 +411,15 @@ def _wiki_finalize_complex(state: PipelineV2State) -> dict:
         logger.warning("wiki_finalize: honesty guard error: %s", str(_honesty_exc)[:120])
 
     if cove_blocked:
-        # CoVe blocked this response — escalate to human, don't mark as resolved
+        # CoVe blocked this response — push the request to the tenant's CRM
+        # (crm_pending), don't mark as resolved. Nothing waits for a human.
         logger.info(
-            "wiki_finalize: CoVe BLOCKED ticket=%s — using safe fallback, status=awaiting_human",
+            "wiki_finalize: CoVe BLOCKED ticket=%s — using safe fallback, status=crm_pending",
             state.get("ticket_id", "?"),
         )
         return {
             "final_response": response,
-            "status": "awaiting_human",
+            "status": "crm_pending",
             "cove_blocked": True,
         }
 
@@ -607,8 +610,9 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
         # ── Handle interrupt (node paused to ask a question) ──────
         # When a node calls interrupt(), ainvoke returns a dict with
         # "__interrupt__" key. The pipeline is PAUSED — not finished.
-        # We mark the ticket as awaiting_human so the escalations page
-        # can show the question + guidance textarea.
+        # We mark the ticket as crm_pending so the escalations page
+        # can show the question + the request is pushed to the tenant's
+        # CRM (HumanReplacement — nothing waits for an in-app human).
         if isinstance(result, dict) and "__interrupt__" in result:
             interrupt_data = result["__interrupt__"]
             logger.info(
@@ -625,7 +629,7 @@ def run_parwa_pipeline(initial_state: PipelineV2State) -> PipelineV2State:
                     question_text = str(val)
             result["pipeline_interrupted"] = True
             result["interrupt_question"] = question_text
-            result["status"] = "awaiting_human"
+            result["status"] = "crm_pending"
             return result
 
         # Phase 6: Wiki write-back for complex path resolutions

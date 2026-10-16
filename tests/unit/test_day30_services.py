@@ -238,8 +238,8 @@ class TestChannelService:
             reason="variant_unavailable",
         )
 
-        assert result["new_status"] == "awaiting_human"
-        assert mock_ticket.awaiting_human is True
+        assert result["new_status"] == "crm_pending"
+        assert mock_ticket.awaiting_human is False
 
 
 # ── CUSTOMER SERVICE TESTS ────────────────────────────────────────────────────

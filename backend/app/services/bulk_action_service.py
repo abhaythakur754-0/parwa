@@ -290,12 +290,12 @@ class BulkActionService:
             TicketStatus.assigned.value: [
                 TicketStatus.in_progress.value,
                 TicketStatus.awaiting_client.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
                 TicketStatus.open.value,
             ],
             TicketStatus.in_progress.value: [
                 TicketStatus.awaiting_client.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
                 TicketStatus.resolved.value,
             ],
             TicketStatus.awaiting_client.value: [
@@ -306,6 +306,7 @@ class BulkActionService:
             TicketStatus.awaiting_human.value: [
                 TicketStatus.in_progress.value,
                 TicketStatus.resolved.value,
+                TicketStatus.crm_pending.value,  # legacy rows migrate to HumanReplacement flow
             ],
             TicketStatus.resolved.value: [
                 TicketStatus.closed.value,
@@ -313,7 +314,7 @@ class BulkActionService:
             ],
             TicketStatus.reopened.value: [
                 TicketStatus.in_progress.value,
-                TicketStatus.awaiting_human.value,
+                TicketStatus.crm_pending.value,
             ],
             TicketStatus.closed.value: [
                 TicketStatus.reopened.value,

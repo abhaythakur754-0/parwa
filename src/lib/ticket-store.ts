@@ -19,7 +19,7 @@ export type TicketCategory =
   | 'fraud_security';
 
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
-export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'awaiting_client' | 'awaiting_human';
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'awaiting_client' | 'crm_pending' | 'review_needed';
 export type TicketChannel = 'email' | 'chat' | 'sms' | 'voice';
 export type TicketVariant = 'light' | 'medium' | 'heavy';
 export type MessageSender = 'customer' | 'ai_agent' | 'human_agent' | 'system';
@@ -107,7 +107,8 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   resolved: 'Resolved',
   closed: 'Closed',
   awaiting_client: 'Awaiting Client',
-  awaiting_human: 'Escalated',
+  crm_pending: 'Waiting for CRM',
+  review_needed: 'Needs Review',
 };
 
 export const CHANNEL_LABELS: Record<TicketChannel, string> = {
@@ -136,7 +137,7 @@ export const ALL_CATEGORIES: TicketCategory[] = [
 ];
 
 export const ALL_STATUSES: TicketStatus[] = [
-  'open', 'in_progress', 'resolved', 'closed', 'awaiting_client', 'awaiting_human',
+  'open', 'in_progress', 'resolved', 'closed', 'awaiting_client', 'crm_pending',
 ];
 
 export const ALL_PRIORITIES: TicketPriority[] = ['low', 'medium', 'high', 'critical'];
@@ -517,20 +518,20 @@ export const useTicketStore = create<TicketState>((set, get) => ({
             sender: 'system',
             sender_name: 'System',
             content:
-              'Ticket has been escalated to a human agent. A team member will be with you shortly.',
+              'Request sent to the CRM. The resolution will be posted here automatically once the CRM team completes it.',
             created_at: now,
           },
         ];
         return {
           ...t,
-          status: 'awaiting_human' as TicketStatus,
-          assigned_agent: 'Human Agent',
+          status: 'crm_pending' as TicketStatus,
+          assigned_agent: 'CRM Team',
           updated_at: now,
           messages: msgs,
         };
       }),
     }));
-    void pushToBackend('POST', `/api/v1/tickets/${id}/escalate`, {});
+    void pushToBackend('POST', `/api/v1/tickets/${id}/escalate`, { reason: 'Manually escalated to CRM from dashboard' });
   },
 
   resumeWithGuidance: async (id, guidance) => {
@@ -552,7 +553,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
             t.id === id
               ? {
                   ...t,
-                  status: (data.status === 'resolved' ? 'resolved' : 'awaiting_human') as TicketStatus,
+                  status: (data.status === 'resolved' ? 'resolved' : 'crm_pending') as TicketStatus,
                   updated_at: new Date().toISOString(),
                 }
               : t

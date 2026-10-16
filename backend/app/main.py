@@ -961,7 +961,8 @@ async def lifespan(app: FastAPI):
                     # infinite loop. Cutoff is now 15 min (> the 5-min
                     # PIPELINE_HARD_TIMEOUT with head room), plus a hard
                     # requeue cap: after 3 requeues a ticket goes to
-                    # awaiting_human (human review) instead of looping.
+                    # crm_pending (request pushed to the tenant's CRM)
+                    # instead of looping.
                     cutoff = datetime.now(timezone.utc) - timedelta(minutes=15)
                     stuck_tickets = db.query(Ticket).filter(
                         Ticket.status == "open",
@@ -996,13 +997,15 @@ async def lifespan(app: FastAPI):
                                 _md = {}
                             _requeues = int(_md.get("requeue_count", 0))
                             if _requeues >= 3:
-                                if ticket.status != "awaiting_human":
-                                    ticket.status = "awaiting_human"
-                                    ticket.awaiting_human = True
+                                if ticket.status != "crm_pending":
+                                    # HumanReplacement: request goes to the tenant's
+                                    # CRM — nothing waits for an in-app human.
+                                    ticket.status = "crm_pending"
+                                    ticket.awaiting_human = False
                                     ticket.updated_at = datetime.now(timezone.utc)
                                     db.commit()
                                     logger.warning(
-                                        "stuck_ticket_recovery: ticket %s hit requeue cap (%d) — escalated to awaiting_human",
+                                        "stuck_ticket_recovery: ticket %s hit requeue cap (%d) — escalated to crm_pending",
                                         str(ticket.id)[:8], _requeues,
                                     )
                                 continue
@@ -1030,12 +1033,13 @@ async def lifespan(app: FastAPI):
                             ).first()
 
                             if has_ai:
-                                # Pipeline ran but didn't update status — mark as awaiting_human
-                                ticket.status = "awaiting_human"
-                                ticket.awaiting_human = True
+                                # Pipeline ran but didn't update status — mark as
+                                # crm_pending (request goes to the tenant's CRM)
+                                ticket.status = "crm_pending"
+                                ticket.awaiting_human = False
                                 db.commit()
                                 logger.info(
-                                    "stuck_ticket_recovery: ticket %s had AI msg, marking awaiting_human",
+                                    "stuck_ticket_recovery: ticket %s had AI msg, marking crm_pending",
                                     str(ticket.id)[:8],
                                 )
                             else:

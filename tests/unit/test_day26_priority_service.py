@@ -266,8 +266,8 @@ class TestShouldEscalate:
         assert "sla" in reason.lower()
 
     def test_should_escalate_awaiting_human(self, priority_service, sample_ticket):
-        """Test escalation for awaiting human too long."""
-        sample_ticket.awaiting_human = True
+        """Test escalation for awaiting CRM resolution too long."""
+        sample_ticket.status = "crm_pending"
         sample_ticket.escalation_level = 1
         should, reason = priority_service.should_escalate(
             sample_ticket, TicketPriority.high.value
@@ -285,7 +285,7 @@ class TestShouldEscalate:
 
     def test_should_not_escalate_max_level(self, priority_service, sample_ticket):
         """Test no escalation beyond max level."""
-        sample_ticket.awaiting_human = True
+        sample_ticket.status = "crm_pending"
         sample_ticket.escalation_level = 3  # Max level
         should, reason = priority_service.should_escalate(
             sample_ticket, TicketPriority.medium.value

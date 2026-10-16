@@ -14,7 +14,7 @@ The dispatcher:
   2. Builds a PipelineV2State
   3. Runs the 8-node pipeline (Node 1 → Node 8)
   4. Stores the AI response as a TicketMessage (role="ai")
-  5. Updates ticket.status → resolved | awaiting_human
+  5. Updates ticket.status → resolved | crm_pending
   6. Writes cost/savings/confidence to ticket.metadata_json
   7. Triggers ChannelDispatcher to send the response to the customer
      (email reply / SMS / chat socket / voice)
@@ -49,7 +49,7 @@ EMERGENCY_PRIORITIES = {CRITICAL_PRIORITY}
 # - 7 persistent worker threads run forever
 # - Workers poll the DATABASE for tickets with status='open'
 # - Worker claims a ticket atomically (UPDATE status='processing')
-# - Worker runs the pipeline, then sets status='resolved' or 'awaiting_human'
+# - Worker runs the pipeline, then sets status='resolved' or 'crm_pending'
 # - If server crashes/restarts, unprocessed tickets are still in the DB
 #   with status='open' → workers pick them up on next poll
 #
@@ -221,11 +221,11 @@ def _start_pipeline_workers():
             RETRY LOGIC for rate-limited LLM calls:
             - When pipeline fails with "all providers exhausted" (rate limited),
               the ticket is put BACK in the queue (status='open') with a retry count.
-            - After 3 failed retries, it's escalated to awaiting_human (so it's not lost).
+            - After 3 failed retries, it's escalated to crm_pending (so it's not lost).
             - Between retries, the worker sleeps 60s to let rate limits renew.
             - This means: tickets WAIT for credits to renew instead of being escalated.
             """
-            MAX_RETRIES = 3  # Max retries before escalating to human
+            MAX_RETRIES = 3  # Max retries before escalating to crm_pending
             RATE_LIMIT_WAIT = 60  # Seconds to wait for rate limit to renew (Groq 30 RPM = 60s cycle)
 
             while True:
@@ -340,8 +340,10 @@ def _start_pipeline_workers():
                                             # from processing other tickets → queue got stuck.
                                         else:
                                             # ── ESCALATE: max retries reached or non-retryable error ──
-                                            ticket.status = "awaiting_human"
-                                            ticket.awaiting_human = True
+                                            # HumanReplacement: no humans wait in-app — the
+                                            # request goes to the tenant's CRM (crm_pending).
+                                            ticket.status = "crm_pending"
+                                            ticket.awaiting_human = False
                                             meta["escalation_reason"] = (
                                                 "max_retries_exceeded" if is_rate_limit
                                                 else "pipeline_error"
@@ -350,7 +352,7 @@ def _start_pipeline_workers():
                                             ticket.metadata_json = _json.dumps(meta)
                                             db.commit()
                                             logger.info(
-                                                "worker_%d ticket=%s ESCALATED to human (retries=%d, rate_limited=%s)",
+                                                "worker_%d ticket=%s ESCALATED to CRM (retries=%d, rate_limited=%s)",
                                                 worker_id, ticket_id[:8],
                                                 retry_count, is_rate_limit,
                                             )
@@ -628,7 +630,7 @@ def _run_pipeline_sync(
                 model_used="fallback",
                 cost_per_ticket=0.0,
                 savings_per_ticket=0.0,
-                status="awaiting_human",
+                status="crm_pending",
             )
 
             # ── Gap 3: Dispatch fallback message to customer channel ──
@@ -673,7 +675,7 @@ def _run_pipeline_sync(
                 category=ticket.category or "",
                 ai_response_text=ai_response_text,
                 ai_response_html=f"<p>{ai_response_text}</p>",
-                ticket_status="awaiting_human",
+                ticket_status="crm_pending",
                 model_used="fallback",
             )
 
@@ -736,15 +738,40 @@ def _run_pipeline_sync(
                 ai_response_html=f"<p>{display_text}</p>",
                 confidence=None, model_used="parwa_interrupt",
                 cost_per_ticket=0.0, savings_per_ticket=0.0,
-                status="awaiting_human",
+                status="crm_pending",
             )
-            return {"status": "interrupted", "ticket_id": ticket_id, "question": question_text, "message": "Pipeline paused — waiting for guidance to resume."}
+            # HumanReplacement: the AI's question is pushed to the tenant's
+            # CRM as a new request. The Parwa ticket waits on the CRM
+            # resolution (webhook → CRMResolutionService), not on a human.
+            crm_create_result = _push_to_crm_outbound(
+                db=db,
+                ticket_id=ticket_id,
+                company_id=company_id,
+                subject=ticket.subject or "Customer Support Ticket",
+                description=query_text,
+                customer_email=customer.email if customer else "",
+                customer_name=customer.name if customer else "",
+                priority=ticket.priority,
+                category=ticket.category or "",
+                ai_response_text=display_text[:6000],
+                ai_response_html=f"<p>{display_text[:6000]}</p>",
+                ticket_status="crm_pending",
+                model_used="parwa_interrupt",
+            )
+            return {
+                "status": "interrupted",
+                "ticket_id": ticket_id,
+                "question": question_text,
+                "message": "Pipeline paused — request sent to CRM for resolution.",
+                "crm_pushed": crm_create_result.get("success", False),
+                "crm_ticket_id": crm_create_result.get("crm_ticket_id", ""),
+            }
 
         # ── Extract pipeline result fields ────────────────────────────
         # ── Handle pipeline interrupt (node paused to ask a question) ──
         # When a node calls interrupt(), the pipeline PAUSES (Approach A).
-        # The ticket is marked awaiting_human and the AI's question is saved
-        # so the escalations page can show it + let human/variant answer.
+        # The ticket is marked crm_pending and the AI's question is saved
+        # so the escalations page can show it + the request goes to the CRM.
         if result.get("pipeline_interrupted"):
             interrupt_question = result.get("interrupt_question", "")
             logger.info(
@@ -761,7 +788,25 @@ def _run_pipeline_sync(
                 model_used="parwa_interrupt",
                 cost_per_ticket=0.0,
                 savings_per_ticket=0.0,
-                status="awaiting_human",
+                status="crm_pending",
+            )
+            # HumanReplacement: push the AI's question to the tenant's CRM —
+            # the resolution comes back via the CRM webhook and the AI
+            # learns from it (CRMResolutionService).
+            crm_create_result = _push_to_crm_outbound(
+                db=db,
+                ticket_id=ticket_id,
+                company_id=company_id,
+                subject=ticket.subject or "Customer Support Ticket",
+                description=query_text,
+                customer_email=customer.email if customer else "",
+                customer_name=customer.name if customer else "",
+                priority=ticket.priority,
+                category=ticket.category or "",
+                ai_response_text=str(interrupt_question)[:6000],
+                ai_response_html=f"<p>{str(interrupt_question)[:6000]}</p>",
+                ticket_status="crm_pending",
+                model_used="parwa_interrupt",
             )
             # Save pipeline state snapshot to DB so resume can restore it
             try:
@@ -782,7 +827,9 @@ def _run_pipeline_sync(
                 "status": "interrupted",
                 "ticket_id": ticket_id,
                 "question": interrupt_question,
-                "message": "Pipeline paused — waiting for guidance to resume.",
+                "message": "Pipeline paused — request sent to CRM for resolution.",
+                "crm_pushed": crm_create_result.get("success", False),
+                "crm_ticket_id": crm_create_result.get("crm_ticket_id", ""),
             }
 
         ai_response_text = (
@@ -813,11 +860,11 @@ def _run_pipeline_sync(
         is_escalating = force_human or cove_blocked or pipeline_status_raw != "resolved"
         # No real answer after stripping model reasoning → treat like an
         # escalation: the customer gets the "escalated to specialist"
-        # template and the ticket goes to awaiting_human, never resolved.
+        # template and the ticket goes to crm_pending, never resolved.
         if not _ai_answered:
             is_escalating = True
             if pipeline_status_raw == "resolved":
-                pipeline_status_raw = "awaiting_human"
+                pipeline_status_raw = "crm_pending"
 
         # Check if the AI response contains internal vocabulary that customers
         # shouldn't see (GSD goals, KB doc counts, guidance requests, etc.)
@@ -853,7 +900,7 @@ def _run_pipeline_sync(
         pipeline_status = result.get("status", "resolved")
         if not _ai_answered and pipeline_status == "resolved":
             # Model produced no customer-safe answer — see strip block above.
-            pipeline_status = "awaiting_human"
+            pipeline_status = "crm_pending"
         confidence = result.get("confidence")
         if confidence is not None:
             try:
@@ -889,15 +936,15 @@ def _run_pipeline_sync(
             ticket_id, force_human, pipeline_status, list(result.keys())[:15],
         )
         if force_human:
-            pipeline_status = "awaiting_human"
+            pipeline_status = "crm_pending"
 
         # ── Gap 4: Create Escalation Vault entry for mid-pipeline escalations ──
         # Previously only Node 8 failures created a vault entry. Mid-pipeline
         # escalations (Node 1 legal keywords, Node 4 low confidence, Node 4.5
         # CoVe blocked, Node 5 force_human_handoff) only set the ticket status
-        # to awaiting_human — the human agent had no vault context on the
+        # to crm_pending — the owner had no vault context on the
         # Escalations dashboard. Now we create a vault entry for ALL escalations
-        # so the human agent sees the full pipeline context.
+        # so the owner sees the full pipeline context.
         if force_human or cove_blocked or pipeline_status == "escalated":
             try:
                 from app.core.escalation_vault.vault_manager import VaultManager
@@ -933,7 +980,7 @@ def _run_pipeline_sync(
                     ticket_id, str(vault_exc)[:200],
                 )
 
-        new_status = "resolved" if pipeline_status == "resolved" else "awaiting_human"
+        new_status = "resolved" if pipeline_status == "resolved" else "crm_pending"
         _persist_ai_response(
             db=db,
             ticket=ticket,
@@ -1099,7 +1146,7 @@ def _persist_ai_response(
         model_used: Model / variant name.
         cost_per_ticket: AI cost in USD.
         savings_per_ticket: Human-agent cost avoided (USD).
-        status: New ticket status ("resolved" or "awaiting_human").
+        status: New ticket status ("resolved" or "crm_pending").
 
     Returns:
         The new TicketMessage ID.
@@ -1131,7 +1178,7 @@ def _persist_ai_response(
         now = datetime.now(timezone.utc)
         ticket.status = status
         ticket.variant_version = model_used
-        ticket.awaiting_human = (status == "awaiting_human")
+        ticket.awaiting_human = False  # legacy flag — no ticket waits for a human anymore
         if not ticket.first_response_at:
             ticket.first_response_at = now
         if status == "resolved" and not ticket.closed_at:
@@ -1169,7 +1216,7 @@ def _persist_ai_response(
     # ── Update ticket fields ─────────────────────────────────────────
     ticket.status = status
     ticket.variant_version = model_used
-    ticket.awaiting_human = (status == "awaiting_human")
+    ticket.awaiting_human = False  # legacy flag — no ticket waits for a human anymore
     if not ticket.first_response_at:
         ticket.first_response_at = now
     if status == "resolved" and not ticket.closed_at:
@@ -1252,7 +1299,7 @@ def _push_to_crm_outbound(
         category: Ticket category.
         ai_response_text: AI response plain text (pushed as reply to CRM ticket).
         ai_response_html: AI response HTML.
-        ticket_status: "resolved" or "awaiting_human" — pushed to CRM.
+        ticket_status: "resolved" or "crm_pending" — pushed to CRM.
         model_used: AI model name for the internal note.
 
     Returns:
@@ -1333,8 +1380,8 @@ def _push_to_crm_outbound(
 
     # ── Step 2: Push the AI response to the new CRM ticket ───────────
     # Map Parwa status → CRM status:
-    #   resolved       → "resolved"
-    #   awaiting_human → "escalated"
+    #   resolved    → "resolved"
+    #   crm_pending → "escalated" (request waiting on CRM resolution)
     crm_status = "resolved" if ticket_status == "resolved" else "escalated"
     internal_note = (
         f"Ticket auto-resolved by PARWA AI (model={model_used}). "
@@ -1556,7 +1603,6 @@ def _mark_ticket_for_review(ticket_id: str, company_id: str, reason: str) -> Non
                 meta["review_reason"] = reason
                 meta["review_needed_at"] = str(datetime.now(timezone.utc))
                 ticket.metadata_json = _json.dumps(meta)
-                ticket.awaiting_human = True
                 db.commit()
         finally:
             db.close()

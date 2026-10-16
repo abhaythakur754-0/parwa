@@ -89,7 +89,7 @@ class TicketSummary:
     resolved_tickets: int = 0
     closed_tickets: int = 0
     awaiting_client_tickets: int = 0
-    awaiting_human_tickets: int = 0
+    crm_pending_tickets: int = 0
     
     # Priority breakdown
     critical_tickets: int = 0
@@ -216,7 +216,7 @@ class TicketAnalyticsService:
             resolved_tickets=resolved_count,
             closed_tickets=closed_count,
             awaiting_client_tickets=status_counts.get(TicketStatus.awaiting_client.value, 0),
-            awaiting_human_tickets=status_counts.get(TicketStatus.awaiting_human.value, 0),
+            crm_pending_tickets=status_counts.get(TicketStatus.crm_pending.value, 0),
             critical_tickets=priority_counts.get(TicketPriority.critical.value, 0),
             high_tickets=priority_counts.get(TicketPriority.high.value, 0),
             medium_tickets=priority_counts.get(TicketPriority.medium.value, 0),

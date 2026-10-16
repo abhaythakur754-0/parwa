@@ -1252,14 +1252,14 @@ async def _exec_escalate_to_human(
     db: Any, company_id: str, session_id: str, user_id: str,
     params: Dict[str, Any], context: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Escalate the current conversation to a human agent.
+    """Escalate the current conversation to the tenant's CRM (HumanReplacement).
 
     Previously this was a stub that just returned a message without
     actually creating an escalation. Now it:
     1. Finds the ticket from params or context (if any)
-    2. Marks the ticket as awaiting_human
+    2. Marks the ticket as crm_pending (request goes to the tenant's CRM)
     3. Returns a confirmation message
-    If no ticket is found, creates a new one with status=awaiting_human.
+    If no ticket is found, creates a new one with status=crm_pending.
     """
     try:
         from database.models.tickets import Ticket, TicketMessage, Customer, Channel
@@ -1269,15 +1269,15 @@ async def _exec_escalate_to_human(
         priority = params.get("priority", "high")
         ticket_id = params.get("ticket_id") or context.get("ticket_id")
 
-        # ── If we have a ticket_id, mark it as awaiting_human ──
+        # ── If we have a ticket_id, mark it as crm_pending ──
         if ticket_id:
             ticket = db.query(Ticket).filter(
                 Ticket.id == ticket_id,
                 Ticket.company_id == company_id,
             ).first()
             if ticket:
-                ticket.status = "awaiting_human"
-                ticket.awaiting_human = True
+                ticket.status = "crm_pending"
+                ticket.awaiting_human = False
                 if priority == "urgent":
                     ticket.priority = "critical"
                 elif priority == "high":
@@ -1289,13 +1289,13 @@ async def _exec_escalate_to_human(
                     company_id=company_id,
                     ticket_id=str(ticket.id),
                     role="system",
-                    content=f"Escalated to human via JARVIS. Reason: {reason}",
+                    content=f"Request escalated to the tenant's CRM via JARVIS. Reason: {reason}",
                 )
                 db.add(note_msg)
                 db.flush()
 
                 logger.info(
-                    "jarvis_escalate_to_human: ticket=%s marked awaiting_human, company=%s",
+                    "jarvis_escalate_to_human: ticket=%s marked crm_pending, company=%s",
                     ticket_id, company_id,
                 )
                 return {
@@ -1303,12 +1303,12 @@ async def _exec_escalate_to_human(
                     "data": {
                         "ticket_id": str(ticket.id),
                         "reason": reason,
-                        "status": "awaiting_human",
+                        "status": "crm_pending",
                     },
                     "message": (
-                        f"I've escalated ticket {str(ticket.id)[:8]} to a human agent. "
-                        f"Reason: {reason}. The human team has been notified and will "
-                        f"follow up with the customer shortly."
+                        f"I've escalated ticket {str(ticket.id)[:8]} to the CRM. "
+                        f"Reason: {reason}. The request has been recorded and the "
+                        f"resolution will be relayed to the customer automatically."
                     ),
                 }
 
@@ -1324,12 +1324,12 @@ async def _exec_escalate_to_human(
         ticket = Ticket(
             company_id=company_id,
             subject=subject,
-            status="awaiting_human",
+            status="crm_pending",
             priority="high" if priority in ("high", "urgent") else "medium",
             category="escalation",
             channel_id=str(channel.id) if channel else None,
             source="jarvis_cli",
-            awaiting_human=True,
+            awaiting_human=False,
         )
         db.add(ticket)
         db.flush()
@@ -1353,11 +1353,12 @@ async def _exec_escalate_to_human(
             "data": {
                 "ticket_id": str(ticket.id),
                 "reason": reason,
-                "status": "awaiting_human",
+                "status": "crm_pending",
             },
             "message": (
-                f"I've created an escalation ticket ({str(ticket.id)[:8]}) and notified "
-                f"the human team. Reason: {reason}. A human agent will follow up shortly."
+                f"I've created an escalation ticket ({str(ticket.id)[:8]}) and sent the "
+                f"request to the CRM. Reason: {reason}. The resolution will be relayed "
+                f"to the customer automatically."
             ),
         }
 

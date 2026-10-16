@@ -23,7 +23,7 @@ export interface TicketSummary {
   resolved: number;
   closed: number;
   awaiting_client: number;
-  awaiting_human: number;
+  crm_pending: number;
   critical: number;
   high: number;
   medium: number;
