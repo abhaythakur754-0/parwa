@@ -17,12 +17,13 @@ Usage:
 """
 
 import json
+import os
 import sys
 import urllib.request
 
-BACKEND = "https://parwa-backend.onrender.com"
-EMAIL = "parwa.livetest+1790404319@gmail.com"
-PASSWORD = "Livetest#2026x"
+BACKEND = os.environ.get("PARWA_BACKEND_URL", "https://parwa-backend.onrender.com")
+EMAIL = os.environ.get("PARWA_EMAIL", "parwa.livetest+1790404319@gmail.com")
+PASSWORD = os.environ.get("PARWA_PASSWORD", "Livetest#2026x")
 ORIGIN = "https://parwa.buzz"
 
 
@@ -42,7 +43,9 @@ def _req(method: str, path: str, token: str = None, body: dict = None):
 def main() -> int:
     print("── login ──")
     auth = _req("POST", "/api/auth/login", body={"email": EMAIL, "password": PASSWORD})
-    token = auth.get("access_token") or auth.get("token")
+    toks = auth.get("tokens") or {}
+    token = (auth.get("access_token") or auth.get("token")
+             or toks.get("access_token") or toks.get("token"))
     if not token:
         print("LOGIN FAILED:", json.dumps(auth)[:300])
         return 1

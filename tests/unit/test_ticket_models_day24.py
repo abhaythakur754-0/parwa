@@ -206,13 +206,16 @@ class TestTicketStatusEnum:
         expected = [
             "open", "assigned", "in_progress",
             "awaiting_client",    # PS08
-            "awaiting_human",     # PS02, PS03
+            "awaiting_human",     # LEGACY — kept for old rows only; nothing enters it
+            "crm_pending",        # HumanReplacement — escalations go to the tenant's CRM
             "resolved",
             "reopened",           # PS04
             "closed",
             "frozen",             # PS07
             "queued",             # PS13
             "stale",              # PS06
+            "processing",
+            "review_needed",
         ]
         assert values == expected
 
