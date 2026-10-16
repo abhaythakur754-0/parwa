@@ -484,3 +484,24 @@ Stage Summary:
 - 10/10 tickets CONFIRMED real in user's live dashboard at parwa.buzz with screenshots; user can reproduce by logging in and opening Tickets, or searching "Charged twice".
 - Known UX bug noted: first dashboard load during Render cold start can show "No tickets yet" instead of an error (empty-state fallback masks the transient 401). Should show honest error/retry state. Fix candidate for later task.
 - Tenant 2e8c89db remains PAID (flipped Oct 11 to unblock creation).
+
+---
+Task ID: 29
+Agent: main (orchestrator)
+Task: Remove the awaiting_human (waiting-for-human) ticket status completely — Part 1 of HumanReplacement (self-learning discussion deferred by user)
+
+Work Log:
+- Followed CLAUDE.md: read rules first, used Graphify (76K-node graph) to map the escalation flow + exhaustive repo grep (209 refs / 53 files for awaiting_human, 395 / 78 for related terms) so no file could be missed
+- KEY FINDING: the replacement infrastructure already existed — models.TicketStatus.crm_pending, state machine transitions (ai_cant_solve/crm_escalation → crm_pending), CRMResolutionService (relay→resolve→learn loop), _push_to_crm_outbound (fires on every pipeline outcome), crm_webhooks. Task was "finish the wiring", not rebuild
+- Backend (17 files edited): pipeline_dispatcher (all escalation paths → crm_pending; interrupt paths NOW also push to CRM — they previously returned early without it; legacy boolean always cleared), graph_v2 (CoVe-blocked fallback + interrupt handler → crm_pending), main.py stuck-ticket recovery → crm_pending, state machine (awaiting_human now LEGACY source-only; nothing can enter it; reopened→crm_pending), lifecycle/channel/jarvis/bulk/ticket/customer/priority services, schemas (TicketResponse.crm_pending replaces awaiting_human flag), analytics API+service (crm_pending_tickets), resume endpoint accepts crm_pending, ticket_service+bulk_action legacy maps allow awaiting_human→crm_pending migration
+- Frontend (6 files): TicketStatus type ('crm_pending'+'review_needed'), labels 'Waiting for CRM', badge amber, Escalate to CRM button (+ fixed pre-existing bug: empty POST body now sends required reason), escalations page fetches crm_pending (+legacy rows defensively), analytics types/proxy, 'Awaiting Guidance' vault label
+- Tests updated to new behavior (existing only, no new tests): 3 python unit files (channel_service/priority_service assertions), 2 frontend test files
+- Verification: ast.parse OK on all 17 backend files; tsc clean on all touched files (85 pre-existing errors in unrelated flexpay/jwt test files unchanged); grep sweep: ZERO awaiting_human writers remain in production code
+- Committed b1d4634 (28 files, +235/−165). PUSH BLOCKED: no GitHub credentials in sandbox (gh CLI absent, no ssh, old ghp_ token revoked per Task 26) — needs user push or fresh token
+- Staged scripts/migrate_awaiting_human_to_crm.py: logs into live backend, PATCHes the 5 legacy tickets (a6b2ccae…, fce00552…, 63361cae…, 2febd45b…, 3eae403a…) to crm_pending via the same API the dashboard uses — runnable the moment the deploy lands
+
+Stage Summary:
+- awaiting_human can no longer be SET by any code path; escalations now: AI can't solve → request pushed to tenant's CRM → ticket crm_pending → CRM webhook resolution → CRMResolutionService relays + resolves + writes wiki pattern (learning part 2, deferred)
+- New-ticket flow unchanged for resolved outcomes; every non-resolved outcome (cove_blocked, force_human_handoff, no-answer, interrupt, worker crash, requeue cap, stuck recovery) now lands on crm_pending + CRM push
+- DEPLOY PENDING: user must `git push origin main` (or provide fresh GitHub token) → Render auto-deploys → run scripts/migrate_awaiting_human_to_crm.py → verify in dashboard (Escalations page shows "Waiting for CRM")
+- Docs (ARCHITECTURE.md, Feature_Specs) still mention awaiting_human — left untouched per surgical rule, noted as follow-up
