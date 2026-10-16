@@ -958,6 +958,7 @@ class TicketService:
                 TicketStatus.queued.value,
                 TicketStatus.frozen.value,
                 TicketStatus.closed.value,
+                TicketStatus.crm_pending.value,  # ai_cant_solve/crm_escalation — mirror state machine (open, crm_pending)
             ],
             TicketStatus.assigned.value: [
                 TicketStatus.in_progress.value,
@@ -979,6 +980,10 @@ class TicketService:
                 TicketStatus.in_progress.value,
                 TicketStatus.resolved.value,
                 TicketStatus.crm_pending.value,  # legacy rows migrate to HumanReplacement flow
+            ],
+            TicketStatus.crm_pending.value: [
+                TicketStatus.in_progress.value,  # crm_reopened
+                TicketStatus.resolved.value,     # crm_resolved / crm_resolution_recorded
             ],
             TicketStatus.resolved.value: [
                 TicketStatus.closed.value,

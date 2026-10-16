@@ -40,10 +40,15 @@ def client_no_raise():
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """Reset rate limiter singleton between tests to prevent test pollution."""
-    from backend.app.services.rate_limit_service import (
-        get_rate_limit_service,
-    )
-    svc = get_rate_limit_service()
-    svc._in_memory.clear()
-    svc._failures.clear()
+    try:
+        # rate_limit_service was replaced by the parwa_core_bridge adapter
+        # (app.core.parwa_core_bridge.get_parwa_rate_limiter).
+        from app.core.parwa_core_bridge import get_parwa_rate_limiter
+        svc = get_parwa_rate_limiter()
+        for attr in ("_in_memory", "_failures", "_python_failures"):
+            store = getattr(svc, attr, None)
+            if isinstance(store, dict):
+                store.clear()
+    except Exception:
+        pass  # bridge unavailable in this environment — nothing to reset
     yield

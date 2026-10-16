@@ -477,11 +477,18 @@ class TicketResponse(BaseModel):
         # Compute time deltas
         now = datetime.now(timezone.utc)
 
-        if self.created_at:
-            self.time_since_created = self._format_timedelta(now - self.created_at)
+        # ponytail: SQLite (local dev/test) returns naive datetimes while
+        # `now` is aware — normalize instead of crashing; no-op on Postgres.
+        created_at = self.created_at.replace(tzinfo=timezone.utc) \
+            if self.created_at and self.created_at.tzinfo is None else self.created_at
+        updated_at = self.updated_at.replace(tzinfo=timezone.utc) \
+            if self.updated_at and self.updated_at.tzinfo is None else self.updated_at
 
-        if self.updated_at:
-            self.time_since_updated = self._format_timedelta(now - self.updated_at)
+        if created_at:
+            self.time_since_created = self._format_timedelta(now - created_at)
+
+        if updated_at:
+            self.time_since_updated = self._format_timedelta(now - updated_at)
 
         return self
 

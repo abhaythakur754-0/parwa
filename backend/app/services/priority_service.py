@@ -14,7 +14,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from database.models.tickets import Ticket, TicketPriority
+from database.models.tickets import Ticket, TicketPriority, TicketStatus
 
 
 class PriorityService:
