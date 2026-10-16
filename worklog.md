@@ -505,3 +505,22 @@ Stage Summary:
 - New-ticket flow unchanged for resolved outcomes; every non-resolved outcome (cove_blocked, force_human_handoff, no-answer, interrupt, worker crash, requeue cap, stuck recovery) now lands on crm_pending + CRM push
 - DEPLOY PENDING: user must `git push origin main` (or provide fresh GitHub token) → Render auto-deploys → run scripts/migrate_awaiting_human_to_crm.py → verify in dashboard (Escalations page shows "Waiting for CRM")
 - Docs (ARCHITECTURE.md, Feature_Specs) still mention awaiting_human — left untouched per surgical rule, noted as follow-up
+
+---
+Task ID: 29-b
+Agent: main (orchestrator)
+Task: Test the awaiting_human removal LOCALLY (user: "first u test locally here, then I will provide the token")
+
+Work Log:
+- Rebuilt local env (sandbox wiped venv): pip -r requirements.txt into /home/z/.venv, then ran the backend per run_server.sh convention: DATABASE_URL=sqlite:////home/z/my-project/backend/local_test.db uvicorn app.main:app :10000; created schema via database.models + init_db() (151 tables)
+- Test A (unit): ran 9 test files. Baseline comparison via git worktree at pre-change commit 58db3c4 → failure sets diffed. FOUND + FIXED a real production bug our commit b1d4634 introduced: priority_service.py:211 used TicketStatus without importing it → NameError on every should_escalate call (would 500 escalation scans in prod). Also fixed tests/conftest.py (rate_limit_service import died in old refactor → parwa_core_bridge adapter, defensive clear) and the stale enum expectation test. Result: 483 passed, failure set identical to pre-change baseline (28 pre-existing, unrelated); 0 regressions
+- Test B (API E2E, scripts/test_local_human_replacement.py + scripts/mock_crm.py on :9099): 10/10 PASS — register→JWT→create ticket (real dispatch)→open→crm_pending (crm_escalation)→[crm_pending→awaiting_human REJECTED 400]→filters (awaiting_human=0, crm_pending=1)→crm_pending→resolved (crm_resolved)→persisted
+- FIXED 2 more latent bugs found only by local testing: (1) schemas/ticket.py compute_fields crashed with TypeError (naive vs aware datetimes) on SQLite → UTC-normalize, no-op on Postgres — this masked ticket creation as 409 DUPLICATE; (2) ticket_service.py + bulk_action_service.py had their own restrictive transition maps that DISAGREED with the state machine: open→crm_pending missing (fresh ticket AI can't solve would be STUCK on open) and NO crm_pending entry at all (tickets would be stuck in crm_pending FOREVER — the exact awaiting_human bug again). Both maps now mirror the state machine
+- Test C (migration): seeded a legacy awaiting_human row locally, ran scripts/migrate_awaiting_human_to_crm.py against localhost (script now env-parameterized: PARWA_BACKEND_URL/PARWA_EMAIL/PARWA_PASSWORD + liberal token extraction) → PATCH→crm_pending OK; second run found 0 → idempotent, exit 0. Script is ready for the live run post-deploy
+- Mock CRM received no escalation push locally (expected: no LLM keys → pipeline never escalates; worker claim loop is Postgres-only SQL). Push path is covered by unit tests + code review; live proof happens after deploy when a real escalation fires
+
+Stage Summary:
+- awaiting_human removal now LOCALLY PROVEN end-to-end: nothing can enter awaiting_human (400), escalations land crm_pending, crm_pending→resolved closes the loop, migration script works + is idempotent
+- 3 production bugs fixed in this pass: priority_service NameError (ours), ticket_service/bulk missing crm_pending transitions (would re-create the stuck-forever bug), schema datetime crash (SQLite-only)
+- Local artifacts: local_test.db, local_backend.log, .mock_crm_log.jsonl (gitignored, not committed); backend on :10000 + mock CRM on :9099 still running
+- READY FOR TOKEN: user provides GitHub token → push b1d4634+97e73d5+this commit → Render deploy → run scripts/migrate_awaiting_human_to_crm.py (no env vars = live defaults) → verify 5 tickets (a6b2ccae…, fce00552…, 63361cae…, 2febd45b…, 3eae403a…) now crm_pending "Waiting for CRM" in dashboard
