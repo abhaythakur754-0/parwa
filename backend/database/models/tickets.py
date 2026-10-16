@@ -50,7 +50,11 @@ class TicketStatus(str, enum.Enum):
     assigned = "assigned"
     in_progress = "in_progress"
     awaiting_client = "awaiting_client"
-    awaiting_human = "awaiting_human"
+    awaiting_human = "awaiting_human"  # legacy — kept for old rows; new escalations use crm_pending
+    # HumanReplacement: AI couldn't resolve → request sent to the tenant's
+    # CRM. Nothing waits for an in-app human; the CRM resolution comes back
+    # via the resolution webhook/record endpoint and the AI learns from it.
+    crm_pending = "crm_pending"
     resolved = "resolved"
     reopened = "reopened"
     closed = "closed"

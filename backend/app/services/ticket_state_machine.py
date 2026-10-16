@@ -33,13 +33,14 @@ class TicketStateMachine:
     Complete ticket state machine with all valid transitions.
     
     State Transitions:
-    - open → assigned, queued, frozen, closed
-    - assigned → in_progress, awaiting_client, awaiting_human, open
-    - in_progress → awaiting_client, awaiting_human, resolved
+    - open → assigned, queued, frozen, closed, crm_pending
+    - assigned → in_progress, awaiting_client, awaiting_human, crm_pending, open
+    - in_progress → awaiting_client, awaiting_human, crm_pending, resolved
     - awaiting_client → in_progress, stale, resolved
-    - awaiting_human → in_progress, resolved
+    - awaiting_human → in_progress, resolved, crm_pending  (legacy rows can migrate)
+    - crm_pending → in_progress, resolved  (CRM resolution came back)
     - resolved → closed, reopened
-    - reopened → in_progress, awaiting_human
+    - reopened → in_progress, awaiting_human, crm_pending
     - closed → reopened
     - frozen → open, closed
     - queued → open
@@ -53,16 +54,19 @@ class TicketStateMachine:
             TicketStatus.queued,
             TicketStatus.frozen,
             TicketStatus.closed,
+            TicketStatus.crm_pending,
         ],
         TicketStatus.assigned: [
             TicketStatus.in_progress,
             TicketStatus.awaiting_client,
             TicketStatus.awaiting_human,
+            TicketStatus.crm_pending,
             TicketStatus.open,
         ],
         TicketStatus.in_progress: [
             TicketStatus.awaiting_client,
             TicketStatus.awaiting_human,
+            TicketStatus.crm_pending,
             TicketStatus.resolved,
         ],
         TicketStatus.awaiting_client: [
@@ -71,6 +75,11 @@ class TicketStateMachine:
             TicketStatus.resolved,
         ],
         TicketStatus.awaiting_human: [
+            TicketStatus.in_progress,
+            TicketStatus.resolved,
+            TicketStatus.crm_pending,
+        ],
+        TicketStatus.crm_pending: [
             TicketStatus.in_progress,
             TicketStatus.resolved,
         ],
@@ -108,16 +117,19 @@ class TicketStateMachine:
         (TicketStatus.open, TicketStatus.queued): ["variant_down", "ps13"],
         (TicketStatus.open, TicketStatus.frozen): ["account_suspended", "ps07"],
         (TicketStatus.open, TicketStatus.closed): ["spam", "invalid", "duplicate"],
+        (TicketStatus.open, TicketStatus.crm_pending): ["ai_cant_solve", "crm_escalation"],
         
         # assigned → *
         (TicketStatus.assigned, TicketStatus.in_progress): ["agent_started"],
         (TicketStatus.assigned, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
         (TicketStatus.assigned, TicketStatus.awaiting_human): ["ai_cant_solve", "ps02"],
+        (TicketStatus.assigned, TicketStatus.crm_pending): ["ai_cant_solve", "crm_escalation"],
         (TicketStatus.assigned, TicketStatus.open): ["unassigned"],
         
         # in_progress → *
         (TicketStatus.in_progress, TicketStatus.awaiting_client): ["need_client_input", "ps08"],
         (TicketStatus.in_progress, TicketStatus.awaiting_human): ["escalated", "ps02", "ps03"],
+        (TicketStatus.in_progress, TicketStatus.crm_pending): ["ai_cant_solve", "crm_escalation", "escalated"],
         (TicketStatus.in_progress, TicketStatus.resolved): ["issue_fixed"],
         
         # awaiting_client → *
@@ -128,6 +140,11 @@ class TicketStateMachine:
         # awaiting_human → *
         (TicketStatus.awaiting_human, TicketStatus.in_progress): ["human_picked_up"],
         (TicketStatus.awaiting_human, TicketStatus.resolved): ["human_resolved"],
+        (TicketStatus.awaiting_human, TicketStatus.crm_pending): ["crm_escalation", "human_replacement"],
+        
+        # crm_pending → *
+        (TicketStatus.crm_pending, TicketStatus.in_progress): ["crm_reopened"],
+        (TicketStatus.crm_pending, TicketStatus.resolved): ["crm_resolved", "crm_resolution_recorded"],
         
         # resolved → *
         (TicketStatus.resolved, TicketStatus.closed): ["client_satisfied", "timeout"],
