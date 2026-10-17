@@ -35,6 +35,11 @@ from datetime import datetime, timezone
 from typing import Any, Coroutine, Dict, Optional
 
 from app.core.email_utils import strip_reasoning
+from app.services.escalation_ask import (
+    apply_escalation_ask,
+    build_escalation_ask,
+    format_ask_for_crm,
+)
 
 logger = logging.getLogger("parwa.pipeline_dispatcher")
 
@@ -349,6 +354,13 @@ def _start_pipeline_workers():
                                                 else "pipeline_error"
                                             )
                                             meta["pipeline_error"] = err_msg[:200]
+                                            # Structured ask: the CRM team must
+                                            # see WHAT is wrong + WHAT to do.
+                                            _esc_ask = build_escalation_ask(
+                                                meta["escalation_reason"], "", err_msg[:200]
+                                            )
+                                            meta["escalation_type"] = _esc_ask["escalation_type"]
+                                            meta["escalation_ask"] = _esc_ask
                                             ticket.metadata_json = _json.dumps(meta)
                                             db.commit()
                                             logger.info(
@@ -733,6 +745,11 @@ def _run_pipeline_sync(
                 )
 
             logger.info("pipeline_interrupted ticket=%s question=%s", ticket_id, str(question_text)[:100])
+            apply_escalation_ask(
+                ticket,
+                reason="interrupt_needs_input",
+                context_hint=str(question_text)[:250],
+            )
             _persist_ai_response(
                 db=db, ticket=ticket, ai_response_text=display_text,
                 ai_response_html=f"<p>{display_text}</p>",
@@ -777,6 +794,11 @@ def _run_pipeline_sync(
             logger.info(
                 "pipeline_interrupted ticket=%s question=%s",
                 ticket_id, str(interrupt_question)[:100],
+            )
+            apply_escalation_ask(
+                ticket,
+                reason="interrupt_needs_input",
+                context_hint=str(interrupt_question)[:250],
             )
             # Save the question as a ticket message so it's visible
             _persist_ai_response(
@@ -981,6 +1003,25 @@ def _run_pipeline_sync(
                 )
 
         new_status = "resolved" if pipeline_status == "resolved" else "crm_pending"
+        if new_status == "crm_pending":
+            # Structured ask: the CRM team must see WHAT blocked the AI and
+            # WHAT to do about it (connect X / answer Y / approve Z).
+            _esc_reason = (
+                "cove_blocked" if cove_blocked
+                else "force_human_handoff" if force_human
+                else "no_answer" if not _ai_answered
+                else str(pipeline_status_raw)
+            )
+            apply_escalation_ask(
+                ticket,
+                reason=_esc_reason,
+                required_action=str(result.get("required_action") or ""),
+                context_hint=str(
+                    result.get("interrupt_question")
+                    or result.get("failure_analysis")
+                    or ""
+                )[:250],
+            )
         _persist_ai_response(
             db=db,
             ticket=ticket,
@@ -1309,6 +1350,7 @@ def _push_to_crm_outbound(
     from database.models.tickets import Ticket
     from app.services.integration_service import IntegrationService
     from app.core.crm_bridge.crm_bridge import CRMBridge
+    from app.services.escalation_ask import build_escalation_ask, format_ask_for_crm
 
     svc = IntegrationService(db)
 
@@ -1340,6 +1382,7 @@ def _push_to_crm_outbound(
     # same ticket as before, visibly marked with why AI couldn't solve it.
     existing_crm_ticket_id = ""
     ai_cant_reason = ""
+    esc_ask: Dict[str, Any] = {}
     try:
         _t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
         if _t and _t.metadata_json:
@@ -1347,15 +1390,23 @@ def _push_to_crm_outbound(
             if isinstance(_m, dict):
                 existing_crm_ticket_id = str(_m.get("crm_ticket_id") or "")
                 ai_cant_reason = str(_m.get("escalation_reason") or "")
+                _raw_ask = _m.get("escalation_ask")
+                if isinstance(_raw_ask, dict):
+                    esc_ask = _raw_ask
     except (json.JSONDecodeError, TypeError):
         pass
+    # Legacy rows may predate structured asks — derive one from the reason.
+    if not esc_ask:
+        esc_ask = build_escalation_ask(ai_cant_reason, "", "")
 
     if existing_crm_ticket_id:
         failure_context = {
-            "failure_analysis": ai_cant_reason or "ai_could_not_resolve",
+            "failure_analysis": format_ask_for_crm(esc_ask),
             "what_was_tried": str(ai_response_text or "")[:500],
             "ticket_type": category or "unknown",
             "complexity": "escalated",
+            "escalation_type": esc_ask.get("escalation_type", "unknown"),
+            "escalation_ask": esc_ask,
         }
         return_result = _run_async_safely(CRMBridge.push_permanent_failure(
             provider=crm_provider,
@@ -1452,11 +1503,12 @@ def _push_to_crm_outbound(
             f"Status: {ticket_status}."
         )
     else:
-        # Honest note: the CRM team must SEE that AI could not solve this
-        # and why — never claim "auto-resolved" when the ticket is crm_pending.
+        # Honest, actionable note: the CRM team must SEE that AI could not
+        # solve this, WHY, and exactly what to do next — never claim
+        # "auto-resolved" when the ticket is crm_pending.
         internal_note = (
             f"PARWA AI could not resolve this ticket — your team's resolution "
-            f"is needed. Reason: {ai_cant_reason or 'ai_could_not_resolve'}. "
+            f"is needed. {format_ask_for_crm(esc_ask)} "
             f"What the AI tried: {str(ai_response_text or '')[:300]} "
             f"Original Parwa ticket ID: {ticket_id}."
         )

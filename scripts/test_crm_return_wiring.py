@@ -177,7 +177,8 @@ check("A5 mock CRM got parwa.cannot_resolve for ORIGINAL ticket", len(ev) >= 1)
 if ev:
     fc = ev[-1].get("failure_context", {})
     check("A6 payload has action=reset_to_new", ev[-1].get("action") == "reset_to_new", str(ev[-1].get("action")))
-    check("A7 reason visible to CRM team", fc.get("failure_analysis") == "kb_gap_no_tool", str(fc.get("failure_analysis")))
+    fa = str(fc.get("failure_analysis", ""))
+    check("A7 structured ask visible to CRM team", "What I need from your team:" in fa, fa[:140])
     check("A8 what AI tried visible to CRM team", "could not confirm the settlement status" in str(fc.get("what_was_tried", "")))
 
 # ── Test C: return push fails → falls through, honest note on new ticket ─
@@ -216,7 +217,7 @@ check("C1 fell through and created fresh CRM ticket", res_c.get("crm_ticket_id")
 check("C2 not marked returned_to_original", res_c.get("returned_to_original") is None)
 note = str(captured.get("push", {}).get("internal_note", ""))
 check("C3 note says AI could NOT resolve", "could not resolve" in note.lower(), note[:120])
-check("C4 note includes the reason", "response_failed_verification" in note)
+check("C4 note carries the structured ask + type", "[Answer failed verification]" in note and "What I need from your team:" in note, note[:160])
 check("C5 note never claims auto-resolved", "auto-resolved" not in note.lower())
 check("C6 push status to CRM is escalated", captured.get("push", {}).get("status") == "escalated", str(captured.get("push", {}).get("status")))
 
@@ -239,6 +240,87 @@ note_d = str(captured.get("push", {}).get("internal_note", ""))
 check("D1 resolved note says auto-resolved by PARWA AI", "auto-resolved by parwa ai" in note_d.lower(), note_d[:120])
 check("D2 resolved push status is resolved", captured.get("push", {}).get("status") == "resolved", str(captured.get("push", {}).get("status")))
 
+# ── Test E: structured ask (missing_connection) reaches the CRM ──────────
+print("\n── E: structured ask ('connect Razorpay') flows to the CRM team ──")
+from app.services.escalation_ask import apply_escalation_ask  # noqa: E402
+
+db = SessionLocal()
+make_ticket(db, "55555555-5555-5555-5555-555555555555", "comp-a", {
+    "crm_ticket_id": "CRM-ORIG-90",
+    "escalation_reason": "missing_connection",
+})
+t_e = db.query(Ticket).get("55555555-5555-5555-5555-555555555555")
+apply_escalation_ask(t_e, reason="missing_connection", required_action="execute_refund")
+db.commit()
+res_e = push(db, "55555555-5555-5555-5555-555555555555", "comp-a")
+db.close()
+
+check("E1 returned to ORIGINAL CRM ticket", res_e.get("returned_to_original") is True, str(res_e))
+ev_e = [e for e in last_mock_events(10) if e.get("event") == "parwa.cannot_resolve" and e.get("ticket_id") == "CRM-ORIG-90"]
+check("E2 mock CRM received the push", len(ev_e) >= 1)
+if ev_e:
+    fc_e = ev_e[-1].get("failure_context", {})
+    check("E3 escalation_type in payload", fc_e.get("escalation_type") == "missing_connection", str(fc_e.get("escalation_type")))
+    check("E4 structured ask dict in payload", isinstance(fc_e.get("escalation_ask"), dict))
+    fa_e = str(fc_e.get("failure_analysis", ""))
+    check("E5 note names the missing capability", "payment gateway" in fa_e, fa_e[:140])
+    check("E6 note says what to connect (Razorpay)", "Razorpay" in fa_e)
+    check("E7 note says what happens after", "Retry" in fa_e)
+
+# ── Test F: legacy row (no stored ask) still gets a derived ask ──────────
+print("\n── F: legacy ticket without stored ask derives one automatically ──")
+seed("comp-f", GOOD_WEBHOOK)
+db = SessionLocal()
+make_ticket(db, "66666666-6666-6666-6666-666666666666", "comp-f", {
+    "crm_ticket_id": "CRM-ORIG-91",
+    "escalation_reason": "max_retries_exceeded",  # legacy: no escalation_ask
+})
+res_f = push(db, "66666666-6666-6666-6666-666666666666", "comp-f")
+db.close()
+ev_f = [e for e in last_mock_events(10) if e.get("event") == "parwa.cannot_resolve" and e.get("ticket_id") == "CRM-ORIG-91"]
+check("F1 legacy push succeeded", res_f.get("returned_to_original") is True and len(ev_f) >= 1, str(res_f))
+if ev_f:
+    fa_f = str(ev_f[-1].get("failure_context", {}).get("failure_analysis", ""))
+    check("F2 derived ask names the problem type", "Technical error" in fa_f, fa_f[:140])
+    check("F3 derived ask still actionable", "What I need from your team:" in fa_f)
+
+# ── Test G: the team's ANSWER gets stored and the agent reacts to it ─────
+print("\n── G: CRM resolution → learned pattern → agent recalls it next time ──")
+from database.models.tickets import TicketMessage  # noqa: E402
+from app.services.crm_resolution_service import CRMResolutionService  # noqa: E402
+from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store  # noqa: E402
+
+seed("comp-g", GOOD_WEBHOOK)
+db = SessionLocal()
+make_ticket(db, "77777777-7777-7777-7777-777777777777", "comp-g", {
+    "escalation_type": "missing_knowledge",
+})
+db.merge(TicketMessage(
+    id="msg-g-1", ticket_id="77777777-7777-7777-7777-777777777777",
+    company_id="comp-g", role="customer", channel="email",
+    content="I was charged twice last week, when will I get my refund?",
+))
+db.commit()
+t_g = db.query(Ticket).get("77777777-7777-7777-7777-777777777777")
+wiki_key = CRMResolutionService.learn_from_resolution(
+    db, t_g,
+    "We verified the double charge and refunded ₹1,200 to the customer's "
+    "original payment method via Razorpay; it reflects in 3-5 business days.",
+)
+db.close()
+check("G1 resolution learned into the AI wiki", bool(wiki_key), str(wiki_key))
+
+patterns = get_wiki_store().find_similar_patterns(
+    tenant_id="comp-g",
+    query="charged twice when will I get my refund",
+    ticket_type="billing",
+)
+check("G2 agent finds the stored pattern next time", len(patterns) >= 1)
+if patterns:
+    p = patterns[0]
+    check("G3 pattern carries the team's answer", "refunded" in str(p.get("answer_summary", "")), str(p.get("answer_summary", ""))[:120])
+    check("G4 pattern carries the question context", "charged" in str(p.get("query_pattern", "")))
+
 # ── Summary ──────────────────────────────────────────────────────────────
 failed = [r for r in results if not r[1]]
 print(f"\n{'=' * 60}\nRESULT: {len(results) - len(failed)}/{len(results)} checks passed")
@@ -246,4 +328,4 @@ if failed:
     for name, _, detail in failed:
         print(f"  FAILED: {name} — {detail}")
     sys.exit(1)
-print("ALL WIRING CHECKS PASSED — CRM sees the same ticket + honest reason.")
+print("ALL WIRING CHECKS PASSED — structured asks reach the CRM + answers get learned.")

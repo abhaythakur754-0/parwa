@@ -916,6 +916,15 @@ export default function EscalationsPage() {
     created_at: string;
     customer_name: string | null;
     customer_email: string | null;
+    metadata_json?: {
+      escalation_type?: string;
+      escalation_ask?: {
+        escalation_type?: string;
+        problem?: string;
+        needed_from_team?: string;
+        after_that?: string;
+      } | null;
+    } | null;
   }
   const [awaitingTickets, setAwaitingTickets] = useState<AwaitingTicket[]>([]);
   const [awaitingLoading, setAwaitingLoading] = useState(true);
@@ -1112,6 +1121,17 @@ export default function EscalationsPage() {
                 <h3 className="text-sm font-semibold text-white mb-2 line-clamp-1">
                   {ticket.subject || 'No subject'}
                 </h3>
+                {/* Structured escalation ask — WHAT the AI needs from the team */}
+                {ticket.metadata_json?.escalation_ask?.needed_from_team && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.07] px-3 py-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 shrink-0 mt-0.5">
+                      Needs:
+                    </span>
+                    <span className="text-[11px] text-amber-200/90 leading-snug line-clamp-2">
+                      {ticket.metadata_json.escalation_ask.needed_from_team}
+                    </span>
+                  </div>
+                )}
                 {ticket.description && (
                   <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-4 flex-1">
                     {ticket.description}
