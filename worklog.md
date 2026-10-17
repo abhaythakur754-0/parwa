@@ -542,3 +542,23 @@ Work Log:
 Stage Summary:
 - Escalation contract now matches the user's words exactly: CRM gets the SAME ticket back, restored to pre-AI state, visibly marked "AI could not resolve" + reason + what AI tried; duplicates impossible unless CRM unreachable (then fresh ticket as safety net)
 - Local proof: 16/16 wiring + 10/10 E2E; DEPLOY STILL PENDING user token/push (b1d4634→ac324de), then run scripts/migrate_awaiting_human_to_crm.py for the 5 legacy tickets
+
+---
+Task ID: 30
+Agent: main (orchestrator)
+Task: Phase 1 — structured escalation asks for ALL blocker types + proof that stored answers drive the agent (user: "escalation should convey the problem + what to connect; if a problem is not in history, the team's answer gets stored and the agent reacts to it — possible?")
+
+Work Log:
+- Mapped every escalation_reason writer + required_action vocabulary (state_v2 "execute_refund, provide_info, escalate, etc."; node values: refund/refund_request/provide_info/inform/process/escalate_human/pause_for_agent_approval) so no blocker type is missed
+- NEW backend/app/services/escalation_ask.py — deterministic builder (zero LLM cost): 7 types (missing_connection, missing_knowledge, unverified_answer, approval_required, technical_error, customer_requested_human, unknown); substring classifier so future reasons auto-classify; required_action→capability table (refund→payment gateway(Razorpay/Stripe/PayPal), tracking→carrier, orders→ecommerce, subscription→billing, booking→scheduling, stock→inventory, contact→CRM); every type → {problem, needed_from_team, after_that}; UNKNOWN reasons still produce a full ask (user's "not in history" case = no dead ends)
+- pipeline_dispatcher: ask applied at ALL 4 escalation points (worker escalate, main-result crm_pending (cove/force_human/no_answer), both interrupt paths) → metadata escalation_type + escalation_ask; _push_to_crm_outbound renders ask into CRM internal note + webhook failure_context{escalation_type, escalation_ask, failure_analysis=format_ask_for_crm}; legacy rows (no stored ask) derive one from their old reason
+- Frontend escalations page: amber "Needs: <needed_from_team>" chip on Waiting-for-CRM cards (TicketResponse.metadata_json already exposed the ask — no schema change); existing guidance chat + auto-resume = the Retry path
+- Learning-loop PROOF (user's question answered in code): test G — learn_from_resolution writes the team's resolution → find_similar_patterns recalls it (answer_summary + query_pattern verified) → next similar ticket, the agent reacts from memory, CoVe still verifies
+- Tests: NEW tests/unit/test_escalation_ask.py 40 passed (classifier incl. brand-new reasons, capability mapping, format, persistence incl. corrupted metadata, label completeness); extended scripts/test_crm_return_wiring.py to 30 checks (A-C regression + E: ask reaches mock CRM end-to-end + F: legacy derivation + G: learning loop); API E2E 10/10. Bug found by tests: "max_retries_exceeded" → unknown (no substring "retry" in "retries") — fixed
+- Environment note: sandbox keeps wiping /home/z/.venv — requirements reinstalled 3×; backend+E2E must run in ONE shell command (daemons reaped); repo-level `next lint` broken (pre-existing) — used npx tsc per-file (clean)
+- Committed 3223f94 (5 files, +630/−7)
+
+Stage Summary:
+- Escalation contract now complete: EVERY crm_pending ticket carries a structured, actionable ask visible to (a) the CRM team (note/webhook), (b) the dashboard ("Needs:" chip), (c) Phase 3 auto-retry (metadata escalation_ask.capability + escalation_type = which tickets wait on which connection)
+- Full loop proven locally: AI can't solve → structured ask to CRM → team resolves → answer relayed to customer + stored as pattern → agent solves the next one from memory
+- PENDING (needs user token/deploy): push b1d4634→3223f94, Render deploy, migrate 5 legacy tickets; Phase 2 (CRM-history backfill) and Phase 3 (auto-retry on new integration) ready to build next
