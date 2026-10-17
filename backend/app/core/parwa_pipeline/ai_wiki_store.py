@@ -244,6 +244,18 @@ class WikiEntry:
         return str(self.content)
 
 
+def ticket_pattern_entry_key(ticket_type: str, query: str) -> str:
+    """Stable Section-A entry key for a ticket pattern.
+
+    Key = ticket_type + md5 of the query's significant terms. Deterministic
+    by design: the same query always maps to the same key, which the CRM
+    history backfill uses for dedupe (skip tickets already learned) and
+    which makes repeated learning idempotent (write() upserts by key).
+    """
+    key_terms = " ".join(w for w in (query or "").lower().split() if len(w) > 4)[:60]
+    return f"{ticket_type}_{hashlib.md5(key_terms.encode()).hexdigest()[:8]}"
+
+
 # ── DB Persistence (write-through with in-memory fallback) ────────
 # The wiki survives restarts via the ai_wiki_entries table
 # (database.models.ai_pipeline.AIWikiEntry). DB access is best-effort:
@@ -675,9 +687,7 @@ class AIWikiStore:
         Called after a ticket is successfully resolved.
         Stores: what the question was, what techniques worked, quality achieved.
         """
-        # Generate a stable key from ticket_type + key query terms
-        key_terms = " ".join(w for w in query.lower().split() if len(w) > 4)[:60]
-        entry_key = f"{ticket_type}_{hashlib.md5(key_terms.encode()).hexdigest()[:8]}"
+        entry_key = ticket_pattern_entry_key(ticket_type, query)
 
         content = {
             "query_pattern": query[:300],

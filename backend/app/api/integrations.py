@@ -60,6 +60,12 @@ class IndustryChangeImpactResponse(BaseModel):
     message: str
 
 
+class BackfillHistoryRequest(BaseModel):
+    """Request to learn one batch of resolved CRM tickets into the AI wiki."""
+    batch_size: int = Field(default=50, ge=1, le=100,
+                            description="Tickets per batch (50-100 recommended)")
+
+
 class IntegrationResponse(BaseModel):
     """Response with integration details."""
 
@@ -165,7 +171,126 @@ def api_create_integration(
     except Exception:
         pass  # BC-012: Audit logging must not break the main operation
 
+    # Phase 3: auto-retry escalated tickets that were waiting for THIS
+    # connection. Non-blocking, non-fatal — a sweep hiccup never fails
+    # the connect call.
+    try:
+        from app.services.auto_retry_service import retry_tickets_for_integration
+
+        _definition = get_integration_by_key(body.integration_type)
+        _category = _definition.category.value if _definition else ""
+        retry_summary = retry_tickets_for_integration(
+            db=db,
+            company_id=str(user.company_id),
+            integration_type=body.integration_type,
+            category=_category,
+        )
+        if retry_summary.get("retried"):
+            import logging
+
+            logging.getLogger("parwa.api.integrations").info(
+                "integration_connect_auto_retry company=%s integration=%s retried=%d",
+                str(user.company_id)[:8], body.integration_type,
+                retry_summary["retried"],
+            )
+    except Exception:  # noqa: BLE001 — retry sweep must never break connect
+        pass
+
     return IntegrationResponse(**integration)
+
+
+@router.post(
+    "/crm-history/backfill",
+    response_model=Dict[str, Any],
+)
+def api_start_crm_history_backfill(
+    body: BackfillHistoryRequest | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Phase 2 — learn one batch of resolved tickets from CRM history.
+
+    Distills how the team solved past tickets into AI-wiki patterns the
+    pipeline recalls on the next similar ticket. Read-only toward the
+    CRM; idempotent (already-learned tickets are skipped by a stable
+    content hash).
+
+    The batch runs in the background against its OWN DB session (this
+    request's session closes with the response). Poll /crm-history/status
+    for progress, then call again for the next batch while has_more.
+    """
+    from database.base import SessionLocal
+    from app.services.crm_history_backfill import (
+        get_backfill_state,
+        run_backfill_batch,
+    )
+
+    company_id = str(user.company_id)
+    check = get_backfill_state(db, company_id)
+    if not check.get("supported"):
+        return {
+            "status": "unsupported",
+            "provider": check.get("provider"),
+            "reason": check.get("reason"),
+            "fetched": 0, "learned": 0, "duplicates_skipped": 0,
+            "has_more": False, "error": None,
+        }
+
+    # Snapshot pre-run state so the response can report per-batch numbers
+    # even though the work happens after the response is sent.
+    pre = check.get("state") or {}
+    pre_learned = int(pre.get("patterns_learned", 0) or 0)
+    pre_fetched = int(pre.get("tickets_fetched", 0) or 0)
+    pre_skipped = int(pre.get("duplicates_skipped", 0) or 0)
+
+    def _job() -> None:
+        job_db = SessionLocal()
+        try:
+            run_backfill_batch(job_db, company_id, batch_size=body.batch_size if body else 50)
+        finally:
+            job_db.close()
+
+    # Daemon thread (NOT BackgroundTasks): a plain def endpoint returns via
+    # its Response without ever attaching a BackgroundTasks object, so the
+    # task would silently never run. A daemon thread with its own session
+    # is the reliable path; the in-service staleness guard prevents overlap.
+    import threading
+
+    threading.Thread(target=_job, name="crm-history-backfill", daemon=True).start()
+
+    return {
+        "status": "started",
+        "provider": check.get("provider"),
+        "reason": None,
+        "batch_size": body.batch_size if body else 50,
+        "fetched": None,
+        "learned": None,
+        "duplicates_skipped": None,
+        "prior": {"fetched": pre_fetched, "learned": pre_learned,
+                  "duplicates_skipped": pre_skipped},
+        "has_more": None,
+        "error": None,
+    }
+
+
+@router.get(
+    "/crm-history/status",
+    response_model=Dict[str, Any],
+)
+def api_crm_history_backfill_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Progress of the CRM-history backfill (Phase 2) for this tenant."""
+    from app.services.crm_history_backfill import get_backfill_state
+
+    check = get_backfill_state(db, str(user.company_id))
+    return {
+        "supported": check.get("supported", False),
+        "provider": check.get("provider"),
+        "reason": check.get("reason"),
+        "state": check.get("state"),
+    }
 
 
 @router.get(

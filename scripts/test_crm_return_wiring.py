@@ -30,7 +30,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Engine is created at import time in database.base — set URL first.
-os.environ.setdefault("DATABASE_URL", "sqlite:////tmp/crm_wiring_test.db")
+# Hard set (NOT setdefault): the sandbox shell may export its own DATABASE_URL.
+os.environ["DATABASE_URL"] = "sqlite:////tmp/crm_wiring_test.db"
 # Sandbox proxies must not intercept the localhost mock-CRM webhook calls.
 for _k in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY",
            "http_proxy", "https_proxy", "all_proxy"):

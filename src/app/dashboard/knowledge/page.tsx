@@ -36,6 +36,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { CrmHistoryBackfillCard } from '@/components/knowledge/CrmHistoryBackfillCard';
 import {
   Upload,
   FileText,
@@ -742,6 +743,9 @@ export default function KnowledgePage() {
           <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
+
+      {/* Phase 2: learn from CRM history (self-teaching from past resolutions) */}
+      <CrmHistoryBackfillCard />
 
       {/* Processing banner — shows when any document is still processing */}
       {hasProcessing && (

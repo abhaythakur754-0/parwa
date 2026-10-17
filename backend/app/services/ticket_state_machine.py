@@ -82,6 +82,7 @@ class TicketStateMachine:
         TicketStatus.crm_pending: [
             TicketStatus.in_progress,
             TicketStatus.resolved,
+            TicketStatus.open,  # auto_retry: matching integration connected (Phase 3)
         ],
         TicketStatus.resolved: [
             TicketStatus.closed,
@@ -143,6 +144,7 @@ class TicketStateMachine:
         # crm_pending → *
         (TicketStatus.crm_pending, TicketStatus.in_progress): ["crm_reopened"],
         (TicketStatus.crm_pending, TicketStatus.resolved): ["crm_resolved", "crm_resolution_recorded"],
+        (TicketStatus.crm_pending, TicketStatus.open): ["auto_retry"],
         
         # resolved → *
         (TicketStatus.resolved, TicketStatus.closed): ["client_satisfied", "timeout"],

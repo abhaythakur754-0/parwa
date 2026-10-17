@@ -183,6 +183,41 @@ class CRMAdapter(ABC):
             "error": f"create_ticket_in_crm not implemented for {self.__class__.__name__}",
         }
 
+    async def fetch_resolved_tickets(
+        self,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Fetch RESOLVED tickets + their conversation from the CRM (Phase 2).
+
+        Read-only history backfill: the AI wiki learns how the team solved
+        past tickets. Adapters that support a read API (Zendesk, HubSpot)
+        override this; webhook-only adapters keep the default.
+
+        Args:
+            limit: Max tickets to return in this batch (50-100 recommended).
+            cursor: Opaque pagination cursor (provider-specific; None = start).
+            config: CRM credentials dict.
+
+        Returns:
+            {
+              "success": True/False,
+              "supported": True/False,
+              "tickets": [ {crm_ticket_id, subject, description,
+                            resolution_text, ticket_type, created_at} ],
+              "next_cursor": "..." | None,
+              "error": "..."   # On failure / unsupported
+            }
+        """
+        return {
+            "success": False,
+            "supported": False,
+            "tickets": [],
+            "next_cursor": None,
+            "error": f"history_fetch_not_supported_for_{self.__class__.__name__}",
+        }
+
 
 # ═══════════════════════════════════════════════════════════════
 # ZENDESK ADAPTER
@@ -551,6 +586,115 @@ class ZendeskAdapter(CRMAdapter):
         # Token compare only — the X-Zendesk-Signature raw-body HMAC is
         # verified at the API layer, where the raw request body exists.
         return hmac.compare_digest(token.encode("utf-8"), secret.encode("utf-8"))
+
+    async def fetch_resolved_tickets(
+        self,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Fetch solved/closed Zendesk tickets + conversation (Phase 2).
+
+        Two API calls per ticket: the list endpoint (1 call per batch) and
+        a comments call per ticket. `resolution_text` = the LAST comment
+        (the team's final word on a solved ticket is its resolution).
+        """
+        if not config:
+            return {"success": False, "supported": True, "tickets": [],
+                    "next_cursor": None, "error": "no_zendesk_config"}
+        try:
+            import httpx
+
+            subdomain = config.get("subdomain", "")
+            api_key = config.get("api_key", "")
+            email = config.get("email", "")
+            if not (subdomain and api_key and email):
+                return {"success": False, "supported": True, "tickets": [],
+                        "next_cursor": None, "error": "zendesk_config_incomplete"}
+
+            base_url = self.API_BASE.format(subdomain=subdomain)
+            auth = (f"{email}/token", api_key)
+
+            page = 1
+            try:
+                page = max(1, int(cursor)) if cursor else 1
+            except (TypeError, ValueError):
+                page = 1
+
+            async with httpx.AsyncClient(timeout=20.0, auth=auth) as client:
+                list_resp = await client.get(
+                    f"{base_url}/tickets.json",
+                    params={
+                        "status": "solved,closed",
+                        "per_page": max(1, min(int(limit), 100)),
+                        "page": page,
+                        "sort_by": "created_at",
+                        "order_by": "asc",
+                    },
+                )
+                if list_resp.status_code != 200:
+                    return {"success": False, "supported": True, "tickets": [],
+                            "next_cursor": None,
+                            "error": f"zendesk_list_http_{list_resp.status_code}"}
+                payload = list_resp.json() or {}
+                raw_tickets = payload.get("tickets", []) or []
+
+                # Next page exists only if the batch came back full.
+                next_cursor = str(page + 1) if len(raw_tickets) >= max(1, min(int(limit), 100)) else None
+
+                tickets: list = []
+                for zt in raw_tickets[: max(1, min(int(limit), 100))]:
+                    zid = str(zt.get("id", "") or "")
+                    if not zid:
+                        continue
+                    description = _strip_html(str(zt.get("description", "") or ""))
+                    resolution_text = ""
+                    try:
+                        cm_resp = await client.get(
+                            f"{base_url}/tickets/{zid}/comments.json"
+                        )
+                        if cm_resp.status_code == 200:
+                            comments = (cm_resp.json() or {}).get("comments", []) or []
+                            for c in reversed(comments):
+                                body = _strip_html(str(c.get("body", "") or "")).strip()
+                                if body and body != description.strip():
+                                    resolution_text = body
+                                    break
+                    except Exception as exc:  # noqa: BLE001 — comments are best-effort
+                        logger.debug("Zendesk: comments fetch failed id=%s: %s", zid, exc)
+
+                    tickets.append({
+                        "crm_ticket_id": zid,
+                        "subject": str(zt.get("subject", "") or ""),
+                        "description": description,
+                        "resolution_text": resolution_text,
+                        "ticket_type": str(zt.get("type", "") or "general"),
+                        "created_at": str(zt.get("created_at", "") or ""),
+                    })
+
+                return {"success": True, "supported": True, "tickets": tickets,
+                        "next_cursor": next_cursor, "error": None}
+        except Exception as e:  # noqa: BLE001
+            logger.error("Zendesk: fetch_resolved_tickets failed: %s", e)
+            return {"success": False, "supported": True, "tickets": [],
+                    "next_cursor": None, "error": str(e)[:300]}
+
+
+def _strip_html(text: str) -> str:
+    """Minimal HTML → plain text for CRM bodies (comments/descriptions).
+
+    Enough for wiki pattern text: drops tags, unbreaks common entities,
+    collapses whitespace. Not a sanitizer — output is never executed.
+    """
+    if not text:
+        return ""
+    import re as _re
+    t = _re.sub(r"<br\s*/?>|</p>|</div>", " ", text, flags=_re.IGNORECASE)
+    t = _re.sub(r"<[^>]+>", "", t)
+    for ent, ch in (("&nbsp;", " "), ("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
+                    ("&quot;", '"'), ("&#39;", "'")):
+        t = t.replace(ent, ch)
+    return _re.sub(r"\s+", " ", t).strip()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -983,6 +1127,119 @@ class HubSpotAdapter(CRMAdapter):
         signature = headers.get("X-HubSpot-Signature", "")
         return bool(signature)
 
+    async def fetch_resolved_tickets(
+        self,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Fetch CLOSED HubSpot tickets + resolution notes (Phase 2).
+
+        ponytail: resolution_text comes from the ticket's note engagements
+        when present, else the ticket description. A bulk-notes upgrade
+        (batch read endpoint) is the documented next step if note quality
+        proves too thin.
+        """
+        if not config:
+            return {"success": False, "supported": True, "tickets": [],
+                    "next_cursor": None, "error": "no_hubspot_config"}
+        try:
+            import httpx
+
+            access_token = config.get("access_token", "")
+            if not access_token:
+                return {"success": False, "supported": True, "tickets": [],
+                        "next_cursor": None, "error": "hubspot_config_incomplete"}
+
+            headers = {"Authorization": f"Bearer {access_token}",
+                       "Content-Type": "application/json"}
+            size = max(1, min(int(limit), 100))
+            body: Dict[str, Any] = {
+                "filterGroups": [{
+                    "filters": [{"propertyName": "hs_ticket_status",
+                                 "operator": "EQ", "value": "CLOSED"}]
+                }],
+                "properties": ["subject", "content", "createdate",
+                               "hs_ticket_id", "hs_ticket_status"],
+                "limit": size,
+            }
+            if cursor:
+                body["after"] = cursor
+
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(
+                    "https://api.hubapi.com/crm/v3/objects/tickets/search",
+                    headers=headers, json=body,
+                )
+                if resp.status_code != 200:
+                    return {"success": False, "supported": True, "tickets": [],
+                            "next_cursor": None,
+                            "error": f"hubspot_search_http_{resp.status_code}"}
+                payload = resp.json() or {}
+                results = payload.get("results", []) or []
+                paging_next = ((payload.get("paging") or {})
+                               .get("next") or {}).get("after")
+                next_cursor = str(paging_next) if paging_next else None
+
+                tickets: list = []
+                for ht in results[:size]:
+                    props = ht.get("properties", {}) or {}
+                    tid = str(props.get("hs_ticket_id") or ht.get("id", "") or "")
+                    if not tid:
+                        continue
+                    description = _strip_html(str(props.get("content", "") or ""))
+                    resolution_text = ""
+                    # One associations call per ticket — best effort.
+                    try:
+                        assoc = await client.get(
+                            f"https://api.hubapi.com/crm/v3/objects/tickets/{tid}/associations/notes",
+                            headers=headers,
+                        )
+                        note_ids: list = []
+                        if assoc.status_code == 200:
+                            for a in ((assoc.json() or {}).get("results", []) or []):
+                                nid = str(a.get("id", "") or "")
+                                if nid:
+                                    note_ids.append(nid)
+                        if note_ids:
+                            batch = await client.post(
+                                "https://api.hubapi.com/crm/v3/objects/notes/batch/read",
+                                headers=headers,
+                                json={"inputs": [{"id": n} for n in note_ids[:20]]},
+                            )
+                            if batch.status_code == 200:
+                                notes = (batch.json() or {}).get("results", []) or []
+                                bodies = [
+                                    _strip_html(str((n.get("properties") or {})
+                                                    .get("hs_note_body", "") or "")).strip()
+                                    for n in notes
+                                ]
+                                for b in reversed([x for x in bodies if x]):
+                                    if b != description.strip():
+                                        resolution_text = b
+                                        break
+                    except Exception as exc:  # noqa: BLE001 — notes are best-effort
+                        logger.debug("HubSpot: notes fetch failed id=%s: %s", tid, exc)
+
+                    if not resolution_text and description:
+                        resolution_text = description
+
+                    tickets.append({
+                        "crm_ticket_id": tid,
+                        "subject": str(props.get("subject", "") or ""),
+                        "description": description,
+                        "resolution_text": resolution_text,
+                        "ticket_type": "general",
+                        "created_at": str(props.get("createdate", "") or ""),
+                    })
+
+                return {"success": True, "supported": True, "tickets": tickets,
+                        "next_cursor": next_cursor, "error": None}
+        except Exception as e:  # noqa: BLE001
+            logger.error("HubSpot: fetch_resolved_tickets failed: %s", e)
+            return {"success": False, "supported": True, "tickets": [],
+                    "next_cursor": None, "error": str(e)[:300]}
+
 
 # ═══════════════════════════════════════════════════════════════
 # GENERIC ADAPTER (fallback)
@@ -1334,3 +1591,31 @@ class CRMBridge:
         except Exception as e:
             logger.error("CRMBridge: Failed to create ticket in %s: %s", provider, e)
             return {"success": False, "error": str(e)}
+
+    @staticmethod
+    async def fetch_resolved_tickets(
+        provider: str,
+        limit: int = 50,
+        cursor: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Read-only: fetch resolved tickets + conversations (Phase 2 backfill).
+
+        The AI wiki learns how the team solved past tickets — the same
+        store the pipeline already recalls (find_similar_patterns). Never
+        writes anything to the CRM.
+        """
+        try:
+            adapter = get_crm_adapter(provider)
+            result = await adapter.fetch_resolved_tickets(
+                limit=limit, cursor=cursor, config=config,
+            )
+            logger.info(
+                "CRMBridge: Fetched history from %s success=%s tickets=%d",
+                provider, result.get("success"), len(result.get("tickets", [])),
+            )
+            return result
+        except Exception as e:
+            logger.error("CRMBridge: Failed to fetch history from %s: %s", provider, e)
+            return {"success": False, "supported": False, "tickets": [],
+                    "next_cursor": None, "error": str(e)[:300]}
