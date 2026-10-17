@@ -1332,6 +1332,68 @@ def _push_to_crm_outbound(
             "reason": "no_crm_integration",
         }
 
+    # ── Step 0: CRM-originated tickets return to the SAME CRM ticket ──
+    # If this Parwa ticket was ingested from the tenant's CRM (the inbound
+    # webhook stores the source CRM ticket id in metadata), do NOT create
+    # a duplicate. Push "AI could not resolve" to the EXISTING CRM ticket
+    # and reset it to its pre-AI state (open/new) so the CRM team sees the
+    # same ticket as before, visibly marked with why AI couldn't solve it.
+    existing_crm_ticket_id = ""
+    ai_cant_reason = ""
+    try:
+        _t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if _t and _t.metadata_json:
+            _m = json.loads(_t.metadata_json)
+            if isinstance(_m, dict):
+                existing_crm_ticket_id = str(_m.get("crm_ticket_id") or "")
+                ai_cant_reason = str(_m.get("escalation_reason") or "")
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    if existing_crm_ticket_id:
+        failure_context = {
+            "failure_analysis": ai_cant_reason or "ai_could_not_resolve",
+            "what_was_tried": str(ai_response_text or "")[:500],
+            "ticket_type": category or "unknown",
+            "complexity": "escalated",
+        }
+        return_result = _run_async_safely(CRMBridge.push_permanent_failure(
+            provider=crm_provider,
+            ticket_id=existing_crm_ticket_id,
+            attempts=1,
+            failure_context=failure_context,
+            config=crm_config,
+        ))
+        if return_result.get("success"):
+            logger.info(
+                "crm_outbound_returned_to_original ticket=%s crm_ticket=%s provider=%s",
+                ticket_id, existing_crm_ticket_id, crm_provider,
+            )
+            # Keep the deep-link on the ORIGINAL CRM ticket and record
+            # why the AI returned it, so the dashboard can show it too.
+            _persist_crm_status_to_metadata(
+                db=db,
+                ticket_id=ticket_id,
+                crm_provider=crm_provider,
+                crm_ticket_id=existing_crm_ticket_id,
+                crm_create_status="returned_to_crm",
+                crm_push_status="success",
+            )
+            return {
+                "success": True,
+                "crm_ticket_id": existing_crm_ticket_id,
+                "crm_provider": crm_provider,
+                "returned_to_original": True,
+                "push_success": True,
+            }
+        # Push to the original CRM ticket failed — fall through and create
+        # a fresh CRM ticket so the request still reaches the CRM team.
+        logger.warning(
+            "crm_outbound_return_failed ticket=%s crm_ticket=%s error=%s",
+            ticket_id, existing_crm_ticket_id,
+            str(return_result.get("error", ""))[:200],
+        )
+
     # ── Step 1: Create the ticket in the CRM ─────────────────────────
     create_result = _run_async_safely(CRMBridge.create_ticket(
         provider=crm_provider,
@@ -1383,11 +1445,21 @@ def _push_to_crm_outbound(
     #   resolved    → "resolved"
     #   crm_pending → "escalated" (request waiting on CRM resolution)
     crm_status = "resolved" if ticket_status == "resolved" else "escalated"
-    internal_note = (
-        f"Ticket auto-resolved by PARWA AI (model={model_used}). "
-        f"Original Parwa ticket ID: {ticket_id}. "
-        f"Status: {ticket_status}."
-    )
+    if ticket_status == "resolved":
+        internal_note = (
+            f"Ticket auto-resolved by PARWA AI (model={model_used}). "
+            f"Original Parwa ticket ID: {ticket_id}. "
+            f"Status: {ticket_status}."
+        )
+    else:
+        # Honest note: the CRM team must SEE that AI could not solve this
+        # and why — never claim "auto-resolved" when the ticket is crm_pending.
+        internal_note = (
+            f"PARWA AI could not resolve this ticket — your team's resolution "
+            f"is needed. Reason: {ai_cant_reason or 'ai_could_not_resolve'}. "
+            f"What the AI tried: {str(ai_response_text or '')[:300]} "
+            f"Original Parwa ticket ID: {ticket_id}."
+        )
 
     push_result = _run_async_safely(CRMBridge.push_response(
         provider=crm_provider,
