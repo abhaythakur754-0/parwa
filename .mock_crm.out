@@ -1,2 +1,2 @@
 [mock-crm] listening on :9099, log=/home/z/my-project/.mock_crm_log.jsonl
-[mock-crm] POST /ping event=? ticket_id=?
+[mock-crm] POST /webhook event=? ticket_id=?

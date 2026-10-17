@@ -524,3 +524,21 @@ Stage Summary:
 - 3 production bugs fixed in this pass: priority_service NameError (ours), ticket_service/bulk missing crm_pending transitions (would re-create the stuck-forever bug), schema datetime crash (SQLite-only)
 - Local artifacts: local_test.db, local_backend.log, .mock_crm_log.jsonl (gitignored, not committed); backend on :10000 + mock CRM on :9099 still running
 - READY FOR TOKEN: user provides GitHub token → push b1d4634+97e73d5+this commit → Render deploy → run scripts/migrate_awaiting_human_to_crm.py (no env vars = live defaults) → verify 5 tickets (a6b2ccae…, fce00552…, 63361cae…, 2febd45b…, 3eae403a…) now crm_pending "Waiting for CRM" in dashboard
+
+---
+Task ID: 29-c
+Agent: main (orchestrator)
+Task: User refinement — "ticket should be same as before we took it from CRM + show AI can't solve so they know" + answer "why can't AI solve if we have agents+tools?"
+
+Work Log:
+- Found 2 gaps in _push_to_crm_outbound vs the user's clarification: (1) it ALWAYS created a NEW CRM ticket, even for tickets ingested FROM the CRM (duplicate); (2) the internal CRM note said "Ticket auto-resolved by PARWA AI" even when ticket_status=crm_pending — the CRM team could never see that AI failed or why
+- Fix 1 (no duplicates): new Step 0 — if ticket metadata has crm_ticket_id (inbound CRM webhook stores it, crm_webhooks.py:213), push_permanent_failure returns the ORIGINAL CRM ticket to its pre-AI state (Zendesk status=open, HubSpot stage=1 New + PARWA_AI_CANNOT_RESOLVE category + note engagement, generic parwa.cannot_resolve action=reset_to_new) with failure_context{reason, what AI tried, type}; metadata keeps original crm_ticket_id + crm_create_status=returned_to_crm. Fall-through to create-new only if the return push FAILS (request never lost)
+- Fix 2 (honesty): crm_pending notes now read "PARWA AI could not resolve this ticket — your team's resolution is needed. Reason: <escalation_reason>. What the AI tried: <ai_response>…"; resolved notes unchanged ("auto-resolved by PARWA AI")
+- NEW local test scripts/test_crm_return_wiring.py — embedded in-process mock CRM (sandbox reaps background procs between shell commands, so standalone mock died; also cleared proxy env vars that hijacked httpx). 16/16 PASS: A1-A8 CRM-originated → original ticket reset + reason visible; C1-C6 return-push-fails → fresh ticket + honest note; D1-D2 resolved → "auto-resolved" note preserved
+- Regression: rebuilt half-wiped venv (sqlalchemy/structlog/jose… missing; pip -r requirements.txt) → local E2E scripts/test_local_human_replacement.py 10/10 PASS (backend had to start + test in ONE shell command — sandbox kills daemons)
+- "Why can't AI solve" answered to user (plain language): (a) CoVe fact-checker rejects unverified answers (won't gamble with the customer), (b) knowledge truly missing from tenant KB, (c) required action has no connected tool/credentials (Tool-Forge can only forge tools to APIs that exist + are authorized). Exact per-ticket reasons for the 5 live tickets sit in their Supabase metadata — readable once token/deploy happens
+- Committed ac324de (pipeline_dispatcher.py + scripts/test_crm_return_wiring.py)
+
+Stage Summary:
+- Escalation contract now matches the user's words exactly: CRM gets the SAME ticket back, restored to pre-AI state, visibly marked "AI could not resolve" + reason + what AI tried; duplicates impossible unless CRM unreachable (then fresh ticket as safety net)
+- Local proof: 16/16 wiring + 10/10 E2E; DEPLOY STILL PENDING user token/push (b1d4634→ac324de), then run scripts/migrate_awaiting_human_to_crm.py for the 5 legacy tickets
