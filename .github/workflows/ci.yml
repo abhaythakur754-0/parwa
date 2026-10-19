@@ -151,6 +151,44 @@ jobs:
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
 
+      - name: Live API integration tests (escalation wiring + Phase 2/3 + E2E + Jarvis CLI)
+        timeout-minutes: 15
+        run: |
+          # Boot the real API (schema bootstrap first: lifespan fallbacks cannot
+          # create tables on an empty SQLite file)
+          export DATABASE_URL="sqlite:///./test.db"
+          python -c "import sys; sys.path.insert(0,'.'); from database.models import *; from database.base import init_db; init_db()"
+          python -m uvicorn app.main:app --port 10000 > server.log 2>&1 &
+          SERVER_PID=$!
+          UP=0
+          for i in $(seq 1 45); do
+            sleep 2
+            curl -sf http://127.0.0.1:10000/health >/dev/null 2>&1 && UP=1 && break
+          done
+          if [ "$UP" != "1" ]; then echo "SERVER FAILED"; tail -50 server.log; kill $SERVER_PID; exit 1; fi
+          echo "Server healthy"
+
+          # Self-contained regression suites (embedded mock CRM / TestClient)
+          python ../scripts/test_crm_return_wiring.py
+          python ../scripts/test_phase2_phase3_integration.py
+
+          # Full API E2E: register → ticket → escalate → honest note → resolve
+          python ../scripts/test_local_human_replacement.py
+
+          # Jarvis CLI wired executors (no LLM — pure backend calls)
+          RUN_ID="${GITHUB_RUN_ID:-$(date +%s)}"
+          REG=$(curl -s -X POST http://127.0.0.1:10000/api/auth/register \
+            -H "Content-Type: application/json" -H "Origin: http://localhost:3000" \
+            -d "{\"email\":\"jarvis-ci-${RUN_ID}@localtest.parwa\",\"password\":\"JarvisCI#2026x\",\"confirm_password\":\"JarvisCI#2026x\",\"full_name\":\"Jarvis CI\",\"company_name\":\"Jarvis CI\",\"industry\":\"ecommerce\"}")
+          TOKEN=$(echo "$REG" | python3 -c "import json,sys; d=json.load(sys.stdin); t=d.get('tokens') or {}; print(d.get('access_token') or d.get('token') or t.get('access_token') or t.get('token') or '')")
+          if [ -z "$TOKEN" ]; then echo "CI auth failed:"; echo "$REG" | head -c 300; kill $SERVER_PID; exit 1; fi
+          cd ../jarvis-cli
+          PARWA_API_URL=http://127.0.0.1:10000 PARWA_API_TOKEN="$TOKEN" node live_test.mjs
+          LIVE=$?
+          cd ../backend
+          kill $SERVER_PID 2>/dev/null
+          exit $LIVE
+
       - name: Test Summary
         if: always()
         run: echo "Backend tests completed"

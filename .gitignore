@@ -63,3 +63,9 @@ download/
 
 # the OSS skills box ships its own python package also named skills/ — never ignore it
 !skills-box/mini-services/skills-box/skills/
+
+# local test artifacts (never commit)
+*.db
+.mock_crm*
+local_test.db
+local_smoke.db

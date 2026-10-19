@@ -22,6 +22,7 @@
  */
 
 import ZAI from 'z-ai-web-dev-sdk';
+import { resolveExecutor, getSystemState, isLive } from './backend-api.mjs';
 
 // ══════════════════════════════════════════════════════════════════
 // FUNCTION DEFINITIONS — These are the "tools" the AI can use
@@ -418,7 +419,7 @@ const MOCK_EXECUTORS = {
 // JARVIS CHAT ENGINE
 // ══════════════════════════════════════════════════════════════════
 
-const SYSTEM_PROMPT = `You are Jarvis, an AI assistant for Parwa — a customer support platform. You help the client manage their support operations.
+const SYSTEM_PROMPT_BASE = `You are Jarvis, an AI assistant for Parwa — a customer support platform. You help the client manage their support operations.
 
 The client is managing their support platform through you. They might ask you to check things, change settings, or take actions. You have tools available to do everything the platform can do. Use them when the client asks you to do something.
 
@@ -438,6 +439,18 @@ CURRENT SYSTEM STATE:
 - Agent utilization: 72%
 - Plan: Parwa Pro
 - Plan usage: 68%`;
+
+// System prompt: real backend state when wired (PARWA_API_TOKEN), demo state otherwise.
+async function buildSystemPrompt() {
+  const realState = await getSystemState();
+  if (realState) {
+    return `${SYSTEM_PROMPT_BASE}\n\nCURRENT SYSTEM STATE (live from the backend — trust these numbers, not your assumptions):\n${realState}`;
+  }
+  if (!isLive()) {
+    return `${SYSTEM_PROMPT_BASE}\n\nNOTE: Running in DEMO mode (no PARWA_API_TOKEN configured). Every tool result you receive is simulated — say so honestly if the user asks for real data.`;
+  }
+  return SYSTEM_PROMPT_BASE;
+}
 
 let conversationHistory = [];
 let pendingConfirmation = null;
@@ -461,8 +474,8 @@ async function chatWithJarvis(zai, userMessage) {
       // Execute the pending function
       const { funcName, params } = pendingConfirmation;
       pendingConfirmation = null;
-      const executor = MOCK_EXECUTORS[funcName];
-      const result = executor ? executor(params) : { success: false, message: `Unknown function: ${funcName}` };
+      const executor = resolveExecutor(funcName, MOCK_EXECUTORS);
+      const result = executor ? (await executor(params)) : { success: false, message: `Unknown function: ${funcName}` };
 
       // Feed result back to LLM for natural response
       const followUpMessages = [
@@ -473,7 +486,7 @@ async function chatWithJarvis(zai, userMessage) {
       try {
         const followUp = await zai.chat.completions.create({
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: await buildSystemPrompt() },
             ...followUpMessages
           ],
           max_tokens: 400,
@@ -508,7 +521,7 @@ async function chatWithJarvis(zai, userMessage) {
       try {
         completion = await zai.chat.completions.create({
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: await buildSystemPrompt() },
             ...conversationHistory,
           ],
           tools: FUNCTION_DEFINITIONS,
@@ -576,8 +589,8 @@ async function chatWithJarvis(zai, userMessage) {
 
       // If no confirmation needed, execute immediately
       if (safetyLevel === "none") {
-        const executor = MOCK_EXECUTORS[funcName];
-        const result = executor ? executor(funcArgs) : { success: false, message: `I don't know how to do '${funcName}' yet.` };
+        const executor = resolveExecutor(funcName, MOCK_EXECUTORS);
+        const result = executor ? (await executor(funcArgs)) : { success: false, message: `I don't know how to do '${funcName}' yet.` };
 
         // Feed result back to LLM for natural response (with retry)
         try {
@@ -587,7 +600,7 @@ async function chatWithJarvis(zai, userMessage) {
             try {
               followUp = await zai.chat.completions.create({
                 messages: [
-                  { role: "system", content: SYSTEM_PROMPT },
+                  { role: "system", content: await buildSystemPrompt() },
                   ...conversationHistory,
                   { role: "assistant", content: msg.content || `I'll ${funcName} for you.` },
                   { role: "system", content: `[Function '${funcName}' was executed. Result: ${result.message}]\n\nNow respond to the user naturally about what just happened. Don't mention the function call name.` }
