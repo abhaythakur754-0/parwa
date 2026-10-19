@@ -157,6 +157,8 @@ jobs:
           # Boot the real API (schema bootstrap first: lifespan fallbacks cannot
           # create tables on an empty SQLite file)
           export DATABASE_URL="sqlite:///./test.db"
+          # E2E script inspects this exact SQLite file (LOCAL_DB default is a dev-sandbox path)
+          export LOCAL_DB="$(pwd)/test.db"
           python -c "import sys; sys.path.insert(0,'.'); from database.models import *; from database.base import init_db; init_db()"
           python -m uvicorn app.main:app --port 10000 > server.log 2>&1 &
           SERVER_PID=$!
