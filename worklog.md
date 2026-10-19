@@ -582,3 +582,23 @@ Stage Summary:
 - The self-learning loop is now COMPLETE end-to-end: escalate → structured ask → team resolves (CRM or history) → answer stored as pattern → agent recalls it (CoVe still verifies) — AND: missing connection → connect integration → tickets auto-retry and resolve without human touch.
 - Deployed-by-push: Render backend + Vercel frontend rebuild from 8b537b7 (+702c1a6 after this task). Post-deploy checklist: run scripts/migrate_awaiting_human_to_crm.py (5 legacy tickets), then Knowledge page → "Learn from CRM history" for real backfill; connect an integration matching a waiting ticket to see Phase 3 fire.
 - Known limits (documented in code): generic/webhook-only CRMs can't backfill (no read API); HubSpot resolution text may fall back to ticket content (ponytail note in adapter); auto-retry only targets missing_connection asks (answer-driven types learn via the resolution webhook instead).
+
+---
+Task ID: 31-b
+Agent: main (orchestrator)
+Task: Post-summary verification pass — re-prove the GitHub push + Phase 2/3 are real and green (user: "english please", continuing Task 31)
+
+Work Log:
+- Git reconciliation: local main and origin/main had each exactly 1 unique commit, both titled "worklog: Task 31" (d7d2f9f local vs 1bfff93 remote). Full diff = ZERO content change, only mode bits 644→755 on 8 files (sandbox chmod noise). Reset local main --hard to origin/main (1bfff93) → 0/0 divergence, tree clean, nothing lost. Push state now CONVERGED and verified via git fetch + rev-list.
+- Venv rebuilt AGAIN (sandbox wiped it half-way: python3 present, pip gone; system python3.13 lacks ensurepip) → uv venv /home/z/.venv --python 3.12 + uv pip install -r backend/requirements.txt. NOTE for future runs: recreate with uv, not python -m venv.
+- Full regression battery re-run from scratch, all green:
+  - Unit 77/77: tests/unit/test_escalation_ask.py (40) + test_auto_retry.py (17) + test_crm_history_backfill.py (20). Invocation quirk: must run from backend/ (`cd backend && python -m pytest ../tests/unit/...`) because conftest imports backend.app.main while app code imports app.config — both roots only resolve with CWD=backend via python -m.
+  - Integration 16/16: scripts/test_phase2_phase3_integration.py — incl. P3-4 end-to-end (POST /api/integrations connect → waiting missing_connection ticket auto-requeued + dispatched).
+  - Wiring 30/30: scripts/test_crm_return_wiring.py — incl. learning loop G1–G4 (team's resolution stored as pattern, agent recalls it with the answer).
+  - API E2E 10/10: scripts/test_local_human_replacement.py via NEW .zscripts/run_e2e_verify.sh (one command: schema bootstrap → uvicorn :10000 → health wait → suite → teardown).
+- E2E first run FAILED at register (500, "no such table: users"): fresh SQLite + server lifespan fallbacks cannot bootstrap schema — init_db() must run BEFORE uvicorn (previous sessions did this manually; now encoded in the runner script).
+- Repo hygiene: backend/local_test.db was accidentally TRACKED (contradicts earlier worklog note "gitignored, not committed") — removed from index/tree in this commit. Added .zscripts/run_e2e_verify.sh so the E2E re-verification procedure is reproducible (schema bootstrap + single-command pattern).
+
+Stage Summary:
+- INDEPENDENTLY RE-VERIFIED after context loss: push converged (origin/main 1bfff93), Phase 2 (CRM history backfill) + Phase 3 (auto-retry on connect) code present and 133/133 checks green (77 unit + 16 integration + 30 wiring + 10 E2E). No code changes needed — only env repair + git reconciliation.
+- User-facing state: GitHub repo has everything; Render + Vercel auto-deploy from it. Post-deploy checklist unchanged: 1) scripts/migrate_awaiting_human_to_crm.py (5 legacy tickets), 2) Knowledge page → "Learn from CRM history" backfill, 3) connect an integration matching a waiting ticket to see Phase 3 fire.
