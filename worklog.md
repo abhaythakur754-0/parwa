@@ -620,3 +620,27 @@ Stage Summary:
 - Root cause of "Deployment Blocked" eliminated at the history level: every commit on origin/main now belongs to abhaythakur754-0's verified noreply identity; repo git config prevents recurrence for future commits.
 - History rewrite = new SHAs (old HEAD 1625b7a → new HEAD a05467e). Content untouched — same tree, so the 133/133 verification claim from Task 31-b still applies to the identical tree.
 - If the platform still shows the old blocked deploy in the dashboard, cancel/retry it or just let this push trigger a fresh deploy.
+
+---
+Task ID: 32
+Agent: main (orchestrator)
+Task: Wire jarvis-cli to the real backend + CI runs ALL suites on every push + full OSS audit (user: "jarvis not wired → wire it; CI so every push auto-tests; audit which open-source pieces work and which don't")
+
+Work Log:
+- CI DISCOVERY: .github/workflows/ci.yml already existed and is GREEN (runs 1052-1054 success on our pushes) — backend job (Rust parwa_core build + flake8 + tests/unit with 18 documented ignores) + frontend job (bun build hard-fail; lint/typecheck/jest continue-on-error) + keepalive.yml pinging Render every 10 min. Gap: the new Phase 1/2/3 suites were NOT in CI.
+- CI UPDATED (e0ac018): new "Live API integration tests" step in backend job — schema bootstrap → uvicorn :10000 → register CI user → runs test_crm_return_wiring (30) + test_phase2_phase3_integration (16) + test_local_human_replacement E2E (10) + jarvis-cli/live_test.mjs (7). All suites verified to pass with CWD=backend (CI working-directory) before push.
+- JARVIS-CLI WIRED (was 100% mocks + hardcoded fake system state): NEW jarvis-cli/backend-api.mjs — pure-fetch API client (PARWA_API_URL/PARWA_API_TOKEN/PARWA_ORIGIN env; Bearer + Origin headers per E2E convention). 13 executors wired to verified endpoints: /jarvis/status, /jarvis/metrics, /jarvis/command/pause|resume, /api/v1/tickets (GET/POST), /api/billing/subscription, /api/integrations. jarvis-cli.mjs: resolveExecutor real-first with await (mocks were sync; real are async — call sites fixed), buildSystemPrompt() injects LIVE system state (60s cache) replacing fake numbers, demo mode honestly labeled. No-token → demo fallback with "[demo]" tag.
+- jarvis-cli/live_test.mjs: deterministic 7-check executor→backend test, NO LLM (CI-safe). LOCAL RESULT 7/7 PASS vs booted backend incl. pause→resume control-plane round-trip + real health/stats/subscription/integrations.
+- jarvis-cli polished: README (modes, env, wired-vs-demo tool table), npm scripts (chat/test/test:live), lockfile regenerated. .zscripts/run_jarvis_smoke.sh = one-command local repro (schema→server→register→live_test). GOTCHAS hit: auth response shape is {user, tokens:{access_token}} (liberal extractor needed); sandbox wiped venv mid-task again (uv rebuild); MultiEdit partial-application observed twice → always re-grep after batch edits.
+- OSS AUDIT (26 research/*.json dumps mapped against code):
+  SHIPPED via skills-box mini-service (remote, outside 512MB Render; oss_stack/hub.py routes with 3s timeouts + regex-floor degrade): GLiClass (intent), GLiNER (entities — lazy importlib, why grep misses it), Presidio (PII — also in backend requirements), spaCy, faster-whisper (voice), PaddleOCR, argostranslate, piper (TTS binary).
+  SHIPPED in backend: fastembed (ONNX MiniLM local embedding fallback — KB retrieval survives external API failure), Supabase Postgres (prod DB), Redis w/ fakeredis fail-open, Sentry (imported, requirements), Rust parwa_core (CI-built, RateLimiter), mcp_server (imported by CRM/carrier/ecommerce action APIs), Prometheus+Grafana+Alertmanager self-hosted configs (mounted in docker-compose.prod), Supabase RLS migration file, z-ai SDK (jarvis brain + skills), jarvis-cli (now wired).
+  RESEARCHED-ONLY, never integrated (candidates to keep-in-docs or drop): a2a, browser-use (explicitly "pending decision" in skills-box requirements), crawl4ai, deepagents, e2b, skyvern, langfuse, phoenix/arize, graphiti, ollama, kokoro, vanna, uptime-kuma, glitchtip, n8n (its concept WAS implemented natively as llm_action_executor), evals/evolution/firewall/memory/smallmodels dumps.
+  FOUND DEAD WIRING: prometheus-client + prometheus-fastapi-instrumentator are in requirements but NEVER imported and the app exposes NO /metrics endpoint → the self-hosted Prometheus has nothing to scrape (dashboards blind). Fix = ~3 lines Instrumentator().instrument(app) — DEFERRED to next task per surgical scope.
+- .gitignore += *.db/.mock_crm* (prevents local test artifacts re-entering git; tracked db/custom.db removal still pending user-approved Category A).
+
+Stage Summary:
+- Every push now auto-tests EVERYTHING on GitHub: unit battery + Rust build + lint + frontend build + escalation wiring 30 + Phase2/3 integration 16 + full API E2E 10 + Jarvis live wiring 7 = production CI, not smoke-only.
+- Jarvis CLI graduated from demo to real admin console: 13 tools control the actual backend (audit-logged pause/resume), honest demo labels otherwise. Waiting on nothing.
+- OSS map complete: 10+ OSS components genuinely running, 17 research-only; one dead wiring found (Prometheus /metrics) — flagged with the exact 3-line fix.
+- PENDING from earlier: waste-file deletion (Categories A/B/C incl. committed .skills_key secret rotation) still awaiting user approval.
