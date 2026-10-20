@@ -644,3 +644,22 @@ Stage Summary:
 - Jarvis CLI graduated from demo to real admin console: 13 tools control the actual backend (audit-logged pause/resume), honest demo labels otherwise. Waiting on nothing.
 - OSS map complete: 10+ OSS components genuinely running, 17 research-only; one dead wiring found (Prometheus /metrics) — flagged with the exact 3-line fix.
 - PENDING from earlier: waste-file deletion (Categories A/B/C incl. committed .skills_key secret rotation) still awaiting user approval.
+
+---
+Task ID: 33
+Agent: main (orchestrator)
+Task: User clarified Jarvis's real role ("Jarvis conveys variant messages/notifications to the owner — everything connects through it; why is jarvis-cli wired?") → remove jarvis-cli, wire the REAL missing leg: escalation asks now notify the owner
+
+Work Log:
+- Traced the REAL Jarvis path and confirmed it exists in-product: variant pipeline (19+ nodes) ↔ Redis bridge (jarvis_agents/variant_bridge.py, Phase 4 bidirectional) ↔ Jarvis SENSE→EVALUATE→NOTIFY (jarvis_routes.py 30+ endpoints) → NotificationService (email + in_app + push/FCM) → frontend JarvisChat + NotificationBell + RealtimeToast.
+- GAP FOUND: escalation_ask.py / pipeline_dispatcher.py created structured asks + vault entries but dispatched ZERO notifications — the owner was never told when a variant needed something. Only the PS03 "client_requested_human" path called notify_human_queue.
+- NEW backend/app/services/escalation_notify.py: notify_owner_of_escalation(db, ticket, reason, extra_summary) — lazy-imports NotificationService, calls notify_human_queue (email + in_app), builds owner summary from the structured ask (Problem / Needed from team / After that), idempotent via ticket.metadata_json["owner_notified_at"] (prevents duplicate notifications across pipeline events), BC-008 never raises.
+- Wired 3 call sites in pipeline_dispatcher.py: both pipeline_interrupted paths (interrupt question conveyed as extra_summary) + mid-pipeline vault-entry block (force_human/cove_blocked/escalated). Caller commits, so no new transaction handling.
+- REMOVED jarvis-cli/ (git rm), .zscripts/run_jarvis_smoke.sh, and the CI "Jarvis CLI wired executors" step (ci.yml now ends after the E2E suite + server kill). Kept backend/app/tests/test_jarvis_cli_system.py — it tests the REAL Jarvis function-calling pipeline, unrelated to the CLI folder. Updated CTO_BRIEF.md Q7 to record the removal decision.
+- Tests: NEW tests/unit/test_escalation_notify.py (11 checks: summary build, idempotence, never-raise, no-agents leaves unmarked, corrupt-JSON tolerance, dispatcher wiring ≥4 refs, CI jarvis-cli-free). Gotchas: venv half-wiped AGAIN (uv at /usr/local/bin/uv this time); Path parents[1] vs parents[2] off-by-one; MagicMock identity in assert_called_once_with (create db mock once).
+- FULL BATTERY GREEN: 88 unit (40 ask + 17 retry + 20 backfill + 11 notify) + 30 CRM wiring + 16 Phase2/3 + 10 API E2E = 144/144.
+
+Stage Summary:
+- Jarvis-cli is gone; "Jarvis" now means only what it should: the in-product owner layer. No separate terminal ships.
+- The variant → owner message path is now CLOSED for escalations: ask lands on ticket + vault AND the owner gets an in-app bell notification + email, once per escalation (idempotent).
+- STILL OPEN (user decisions pending): ① restore local Groq builder fallback (builder agent link https://p11668uhxhd1-d.space-z.ai is DEAD — returns Z.ai deploy-failed page; all 3 auto-agent-creation paths route to it), ② remove manual creation mode from /dashboard/agents/new, ③ waste-file Category A/B deletions incl. committed .skills_key rotation.

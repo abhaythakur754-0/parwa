@@ -40,6 +40,7 @@ from app.services.escalation_ask import (
     build_escalation_ask,
     format_ask_for_crm,
 )
+from app.services.escalation_notify import notify_owner_of_escalation
 
 logger = logging.getLogger("parwa.pipeline_dispatcher")
 
@@ -750,6 +751,10 @@ def _run_pipeline_sync(
                 reason="interrupt_needs_input",
                 context_hint=str(question_text)[:250],
             )
+            # Convey the variant's ask to the owner (variant → owner path)
+            notify_owner_of_escalation(
+                db, ticket, extra_summary=str(question_text)[:300],
+            )
             _persist_ai_response(
                 db=db, ticket=ticket, ai_response_text=display_text,
                 ai_response_html=f"<p>{display_text}</p>",
@@ -799,6 +804,10 @@ def _run_pipeline_sync(
                 ticket,
                 reason="interrupt_needs_input",
                 context_hint=str(interrupt_question)[:250],
+            )
+            # Convey the variant's ask to the owner (variant → owner path)
+            notify_owner_of_escalation(
+                db, ticket, extra_summary=str(interrupt_question)[:300],
             )
             # Save the question as a ticket message so it's visible
             _persist_ai_response(
@@ -996,6 +1005,8 @@ def _run_pipeline_sync(
                         "vault_entry_created_mid_pipeline ticket=%s vault_id=%s",
                         ticket_id, vault_record.get("escalation_id", "?")[:8],
                     )
+                    # Convey the escalation to the owner (variant → owner path)
+                    notify_owner_of_escalation(db, ticket)
             except Exception as vault_exc:  # noqa: BLE001
                 logger.warning(
                     "vault_save_failed_mid_pipeline ticket=%s err=%s",

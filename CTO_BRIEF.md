@@ -464,7 +464,10 @@ wire Parwa into their existing AI stacks.
    imply yes, but STATE.md says no Redis.)
 6. **Do you have paying customers yet, or pre-revenue?** (Changes the risk
    tolerance for #1 and #2 above.)
-7. **What's the `jarvis-cli` for** — internal tooling, or ship to customers?
+7. **`jarvis-cli` — REMOVED.** It was a misread of Jarvis's role. Jarvis is
+   the in-product owner layer (chat + notifications + variant bridge); no
+   separate terminal ships. Escalations now notify the owner directly via
+   the standard notification system (in-app + email).
 
 Answer these and I'll refine the 30-day plan into a sprint board.
 

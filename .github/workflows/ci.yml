@@ -151,7 +151,7 @@ jobs:
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
 
-      - name: Live API integration tests (escalation wiring + Phase 2/3 + E2E + Jarvis CLI)
+      - name: Live API integration tests (escalation wiring + Phase 2/3 + E2E)
         timeout-minutes: 15
         run: |
           # Boot the real API (schema bootstrap first: lifespan fallbacks cannot
@@ -177,19 +177,7 @@ jobs:
           # Full API E2E: register → ticket → escalate → honest note → resolve
           python ../scripts/test_local_human_replacement.py
 
-          # Jarvis CLI wired executors (no LLM — pure backend calls)
-          RUN_ID="${GITHUB_RUN_ID:-$(date +%s)}"
-          REG=$(curl -s -X POST http://127.0.0.1:10000/api/auth/register \
-            -H "Content-Type: application/json" -H "Origin: http://localhost:3000" \
-            -d "{\"email\":\"jarvis-ci-${RUN_ID}@localtest.parwa\",\"password\":\"JarvisCI#2026x\",\"confirm_password\":\"JarvisCI#2026x\",\"full_name\":\"Jarvis CI\",\"company_name\":\"Jarvis CI\",\"industry\":\"ecommerce\"}")
-          TOKEN=$(echo "$REG" | python3 -c "import json,sys; d=json.load(sys.stdin); t=d.get('tokens') or {}; print(d.get('access_token') or d.get('token') or t.get('access_token') or t.get('token') or '')")
-          if [ -z "$TOKEN" ]; then echo "CI auth failed:"; echo "$REG" | head -c 300; kill $SERVER_PID; exit 1; fi
-          cd ../jarvis-cli
-          PARWA_API_URL=http://127.0.0.1:10000 PARWA_API_TOKEN="$TOKEN" node live_test.mjs
-          LIVE=$?
-          cd ../backend
-          kill $SERVER_PID 2>/dev/null
-          exit $LIVE
+          kill $SERVER_PID 2>/dev/null || true
 
       - name: Test Summary
         if: always()
