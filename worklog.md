@@ -663,3 +663,17 @@ Stage Summary:
 - Jarvis-cli is gone; "Jarvis" now means only what it should: the in-product owner layer. No separate terminal ships.
 - The variant → owner message path is now CLOSED for escalations: ask lands on ticket + vault AND the owner gets an in-app bell notification + email, once per escalation (idempotent).
 - STILL OPEN (user decisions pending): ① restore local Groq builder fallback (builder agent link https://p11668uhxhd1-d.space-z.ai is DEAD — returns Z.ai deploy-failed page; all 3 auto-agent-creation paths route to it), ② remove manual creation mode from /dashboard/agents/new, ③ waste-file Category A/B deletions incl. committed .skills_key rotation.
+
+---
+Task ID: 33-b
+Agent: main (orchestrator)
+Task: User asked "is the Superglue link working or not" — probe all linked z.ai spaces
+
+Work Log:
+- Probed Superglue space n-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai: ALL endpoints (/sgapi/v1/tools, /sgq/jobs, /) return HTTP 410 "Recycled" — z.ai reclaimed the space. LINK DEAD.
+- Probed CRM analyser space n-448c1694-…: also 410 Recycled. DEAD. Builder space p11668uhxhd1-…: deploy-failed page (prior finding). ALL THREE user z.ai spaces are gone.
+- Degradation verified in code: is_configured() still True (URL+token code defaults exist) → generation attempts Superglue → 410 → superglue_tool_generator falls back to PARWA's own LLM (_generate_tool_via_parwa_llm). Multi-step tool generation KEEPS WORKING. CRM analyser client has try/except + poll timeout → enrichment degrades gracefully. Agent CREATION has NO fallback (builder dead) — still pending user decision on local Groq fallback restore.
+
+Stage Summary:
+- Superglue purpose (for the record): external service that (a) designs agent tool definitions with its own LLM ($0 on Parwa side), (b) stores them via POST /sgapi/v1/tools, (c) runs a serial API-job queue (/sgq/jobs). Dead now; Parwa falls back to its own LLM for generation.
+- Pattern identified: z.ai free preview spaces get recycled after inactivity — all 3 died. Fix = user redeploys spaces + one-string URL swaps in code (DEFAULT_SUPERGLUE_URL / DEFAULT_CRM_ANALYSER_URL / DEFAULT_BUILDER_URL) + fresh tokens in env.
