@@ -677,3 +677,22 @@ Work Log:
 Stage Summary:
 - Superglue purpose (for the record): external service that (a) designs agent tool definitions with its own LLM ($0 on Parwa side), (b) stores them via POST /sgapi/v1/tools, (c) runs a serial API-job queue (/sgq/jobs). Dead now; Parwa falls back to its own LLM for generation.
 - Pattern identified: z.ai free preview spaces get recycled after inactivity — all 3 died. Fix = user redeploys spaces + one-string URL swaps in code (DEFAULT_SUPERGLUE_URL / DEFAULT_CRM_ANALYSER_URL / DEFAULT_BUILDER_URL) + fresh tokens in env.
+
+---
+Task ID: 34-b
+Agent: main (orchestrator)
+Task: CORRECTION — user pushed back ("those spaces ARE working, I gave you the URLs"); re-probe with the exact code URLs. User was RIGHT, Task 34 verdicts were WRONG for all 3 spaces.
+
+Work Log:
+- ROOT CAUSE OF MY ERROR: Task 34 probed n-98e04084…/n-448c1694….space-z.ai — hostnames that exist NOWHERE in the code. The real configured URLs are preview-chat-98e04084… (superglue_client.py DEFAULT_*) and preview-chat-448c1694… (crm_analyser_client.py DEFAULT_CRM_ANALYSER_URL). For the builder I hit p11668uhxhd1-d correctly but caught it mid-restart (transient deploy-failed page — same pattern as the documented 502-mid-restart in Task on builder auth).
+- RE-PROBES (all with the exact code URLs + code tokens):
+  • Superglue /sgapi/v1/tools → HTTP 200, real tool list (incl. mistral-key-health-check). /sgq/jobs → HTTP 200 {"jobs":[],"count":0}.
+  • Superglue LLM chain /sgai/v1/chat/completions (key sgai_…, model open-mistral-7b) → HTTP 200, REAL completion returned ("OK!", 10 tokens) — full gateway→shim→Mistral chain verified.
+  • CRM analyser POST /api/crm-analyser/analyze → responds with proper business logic ("No tickets found." on an intentionally empty probe payload) — space alive, API functional.
+  • Builder /api/health → HTTP 200 parwa-builder-agent v1.0.0; /api/runs → HTTP 200 with a COMPLETED build (demo-company, refund_processing, status=complete, agent_id minted).
+- LESSON (for future audits): ALWAYS probe the exact DEFAULT_* / env-resolved URL string from the code — never a reconstructed hostname; and treat a single deploy-failed/502 page as "retry in 60s", not "dead" (spaces restart).
+
+Stage Summary:
+- CORRECTED: all 3 user-provided z.ai spaces ARE WORKING (Superglue tools+queue+LLM, CRM analyser, builder with a completed run on record).
+- Product impact: auto agent creation (scan-and-build / from-KB / Node-1) WORKS; Superglue tool generation with $0-side LLM WORKS; CRM analysis WORKS. Local Groq fallback = optional insurance, NOT urgent.
+- Task 34's only still-valid findings: Sentry DSN unset in prod, SKILLS_BOX_URL not in render.yaml (regex floor), no /metrics endpoint for Prometheus, celery worker degraded on free tier.
