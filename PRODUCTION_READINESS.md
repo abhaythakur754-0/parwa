@@ -1,4 +1,11 @@
 # Parwa Production Backend - Status Report
+
+> ⚠️ **HISTORICAL DOCUMENT — STALE AS OF 2026 (docs-truthification pass).**
+> This report describes the OLD architecture (4 pricing tiers, pre-tier-
+> consolidation backend, Paddle billing, dual JWT auth). None of those are
+> current. For the authoritative, up-to-date map see **CTO_BRIEF.md** and
+> **worklog.md** (Tasks 26–34). Kept only for historical reference.
+
 **Generated**: 2026-07-20  
 **Version**: 2.0.0  
 **Status**: ✅ PRODUCTION READY (Pending GitHub Push & Live Testing)

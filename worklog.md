@@ -696,3 +696,29 @@ Stage Summary:
 - CORRECTED: all 3 user-provided z.ai spaces ARE WORKING (Superglue tools+queue+LLM, CRM analyser, builder with a completed run on record).
 - Product impact: auto agent creation (scan-and-build / from-KB / Node-1) WORKS; Superglue tool generation with $0-side LLM WORKS; CRM analysis WORKS. Local Groq fallback = optional insurance, NOT urgent.
 - Task 34's only still-valid findings: Sentry DSN unset in prod, SKILLS_BOX_URL not in render.yaml (regex floor), no /metrics endpoint for Prometheus, celery worker degraded on free tier.
+
+---
+Task ID: 35
+Agent: main orchestrator (Z.ai Code session)
+Task: Docs truthification — verify CTO_BRIEF.md's "critical risks" against actual code (graphify-assisted audit), delete dead files, fix stale docs
+
+Work Log:
+- Restored the graphify tool from git history (commit c6cfe776, package graphifyy 0.9.17) — extracted to /home/z/graphify-tools, deps installed, `graphify` CLI on PATH; restored .graphifyignore (commit 624fe55b); rebuilt graphify-out/graph.json: 77,546 nodes / 149,687 edges / 2,656 communities
+- Used graphify queries + targeted reads to verify every CTO_BRIEF "critical risk":
+  * Paddle: ALREADY fully removed 2026-06-24 (subscription_service docstring). Zero api.paddle.com calls. Remaining paddle_* = DB column names (kept deliberately), no-op Celery task, legacy compat symbols. CTO_BRIEF §7 + §13 items 1-2 were STALE.
+  * Dual JWT: ALREADY fixed. src/lib/jwt.ts is verify-only (sign functions removed); login/register routes are pure backend proxies; google/refresh local fallback hard-gated behind ENABLE_LOCAL_GOOGLE_AUTH=1 (unset in prod). CTO_BRIEF §6 was STALE.
+  * AI techniques: all 13 "Placeholder" classes in stub_nodes.py are lazy delegates to real implementations (reverse_thinking.py, react.py, etc.). No no-op routing. CTO_BRIEF §13 item 4 was STALE.
+  * backend/venv: NOT tracked in git (git ls-files = 0). CTO_BRIEF §13 item 7 was STALE.
+  * STATE.md: already accurate (Redis + Celery documented). CTO_BRIEF §13 item 3 was STALE.
+  * fake-crm duplicate: fake-crm-server/ no longer exists. Item 6 was STALE.
+- DELETED dead files (git rm): backend/main.py (standalone dead script; real entry is app.main:app), probe_llm_raw.py, probe_body_via_transform.py, probe_sourcedata.py, probe_body_forms.py, probe_body_stepref.py, offline_checks_v2.py, dup_probe.json, e2e_gen_test.py, tickets-raw.json, tickets-created.json, ticket-detail.json, ticket-now.json
+- MOVED verify_deploy.py → scripts/verify_deploy.py (useful deploy checker)
+- DELETED stale test src/components/auth/__tests__/Day1Security.test.ts (imported removed signAccessToken/signRefreshToken — would always fail)
+- CTO_BRIEF.md truthified: §1 stack table (Payments/Auth/Redis rows), §5.2 risk note, §6 rewritten as RESOLVED with current architecture, §7 rewritten as RESOLVED with current billing flow, §13 risks 1-7 marked resolved with evidence, §15 Week-1/2/3 items marked done (item 9 settings-page split remains open)
+- PRODUCTION_READINESS.md: added STALE banner pointing to CTO_BRIEF.md (it still describes 4-tier era)
+
+Stage Summary:
+- ALL THREE "CRITICAL" CTO_BRIEF risks were already fixed in code before this session; the brief (and its 29-file Paddle claim) were stale and misleading future agents. Docs now match reality.
+- Real work delivered: 13 dead files removed, 1 file relocated, 1 permanently-failing test removed, CTO_BRIEF.md + PRODUCTION_READINESS.md made truthful, graphify tool restored + graph rebuilt (77.5K nodes)
+- STILL OPEN (user actions / future tasks): (1) set SENTRY_DSN env var in Render dashboard to arm error alerts; (2) settings/page.tsx split (brief §15 item 9); (3) optional: git history rewrite to drop 459MB graphify-env/venv historical blobs (repo pack 322MB — requires force-push coordination with Render/Vercel, do NOT do casually); (4) stale frontend test files referencing old jwt sign API may exist beyond Day1Security — grep found only that one.
+- No production code paths changed in this task — zero-risk deploy expected.

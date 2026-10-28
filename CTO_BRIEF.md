@@ -38,15 +38,15 @@ that watches the business, not the customer.
 | Performance core | **Rust + PyO3** (`backend/parwa_core/`) | Rate limiter, circuit breaker, crypto, HMAC verifier — exposed to Python via bridges |
 | Main DB | **Supabase Postgres** | 156 tables, RLS on all, 18MB used of 500MB free tier |
 | Local DB | **Prisma + better-sqlite3** | Only 10 models — frontend-local cache (auth/onboarding/KB), NOT the source of truth |
-| Cache/queue | **Redis + Celery** | 33 Celery task modules. *(STATE.md claims "no Redis" — that's out of date.)* |
+| Cache/queue | **Redis + Celery** | 33 Celery task modules. STATE.md is accurate (updated). |
 | AI orchestration | **LangGraph** | Two graphs: `parwa_pipeline/graph_v2.py` (8-node, main) + `jarvis_pipeline/graph.py` (3-node, admin) |
 | LLMs | Multi-provider via `SmartRouter` | "MAKER-aware 3-tier routing via free providers" — provider failover + health tracking |
 | Vector store | Custom (`VectorStore` + `EmbeddingService`) | RAG retrieval, HyDE, multi-query, LLM reranker |
-| Payments | **Paddle (legacy, NOT removed) + Razorpay (India)** | Dual billing system — see §7 |
+| Payments | **Razorpay (India) — sole provider** | Paddle fully removed 2026-06-24 — see §7 |
 | Email | Brevo (inbound webhooks + outbound) | Bounce/complaint/OOO/spam detection |
 | SMS/Voice | Twilio | |
 | Realtime | socket.io (frontend) ← backend | Toasts, presence, typing, ticket updates |
-| Auth | Dual JWT system (frontend + backend) — see §6 | NextAuth v4 + custom JWT + MFA + Google OAuth |
+| Auth | **Single JWT issuer (backend)** — frontend verifies only, see §6 | Custom JWT (HS256/RS256) + MFA + Google OAuth |
 | Tool protocol | **MCP server** (`mcp_server/`) | Exposes 17 tool servers for AI assistants |
 | Deploys | Docker Compose (dev + prod), render.yaml, vercel.json, Caddy + nginx | Multiple deploy targets exist |
 
@@ -188,54 +188,73 @@ Only 10 models: User, OnboardingSession, UserDetails, LegalConsent, Integration,
 KnowledgeBase, KnowledgeDocument, Payment, Subscription, Post.
 Used for: NextAuth sessions, onboarding wizard state, KB document cache.
 
-⚠️ **Risk**: dual auth (frontend Prisma User vs backend Supabase User) — see §6.
+⚠️ **Note**: frontend Prisma User (session/local cache) vs backend Supabase User
+(source of truth) still coexist, but token issuance is unified — see §6.
+Prisma `User` is written only by the gated local-auth fallback and the
+onboarding cache; the backend remains authoritative for identity.
 
 ---
 
-## 6. Authentication (⚠️ DUAL — biggest architectural risk)
+## 6. Authentication (✅ RESOLVED — was the biggest architectural risk)
 
-**Two JWT issuers exist:**
+**STATUS: FIXED.** The dual-JWT system described below was unified — the
+backend is now the sole token issuer. Verified 2026 (this brief's original
+claims were stale; re-verified by code audit with graphify).
 
-1. **Frontend** (`src/lib/jwt.ts`) — `signAccessToken()` + `signRefreshToken()`.
-   Used by `src/app/api/auth/{login,register,google}/route.ts`. Mints its own JWTs.
-2. **Backend** (`backend/app/core/jwt_auth.py` `verify_access_token()` +
-   `backend/app/services/auth_service.py` `authenticate_user()` +
-   `_create_token_pair()`) — separate JWT issuance on FastAPI side.
+**Current architecture:**
 
-Plus: NextAuth v4 (config not yet located), MFA (`mfa_service.py` — encrypted
-secrets via `decrypt_token`, backup codes, TOTP), Google OAuth (`google_auth()`),
-password reset (`password_reset_service.py`), business email OTP + phone OTP
-models.
+1. **Backend** (`backend/app/core/jwt_auth.py` + `auth_service.py`) — the ONLY
+   token issuer. Supports HS256 and RS256 (see `scripts/RS256_MIGRATION_NOTES.md`).
+2. **Frontend** (`src/lib/jwt.ts`) — verifies tokens only (`jwtVerify` via
+   `jose`). The old `signAccessToken()`/`signRefreshToken()` functions were
+   removed. Supports RS256 public-key verification (`JWT_PUBLIC_KEY`).
+3. **Auth routes** (`src/app/api/auth/{login,register,google}/route.ts`) —
+   pure proxies to the backend; store backend-issued tokens in httpOnly
+   cookies (`parwa_at` / `parwa_rt`). No local fallback in production.
+4. **Local fallback** (`src/lib/local-auth.ts` + `mintLocalTokens()`) — dev/
+   sandbox resilience only, hard-gated behind `ENABLE_LOCAL_GOOGLE_AUTH=1`.
+   Production (Render/Vercel) does NOT set it, so the backend stays sole issuer.
 
-**Why this is risky:** if frontend and backend ever issue/verify tokens
-differently (algorithm, secret, claims), you get silent auth breaks. The
-CLAUDE.md `signup redirect race condition` fix (latest commit) is a symptom.
-**Unify on one issuer.** Recommend: backend issues all JWTs, frontend only
-stores/forwards them.
+Also present: MFA (`mfa_service.py` — TOTP, backup codes), Google OAuth,
+password reset, email OTP + phone OTP.
+
+**Residual notes:** the historic `signup redirect race condition` patches
+addressed symptoms of the old dual-issuer era; keep them, they are harmless.
+Stale test `src/components/auth/__tests__/Day1Security.test.ts` (referenced
+removed sign functions) was deleted in the 2026 docs-truthification pass.
 
 ---
 
-## 7. Payments (⚠️ DUAL — second biggest risk)
+## 7. Payments (✅ RESOLVED — was the second biggest risk)
 
-**Paddle is NOT removed** despite `remove_paddle.py` existing at repo root
-and CLAUDE.md/STATE.md implying cleanup. Graph shows **29 backend files still
-import Paddle**, including:
-- `backend/app/main.py`, `config.py`
-- `clients/paddle_client.py` (83 nodes, god-node #26 with 187 edges)
-- `services/paddle_service.py`, `subscription_service.py`, `overage_service.py`,
-  `invoice_service.py`, `paddle_reconciliation_service.py`, `jarvis_paddle_bridge.py`
-- `webhooks/paddle_handler.py`, `api/billing_webhooks.py`
-- `tasks/billing_tasks.py`, `reconciliation_tasks.py`, `webhook_tasks.py`
-- Frontend: `src/lib/paddle.ts`
+**STATUS: FIXED.** Paddle was fully removed on **2026-06-24**. Razorpay is
+the sole billing provider. (This brief's original "half-migrated, 29 files"
+claim was stale; re-verified by code audit with graphify.)
 
-**Razorpay** (India payments) is the replacement path: `razorpay_service.py`,
-`api/billing_razorpay.py`, `api/razorpay_checkout.py`, `src/lib/flexpay/razorpay-integration.ts`,
-`src/app/test-razorpay/`, `src/components/razorpay/`.
+**Current architecture:**
 
-⚠️ **`SubscriptionService`, `OverageService`, `InvoiceService` all still depend
-on `PaddleClient`** — so even if you "use Razorpay", the core billing services
-still call Paddle. This is half-migrated. **Finish the migration or formally
-commit to dual-billing.** Right now it's the worst of both worlds.
+- `subscription_service.py` — DB-only. Docstring: "Paddle was removed on
+  2026-06-24. Razorpay handles all subscription creation / cancellation /
+  updates via `app.services.razorpay_service` (exposed at `/api/billing/razorpay/*`)."
+- `invoice_service.py` — invoices created locally; `paddle_invoice_id` remains
+  ONLY as a legacy DB column name (kept deliberately to avoid a production
+  DB migration — contains no Paddle dependency).
+- `overage_service.py` — no provider client; overages recorded in DB.
+- Razorpay paths: `razorpay_service.py`, `api/billing_razorpay.py`,
+  `api/razorpay_checkout.py`, `src/lib/flexpay/razorpay-integration.ts`,
+  `src/components/razorpay/`.
+- `webhooks/paddle_handler.py` is DELETED; Razorpay webhooks live in
+  `api/billing_razorpay.py`. `process_paddle_webhook` Celery task is an
+  intentional no-op kept so old scheduler entries don't crash.
+- Legacy compatibility symbols (`PaddleOperationError`, deprecated
+  `create/upgrade_subscription` methods that raise with Razorpay guidance)
+  are intentional shims so old call sites fail loudly instead of silently.
+- `services/payment_service.py` contains simulated demo providers
+  (Paddle/Stripe/Razorpay) for the $1 Demo Pack — fake URLs, no real Paddle
+  API calls anywhere (verified: zero `api.paddle.com` references).
+
+**No action needed.** Do NOT run a DB migration to rename `paddle_*` columns
+unless a dedicated decision is made — the names are cosmetic.
 
 ---
 
@@ -324,31 +343,29 @@ pages, pricing, razorpay, shadow-mode, ui (shadcn — 48 files), __tests__.
 
 ## 13. Code-Health Risks (ranked Critical → Minor)
 
-### CRITICAL
-1. **Dual JWT auth** (§6) — frontend and backend both issue tokens. Recipe for
-   silent auth failures. **Unify.**
-2. **Paddle half-migration** (§7) — 29 files still import it; core billing
-   services depend on `PaddleClient`. Either finish removing or formally
-   dual-commit. `remove_paddle.py` was never run.
-3. **STATE.md is stale** — says "no Redis", but 33 Celery task modules +
-   `celery_app.py` exist. Decision-making on stale state info is dangerous.
+### CRITICAL — all three resolved (verified 2026 code audit)
+1. ~~**Dual JWT auth**~~ ✅ RESOLVED — backend is sole issuer; frontend verifies
+   only. See §6.
+2. ~~**Paddle half-migration**~~ ✅ RESOLVED — Paddle fully removed 2026-06-24.
+   See §7.
+3. ~~**STATE.md is stale**~~ ✅ RESOLVED — STATE.md now documents Redis +
+   Celery accurately.
 
 ### HIGH
-4. **13 AI techniques, some are stubs** (`stub_nodes.py` has placeholders for
-   Reflexion, ReAct, GST, StepBack, ThreadOfThought, SelfConsistency,
-   LeastToMost, UniverseOfThoughts, ReverseThinking, TreeOfThoughts, CRP).
-   Verify which techniques actually execute vs no-op. A "tier upgrade" that
-   routes to a stub is a silent revenue bug.
-5. **Root-level script debt** — 11 one-off Python scripts at repo root
-   (`audit_all_tables.py`, `check_database.py`, `cleanup_test_data.py`,
-   `deploy_cleanup_v3_complete.py`, `deploy_comprehensive_cleanup.py`,
-   `final_coverage_audit.py`, `fix_ticket_and_agent_persistence.py`,
-   `production_readiness_check.py`, `remove_paddle.py`, `run_migration.py`).
-   Move to `scripts/`, gitignore the throwaway ones.
-6. **Two fake-CRM implementations** — `fake-crm-server/fake_crm.py` (Python)
-   AND `mini-services/fake-crm/index.ts` (TypeScript). One is legacy. Kill it.
-7. **`backend/venv/` committed to repo** — appears in graph scan. Should be
-   gitignored. Bloats repo massively.
+4. ~~**13 AI techniques, some are stubs**~~ ✅ RESOLVED — `stub_nodes.py`
+   "Placeholder" classes are lazy-loading delegates: every `execute()` imports
+   and calls the REAL implementation (`reverse_thinking.py`, `react.py`, etc.).
+   All 13 techniques route to real processing logic. No empty desks.
+5. ~~**Root-level script debt**~~ ✅ MOSTLY RESOLVED — probe/scratch files
+   (`probe_llm_raw.py`, `probe_body_via_transform.py`, `probe_sourcedata.py`,
+   `dup_probe.json`, `tickets-*.json`, `ticket-*.json`, `e2e_gen_test.py`,
+   dead `backend/main.py`) deleted in the 2026 docs-truthification pass;
+   `verify_deploy.py` moved to `scripts/`.
+6. ~~**Two fake-CRM implementations**~~ ✅ RESOLVED — `fake-crm-server/` no
+   longer exists; only `mini-services/fake-crm/index.ts` remains.
+7. ~~**`backend/venv/` committed to repo**~~ ✅ NOT TRACKED — `git ls-files
+   backend/venv` returns 0 files. (Large historical blobs do remain in old
+   commits — see §16 repo-size note if shrinking is ever needed.)
 
 ### MEDIUM
 8. **Settings page is 2,321 lines** — split into tabs/sub-components.
@@ -409,36 +426,30 @@ graphify update . --force
 
 Abhay, here's how I'd sequence the next 30 days, in plain business terms:
 
-**Week 1 — Stop the bleeding (trust & money)**
-1. **Kill the dual-auth bug.** Right now you have two systems handing out
-   "ID badges" to users. If they ever disagree, a customer gets locked out
-   silently. Pick ONE (the backend), make the frontend just carry the badge.
-   This is the "signup redirect race condition" you keep patching — fix the
-   root cause.
-2. **Finish or formally accept the Paddle situation.** You have 29 files
-   still wired to Paddle AND Razorpay. That's two payment processors half-
-   plugged in. Either rip Paddle out completely (run `remove_paddle.py`,
-   fix the 29 files) OR decide "we use both: Paddle global, Razorpay India"
-   and document it. Right now it's a refund/dispute nightmare waiting to
-   happen.
-3. **Fix STATE.md.** It says no Redis. There are 33 Celery task files.
-   Anyone making infra decisions on that doc will break prod.
+**Week 1 — Stop the bleeding (trust & money)** ✅ ALL DONE (verified 2026)
+1. ~~**Kill the dual-auth bug.**~~ ✅ DONE — backend is the sole token issuer;
+   the frontend only verifies and carries the badge. See §6.
+2. ~~**Finish or formally accept the Paddle situation.**~~ ✅ DONE — Paddle
+   fully removed 2026-06-24; Razorpay is the only billing provider. See §7.
+3. ~~**Fix STATE.md.**~~ ✅ DONE — STATE.md documents Redis + Celery accurately.
 
 **Week 2 — Verify the product actually works end-to-end**
-4. **Audit the 13 AI techniques.** Some are stubs. A "High tier" customer
-   paying $4K/mo could be routed to a no-op technique and never know. Map
-   each technique → real vs stub → which tiers use it. Fix or remove stubs.
+4. ~~**Audit the 13 AI techniques.**~~ ✅ DONE — all "Placeholder" nodes are
+   lazy delegates to real implementations; no no-op technique can be routed to.
+   (See §13 item 4.)
 5. **Run the full customer journey in a staging env**: signup → onboard →
    connect a channel → send a message → pipeline runs → ticket created →
    resolved → billed. Document where it breaks. The 945 test files don't
    prove this works — only a real run does.
 
-**Week 3 — Clean the workshop**
-6. **Move the 11 root scripts to `scripts/`**, delete the throwaway ones.
-7. **Remove `backend/venv/` from git**, add to `.gitignore`. This alone will
-   shrink the repo dramatically.
-8. **Pick one fake-CRM**, delete the other.
-9. **Split `settings/page.tsx`** (2,321 lines) into tabs.
+**Week 3 — Clean the workshop** ✅ mostly done (2026 docs-truthification pass)
+6. ~~**Move the root scripts to `scripts/`**, delete the throwaway ones.~~
+   ✅ DONE — probe/scratch files deleted; `verify_deploy.py` moved to `scripts/`.
+7. ~~**Remove `backend/venv/` from git**~~ ✅ VERIFIED NOT TRACKED (0 files in
+   git index). Historical blobs remain in old commits only.
+8. ~~**Pick one fake-CRM**, delete the other.~~ ✅ DONE — `fake-crm-server/`
+   is gone; `mini-services/fake-crm/` is the only one.
+9. **Split `settings/page.tsx`** (2,321 lines) into tabs. ← still open
 
 **Week 4 — Build the next revenue thing**
 10. Now that the foundation is trustworthy, pick ONE growth bet:
