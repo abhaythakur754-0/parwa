@@ -273,7 +273,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Mobile brand */}
             {isMobile && (
-              <span className="text-sm font-anton text-white tracking-wide">SHOBH</span>
+              <span className="text-lg font-anton text-white tracking-wide">SHOBH</span>
             )}
 
             {/* Spacer */}

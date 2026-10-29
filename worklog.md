@@ -216,3 +216,17 @@ Stage Summary:
   grey; sidebar Anton + grey active state; content Archivo; zero orange/purple/violet anywhere;
   "SHOBH PLAN" badge fixed. Landing regression-checked (grey + approved rose accents intact).
   dev.log clean (only expected backend-unreachable 503s). NO commit/push.
+
+## Task 17 — Logo+SHOBH lockup cleanup (user: remove bg, bigger SHOBH, tighter) (2026-10-28)
+- INTERLUDE: dev server had hung (next-server 108% CPU spin, then killed) — page rendered blank
+  white for user. Restarted; plain `&`/`setsid` launches get reaped when the bash tool session
+  ends — the trick that survives: `( setsid bun run dev > dev.log 2>&1 < /dev/null & )`.
+- Logo PNG itself was already transparent; the "background" was the wrapper div
+  (rounded-lg overflow-hidden shadow-lg shadow-orange-*) on every lockup. Removed the box on all
+  9 lockups: NavigationBar, DashboardSidebar (×2), Footer, OnboardingWizard, 4 auth pages.
+- SHOBH wordmark bumped one step everywhere: navbar text-lg/xl → text-2xl/3xl, sidebar
+  text-base → text-xl, footer text-lg → text-2xl, auth text-2xl → text-3xl, onboarding text-sm
+  → text-lg, mobile brand text-sm → text-lg; gaps tightened (2.5/3 → 1.5/2); logo img +1 step.
+- Rebuilt public/shobh-logo.png: trimmed transparent padding (1024→892x1015) then re-contained
+  into 1024x1024 transparent canvas (object-cover safety); favicon.png regenerated from trim.
+- Verified nav/login/sidebar screenshots: no box, bigger wordmark, tight lockup. NO commit/push.

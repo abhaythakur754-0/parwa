@@ -341,11 +341,11 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md space-y-8 relative z-10">
         {/* Header */}
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-600/30">
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-11 h-11 flex items-center justify-center">
               <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-anton text-white tracking-wide">SHOBH</span>
+            <span className="text-3xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
 
           {/* Step indicator */}

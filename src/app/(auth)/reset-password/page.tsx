@@ -94,11 +94,11 @@ function ResetPasswordContent() {
 
       <div className="w-full max-w-md space-y-8 relative z-10">
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-600/30">
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-11 h-11 flex items-center justify-center">
               <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-anton text-white tracking-wide">SHOBH</span>
+            <span className="text-3xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
           <h1 className="text-3xl font-bold text-white">Reset your password</h1>
           <p className="mt-2 text-sm text-orange-200/50">Enter a new password for your account</p>

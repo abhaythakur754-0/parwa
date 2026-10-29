@@ -204,22 +204,22 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
       {/* ── Logo / Brand ──────────────────────────────────────────── */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-white/[0.06]">
         {!collapsed && (
-          <Link href="/dashboard/tickets" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <Link href="/dashboard/tickets" className="flex items-center gap-2 group">
+            <div className="w-9 h-9 flex items-center justify-center">
               <img
                 src="/shobh-logo.png"
                 alt="SHOBH logo"
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className="text-white font-anton text-base tracking-wide">
+            <span className="text-white font-anton text-xl tracking-wide">
               SHOBH
             </span>
           </Link>
         )}
         {collapsed && (
           <Link href="/dashboard/tickets" className="flex items-center group mx-auto">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
+            <div className="w-9 h-9 flex items-center justify-center">
               <img
                 src="/shobh-logo.png"
                 alt="SHOBH logo"

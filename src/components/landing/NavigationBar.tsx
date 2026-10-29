@@ -88,17 +88,17 @@ export default function NavigationBar() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 sm:gap-3 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
+            className="flex items-center gap-1.5 sm:gap-2 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
             aria-label="SHOBH home"
           >
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:shadow-orange-500/40 transition-all duration-500 group-hover:scale-105">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
               <img
                 src="/shobh-logo.png"
                 alt="SHOBH logo"
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className="text-lg sm:text-xl font-anton text-white group-hover:text-orange-400 transition-colors duration-500 tracking-wide">
+            <span className="text-2xl sm:text-3xl font-anton text-white group-hover:text-orange-400 transition-colors duration-500 tracking-wide">
               SHOBH
             </span>
           </Link>

@@ -227,11 +227,11 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
                 <span>Back to Pricing</span>
               </button>
             ) : (
-              <Link href="/" className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <Link href="/" className="flex items-center gap-1.5">
+                <div className="w-9 h-9 flex items-center justify-center">
                   <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-white font-anton text-sm tracking-wide">SHOBH</span>
+                <span className="text-white font-anton text-lg tracking-wide">SHOBH</span>
               </Link>
             )}
           </div>
