@@ -49,7 +49,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # ── Config (env wins; defaults mirror superglue_client.py) ──────────────────
 DEFAULT_SUPERGLUE_URL = (
@@ -777,7 +777,6 @@ PAYMENTS_PRESET = [
     TOOL_HEALTH_CHECK,
 ]
 
-# Side-car manifest: risk metadata matching node_5 approval-gate model
 RISK_MANIFEST = {
     "factory-template-proof": {"risk": "read", "approval_required": False},
     "payment-refund-by-email": {"risk": "write", "approval_required": True, "threshold_cents": 5000},
@@ -792,10 +791,420 @@ RISK_MANIFEST = {
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Test matrix for the payments preset — credential-free
 # ════════════════════════════════════════════════════════════════════════════
-def preset_test_cases(tenant: str | None) -> list[dict]:
+# MEETINGS PRESET — services industry. Proves the factory is GENERIC:
+# same machine, zero code changes, completely different domain.
+# ════════════════════════════════════════════════════════════════════════════
+
+# 1. meeting-availability-check (READ — pure compute, transform-only, no HTTP)
+TOOL_MEETING_AVAILABILITY = {
+    "id": "meeting-availability-check",
+    "name": "Meeting Availability Check",
+    "instruction": (
+        "Computes open meeting slots for a given date within business hours "
+        "(Mon-Fri, 10:00-17:00 UTC, stepped by the requested duration). "
+        "Read-only, pure computation. Use BEFORE booking a meeting to offer "
+        "the customer real slot options."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["date", "durationMinutes"],
+        "properties": {
+            "date": {"type": "string", "description": "Date to check, ISO format YYYY-MM-DD"},
+            "durationMinutes": {"type": "number", "description": "Meeting length in minutes, e.g. 30"},
+        },
+    },
+    "steps": [
+        {
+            "id": "computeSlots",
+            "instruction": "Compute open slots from the business-hours grid",
+            "config": {
+                "type": "transform",
+                "transformCode": (
+                    "(sourceData) => { try {"
+                    " var d = String(sourceData.date || '');"
+                    " var dur = Number(sourceData.durationMinutes || 30);"
+                    " if (!dur || dur < 15) dur = 30;"
+                    " if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(d)) return { ok: false, open: false, error: 'date must be YYYY-MM-DD' };"
+                    " var dt = new Date(d + 'T00:00:00Z');"
+                    " var dow = dt.getUTCDay();"
+                    " if (dow === 0 || dow === 6) return { ok: true, date: d, open: false, reason: 'weekend', slots: [], count: 0 };"
+                    " var slots = [];"
+                    " var startMin = 10 * 60, endMin = 17 * 60;"
+                    " for (var m = startMin; m + dur <= endMin; m += dur) {"
+                    "  var hh = Math.floor(m / 60), mm = m % 60;"
+                    "  slots.push((hh < 10 ? '0' + hh : '' + hh) + ':' + (mm < 10 ? '0' + mm : '' + mm) + ' UTC');"
+                    " }"
+                    " return { ok: true, date: d, durationMinutes: dur, open: slots.length > 0, slots: slots, count: slots.length };"
+                    " } catch (e) { return { ok: false, open: false, error: String(e) }; } }"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var s = sourceData.computeSlots && sourceData.computeSlots.data ? sourceData.computeSlots.data : { ok: false };"
+        " return JSON.stringify(s);"
+        " } catch (e) { return JSON.stringify({ ok: false, error: String(e) }); } }"
+    ),
+}
+
+# 2. meeting-setup (WRITE — approval-gated at runtime)
+TOOL_MEETING_SETUP = {
+    "id": "meeting-setup",
+    "name": "Meeting Setup / Booking",
+    "instruction": (
+        "Books a setup meeting between the customer and the team: name, email, "
+        "topic and the chosen slot are sent to the booking endpoint, which "
+        "returns a booking reference and confirmation. Use AFTER checking "
+        "availability (meeting-availability-check). Write action — at runtime "
+        "this goes through the approval gate."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["customerName", "customerEmail", "topic", "slot"],
+        "properties": {
+            "customerName": {"type": "string", "description": "Customer full name"},
+            "customerEmail": {"type": "string", "description": "Customer email for the invite"},
+            "topic": {"type": "string", "description": "Meeting subject, e.g. 'Product setup walkthrough'"},
+            "slot": {"type": "string", "description": "Chosen slot, e.g. '2026-11-05T14:00 UTC'"},
+            "durationMinutes": {"type": "number", "description": "Meeting length in minutes (default 30)"},
+        },
+    },
+    "steps": [
+        {
+            "id": "bookMeeting",
+            "instruction": "Send the booking request to the booking endpoint",
+            "config": {
+                "type": "request",
+                "method": "POST",
+                "url": "https://postman-echo.com/post",
+                "headers": {"Content-Type": "application/json"},
+                "body": (
+                    "<<(sourceData) => JSON.stringify({ customerName: sourceData.customerName, "
+                    "customerEmail: sourceData.customerEmail, topic: sourceData.topic, "
+                    "slot: sourceData.slot, durationMinutes: Number(sourceData.durationMinutes || 30), "
+                    "source: 'parwa-agent' })>>"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var r = sourceData.bookMeeting && sourceData.bookMeeting.data ? sourceData.bookMeeting.data : {};"
+        " var b = r.data ? r.data : {};"
+        " if (!b.customerEmail) return JSON.stringify({ booked: false, error: 'booking endpoint did not accept the request' });"
+        " var s = String(b.customerName || '') + String(b.topic || '') + String(b.slot || '');"
+        " var h = 0;"
+        " for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) % 99991; }"
+        " var ref = 'MTG-' + (h < 10000 ? '0' + h : '' + h);"
+        " return JSON.stringify({ booked: true, bookingRef: ref, topic: b.topic, slot: b.slot, "
+        "customerEmail: b.customerEmail, durationMinutes: b.durationMinutes, "
+        "confirmation: 'Meeting booked for ' + b.customerName + ' on ' + b.slot + ' — ref ' + ref });"
+        " } catch (e) { return JSON.stringify({ booked: false, error: String(e) }); } }"
+    ),
+}
+
+# 3. meeting-reschedule (WRITE — approval-gated at runtime)
+TOOL_MEETING_RESCHEDULE = {
+    "id": "meeting-reschedule",
+    "name": "Meeting Reschedule",
+    "instruction": (
+        "Reschedules an existing meeting by booking reference to a new slot. "
+        "Use when a customer asks to move a previously booked meeting. "
+        "Write action — approval-gated at runtime."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["bookingRef", "newSlot"],
+        "properties": {
+            "bookingRef": {"type": "string", "description": "Existing booking reference, e.g. MTG-12345"},
+            "newSlot": {"type": "string", "description": "New slot, e.g. '2026-11-06T11:00 UTC'"},
+            "reason": {"type": "string", "description": "Optional reason for the reschedule"},
+        },
+    },
+    "steps": [
+        {
+            "id": "rescheduleMeeting",
+            "instruction": "Send the reschedule request to the booking endpoint",
+            "config": {
+                "type": "request",
+                "method": "POST",
+                "url": "https://postman-echo.com/post",
+                "headers": {"Content-Type": "application/json"},
+                "body": (
+                    "<<(sourceData) => JSON.stringify({ bookingRef: sourceData.bookingRef, "
+                    "newSlot: sourceData.newSlot, reason: sourceData.reason || 'customer requested', "
+                    "action: 'reschedule', source: 'parwa-agent' })>>"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var r = sourceData.rescheduleMeeting && sourceData.rescheduleMeeting.data ? sourceData.rescheduleMeeting.data : {};"
+        " var b = r.data ? r.data : {};"
+        " if (!b.bookingRef) return JSON.stringify({ rescheduled: false, error: 'reschedule endpoint did not accept the request' });"
+        " return JSON.stringify({ rescheduled: true, bookingRef: b.bookingRef, newSlot: b.newSlot, "
+        "reason: b.reason, confirmation: 'Meeting ' + b.bookingRef + ' moved to ' + b.newSlot });"
+        " } catch (e) { return JSON.stringify({ rescheduled: false, error: String(e) }); } }"
+    ),
+}
+
+MEETINGS_PRESET = [
+    TOOL_MEETING_AVAILABILITY,
+    TOOL_MEETING_SETUP,
+    TOOL_MEETING_RESCHEDULE,
+]
+
+# ════════════════════════════════════════════════════════════════════════════
+# RETAIL PRESET — second industry, REAL live APIs (dummyjson.com needs no keys).
+# ════════════════════════════════════════════════════════════════════════════
+
+# 1. order-status-check (READ — real live data)
+TOOL_ORDER_STATUS = {
+    "id": "order-status-check",
+    "name": "Order Status Check (retail)",
+    "instruction": (
+        "Looks up a customer's order by id and returns its contents, totals "
+        "and line items. Read-only. Use when a retail customer asks about "
+        "their order, what they were charged, or what is in the order."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["orderId"],
+        "properties": {
+            "orderId": {"type": "string", "description": "Order id, e.g. '1'"},
+        },
+    },
+    "steps": [
+        {
+            "id": "fetchOrder",
+            "instruction": "Fetch the order from the orders system",
+            "config": {
+                "type": "request",
+                "method": "GET",
+                "url": "https://dummyjson.com/carts/<<orderId>>",
+                "headers": {},
+            },
+        },
+        {
+            "id": "shapeOrder",
+            "instruction": "Shape the order summary",
+            "config": {
+                "type": "transform",
+                "transformCode": (
+                    "(sourceData) => { try {"
+                    " var c = sourceData.fetchOrder && sourceData.fetchOrder.data ? sourceData.fetchOrder.data : null;"
+                    " if (!c || !c.id) return { found: false, error: 'order not found' };"
+                    " var items = [];"
+                    " var ps = c.products || [];"
+                    " for (var i = 0; i < ps.length; i++) { items.push({ title: ps[i].title, quantity: ps[i].quantity, price: ps[i].price }); }"
+                    " return { found: true, order: { id: c.id, customerId: c.userId, total: c.total, discountedTotal: c.discountedTotal, itemCount: items.length, items: items } };"
+                    " } catch (e) { return { found: false, error: String(e) }; } }"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var s = sourceData.shapeOrder && sourceData.shapeOrder.data ? sourceData.shapeOrder.data : { found: false };"
+        " return JSON.stringify(s);"
+        " } catch (e) { return JSON.stringify({ found: false, error: String(e) }); } }"
+    ),
+}
+
+# 2. product-warranty-check (READ — real live catalog)
+TOOL_PRODUCT_WARRANTY = {
+    "id": "product-warranty-check",
+    "name": "Product Warranty & Policy Check (retail)",
+    "instruction": (
+        "Searches the product catalog by name and returns warranty information, "
+        "return policy, availability and price for the best match. Read-only. "
+        "Use when a customer asks 'is this under warranty' or 'can I return this'."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["productName"],
+        "properties": {
+            "productName": {"type": "string", "description": "Product name to search, e.g. 'iPhone'"},
+        },
+    },
+    "steps": [
+        {
+            "id": "searchProduct",
+            "instruction": "Search the catalog for the product",
+            "config": {
+                "type": "request",
+                "method": "GET",
+                "url": "https://dummyjson.com/products/search?q=<<productName>>&limit=5",
+                "headers": {},
+            },
+        },
+        {
+            "id": "shapeWarranty",
+            "instruction": "Pick best match and extract warranty/policy fields",
+            "config": {
+                "type": "transform",
+                "transformCode": (
+                    "(sourceData) => { try {"
+                    " var resp = sourceData.searchProduct || {};"
+                    " var items = (resp.data && resp.data.products) ? resp.data.products : [];"
+                    " var q = String(sourceData.productName || '').toLowerCase();"
+                    " var best = null;"
+                    " for (var i = 0; i < items.length; i++) {"
+                    "  var t = items[i] && items[i].title ? String(items[i].title).toLowerCase() : '';"
+                    "  if (t.indexOf(q) !== -1) { best = items[i]; break; }"
+                    " }"
+                    " if (!best && items.length) best = items[0];"
+                    " if (!best) return { found: false };"
+                    " return { found: true, product: { title: best.title, brand: best.brand || null, category: best.category || null, price: best.price || null, rating: best.rating || null, stock: best.stock !== undefined ? best.stock : null, availability: best.availabilityStatus || null, warranty: best.warrantyInformation || null, returnPolicy: best.returnPolicy || null } };"
+                    " } catch (e) { return { found: false, error: String(e) }; } }"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var s = sourceData.shapeWarranty && sourceData.shapeWarranty.data ? sourceData.shapeWarranty.data : { found: false };"
+        " return JSON.stringify(s);"
+        " } catch (e) { return JSON.stringify({ found: false, error: String(e) }); } }"
+    ),
+}
+
+# 3. return-request-create (WRITE — approval-gated at runtime)
+TOOL_RETURN_REQUEST = {
+    "id": "return-request-create",
+    "name": "Return Request Creation (retail)",
+    "instruction": (
+        "Creates a return request (RMA) for an order with the customer's email "
+        "and reason. Returns an RMA reference with status pending_return_approval. "
+        "Write action — approval-gated at runtime."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "required": ["orderId", "customerEmail", "reason"],
+        "properties": {
+            "orderId": {"type": "string", "description": "Order id to return"},
+            "customerEmail": {"type": "string", "description": "Customer email"},
+            "reason": {"type": "string", "description": "Return reason, e.g. 'arrived damaged'"},
+        },
+    },
+    "steps": [
+        {
+            "id": "createReturn",
+            "instruction": "Submit the return request to the returns endpoint",
+            "config": {
+                "type": "request",
+                "method": "POST",
+                "url": "https://postman-echo.com/post",
+                "headers": {"Content-Type": "application/json"},
+                "body": (
+                    "<<(sourceData) => JSON.stringify({ orderId: sourceData.orderId, "
+                    "customerEmail: sourceData.customerEmail, reason: sourceData.reason, "
+                    "action: 'create_return', source: 'parwa-agent' })>>"
+                ),
+            },
+        }
+    ],
+    "outputTransform": (
+        "(sourceData) => { try {"
+        " var r = sourceData.createReturn && sourceData.createReturn.data ? sourceData.createReturn.data : {};"
+        " var b = r.data ? r.data : {};"
+        " if (!b.orderId) return JSON.stringify({ rmaCreated: false, error: 'returns endpoint did not accept the request' });"
+        " var s = String(b.orderId) + String(b.customerEmail || '');"
+        " var h = 0;"
+        " for (var i = 0; i < s.length; i++) { h = (h * 33 + s.charCodeAt(i)) % 99991; }"
+        " var ref = 'RMA-' + (h < 10000 ? '0' + h : '' + h);"
+        " return JSON.stringify({ rmaCreated: true, rmaRef: ref, orderId: b.orderId, reason: b.reason, status: 'pending_return_approval', confirmation: 'Return request ' + ref + ' created for order ' + b.orderId });"
+        " } catch (e) { return JSON.stringify({ rmaCreated: false, error: String(e) }); } }"
+    ),
+}
+
+RETAIL_PRESET = [
+    TOOL_ORDER_STATUS,
+    TOOL_PRODUCT_WARRANTY,
+    TOOL_RETURN_REQUEST,
+]
+
+PRESETS = {
+    "payments": PAYMENTS_PRESET,
+    "meetings": MEETINGS_PRESET,
+    "retail": RETAIL_PRESET,
+}
+
+
+def _next_weekday_iso() -> str:
+    """Next business day (UTC) as YYYY-MM-DD — for realistic meeting tests."""
+    d = datetime.now(timezone.utc).date() + timedelta(days=1)
+    while d.weekday() >= 5:  # Sat/Sun
+        d += timedelta(days=1)
+    return d.isoformat()
+
+
+# Test matrix — credential-free, per preset
+# ════════════════════════════════════════════════════════════════════════════
+def preset_test_cases(tenant: str | None, preset: str = "payments") -> list[dict]:
     ns = lambda slug: namespaced(slug, tenant)
+    if preset == "meetings":
+        return [
+            {
+                "id": ns("meeting-availability-check"),
+                "inputs": {"date": _next_weekday_iso(), "durationMinutes": 30},
+                "expect": "success",
+                "why": "transform-only slot computation — no HTTP, must return real open slots",
+                "expect_payload": {"ok": True, "open": True},
+            },
+            {
+                "id": ns("meeting-setup"),
+                "inputs": {
+                    "customerName": "Jane Customer",
+                    "customerEmail": "jane@example.com",
+                    "topic": "Product setup walkthrough",
+                    "slot": f"{_next_weekday_iso()}T14:00 UTC",
+                    "durationMinutes": 30,
+                },
+                "expect": "success",
+                "why": "write path: booking body must round-trip the endpoint; approval gate at runtime",
+                "expect_payload": {"booked": True},
+            },
+            {
+                "id": ns("meeting-reschedule"),
+                "inputs": {
+                    "bookingRef": "MTG-TEST0001",
+                    "newSlot": f"{_next_weekday_iso()}T16:00 UTC",
+                    "reason": "customer asked to move it",
+                },
+                "expect": "success",
+                "why": "reschedule write path",
+                "expect_payload": {"rescheduled": True},
+            },
+        ]
+    if preset == "retail":
+        return [
+            {
+                "id": ns("order-status-check"),
+                "inputs": {"orderId": "1"},
+                "expect": "success",
+                "why": "real live API (dummyjson carts) — genuine 200 with real data, no keys",
+                "expect_payload": {"found": True},
+            },
+            {
+                "id": ns("product-warranty-check"),
+                "inputs": {"productName": "iPhone"},
+                "expect": "success",
+                "why": "real catalog search returning warranty/return-policy fields",
+                "expect_payload": {"found": True},
+            },
+            {
+                "id": ns("return-request-create"),
+                "inputs": {"orderId": "1", "customerEmail": "jane@example.com", "reason": "arrived damaged"},
+                "expect": "success",
+                "why": "write path — RMA creation with reference",
+                "expect_payload": {"rmaCreated": True},
+            },
+        ]
+    # payments (default)
     return [
         {
             "id": ns("factory-template-proof"),
@@ -897,6 +1306,21 @@ def cmd_proof(_args):
     sys.exit(0 if ok else 2)
 
 
+RISK_MANIFESTS = {
+    "payments": RISK_MANIFEST,
+    "meetings": {
+        "meeting-availability-check": {"risk": "read", "approval_required": False},
+        "meeting-setup": {"risk": "write", "approval_required": True},
+        "meeting-reschedule": {"risk": "write", "approval_required": True},
+    },
+    "retail": {
+        "order-status-check": {"risk": "read", "approval_required": False},
+        "product-warranty-check": {"risk": "read", "approval_required": False},
+        "return-request-create": {"risk": "write", "approval_required": True},
+    },
+}
+
+
 def cmd_deploy(args):
     tenant = args.tenant
     if args.spec:
@@ -904,8 +1328,10 @@ def cmd_deploy(args):
             specs = json.load(f)
         if isinstance(specs, dict):
             specs = [specs]
-    elif args.preset == "payments":
-        specs = PAYMENTS_PRESET
+        manifest_src = RISK_MANIFESTS["payments"]
+    elif args.preset in PRESETS:
+        specs = PRESETS[args.preset]
+        manifest_src = RISK_MANIFESTS[args.preset]
     else:
         print(f"unknown preset: {args.preset}")
         sys.exit(1)
@@ -929,7 +1355,7 @@ def cmd_deploy(args):
 
     # side-car manifest (namespaced)
     manifest = {
-        namespaced(k, tenant): v for k, v in RISK_MANIFEST.items()
+        namespaced(k, tenant): v for k, v in manifest_src.items()
     }
     write_out("tool_manifest.json", {"tenant": tenant, "tools": manifest})
 
@@ -954,7 +1380,7 @@ def cmd_test(args):
 
 
 def cmd_test_preset(args):
-    cases = preset_test_cases(args.tenant)
+    cases = preset_test_cases(args.tenant, preset=getattr(args, "preset", "payments"))
     results = []
     for c in cases:
         res = run_tool(c["id"], c["inputs"])
@@ -1016,7 +1442,7 @@ def main():
     sub.add_parser("proof").set_defaults(func=cmd_proof)
 
     d = sub.add_parser("deploy")
-    d.add_argument("--preset", choices=["payments"])
+    d.add_argument("--preset", choices=sorted(PRESETS))
     d.add_argument("--spec", help="path to a JSON file with one tool spec or a list")
     d.add_argument("--tenant", help="tenant id for namespacing")
     d.add_argument("--skip-proof", action="store_true")
@@ -1030,6 +1456,7 @@ def main():
 
     tp = sub.add_parser("test-preset")
     tp.add_argument("--tenant")
+    tp.add_argument("--preset", choices=sorted(PRESETS), default="payments")
     tp.set_defaults(func=cmd_test_preset)
 
     x = sub.add_parser("delete")

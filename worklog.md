@@ -771,3 +771,40 @@ Stage Summary:
   (self-created warranty-status-check + built agent 3c409c4c-…)
 - **Status**: ✅ PRODUCTION READY — only gap: real Razorpay keys (drop into
   integration vault; tools take creds as inputs, no redeploys)
+
+## 2026-10-29 (later) — Tool registry in DB + lost-commit recovery (task 38)
+
+User ask: "are we keeping track — this tool belongs to what agent? Are we
+storing in our database?" Answer: the DB tables already existed
+(ai_agent_assignments.superglue_tool_id, superglue_action_safety,
+superglue_call_queue, ticket_tool_executions) but the factory/self-extension
+loop only wrote JSON files. FIXED:
+
+- NEW scripts/tool_registry_db.py: best-effort DB registration.
+  register_tool() upserts (a) superglue_action_safety row = tenant's tool
+  inventory (tool_id, name, risk, needs_approval, is_active) and
+  (b) ai_agent_assignments row = agent↔tool link (agent_name
+  "Self-Extended Agent: <capability>", capabilities, superglue_tool_id,
+  status active, cached tool definition, origin/created_by/for-ticket in
+  instructions). list_tools_for_tenant() + list_agents_with_tools() answer
+  "which tools does this tenant have" / "which agent owns which tool" with
+  plain SQL. Skips cleanly when DATABASE_URL unreachable (Supabase expired).
+- self_extension_loop.py: every created_and_verified path (llm_generated,
+  llm_repaired, fallback self-heal) now calls _register_in_db() and journals
+  the db_register step (ok/error) — audit survives even if DB is down.
+- Sandbox was wiped AGAIN mid-session (2nd time): clone reverted to 3905b7c
+  and unpushed commit d293084 was LOST. Rebuilt all task-37 code (meetings +
+  retail presets, repair pass, 7-phase E2E) and re-verified live:
+  preset tests 3/3 + 3/3, smoke PASS, full E2E ALL 7 PHASES PASS
+  (scripts/out/production_e2e_report_1793266435.json). LESSON APPLIED:
+  pushing to origin immediately after every commit from now on.
+- DB-registry autonomous test (tenant registry-test-3494, SQLite): meeting
+  ticket → tool self-built (llm_generated) → db_register ok=true
+  (inventory+agent_link inserted) → SELECT shows agent
+  "Self-Extended Agent: meeting_setup" owning
+  tenant_registry-test-3494__meeting-setup. Tracking question answered live.
+
+Stage Summary:
+- **Files**: scripts/tool_registry_db.py (new), scripts/self_extension_loop.py,
+  scripts/tool_factory.py, scripts/production_e2e_test.py
+- **Status**: ✅ Tool ownership tracked in DB; E2E all-green; PUSHED to origin.

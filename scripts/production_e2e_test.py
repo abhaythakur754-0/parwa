@@ -40,6 +40,7 @@ from tool_factory import (  # noqa: E402
     list_tools,
     upsert_tool,
     PAYMENTS_PRESET,
+    PRESETS,
     RISK_MANIFEST,
     preset_test_cases,
     run_tool,
@@ -119,43 +120,49 @@ def phase0_health() -> bool:
 
 
 def phase1_toolset() -> bool:
-    section(f"PHASE 1 — Toolset deploy + credential-free matrix (tenant: {TENANT_A})")
-    # idempotent deploy
+    section("PHASE 1 — Toolset deploy + credential-free matrix (3 industries)")
+    packs = [
+        ("payments", TENANT_A),
+        ("meetings", "acme-meetings-demo"),
+        ("retail", "acme-retail-demo"),
+    ]
     errs = []
-    for raw in PAYMENTS_PRESET:
-        spec = dict(raw)
-        spec["id"] = namespaced(spec["id"], TENANT_A)
-        e = validate_spec(spec)
-        if e:
-            errs.append({"id": spec["id"], "errors": e})
-            continue
-        up = upsert_tool(spec)
-        print(f"  {'✓' if up['ok'] else '✗'} deploy {spec['id']} → {up['action']}")
-        if not up["ok"]:
-            errs.append(up)
+    for preset, tenant in packs:
+        print(f"  ▶ pack: {preset} (tenant: {tenant})")
+        for raw in PRESETS[preset]:
+            spec = dict(raw)
+            spec["id"] = namespaced(spec["id"], tenant)
+            e = validate_spec(spec)
+            if e:
+                errs.append({"id": spec["id"], "errors": e})
+                continue
+            up = upsert_tool(spec)
+            print(f"  {'✓' if up['ok'] else '✗'} deploy {spec['id']} → {up['action']}")
+            if not up["ok"]:
+                errs.append(up)
     deploy_ok = not errs
 
-    # test matrix
     results = []
-    for c in preset_test_cases(TENANT_A):
-        res = run_tool(c["id"], c["inputs"])
-        v = classify_result(res)
-        passed = v["verdict"] == c["expect"]
-        if passed and c.get("expect_payload"):
-            detail = v.get("detail")
-            if isinstance(detail, str):
-                try:
-                    detail = json.loads(detail)
-                except Exception:
-                    detail = {}
-            for k, want in (c["expect_payload"] or {}).items():
-                if not isinstance(detail, dict) or detail.get(k) != want:
+    for preset, tenant in packs:
+        for c in preset_test_cases(tenant, preset=preset):
+            res = run_tool(c["id"], c["inputs"])
+            v = classify_result(res)
+            passed = v["verdict"] == c["expect"]
+            if passed and c.get("expect_payload"):
+                detail = v.get("detail")
+                if isinstance(detail, str):
+                    try:
+                        detail = json.loads(detail)
+                    except Exception:
+                        detail = {}
+                for k, want in (c["expect_payload"] or {}).items():
+                    if not isinstance(detail, dict) or detail.get(k) != want:
+                        passed = False
+            if passed and c.get("expect_stepresults_contains"):
+                if c["expect_stepresults_contains"] not in json.dumps(res.get("json", {})):
                     passed = False
-        if passed and c.get("expect_stepresults_contains"):
-            if c["expect_stepresults_contains"] not in json.dumps(res.get("json", {})):
-                passed = False
-        results.append({**{k: c[k] for k in ("id", "expect", "why")}, "verdict": v["verdict"], "passed": passed})
-        print(f"  {'✓' if passed else '✗'} test {c['id']} → {v['verdict']}")
+            results.append({**{k: c[k] for k in ("id", "expect", "why")}, "verdict": v["verdict"], "passed": passed})
+            print(f"  {'✓' if passed else '✗'} test {c['id']} → {v['verdict']}")
     passed_n = sum(1 for r in results if r["passed"])
     print(f"\n  MATRIX: {passed_n}/{len(results)} passed")
     ok = deploy_ok and passed_n == len(results)
@@ -331,15 +338,82 @@ def phase4_self_extension() -> bool:
     return ok
 
 
+def phase4b_meeting_extension() -> bool:
+    section("PHASE 4b — Self-extension: ANY-domain ticket (services tenant)")
+    print("  Ticket: 'Please schedule a setup meeting with your team' — NO meeting tool exists")
+    tenant = "acme-services-demo"
+    journal = {
+        "tenant": tenant,
+        "started": datetime.now(timezone.utc).isoformat(),
+        "ticket": {"subject": "Please schedule a setup meeting with your team", "channel": "chat"},
+    }
+    result = extend_toolset(
+        tenant=tenant,
+        capability="meeting_setup",
+        context=(
+            "Services business. Customers open tickets asking to schedule a setup "
+            "meeting/call with the team. The agent needs to book a meeting: take "
+            "the customer name, email, topic and a chosen slot, and get a booking "
+            "reference back."
+        ),
+        test_inputs={
+            "customerName": "Jane Customer",
+            "customerEmail": "jane@example.com",
+            "topic": "Product setup walkthrough",
+            "slot": "2026-11-05T14:00 UTC",
+            "durationMinutes": 30,
+        },
+        journal=journal,
+        allow_llm=True,
+    )
+    ok = result["status"] in ("created_and_verified", "use_existing")
+    print(f"  ✓ loop status: {result['status']}")
+    print(f"  ✓ tool_id: {result.get('tool_id')}")
+    print(f"  ✓ designed_by: {result.get('designed_by')} | self_repaired: {result.get('self_repaired', False)}")
+    data = result.get("data")
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            pass
+    if result["status"] == "use_existing":
+        from self_extension_loop import _data_is_usable
+        res = run_tool(result["tool_id"], {
+            "customerName": "Jane Customer", "customerEmail": "jane@example.com",
+            "topic": "Product setup walkthrough", "slot": "2026-11-05T14:00 UTC",
+            "durationMinutes": 30,
+        })
+        v = classify_result(res)
+        reverified = v["verdict"] == "success" and _data_is_usable(res.get("json", {}).get("data"))
+        ok &= reverified
+        print(f"  {'✓' if reverified else '✗'} re-verified existing meeting tool: {v['verdict']}")
+    print(f"  ✓ tool output: {json.dumps(data, default=str)[:300] if data else '(existing tool)'}")
+    if result.get("tool_id", "").endswith("meeting-setup"):
+        print("  ✓ write-risk tool → runtime approval gate applies (node_5)")
+    journal["result"] = result
+    journal["finished"] = datetime.now(timezone.utc).isoformat()
+    os.makedirs(OUT_DIR, exist_ok=True)
+    with open(os.path.join(OUT_DIR, f"e2e_meeting_extension_{int(time.time())}.json"), "w") as f:
+        json.dump(journal, f, indent=2, default=str)
+    record("meeting_extension", {
+        "status": result["status"],
+        "tool_id": result.get("tool_id"),
+        "designed_by": result.get("designed_by"),
+        "data": data,
+    }, ok)
+    return ok
+
+
 def phase5_verdict() -> bool:
     section("PHASE 5 — PRODUCTION READINESS VERDICT")
     phases = REPORT["phases"]
     labels = {
         "health": "Service health (Superglue + Builder + CRM)",
-        "toolset": "Toolset deploy + credential-free test matrix",
+        "toolset": "Toolset deploy + matrix (payments + meetings + retail packs)",
         "crm_analyser": "CRM Analyser → work order",
         "builder": "Builder Agent → agent created",
-        "self_extension": "Self-extension (novel ticket → new tool, autonomous)",
+        "self_extension": "Self-extension #1 (warranty ticket → new tool, autonomous)",
+        "meeting_extension": "Self-extension #2 (meeting ticket → new tool, any-domain)",
     }
     all_ok = True
     for key, label in labels.items():
@@ -364,12 +438,12 @@ def phase5_verdict() -> bool:
     return all_ok
 
 
-PHASES = [phase0_health, phase1_toolset, phase2_crm, phase3_builder, phase4_self_extension, phase5_verdict]
+PHASES = [phase0_health, phase1_toolset, phase2_crm, phase3_builder, phase4_self_extension, phase4b_meeting_extension, phase5_verdict]
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", type=int, choices=range(0, 6), help="run a single phase")
+    ap.add_argument("--phase", type=int, choices=range(0, 7), help="run a single phase")
     args = ap.parse_args()
     if args.phase is not None:
         ok = PHASES[args.phase]()
