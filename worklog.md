@@ -915,3 +915,19 @@ R10 read=auto / write=approval-gated. VERDICT: PRODUCTION READY YES.
 Regression: known capability still use_existing (no rebuild).
 
 Artifacts: scripts/out/novel_production_test_*.json (production_ready=true).
+
+## Task 42 — "Where does the brain come from?" (LLM-key question) + 2 fixes
+Answer verified in code: tool-design LLM = Superglue's own built-in lane
+(/sgai/v1, open-mistral-7b) — same Superglue deployment the whole Parwa
+stack already uses (sgapi/sgq/sgai); key sgai_* was already the default in
+backend/app/core/superglue_client.py. NOT the owner's personal LLM keys.
+Env overrides exist: SUPERGLUE_LLM_URL / SUPERGLUE_LLM_API_KEY.
+Proved ZERO-LLM path live: novel capability built + verified with
+allow_llm=False (validated universal template, no AI calls at all).
+
+Fixes found during proof:
+1. extend_toolset(journal=None) crashed at DB-register (created_for_ticket)
+   → (journal or {}) guard, 3 sites.
+2. designed_by mislabel: attempt-1 result hard-coded 'llm_generated' even
+   when spec came from a template with allow_llm=False → now uses
+   designed['source'] honestly.

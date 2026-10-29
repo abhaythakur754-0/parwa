@@ -729,7 +729,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
         attempts.append({
             "attempt": 1,
             "tool_id": ns_spec["id"],
-            "designed_by": "llm_generated",
+            "designed_by": designed["source"],
             "status": "created_and_verified" if usable else "test_failed",
             "verdict": verdict,
             "inputs_used": effective_inputs,
@@ -738,11 +738,11 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
         if usable:
             _register_in_db(journal, tenant, ns_spec["id"], ns_spec,
                             eff_risk,
-                            capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
+                            capability, "self_extension", created_for_ticket=(journal or {}).get("ticket", {}).get("id"))
             return {
                 "status": "created_and_verified",
                 "tool_id": ns_spec["id"],
-                "designed_by": "llm_generated",
+                "designed_by": designed["source"],
                 "verdict": verdict,
                 "data": attempts[-1]["data"],
                 "attempts": attempts,
@@ -786,7 +786,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
                             if ok2:
                                 _register_in_db(journal, tenant, ns_spec["id"], fixed_spec,
                                                 eff_risk,
-                                                capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
+                                                capability, "self_extension", created_for_ticket=(journal or {}).get("ticket", {}).get("id"))
                                 return {
                                     "status": "created_and_verified",
                                     "tool_id": ns_spec["id"],
@@ -841,7 +841,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
             if ok2:
                 _register_in_db(journal, tenant, ns_spec["id"], ns_spec,
                                 eff_risk,
-                                capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
+                                capability, "self_extension", created_for_ticket=(journal or {}).get("ticket", {}).get("id"))
                 return {
                     "status": "created_and_verified",
                     "tool_id": ns_spec["id"],
