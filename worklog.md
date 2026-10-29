@@ -832,3 +832,36 @@ public tables) + "Security Definer View" (v_company_usage_dashboard).
 Stage Summary:
 - **Status**: ✅ security self-heals on every deploy; only owner action left:
   fix/restore Supabase project + keep DATABASE_URL valid on Render.
+
+## 2026-10-29 (later) — REAL production DB secured live (task 39b)
+
+User provided live Supabase credentials (project fmpibdauppnzfisodkhp — the
+"expired" project is ALIVE again; restored). Connected via pooler (PG 17.6).
+
+Found on the REAL DB: 186 public tables, 22 missing RLS, definer-style
+v_company_usage_dashboard (+2 more views), NO alembic_version (schema was
+created outside alembic), plus 7 PRE-EXISTING loose anon policies the linter
+had NOT yet flagged: anon_read_* (SELECT) on parwa_customers/invoices/orders/
+payments/refunds + anon INSERT on parwa_payments/parwa_refunds — real public
+leak surface.
+
+Applied live (same idempotent SQL as migration 042 + extras):
+- RLS enabled on all missing tables → 0 remaining
+- srv_full_access (service_role) on all tables; anon_app_access ONLY on
+  the 10 existing jarvis_* tables; vault RPC granted
+- ALL 3 public views flipped to security_invoker
+- Dropped ALL 7 loose anon/authenticated policies (ownership edge on 2
+  resolved via session pooler port 5432)
+- alembic_version stamped → 042_rls_and_view_security (deploys skip history)
+
+Verified RELIABLY via session pooler (6543 transaction pooling makes
+SET ROLE tests unreliable — lesson): anon → 0 rows on tickets/users/
+companies/customers/ai_wiki_entries/parwa_* (or table-level block);
+owner/backend → full data (tickets 723, users 115, companies 251).
+
+NOTE for owner: DATABASE_URL on the hosting platform MUST URL-encode the
+'@' in the DB password (Durgamaa%40754) or connection fails.
+
+Stage Summary:
+- **Status**: ✅ production DB locked down + linter categories closed live;
+  deploys now safe; owner sets DATABASE_URL (encoded) on platform → go-live.
