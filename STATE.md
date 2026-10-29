@@ -74,3 +74,10 @@
   are NOT wired into `.github/workflows/ci.yml` — only backend tests run in CI
 - Rust parwa_core uncompiled (fallbacks active)
 - Task-decorator queue names audit pending (see Redis + Celery above)
+
+## Deployment status (2026-10-29)
+- Security hardening (RLS + view security_invoker) ships as migration 042 and
+  self-applies on every deploy via lifespan `alembic upgrade head`.
+- Commit identity fixed for Vercel deployment (was sandbox placeholder).
+- Remaining owner action: Supabase project active + DATABASE_URL set on the
+  hosting platform (Render/Vercel) for the backend to boot and self-heal.
