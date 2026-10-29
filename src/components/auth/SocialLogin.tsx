@@ -39,7 +39,10 @@ export function SocialLogin({ onGoogleLogin, isLoading = false, error, showDivid
     }
 
     const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
+    // ?hl=en forces the GIS button text to English — without it the button
+    // renders in the BROWSER's locale (live test caught it rendering in
+    // Chinese on the English site).
+    script.src = 'https://accounts.google.com/gsi/client?hl=en';
     script.async = true;
     script.defer = true;
     script.onload = () => setScriptLoaded(true);

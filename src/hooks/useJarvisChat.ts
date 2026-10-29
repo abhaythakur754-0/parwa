@@ -365,15 +365,41 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
           return [...filtered, realUserMsg, aiMessage];
         });
 
-        // Refresh session for updated limits
+        // Refresh session for updated limits.
+        // BUGFIX (live UI test 2026-10-29): the counter used to stick at 20
+        // because some backend deployments don't increment message_count_today
+        // on proxied messages. Trust the server when it went down; otherwise
+        // decrement locally so the user always sees the counter move. Pack
+        // upgrades (demo pack) use server truth.
         if (sessionId) {
           try {
             const updatedSession = await apiFetch<JarvisSession>(
               `/session?session_id=${sessionId}`,
             );
-            setSession(updatedSession);
+            setSession((prev) => {
+              if (!prev) return updatedSession;
+              if (updatedSession.pack_type !== prev.pack_type) return updatedSession;
+              const prevRemaining = prev.remaining_today ?? 20;
+              const serverRemaining = updatedSession.remaining_today ?? 20;
+              return {
+                ...updatedSession,
+                remaining_today:
+                  serverRemaining < prevRemaining
+                    ? serverRemaining
+                    : Math.max(0, prevRemaining - 1),
+              };
+            });
           } catch {
-            // Non-critical — session state update failed
+            // Non-critical — session refresh failed; still decrement locally
+            // so the counter reflects the message just sent.
+            setSession((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    remaining_today: Math.max(0, (prev.remaining_today ?? 20) - 1),
+                  }
+                : prev,
+            );
           }
         }
       } catch (err) {
@@ -399,27 +425,22 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
   // ── Retry Last Message ──────────────────────────────────────────
 
   const retryLastMessage = useCallback(async () => {
-    // Find last user message that resulted in error
-    const lastUserMsg = [...messages].reverse().find(
-      (m) => m.role === 'user',
+    // BUGFIX (live UI test 2026-10-29): this used to re-send the LAST user
+    // message — so a failed question followed by any successful message
+    // could never be retried (the failed one stayed dead in the transcript).
+    // Now we re-send the last user message that actually ERRORED and remove
+    // exactly that message by id.
+    const failedUserMsg = [...messages].reverse().find(
+      (m) => m.role === 'user' && m.message_type === 'error',
     );
-    if (!lastUserMsg) return;
+    const target = failedUserMsg
+      || [...messages].reverse().find((m) => m.role === 'user');
+    if (!target) return;
 
-    // Remove the error message
-    setMessages((prev) => {
-      const lastIdx = prev.length - 1;
-      if (lastIdx >= 0 && prev[lastIdx].message_type === 'error') {
-        return prev.slice(0, -1);
-      }
-      // Also remove last user message (will be re-added by sendMessage)
-      const userMsgIdx = prev.length - 1;
-      if (userMsgIdx >= 0 && prev[userMsgIdx].role === 'user') {
-        return prev.slice(0, -1);
-      }
-      return prev;
-    });
+    // Remove exactly the message being retried (sendMessage re-adds it)
+    setMessages((prev) => prev.filter((m) => m.id !== target.id));
 
-    await sendMessage(lastUserMsg.content);
+    await sendMessage(target.content);
   }, [messages, sendMessage]);
 
   // ── Update Context ──────────────────────────────────────────────

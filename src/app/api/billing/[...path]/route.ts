@@ -4,7 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
  * Billing proxy route.
  * Forwards /api/billing/* to backend /api/billing/*
  * On 401/403, attempts token refresh then retries once.
+ *
+ * FIX (live UI test 2026-10-29): the Render free-tier backend cold-starts
+ * and intermittently returns 5xx/timeouts — the dashboard showed a scary
+ * "Connection Error" / failed trial banner. We now retry once after a
+ * short pause before giving up.
  */
+
+// Allow up to 60s on Vercel so cold-start wakeups (can take ~30s) survive.
+export const maxDuration = 60;
 
 function getBackendUrl(): string {
   return process.env.BACKEND_URL || 'https://parwa-backend.onrender.com';
@@ -80,6 +88,27 @@ async function tryRefreshToken(origin: string, cookie: string): Promise<string |
   }
 }
 
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 2,
+): Promise<Response> {
+  let lastErr: unknown = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(20000) });
+      // Retry once on backend 5xx (Render cold-start transients)
+      if (res.status < 500 || i === attempts - 1) return res;
+      lastErr = new Error(`backend responded ${res.status}`);
+    } catch (err) {
+      lastErr = err;
+    }
+    // Brief pause before retry — gives a cold-starting backend time to wake
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('backend unreachable');
+}
+
 async function proxyRequest(
   method: string,
   request: NextRequest,
@@ -102,12 +131,11 @@ async function proxyRequest(
     let accessToken = getAccessTokenFromCookie(cookie);
     let currentCookie = cookie;
 
-    // ── First attempt ───────────────────────────────────────
-    let backendRes = await fetch(`${backendUrl}${backendPath}`, {
+    // ── First attempt (with one automatic retry on 5xx/network error) ──
+    let backendRes = await fetchWithRetry(`${backendUrl}${backendPath}`, {
       method,
       headers: buildHeaders(currentCookie, origin, accessToken),
       body,
-      signal: AbortSignal.timeout(15000),
     });
 
     // ── Retry once on 401/403 if we had a token (likely expired) ──
@@ -115,11 +143,10 @@ async function proxyRequest(
       const refreshedCookie = await tryRefreshToken(origin, currentCookie);
       if (refreshedCookie) {
         const newAccessToken = getAccessTokenFromCookie(refreshedCookie);
-        backendRes = await fetch(`${backendUrl}${backendPath}`, {
+        backendRes = await fetchWithRetry(`${backendUrl}${backendPath}`, {
           method,
           headers: buildHeaders(refreshedCookie, origin, newAccessToken),
           body,
-          signal: AbortSignal.timeout(15000),
         });
 
         if (backendRes.ok || backendRes.status < 500) {

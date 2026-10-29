@@ -28,6 +28,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── Vercel function duration ─────────────────────────────────────────
+// The AI pipeline (LangGraph 13-stage + RAG + LLM) can take 30–60s on a
+// cold Render backend. Without this, Vercel kills the function at its
+// default limit and the browser gets an HTML 504 — the exact "first
+// message fails" bug seen in live UI testing (fixed 2026-10-29).
+export const maxDuration = 60;
+
 // ── Backend Proxy Configuration ─────────────────────────────────
 import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
@@ -104,7 +111,9 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
       method,
       headers,
       body,
-      signal: AbortSignal.timeout(90000),  // 90s — AI pipeline can take 30-60s
+      // 55s — must stay UNDER the 60s Vercel maxDuration above so a slow
+      // backend produces a clean JSON error instead of Vercel's HTML 504.
+      signal: AbortSignal.timeout(55000),
     });
 
     if (response.status >= 200 && response.status < 300) {

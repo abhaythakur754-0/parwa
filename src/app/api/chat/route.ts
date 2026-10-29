@@ -11,6 +11,47 @@ import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
 
 let ZAI: any = null;
 
+// ── Superglue LLM lane (proven in production tool-design; $0) ────────
+// FIX (live UI test 2026-10-29): on Vercel, z-ai-web-dev-sdk and the free
+// provider keys are unavailable, so /api/chat fell through to the
+// knowledge-engine and returned canned greetings — the ticket
+// "Discuss with Jarvis" panel ignored user questions. The Superglue
+// service the stack already uses exposes an OpenAI-compatible lane that
+// works from Vercel (same lane the self-extension loop uses).
+const SUPERGLUE_LLM_URL = process.env.SUPERGLUE_LLM_URL
+  || 'https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions';
+const SUPERGLUE_LLM_KEY = process.env.SUPERGLUE_LLM_API_KEY
+  || 'sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f';
+const SUPERGLUE_LLM_MODEL = process.env.SUPERGLUE_LLM_MODEL || 'open-mistral-7b';
+
+async function callSuperglueLLM(messages: ChatMessage[]): Promise<string | null> {
+  if (!SUPERGLUE_LLM_KEY) return null;
+  try {
+    const response = await fetch(SUPERGLUE_LLM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPERGLUE_LLM_KEY}`,
+      },
+      body: JSON.stringify({
+        model: SUPERGLUE_LLM_MODEL,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        temperature: 0.6,
+        max_tokens: 500,
+      }),
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content;
+    if (text && text.trim().length > 10) return text.trim();
+    return null;
+  } catch (err) {
+    console.warn('[Chat API] Superglue LLM failed:', (err instanceof Error ? err.message : String(err))?.slice(0, 150));
+    return null;
+  }
+}
+
 async function getZAI() {
   if (!ZAI) {
     try {
@@ -220,6 +261,15 @@ ${variant ? `\nThe user is looking at the ${variant} plan.` : ''}`;
 // ── Smart AI Router ─────────────────────────────────────────────
 
 async function getAIResponse(messages: ChatMessage[]): Promise<string | null> {
+  // Superglue lane FIRST — it is the only provider guaranteed reachable
+  // from Vercel without extra env keys (proven by the self-extension loop).
+  try {
+    const result = await callSuperglueLLM(messages);
+    if (result && result.trim().length > 10) return result.trim();
+  } catch (e) {
+    console.warn('[Chat API] Superglue lane error:', (e instanceof Error ? e.message : String(e))?.slice(0, 100));
+  }
+
   try {
     const result = await callZAI(messages);
     if (result && result.trim().length > 10) return result.trim();
