@@ -21,8 +21,10 @@ Env:
   DATABASE_URL (or PARWA_DATABASE_URL) — SQLAlchemy URL.
   SQLite for local tests; Supabase Postgres in production.
 
-CLI (smoke test):
+CLI (smoke test / search):
   python3 tool_registry_db.py --smoke-test
+  python3 tool_registry_db.py --tenant acme-meetings-demo        # who owns what
+  python3 tool_registry_db.py --tenant acme-meetings-demo --agents-only
 """
 
 from __future__ import annotations
@@ -260,4 +262,17 @@ if __name__ == "__main__":
         ok = r.get("ok") and r.get("inventory") == "inserted" and r.get("agent_link") == "inserted"
         print("SMOKE:", "PASS" if ok else "FAIL")
         sys.exit(0 if ok else 1)
+
+    # ── Search CLI: python3 tool_registry_db.py --tenant <company_id> ──
+    if "--tenant" in sys.argv:
+        tenant = sys.argv[sys.argv.index("--tenant") + 1]
+        agents_only = "--agents-only" in sys.argv
+        if not agents_only:
+            tools = list_tools_for_tenant(tenant)
+            print(f"TOOLS for tenant '{tenant}':")
+            print(json.dumps(tools, indent=2, default=str))
+        links = list_agents_with_tools(tenant)
+        print(f"\nAGENT↔TOOL ownership for tenant '{tenant}':")
+        print(json.dumps(links, indent=2, default=str))
+        sys.exit(0)
     print(__doc__)
