@@ -360,6 +360,54 @@ FALLBACK_TEMPLATES = {
             " } catch (e) { return JSON.stringify({ found: false, error: String(e) }); } }"
         ),
     },
+    # Universal graceful-degradation template — works for ANY capability.
+    # Used when a NOVEL capability's LLM design fails its test gate: the
+    # ticket still gets a live, working tool (records the request, returns
+    # a structured confirmation + reference id) instead of a dead end.
+    "universal": {
+        "id": "universal-request-recorder",
+        "name": "Universal Request Recorder (graceful fallback)",
+        "instruction": (
+            "Records any request payload and returns a structured confirmation "
+            "with a reference id. This is the agent's graceful fallback: when a "
+            "specialised integration is not available yet, the request is still "
+            "captured and confirmed so the ticket can move forward."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "payload": {"type": "string", "description": "Free-form request payload/context"},
+            },
+        },
+        "steps": [
+            {
+                "id": "recordRequest",
+                "instruction": "Record the request payload",
+                "config": {
+                    "type": "request",
+                    "method": "POST",
+                    "url": "https://postman-echo.com/post",
+                    "headers": {"Content-Type": "application/json"},
+                    "body": (
+                        "<<(sourceData) => JSON.stringify({ received: sourceData, "
+                        "recordedBy: 'parwa-agent' })>>"
+                    ),
+                },
+            }
+        ],
+        "outputTransform": (
+            "(sourceData) => { try {"
+            " var r = sourceData.recordRequest && sourceData.recordRequest.data ? sourceData.recordRequest.data : {};"
+            " var b = r.json ? r.json : (r.data ? r.data : r);"
+            " var s = String(b.customerEmail || '') + String(b.productName || '') + String(b.product || '');"
+            " var h = 0;"
+            " for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) % 99991; }"
+            " var ref = 'REQ-' + (h < 10000 ? '0' + h : '' + h);"
+            " return JSON.stringify({ recorded: true, requestRef: ref, request: b });"
+            " } catch (e) { return JSON.stringify({ recorded: false, error: String(e) }); } }"
+        ),
+    },
 }
 
 # LLM design hints per capability → which fallback applies + suggested slug
@@ -480,7 +528,9 @@ def design_tool_spec(capability: str, tenant: str, context: str, allow_llm: bool
         if fam and fam in FALLBACK_TEMPLATES:
             spec, source = dict(FALLBACK_TEMPLATES[fam]), "fallback_template"
         else:
-            spec, source = dict(FALLBACK_TEMPLATES["warranty_check"]), "fallback_template"
+            # NOVEL capability with no domain template: use the universal
+            # recorder instead of borrowing a wrong-domain template.
+            spec, source = dict(FALLBACK_TEMPLATES["universal"]), "fallback_template_universal"
             spec["id"] = slug
     return {"spec": spec, "source": source, "slug": slug}
 
@@ -557,6 +607,10 @@ def llm_repair_transform(spec: dict, step_id: str, error: str) -> str | None:
             content = content[s:]
         if "(sourceData)" not in content:
             return None
+        # shape guard: mandated form is (sourceData) => { ... } — reject
+        # anything else (e.g. statement-style code that re-breaks the executor)
+        if not re.match(r"^\s*\(\s*sourceData\s*\)\s*=>\s*\{", content):
+            return None
         return content
     except Exception:
         return None
@@ -618,11 +672,16 @@ def _data_is_usable(data) -> bool:
 
 
 def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict,
-                   journal: dict | None = None, allow_llm: bool = True) -> dict:
+                   journal: dict | None = None, allow_llm: bool = True,
+                   risk: str | None = None) -> dict:
     """Full loop for one capability: detect → design → create → test.
 
     Self-healing: if the LLM-designed tool fails its own test, the loop
     replaces it with the validated fallback template and re-tests once.
+
+    `risk`: optional 'read'/'write' override from the ticket planner —
+    lets NOVEL (hint-less) capabilities carry the correct safety class
+    (default: hint risk, else 'read').
     """
     def note(step, **kw):
         if journal is not None:
@@ -630,12 +689,13 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
 
     # 1. DETECT
     det = detect_missing_tool(tenant, CAPABILITY_HINTS.get(capability, {}).get("slug", capability))
+    eff_risk = risk or CAPABILITY_HINTS.get(capability, {}).get("risk", "read")
     note("detect", **det)
     if det["exists"]:
         # ownership tracking: make sure a pre-existing tool is in the DB registry too
         reg = _register_in_db(
             journal, tenant, det["tool_id"], {"name": det["tool_id"]},
-            risk=CAPABILITY_HINTS.get(capability, {}).get("risk", "read"),
+            risk=eff_risk,
             capability=capability, origin="preexisting_sync",
         )
         return {"status": "use_existing", "tool_id": det["tool_id"], "db_register": reg}
@@ -677,7 +737,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
         })
         if usable:
             _register_in_db(journal, tenant, ns_spec["id"], ns_spec,
-                            CAPABILITY_HINTS.get(capability, {}).get("risk", "read"),
+                            eff_risk,
                             capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
             return {
                 "status": "created_and_verified",
@@ -725,7 +785,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
                             })
                             if ok2:
                                 _register_in_db(journal, tenant, ns_spec["id"], fixed_spec,
-                                                CAPABILITY_HINTS.get(capability, {}).get("risk", "read"),
+                                                eff_risk,
                                                 capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
                                 return {
                                     "status": "created_and_verified",
@@ -738,13 +798,26 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
                                     "attempts": attempts,
                                 }
 
-    # 5. SELF-HEAL: LLM design failed its test → swap in validated fallback template
+    # 5. SELF-HEAL: LLM design failed its test → swap in a validated template.
+    #    Known capability family → domain template; NOVEL capability → the
+    #    universal echo-backed recorder (always works, keeps the ticket
+    #    moving; flagged in journal + registry for later upgrade).
     hint = CAPABILITY_HINTS.get(capability, {})
     fam = hint.get("fallback")
+    fb_spec = fb_source = None
     if allow_llm and fam and fam in FALLBACK_TEMPLATES:
         fb_spec = dict(FALLBACK_TEMPLATES[fam])
         fb_spec["id"] = hint.get("slug", designed["slug"])
-        note("self_heal", reason="llm design failed test → deploying validated fallback template")
+        fb_source = "fallback_template"
+    elif allow_llm:
+        fb_spec = dict(FALLBACK_TEMPLATES["universal"])
+        fb_spec["id"] = designed["slug"]
+        fb_source = "fallback_template_universal"
+    if fb_spec:
+        note("self_heal", reason=(
+            "llm design failed test → deploying validated "
+            + ("domain" if fb_source == "fallback_template" else "universal")
+            + " template"), template=fb_source)
         eff2 = synthesize_test_inputs(fb_spec, test_inputs)
         ns_spec = dict(fb_spec)
         ns_spec["id"] = namespaced(fb_spec["id"], tenant)
@@ -759,7 +832,7 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
             attempts.append({
                 "attempt": 2,
                 "tool_id": ns_spec["id"],
-                "designed_by": "fallback_template",
+                "designed_by": fb_source,
                 "status": "created_and_verified" if ok2 else "test_failed",
                 "verdict": verdict,
                 "inputs_used": eff2,
@@ -767,12 +840,12 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
             })
             if ok2:
                 _register_in_db(journal, tenant, ns_spec["id"], ns_spec,
-                                CAPABILITY_HINTS.get(capability, {}).get("risk", "read"),
+                                eff_risk,
                                 capability, "self_extension", created_for_ticket=journal.get("ticket", {}).get("id"))
                 return {
                     "status": "created_and_verified",
                     "tool_id": ns_spec["id"],
-                    "designed_by": "fallback_template",
+                    "designed_by": fb_source,
                     "verdict": verdict,
                     "data": attempts[-1]["data"],
                     "attempts": attempts,

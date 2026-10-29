@@ -88,3 +88,10 @@
   from DB. Demo: scripts/ticket_to_tool_demo.py → ALL PASS on live Superglue.
 - Gotchas: sqlite URL must be absolute (4 slashes) or best-effort registry
   silently skips; Superglue list endpoint 404s → use tool_exists(id).
+
+## Novel-capability hardening (task 41)
+- Production-ready proven on 4 NEVER-seen capabilities: 4/4 tools live,
+  verified, registered; write→approval gate; reuse path OK.
+- New: universal fallback template (any capability), risk param on
+  extend_toolset, repair shape guard. Unknown capability no longer
+  dead-ends or borrows wrong-domain templates.

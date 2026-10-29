@@ -886,3 +886,32 @@ relative path → best-effort registry silently skipped. Guard + comment
 added. Resolve-existing path now handles missing rows gracefully.
 
 Artifacts: scripts/out/ticket_driven_demo_*.json (all_ok=true).
+
+## Task 41 — NOVEL-ticket production readiness test (10/10 PASS)
+Date: 2026-02-05 | scripts/novel_tickets_production_test.py (new)
+
+Harder bar than task 40: FOUR tickets for capabilities NEVER seen before
+(no hints, no domain templates) on fresh tenant 'novelcorp-demo':
+stock_availability / customer_profile_lookup (LLM-designed, real data),
+gift_card_balance / restock_notification_signup (LLM design failed →
+SELF-HEALED via new universal fallback → recorded + requestRef).
+Write-risk novel tool correctly flagged approval_required=YES.
+
+Production gaps found & fixed (self_extension_loop.py):
+1. Unknown capability had NO self-heal target → loop dead-ended on a
+   failing LLM design. Added FALLBACK_TEMPLATES['universal'] — echo-backed
+   recorder, works for ANY capability; self-heal now always has a target.
+2. Unknown capability design-fallback borrowed the warranty template
+   (wrong semantics) → now uses the universal recorder.
+3. llm_repair_transform: added shape guard — repaired JS must match
+   '(sourceData) => {' or it is discarded (falls to self-heal).
+4. extend_toolset: new optional `risk` param — ticket planner can classify
+   NOVEL capabilities as write → approval gate (previously hardcoded read).
+
+Checklist: R1 4/4 created+verified; R2 real payloads; R3 write→approval;
+R4 ownership rows; R5 repeat ticket reused (0 rebuild/0 LLM); R6 all live
+on Superglue; R7 journal on disk; R8 zero humans; R9 no crashes on novel;
+R10 read=auto / write=approval-gated. VERDICT: PRODUCTION READY YES.
+Regression: known capability still use_existing (no rebuild).
+
+Artifacts: scripts/out/novel_production_test_*.json (production_ready=true).
