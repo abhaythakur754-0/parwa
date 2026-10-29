@@ -931,3 +931,18 @@ Fixes found during proof:
 2. designed_by mislabel: attempt-1 result hard-coded 'llm_generated' even
    when spec came from a template with allow_llm=False → now uses
    designed['source'] honestly.
+
+## Task 43 — Manual UI test of LIVE parwa.buzz (real browser)
+Signed up fresh account (JWT issued, plan=high, role=owner), toured every page,
+created a real ticket. WORKING: landing/models/ROI (math verified $634,200
+savings), signup+auto-login, auth guard, ticket create (201 → board, ID,
+priority), trial counter 1/15, mobile responsive, zero JS console errors,
+safety gate correct (ticket NOT auto-solved: "tenant has 0 agents and 0 KB
+documents" → flagged for review — matches local fail-safe design).
+BUGS: (1) Jarvis chat first message → 504; (2) "Tap to retry" dead + retry
+re-sends LAST not FAILED msg; (3) /api/billing/razorpay/trial-status → 500
+("Connection Error" banner); (4) sidebar /escalations + /settings → 404
+(real paths are /dashboard/*); (5) "Ask about this ticket" returns canned
+welcome, ticket context not passed to /api/chat; (6) chat rate counter
+stuck at 20; (7) Google button renders in Chinese locale.
+VERDICT: UI ~85-90% production ready — fix the 7 bugs before launch.
