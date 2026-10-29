@@ -12,7 +12,7 @@ export default function DashboardErrorBoundary({
 }) {
   return (
     <main className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 space-y-4">
+      <div className="max-w-md w-full bg-[#2C2C31] border border-white/[0.06] rounded-xl p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
             <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

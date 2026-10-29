@@ -1,5 +1,5 @@
 /**
- * PARWA Analytics API
+ * SHOBH Analytics API
  *
  * API helper functions for ticket analytics endpoints.
  * Backend endpoints at /analytics/tickets (registered in main.py).

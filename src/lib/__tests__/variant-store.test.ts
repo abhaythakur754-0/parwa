@@ -1,10 +1,10 @@
 /**
- * PARWA Variant Store — Unit Tests
+ * SHOBH Variant Store — Unit Tests
  *
  * Tests tier logic, feature maps, usage limits, fetchTier,
  * isAtLimit, and all helper functions.
  *
- * Updated 2026-07-26: Mini PARWA removed — codebase now has 2 tiers
+ * Updated 2026-07-26: Mini SHOBH removed — codebase now has 2 tiers
  * (parwa $2,499/mo + high $3,999/mo). All variants share the SAME AI
  * capabilities; tiers differ only in ticket volume / numeric limits.
  */
@@ -36,8 +36,8 @@ describe('isTierAtLeast', () => {
 
 describe('getTierLabel', () => {
   it('returns correct labels for each tier', () => {
-    expect(getTierLabel('parwa')).toBe('PARWA');
-    expect(getTierLabel('high')).toBe('PARWA High');
+    expect(getTierLabel('parwa')).toBe('SHOBH');
+    expect(getTierLabel('high')).toBe('SHOBH High');
   });
 });
 

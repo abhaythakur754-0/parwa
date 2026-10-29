@@ -1,5 +1,5 @@
 /**
- * PARWA DashboardSkeleton
+ * SHOBH DashboardSkeleton
  *
  * Skeleton loading states for the dashboard page.
  * Uses the existing shadcn/ui Skeleton component to create

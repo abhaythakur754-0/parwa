@@ -1,5 +1,5 @@
 /**
- * PARWA Day 6 Unit Tests — Typing Store & Collision Store
+ * SHOBH Day 6 Unit Tests — Typing Store & Collision Store
  *
  * Tests typing indicators with auto-expiry, and collision
  * detection with viewing/editing states.

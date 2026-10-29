@@ -14,8 +14,8 @@
  * - Handles unlimited parallel customers simultaneously
  *
  * Pricing Tiers:
- *   PARWA:        $2,999/mo → 30 days, $100/day, last day = $99
- *   PARWA High:   $3,999/mo → 30 days collection (full schedule with double charges)
+ *   SHOBH:        $2,999/mo → 30 days, $100/day, last day = $99
+ *   SHOBH High:   $3,999/mo → 30 days collection (full schedule with double charges)
  *
  * CLAUDE.md Compliance:
  * - P-002: All tiers use same algorithm, amounts differ by tier
@@ -158,7 +158,7 @@ export const TIER_PRICES: Record<VariantTier, number> = {
  * @returns Array of daily installment schedules
  *
  * @example
- * // For $3,999 (PARWA High):
+ * // For $3,999 (SHOBH High):
  * // Days 1,2: $100 each = $200
  * // Day 3: $100 + $100 = $200 (double charge)
  * // Days 4,5: $100 each = $200
@@ -191,8 +191,8 @@ export function calculateInstallmentSchedule(
   let day = 1;
 
   // Generate schedule until amount is fully allocated or we hit 30 days
-  // NOTE: Double-charge days only apply to PARWA High tier
-  // PARWA uses simple $100/day charging
+  // NOTE: Double-charge days only apply to SHOBH High tier
+  // SHOBH uses simple $100/day charging
   const useDoubleCharge = tier === 'high';
   
   while (remainingAmount > 0 && day <= COLLECTION_WINDOW_DAYS) {

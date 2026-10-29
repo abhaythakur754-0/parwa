@@ -18,7 +18,7 @@ export default function RootError({
   console.error('[RootError]', error);
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
       <div className="max-w-md w-full mx-auto p-8 text-center">
         <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center mx-auto mb-6">
           <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -30,7 +30,7 @@ export default function RootError({
         <p className="text-orange-200/40 text-xs mb-6 max-w-sm mx-auto break-words">{error?.message || 'Unknown error'}</p>
         <button
           onClick={reset}
-          className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] font-semibold rounded-xl hover:from-orange-400 hover:to-orange-300 transition-all shadow-lg shadow-orange-500/20"
+          className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] font-semibold rounded-xl hover:from-orange-400 hover:to-orange-300 transition-all shadow-lg shadow-orange-500/20"
         >
           Try Again
         </button>

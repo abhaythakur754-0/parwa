@@ -1,5 +1,5 @@
 /**
- * PARWA UsageWarningModal
+ * SHOBH UsageWarningModal
  *
  * Proactive modal popup that appears when the company's monthly ticket
  * usage crosses 80% of the plan limit. Also surfaces subscription
@@ -233,7 +233,7 @@ export function UsageWarningModal() {
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleDismiss()}>
       <DialogContent
         data-testid="usage-warning-modal"
-        className="bg-[#1A1A1A] border border-white/[0.08] text-white max-w-md"
+        className="bg-[#2C2C31] border border-white/[0.08] text-white max-w-md"
       >
         <DialogHeader>
           <div className="flex items-center gap-3">

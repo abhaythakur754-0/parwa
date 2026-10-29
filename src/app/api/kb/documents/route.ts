@@ -1,5 +1,5 @@
 /**
- * PARWA Knowledge Base Documents API Proxy
+ * SHOBH Knowledge Base Documents API Proxy
  *
  * Handles GET /api/kb/documents — lists documents for the current tenant.
  *

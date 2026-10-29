@@ -1,5 +1,5 @@
 /**
- * PARWA useNetworkStatus Hook
+ * SHOBH useNetworkStatus Hook
  *
  * Tracks browser online/offline state using navigator.onLine
  * and listens for 'online'/'offline' events.

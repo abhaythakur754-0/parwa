@@ -1,5 +1,5 @@
 /**
- * PARWA LockedFeature Component
+ * SHOBH LockedFeature Component
  *
  * Tier-gated feature wrapper. Shows children if the user's current tier
  * meets or exceeds the required tier. Otherwise shows an upgrade CTA
@@ -74,7 +74,7 @@ export function LockedFeature({
 
       {/* Lock overlay */}
       <div className="absolute inset-0 flex items-center justify-center z-10">
-        <div className="max-w-sm w-full mx-4 rounded-xl border border-orange-500/20 bg-[#1A1A1A]/95 backdrop-blur-xl p-6 text-center shadow-2xl shadow-orange-500/5">
+        <div className="max-w-sm w-full mx-4 rounded-xl border border-orange-500/20 bg-[#2C2C31]/95 backdrop-blur-xl p-6 text-center shadow-2xl shadow-orange-500/5">
           <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-6 h-6 text-orange-400" />
           </div>
@@ -93,7 +93,7 @@ export function LockedFeature({
 
           <Link
             href="/dashboard/billing"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
           >
             <Crown className="w-4 h-4" />
             Upgrade Now

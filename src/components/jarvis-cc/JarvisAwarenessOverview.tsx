@@ -95,7 +95,7 @@ export function JarvisAwarenessOverview({ state, isLoading, onRefresh, className
 
       {/* Channel Health */}
       {Object.keys(state.channel_health).length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-3">
+        <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-3">
           <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Channel Health</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(state.channel_health).map(([channel, health]) => (

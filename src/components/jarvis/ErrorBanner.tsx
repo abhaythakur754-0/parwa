@@ -1,5 +1,5 @@
 /**
- * PARWA ErrorBanner Component (Week 6 — Day 3 Phase 5)
+ * SHOBH ErrorBanner Component (Week 6 — Day 3 Phase 5)
  *
  * Dismissible error banner for chat API failures.
  * Displays a red-tinted alert with icon, message text, and close button.

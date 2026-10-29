@@ -1,5 +1,5 @@
 /**
- * PARWA OfflineBanner
+ * SHOBH OfflineBanner
  *
  * Full-width banner that appears when the browser goes offline.
  * Disappears automatically when connectivity is restored.

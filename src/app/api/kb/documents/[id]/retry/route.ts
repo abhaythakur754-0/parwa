@@ -1,5 +1,5 @@
 /**
- * PARWA Knowledge Base Document Retry API Proxy
+ * SHOBH Knowledge Base Document Retry API Proxy
  *
  * Handles POST /api/kb/documents/:id/retry
  */

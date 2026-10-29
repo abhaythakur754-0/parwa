@@ -1,5 +1,5 @@
 /**
- * PARWA Auth Me Proxy
+ * SHOBH Auth Me Proxy
  *
  * Proxies /api/auth/me-proxy to the backend's /api/auth/me endpoint.
  * Forwards the parwa_at cookie as a Bearer token for JWT verification.

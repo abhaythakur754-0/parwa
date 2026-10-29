@@ -34,7 +34,7 @@ export default function SLAChart({ data, className }: SLAChartProps) {
     }
     return [
       { name: 'Compliant', value: compliant_count, color: '#34d399', real: true },
-      { name: 'Approaching', value: approaching_count, color: '#fbbf24', real: true },
+      { name: 'Approaching', value: approaching_count, color: '#A1A1AA', real: true },
       { name: 'Breached', value: breached_count, color: '#ef4444', real: true },
     ].filter((d) => d.value > 0);
   }, [breached_count, approaching_count, compliant_count]);
@@ -44,7 +44,7 @@ export default function SLAChart({ data, className }: SLAChartProps) {
   return (
     <div
       className={cn(
-        'rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6',
+        'rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6',
         className
       )}
     >

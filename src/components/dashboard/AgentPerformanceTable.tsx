@@ -242,7 +242,7 @@ export default function AgentPerformanceTable({
   return (
     <div
       className={cn(
-        'rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6',
+        'rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6',
         className
       )}
     >

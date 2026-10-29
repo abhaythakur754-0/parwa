@@ -187,7 +187,7 @@ function SignupContent() {
       window.location.href = '/';
     }
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
       </div>
     );
@@ -196,18 +196,18 @@ function SignupContent() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[400px] h-[400px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.02) 60%, transparent 80%)',
           top: '15%',
           right: '10%',
           animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
         }} />
         <div className="absolute w-[350px] h-[350px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(212,212,216,0.06) 0%, rgba(212,212,216,0.01) 60%, transparent 80%)',
           bottom: '15%',
           left: '5%',
           animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
@@ -246,19 +246,17 @@ function SignupContent() {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-              </svg>
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-600/30">
+              <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-2xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
 
           <h1 className="text-3xl font-bold text-white">
             Create your account
           </h1>
           <p className="mt-2 text-sm text-orange-200/50">
-            Create your account to get started with Parwa
+            Create your account to get started with Shobh
           </p>
         </div>
 
@@ -267,13 +265,13 @@ function SignupContent() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(255,127,17,0.2)',
+            border: '1px solid rgba(161,161,170,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)',
           }}
         >
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
-          <div className="absolute -bottom-16 -left-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,215,0,0.05)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.1)' }} />
+          <div className="absolute -bottom-16 -left-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(212,212,216,0.05)' }} />
 
           {/* Social Login */}
           <SocialLogin
@@ -331,7 +329,7 @@ function SignupContent() {
 // ── Loading Skeleton ──────────────────────────────────────────────────
 function SignupPageLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
       <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
     </div>
   );

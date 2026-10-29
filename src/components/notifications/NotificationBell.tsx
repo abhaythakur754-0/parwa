@@ -1,5 +1,5 @@
 /**
- * PARWA NotificationBell
+ * SHOBH NotificationBell
  *
  * Bell icon in the dashboard header showing unread notification count.
  * Opens a dropdown with recent notifications on click.
@@ -114,7 +114,7 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[500px] bg-[#1A1A1A] border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
+        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[500px] bg-[#2C2C31] border border-white/[0.08] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-50">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>

@@ -308,7 +308,7 @@ export default function CrmDlqPage() {
       </div>
 
       {/* ── Entries Table ───────────────────────────────────────────── */}
-      <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] overflow-hidden">
+      <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] overflow-hidden">
         {isLoadingEntries ? (
           <div className="p-12 flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />

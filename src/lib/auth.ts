@@ -1,5 +1,5 @@
 /**
- * PARWA Dashboard — JWT Auth Verification (C-01 Fix + Week 6 RS256)
+ * SHOBH Dashboard — JWT Auth Verification (C-01 Fix + Week 6 RS256)
  *
  * Real JWT verification using jose. Replaces the previous security-theater
  * requireAuth() that only checked for header existence.

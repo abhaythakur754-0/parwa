@@ -77,7 +77,7 @@ const commonFeatures: Record<VariantId, string[]> = {
 const variantData: VariantData[] = [
   {
     id: 'parwa',
-    name: 'PARWA',
+    name: 'SHOBH',
     tagline: '"The Junior Agent"',
     monthlyPrice: 2999,
     annualPrice: 2399,
@@ -99,7 +99,7 @@ const variantData: VariantData[] = [
   },
   {
     id: 'high',
-    name: 'PARWA High',
+    name: 'SHOBH High',
     tagline: '"The Senior Agent"',
     monthlyPrice: 3999,
     annualPrice: 3199,
@@ -137,13 +137,13 @@ export default function ModelsPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 30%, #333338 60%, #3A3A40 80%, #2C2C31 100%)' }}>
       <NavigationBar />
       <main className="flex-grow relative">
         {/* Background */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[150px]" style={{ backgroundColor: 'rgba(255,127,17,0.08)' }} />
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ backgroundColor: 'rgba(255,127,17,0.06)' }} />
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[150px]" style={{ backgroundColor: 'rgba(161,161,170,0.08)' }} />
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ backgroundColor: 'rgba(161,161,170,0.06)' }} />
         </div>
 
         {/* Hero */}
@@ -154,7 +154,7 @@ export default function ModelsPage() {
               <span className="text-sm font-medium text-orange-400">AI-Powered Support Agents</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
-              Meet the <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">PARWA</span> AI Family
+              Meet the <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">SHOBH</span> AI Family
             </h1>
             <p className="text-base sm:text-lg max-w-2xl mx-auto text-gray-400">
               Two intelligent AI agents designed for different stages of business growth.
@@ -205,9 +205,9 @@ export default function ModelsPage() {
                     key={variant.id}
                     className={`relative rounded-2xl border-2 p-6 sm:p-8 transition-all duration-500 ${isActive ? 'hover:-translate-y-2' : 'hover:-translate-y-1'}`}
                     style={{
-                      border: isActive ? '2px solid #FF7F11' : isRecommended ? '2px solid rgba(255,127,17,0.4)' : '2px solid rgba(255,255,255,0.1)',
+                      border: isActive ? '2px solid #A1A1AA' : isRecommended ? '2px solid rgba(161,161,170,0.4)' : '2px solid rgba(255,255,255,0.1)',
                       background: isActive
-                        ? 'linear-gradient(135deg, rgba(255,127,17,0.12) 0%, rgba(255,127,17,0.04) 100%)'
+                        ? 'linear-gradient(135deg, rgba(161,161,170,0.12) 0%, rgba(161,161,170,0.04) 100%)'
                         : 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
                     }}
                   >
@@ -224,7 +224,7 @@ export default function ModelsPage() {
                     </div>
                     <div className="mb-5 pb-5 border-b border-white/10">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl sm:text-5xl font-black" style={{ color: isActive ? '#FF7F11' : 'white' }}>
+                        <span className="text-4xl sm:text-5xl font-black" style={{ color: isActive ? '#A1A1AA' : 'white' }}>
                           ${price.toLocaleString()}
                         </span>
                         <span className="text-sm text-gray-500">/month</span>
@@ -288,7 +288,7 @@ export default function ModelsPage() {
 
                     <button
                       onClick={() => navigate(isAuthenticated ? 'dashboard' : 'signup')}
-                      className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all"
+                      className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] hover:from-orange-400 hover:to-orange-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 transition-all"
                     >
                       {isAuthenticated ? 'Hire Agent' : 'Get Started'}
                     </button>

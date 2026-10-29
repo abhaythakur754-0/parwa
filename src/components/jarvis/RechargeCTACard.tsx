@@ -1,5 +1,5 @@
 /**
- * PARWA RechargeCTACard (Week 6 — Day 4 Phase 6)
+ * SHOBH RechargeCTACard (Week 6 — Day 4 Phase 6)
  *
  * Post-call option to recharge Demo Pack or subscribe.
  * Metadata: { pack_type, message }

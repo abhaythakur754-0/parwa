@@ -1,10 +1,10 @@
 /**
- * PARWA Billing Store — Unit Tests
+ * SHOBH Billing Store — Unit Tests
  *
  * Tests fetchBilling, fetchInvoices, fetchUsage, changePlan,
  * cancelSubscription, and error handling.
  *
- * Updated 2026-07-26: Mini PARWA removed — codebase now has 2 tiers
+ * Updated 2026-07-26: Mini SHOBH removed — codebase now has 2 tiers
  * (parwa $2,499/mo + high $3,999/mo). Legacy mini/starter/growth/mini_parwa
  * tier values auto-upgrade to parwa via the nameMap in fetchBilling.
  */
@@ -177,7 +177,7 @@ describe('useBillingStore', () => {
             currency: 'USD',
             status: 'paid',
             date: '2026-01-01',
-            description: 'PARWA Monthly',
+            description: 'SHOBH Monthly',
             download_url: 'https://example.com/invoice1.pdf',
           },
         ],
@@ -198,7 +198,7 @@ describe('useBillingStore', () => {
         ok: true,
         json: async () => ({
           invoices: [
-            { id: '2', amount: 3999, currency: 'USD', status: 'pending', date: '2026-02-01', description: 'PARWA High' },
+            { id: '2', amount: 3999, currency: 'USD', status: 'pending', date: '2026-02-01', description: 'SHOBH High' },
           ],
         }),
       });

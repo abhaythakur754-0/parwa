@@ -17,8 +17,8 @@ interface TicketsByVariant { tickets_by_variant: Record<string, number>; total_r
 interface Invoice { id: string; amount: number; currency: string; status: string; invoice_date: string | null; paid_at: string | null; }
 
 const VARIANT_META: Record<string, { name: string; color: string; bg: string; border: string; dot: string }> = {
-  parwa: { name: 'PARWA', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', dot: 'bg-purple-400' },
-  high: { name: 'PARWA High', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', dot: 'bg-amber-400' },
+  parwa: { name: 'SHOBH', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', dot: 'bg-purple-400' },
+  high: { name: 'SHOBH High', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', dot: 'bg-amber-400' },
 };
 
 function formatCurrency(n: number): string { return `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; }
@@ -198,7 +198,7 @@ export default function BillingPage() {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.1 }} className="space-y-4">
         <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Your Variants</h2>
         {activeSubs.length === 0 ? (
-          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 text-center"><p className="text-sm text-zinc-400 mb-1">No active subscriptions</p><p className="text-xs text-zinc-600">Subscribe to a variant below to get started.</p></div>
+          <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-8 text-center"><p className="text-sm text-zinc-400 mb-1">No active subscriptions</p><p className="text-xs text-zinc-600">Subscribe to a variant below to get started.</p></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeSubs.map((sub) => {
@@ -206,7 +206,7 @@ export default function BillingPage() {
               const price = pricing.find(p => p.key === sub.variant)?.monthly_price || 0;
               const ticketsSolved = ticketsByVariant.tickets_by_variant[sub.variant] || 0;
               return (
-                <div key={sub.variant} className={cn('rounded-xl border p-5', meta.border, 'bg-[#1A1A1A]')}>
+                <div key={sub.variant} className={cn('rounded-xl border p-5', meta.border, 'bg-[#2C2C31]')}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2"><span className={cn('w-2 h-2 rounded-full', meta.dot)} /><span className={cn('text-sm font-semibold', meta.color)}>{meta.name}</span></div>
                     <span className={cn('text-[10px] px-2 py-0.5 rounded-full border', sub.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : sub.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20')}>{sub.cancel_at_period_end ? 'cancelling' : sub.status}</span>
@@ -283,13 +283,13 @@ export default function BillingPage() {
               </div>
             </div>
 
-            {/* ⚡ PARWA HIGH Special Schedule - Only for $3,999 tier ⚡ */}
+            {/* ⚡ SHOBH HIGH Special Schedule - Only for $3,999 tier ⚡ */}
             <div className="mt-3 rounded-lg bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-red-500/15 border border-amber-500/30 p-3.5">
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="w-6 h-6 rounded-md bg-amber-500/20 flex items-center justify-center">
                   <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
                 </div>
-                <span className="text-xs font-bold text-amber-300">⚡ PARWA HIGH ($3,999) - Accelerated Plan</span>
+                <span className="text-xs font-bold text-amber-300">⚡ SHOBH HIGH ($3,999) - Accelerated Plan</span>
               </div>
               <div className="space-y-2 text-[11px]">
                 <p className="text-zinc-300 leading-relaxed">
@@ -339,8 +339,8 @@ export default function BillingPage() {
                   alreadySubscribed
                     ? 'border-white/[0.04] bg-white/[0.01] opacity-60'
                     : isRecommended
-                      ? cn(meta.border, 'bg-[#1A1A1A] md:scale-[1.03] shadow-lg shadow-amber-500/10')
-                      : cn(meta.border, 'bg-[#1A1A1A] hover:border-white/[0.12] hover:-translate-y-0.5')
+                      ? cn(meta.border, 'bg-[#2C2C31] md:scale-[1.03] shadow-lg shadow-amber-500/10')
+                      : cn(meta.border, 'bg-[#2C2C31] hover:border-white/[0.12] hover:-translate-y-0.5')
                 )}
               >
                 {/* Recommended badge */}
@@ -405,7 +405,7 @@ export default function BillingPage() {
       {invoices.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.2 }} className="space-y-4">
           <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Invoice History</h2>
-          <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] overflow-hidden">
+          <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] overflow-hidden">
             <table className="w-full text-left">
               <thead><tr className="border-b border-white/[0.06] text-[10px] text-zinc-600 uppercase tracking-wider"><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-center">Status</th></tr></thead>
               <tbody>
@@ -433,7 +433,7 @@ export default function BillingPage() {
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#1A1A1A] border border-white/10 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
+            className="bg-[#2C2C31] border border-white/10 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -533,7 +533,7 @@ export default function BillingPage() {
                 planId={showFlexPayConfirm.planId}
                 customerEmail={user.email || ''}
                 customerName={user.name || 'Customer'}
-                name={`PARWA — ${showFlexPayConfirm.variant.name}`}
+                name={`SHOBH — ${showFlexPayConfirm.variant.name}`}
                 description={`${showFlexPayConfirm.variant.name}: $${showFlexPayConfirm.variant.monthly_price}/mo via FlexPay`}
                 buttonText={`Pay $100 Today`}
                 onSuccess={() => {

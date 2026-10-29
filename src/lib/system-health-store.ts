@@ -1,5 +1,5 @@
 /**
- * PARWA System Health Store
+ * SHOBH System Health Store
  *
  * Zustand store for real-time system health monitoring.
  * Tracks service statuses, queue metrics, and active alerts.

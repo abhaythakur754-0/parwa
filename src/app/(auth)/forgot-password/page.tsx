@@ -78,7 +78,7 @@ function OTPInput({ value, onChange, disabled, error }: {
               ? 'border-rose-500/40 focus:ring-rose-500/30 bg-rose-500/5 text-rose-300'
               : 'border-white/10 focus:ring-orange-500/30 focus:border-orange-500/40 bg-white/5 text-white'
           }`}
-          style={{ caretColor: '#FF7F11' }}
+          style={{ caretColor: '#A1A1AA' }}
         />
       ))}
     </div>
@@ -141,9 +141,9 @@ export default function ForgotPasswordPage() {
         setResendCooldown(60);
         toast.success('OTP sent to your email!', {
           style: {
-            background: '#2A1A0A',
-            color: '#FFF4E6',
-            border: '1px solid rgba(255,127,17,0.25)',
+            background: '#303036',
+            color: '#F4F4F5',
+            border: '1px solid rgba(161,161,170,0.25)',
             borderRadius: '12px',
           },
         });
@@ -179,9 +179,9 @@ export default function ForgotPasswordPage() {
         setResendCooldown(60);
         toast.success('New OTP sent!', {
           style: {
-            background: '#2A1A0A',
-            color: '#FFF4E6',
-            border: '1px solid rgba(255,127,17,0.25)',
+            background: '#303036',
+            color: '#F4F4F5',
+            border: '1px solid rgba(161,161,170,0.25)',
             borderRadius: '12px',
           },
         });
@@ -221,9 +221,9 @@ export default function ForgotPasswordPage() {
         setStep('reset');
         toast.success('OTP verified!', {
           style: {
-            background: '#2A1A0A',
-            color: '#FFF4E6',
-            border: '1px solid rgba(255,127,17,0.25)',
+            background: '#303036',
+            color: '#F4F4F5',
+            border: '1px solid rgba(161,161,170,0.25)',
             borderRadius: '12px',
           },
         });
@@ -268,9 +268,9 @@ export default function ForgotPasswordPage() {
       if (data.status === 'success') {
         toast.success('Password reset successfully! Redirecting to login...', {
           style: {
-            background: '#2A1A0A',
-            color: '#FFF4E6',
-            border: '1px solid rgba(255,127,17,0.25)',
+            background: '#303036',
+            color: '#F4F4F5',
+            border: '1px solid rgba(161,161,170,0.25)',
             borderRadius: '12px',
           },
           duration: 3000,
@@ -304,18 +304,18 @@ export default function ForgotPasswordPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[350px] h-[350px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.02) 60%, transparent 80%)',
           top: '20%',
           right: '15%',
           animation: 'jarvisOrbFloat1 10s ease-in-out infinite',
         }} />
         <div className="absolute w-[300px] h-[300px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(212,212,216,0.06) 0%, rgba(212,212,216,0.01) 60%, transparent 80%)',
           bottom: '15%',
           left: '10%',
           animation: 'jarvisOrbFloat2 12s ease-in-out infinite',
@@ -342,12 +342,10 @@ export default function ForgotPasswordPage() {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-              </svg>
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-600/30">
+              <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-2xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
 
           {/* Step indicator */}
@@ -357,7 +355,7 @@ export default function ForgotPasswordPage() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500 ${
                     s < getStepNumber()
-                      ? 'bg-orange-500 text-[#1A1A1A]'
+                      ? 'bg-orange-500 text-[#2C2C31]'
                       : s === getStepNumber()
                         ? 'bg-orange-500/20 text-orange-400 border-2 border-orange-500/50 shadow-lg shadow-orange-500/20'
                         : 'bg-white/5 text-orange-200/30 border-2 border-white/10'
@@ -397,12 +395,12 @@ export default function ForgotPasswordPage() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(255,127,17,0.2)',
+            border: '1px solid rgba(161,161,170,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)',
           }}
         >
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.1)' }} />
 
           {/* ═══ STEP 1: Email ═════════════════════════════════════════ */}
           {step === 'email' && (
@@ -439,7 +437,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || !email}
-                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>
@@ -495,7 +493,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || otp.length !== 6}
-                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>
@@ -624,7 +622,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading || !isPasswordValid}
-                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40"
               >
                 {isLoading ? (
                   <>

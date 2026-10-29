@@ -21,7 +21,7 @@ import {
 // ── Model data from pricing-config.ts (SINGLE SOURCE OF TRUTH) ──
 // $1 = 1 ticket. All tiers have the SAME AI capabilities (88% resolution).
 
-interface ParwaModel {
+interface ShobhModel {
   tier: VariantTier;
   name: string;
   tagline: string;
@@ -38,18 +38,18 @@ interface ParwaModel {
   tierBg: string;
 }
 
-const AI_RESOLUTION_PARWA = 0.80;  // 80% — limited by $500 refund cap
+const AI_RESOLUTION_SHOBH = 0.80;  // 80% — limited by $500 refund cap
 const AI_RESOLUTION_HIGH = 0.92;   // 92% — unlimited financial actions
 const HUMAN_HANDOFF_FACTOR = 0.25; // Human handles 25% effort on AI-unresolved tickets
 
-const PARWA_MODELS: ParwaModel[] = [
+const SHOBH_MODELS: ShobhModel[] = [
   {
     tier: 'parwa',
     name: VARIANT_DISPLAY_NAMES.parwa,
     tagline: VARIANT_TAGLINES.parwa,
     price: VARIANT_PRICES.parwa,
     ticketLimit: VARIANT_LIMITS.parwa.monthlyTickets,
-    aiResolution: AI_RESOLUTION_PARWA,
+    aiResolution: AI_RESOLUTION_SHOBH,
     aiAgents: VARIANT_LIMITS.parwa.aiAgents,
     channels: ['Email', 'Chat', 'SMS', 'Voice'],
     description: 'Your smartest junior agent. Resolves 80% of tickets autonomously — refunds limited to $500.',
@@ -101,13 +101,13 @@ function fmtNum(n: number): string { return n.toLocaleString('en-US', { maximumF
 
 function getRecommendedModel(tickets: number) {
   if (tickets <= VARIANT_LIMITS.parwa.monthlyTickets) {
-    return { model: PARWA_MODELS[0], reasons: [`Your ${fmtNum(tickets)} tickets/month fits within PARWA's ${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} ticket capacity.`] };
+    return { model: SHOBH_MODELS[0], reasons: [`Your ${fmtNum(tickets)} tickets/month fits within SHOBH's ${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} ticket capacity.`] };
   }
-  return { model: PARWA_MODELS[1], reasons: [`Your ${fmtNum(tickets)} tickets/month exceeds PARWA's ${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} limit — PARWA High gives you ${fmtNum(VARIANT_LIMITS.high.monthlyTickets)} tickets.`] };
+  return { model: SHOBH_MODELS[1], reasons: [`Your ${fmtNum(tickets)} tickets/month exceeds SHOBH's ${fmtNum(VARIANT_LIMITS.parwa.monthlyTickets)} limit — SHOBH High gives you ${fmtNum(VARIANT_LIMITS.high.monthlyTickets)} tickets.`] };
 }
 
 interface ComparisonResult {
-  model: ParwaModel;
+  model: ShobhModel;
   aiTickets: number;
   humanTickets: number;
   overageTickets: number;
@@ -122,13 +122,13 @@ interface ComparisonResult {
   savingsPercent: number;
   // Quality improvements
   responseTimeCurrent: string;
-  responseTimePARWA: string;
+  responseTimeSHOBH: string;
   consistencyCurrent: string;
-  consistencyPARWA: string;
+  consistencySHOBH: string;
   availabilityCurrent: string;
-  availabilityPARWA: string;
+  availabilitySHOBH: string;
   csatCurrent: number;
-  csatPARWA: number;
+  csatSHOBH: number;
   isRecommended: boolean;
 }
 
@@ -138,7 +138,7 @@ function calculateResults(tickets: number, employeeCost: number, cpt: number, re
   const currentMonthly = employeesNeeded * employeeCost;
   const currentAnnual = currentMonthly * 12;
 
-  return PARWA_MODELS.map((model) => {
+  return SHOBH_MODELS.map((model) => {
     const aiTickets = Math.round(tickets * model.aiResolution);
     const humanTickets = tickets - aiTickets;
     const overageTickets = Math.max(0, tickets - model.ticketLimit);
@@ -165,13 +165,13 @@ function calculateResults(tickets: number, employeeCost: number, cpt: number, re
       annualSavings,
       savingsPercent,
       responseTimeCurrent: '4–6 hours',
-      responseTimePARWA: 'Under 30 seconds',
+      responseTimeSHOBH: 'Under 30 seconds',
       consistencyCurrent: 'Varies by agent mood/experience',
-      consistencyPARWA: '100% consistent every time',
+      consistencySHOBH: '100% consistent every time',
       availabilityCurrent: '8 hours/day, 5 days/week',
-      availabilityPARWA: '24/7/365 — never sleeps',
+      availabilitySHOBH: '24/7/365 — never sleeps',
       csatCurrent: 78,
-      csatPARWA: 92,
+      csatSHOBH: 92,
       isRecommended: model.tier === recommendedTier,
     };
   });
@@ -203,7 +203,7 @@ export default function ROICalculatorPage() {
   const canGoNext = step === 1 ? companyName.trim().length > 0 && industry.length > 0 : tickets > 0;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 30%, #333338 60%, #3A3A40 80%, #2C2C31 100%)' }}>
       <NavigationBar />
 
       <main className="flex-grow flex items-start justify-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -287,7 +287,7 @@ export default function ROICalculatorPage() {
                 <div className="rounded-xl bg-orange-500/5 border border-orange-500/10 p-4">
                   <p className="text-xs text-orange-300/70 leading-relaxed">
                     <strong className="text-orange-400">Why we ask:</strong> A human support rep handles ~400 tickets/month and costs ~$4,500/month (salary + benefits).
-                    PARWA resolves 80-92% of tickets automatically for $2,999–$3,999/month. We&apos;ll show you exactly how much you save.
+                    SHOBH resolves 80-92% of tickets automatically for $2,999–$3,999/month. We&apos;ll show you exactly how much you save.
                   </p>
                 </div>
               </div>
@@ -307,7 +307,7 @@ export default function ROICalculatorPage() {
               </div>
 
               {/* ── Cost Savings ── */}
-              <div className="rounded-2xl border-2 border-orange-500/40 p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,127,17,0.12) 0%, rgba(26,26,26,0.9) 60%, rgba(255,127,17,0.05) 100%)' }}>
+              <div className="rounded-2xl border-2 border-orange-500/40 p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(161,161,170,0.12) 0%, rgba(44,44,49,0.9) 60%, rgba(161,161,170,0.05) 100%)' }}>
                 <div className="absolute -top-20 -right-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none" />
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-5">
@@ -338,7 +338,7 @@ export default function ROICalculatorPage() {
                         <span className="text-gray-300 font-medium tabular-nums">{fmtMoney(recommended.currentMonthly)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">PARWA {recommendedModel.name} subscription</span>
+                        <span className="text-gray-400">SHOBH {recommendedModel.name} subscription</span>
                         <span className="text-white font-medium tabular-nums">{fmtMoney(recommended.model.price)}</span>
                       </div>
                       {recommended.overageCost > 0 && (
@@ -352,7 +352,7 @@ export default function ROICalculatorPage() {
                         <span className="text-white font-medium tabular-nums">{fmtMoney(recommended.humanHandoffCost || (recommended.humanTickets * cpt * HUMAN_HANDOFF_FACTOR))}</span>
                       </div>
                       <div className="border-t border-white/10 pt-2.5 flex justify-between">
-                        <span className="text-sm font-bold text-white">Total PARWA monthly cost</span>
+                        <span className="text-sm font-bold text-white">Total SHOBH monthly cost</span>
                         <span className="text-orange-400 font-black tabular-nums">{fmtMoney(recommended.parwaMonthly)}</span>
                       </div>
                     </div>
@@ -376,7 +376,7 @@ export default function ROICalculatorPage() {
 
               {/* ── Quality Improvements ── */}
               <div className="rounded-2xl border border-white/10 p-5 sm:p-6" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><Award className="w-4 h-4 text-orange-400" />Quality Improvements with PARWA</h3>
+                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><Award className="w-4 h-4 text-orange-400" />Quality Improvements with SHOBH</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Response Time */}
                   <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
@@ -384,7 +384,7 @@ export default function ROICalculatorPage() {
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Response Time</p>
                       <p className="text-sm text-red-400 line-through">{recommended.responseTimeCurrent}</p>
-                      <p className="text-sm text-emerald-400 font-medium">{recommended.responseTimePARWA}</p>
+                      <p className="text-sm text-emerald-400 font-medium">{recommended.responseTimeSHOBH}</p>
                     </div>
                   </div>
                   {/* Consistency */}
@@ -393,7 +393,7 @@ export default function ROICalculatorPage() {
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Consistency</p>
                       <p className="text-sm text-red-400 line-through">{recommended.consistencyCurrent}</p>
-                      <p className="text-sm text-emerald-400 font-medium">{recommended.consistencyPARWA}</p>
+                      <p className="text-sm text-emerald-400 font-medium">{recommended.consistencySHOBH}</p>
                     </div>
                   </div>
                   {/* Availability */}
@@ -402,7 +402,7 @@ export default function ROICalculatorPage() {
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Availability</p>
                       <p className="text-sm text-red-400 line-through">{recommended.availabilityCurrent}</p>
-                      <p className="text-sm text-emerald-400 font-medium">{recommended.availabilityPARWA}</p>
+                      <p className="text-sm text-emerald-400 font-medium">{recommended.availabilitySHOBH}</p>
                     </div>
                   </div>
                   {/* CSAT */}
@@ -411,7 +411,7 @@ export default function ROICalculatorPage() {
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Customer Satisfaction (CSAT)</p>
                       <p className="text-sm text-red-400 line-through">{recommended.csatCurrent}%</p>
-                      <p className="text-sm text-emerald-400 font-medium">{recommended.csatPARWA}% (+{recommended.csatPARWA - recommended.csatCurrent} points)</p>
+                      <p className="text-sm text-emerald-400 font-medium">{recommended.csatSHOBH}% (+{recommended.csatSHOBH - recommended.csatCurrent} points)</p>
                     </div>
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function ROICalculatorPage() {
 
               {/* CTA */}
               <div className="text-center pt-4">
-                <button onClick={() => navigate('signup')} className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-300">
+                <button onClick={() => navigate('signup')} className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 transition-all duration-300">
                   Get Started with {recommendedModel.name}
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -433,7 +433,7 @@ export default function ROICalculatorPage() {
               <button onClick={() => setStep(step - 1)} className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all">Back</button>
             ) : <div />}
             {step < 3 ? (
-              <button onClick={() => canGoNext && setStep(step + 1)} disabled={!canGoNext} className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all">Continue</button>
+              <button onClick={() => canGoNext && setStep(step + 1)} disabled={!canGoNext} className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] shadow-lg shadow-orange-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all">Continue</button>
             ) : (
               <button onClick={() => navigate('landing')} className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/5 text-zinc-300 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all">Back to Home</button>
             )}

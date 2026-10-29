@@ -1,5 +1,5 @@
 /**
- * PARWA Outbound Webhook Item API Proxy
+ * SHOBH Outbound Webhook Item API Proxy
  *
  * BFF route that proxies /api/integrations/webhooks/[webhookId] to backend.
  * Supports DELETE (remove) and POST (test) for individual webhooks.

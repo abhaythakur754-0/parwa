@@ -1,5 +1,5 @@
 /**
- * PARWA BillSummaryCard (Week 6 — Day 4 Phase 6)
+ * SHOBH BillSummaryCard (Week 6 — Day 4 Phase 6)
  *
  * Displays variant selections with quantity, price, and total.
  * Rendered inline in chat when message_type === 'bill_summary'.

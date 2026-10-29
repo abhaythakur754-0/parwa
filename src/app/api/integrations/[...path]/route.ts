@@ -1,5 +1,5 @@
 /**
- * PARWA Integrations Actions API Proxy (catch-all)
+ * SHOBH Integrations Actions API Proxy (catch-all)
  *
  * Forwards /api/integrations/{crm,ecommerce,carrier}/* to the backend's
  * corresponding action routers (backend/app/api/{crm,ecommerce,carrier}_actions.py).

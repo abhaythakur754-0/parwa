@@ -122,7 +122,7 @@ export function JarvisCommandPalette({
 
       {/* Palette */}
       <div className={cn(
-        'relative w-full max-w-lg bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden',
+        'relative w-full max-w-lg bg-[#2C2C31] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden',
         className
       )}>
         {/* Search input */}

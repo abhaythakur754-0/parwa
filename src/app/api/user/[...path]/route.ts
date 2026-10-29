@@ -1,5 +1,5 @@
 /**
- * PARWA User API Proxy (Catch-All)
+ * SHOBH User API Proxy (Catch-All)
  *
  * Catches all /api/user/* requests and proxies them to the backend.
  * Uses backendProxy for CSRF-aware requests with Origin header handling.

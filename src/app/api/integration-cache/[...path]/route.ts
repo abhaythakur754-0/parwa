@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Cache API Proxy (Phase 7)
+ * SHOBH Integration Cache API Proxy (Phase 7)
  *
  * Proxies integration cache management requests to the backend.
  *

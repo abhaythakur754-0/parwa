@@ -1,5 +1,5 @@
 /**
- * PARWA PostCallSummaryCard (Week 6 — Day 4 Phase 6, Gap Fixed)
+ * SHOBH PostCallSummaryCard (Week 6 — Day 4 Phase 6, Gap Fixed)
  *
  * Full call summary card with: topics, key moments, impressions, satisfaction,
  * transcript summary, and optional ROI mapping section.
@@ -186,7 +186,7 @@ export function PostCallSummaryCard({ metadata }: PostCallSummaryCardProps) {
               <span className="text-white/60">{formatCurrency(roiMapping.current_cost, roiMapping.currency)}</span>
             </div>
             <div className="flex justify-between text-[10px]">
-              <span className="text-white/40">PARWA cost</span>
+              <span className="text-white/40">SHOBH cost</span>
               <span className="text-orange-300/70">{formatCurrency(roiMapping.parwa_cost, roiMapping.currency)}/mo</span>
             </div>
             <div className="flex justify-between text-[10px] pt-1 border-t border-white/5">

@@ -1,5 +1,5 @@
 /**
- * PARWA PipelineInsightCard (Week 8-11 Integration)
+ * SHOBH PipelineInsightCard (Week 8-11 Integration)
  *
  * Rich card showing the full AI pipeline analysis for a Jarvis response.
  * Displays: classification, sentiment, technique, model routing, PII status,

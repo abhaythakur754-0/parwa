@@ -1,8 +1,8 @@
 /**
- * PARWA Google OAuth API Route
+ * SHOBH Google OAuth API Route
  *
  * Primary path: forwards the Google id_token to the backend (sole token
- * issuer), which verifies it with Google and returns PARWA JWT tokens.
+ * issuer), which verifies it with Google and returns SHOBH JWT tokens.
  *
  * Fallback path (only when ENABLE_LOCAL_GOOGLE_AUTH=1): when the backend is
  * unreachable or rejects the token (e.g. missing GOOGLE_CLIENT_ID on the

@@ -130,11 +130,11 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
   const { user, logout } = useAuth();
   const { tierLabel, tierColor } = useVariant();
   // null = not yet loaded, true = trial, false = paid
-  // While null, hide the badge entirely to avoid flashing "MINI PARWA"
+  // While null, hide the badge entirely to avoid flashing "MINI SHOBH"
   const [trialStatus, setTrialStatus] = useState<boolean | null>(null);
 
   // Fetch trial status once — if user is in trial, hide the tier badge
-  // (useVariant defaults to 'mini' which shows misleading "MINI PARWA" text)
+  // (useVariant defaults to 'mini' which shows misleading "MINI SHOBH" text)
   useEffect(() => {
     let cancelled = false;
     fetch('/api/billing/razorpay/trial-status', { credentials: 'include' })
@@ -197,7 +197,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen bg-[#111111] border-r border-white/[0.06] flex flex-col z-40 transition-all duration-300',
+        'fixed left-0 top-0 h-screen bg-[#232327] border-r border-white/[0.06] flex flex-col z-40 transition-all duration-300',
         collapsed ? 'w-[68px]' : 'w-[260px]'
       )}
     >
@@ -207,13 +207,13 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
           <Link href="/dashboard/tickets" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
               <img
-                src="/parwa-logo.png"
-                alt="PARWA logo"
+                src="/shobh-logo.png"
+                alt="SHOBH logo"
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className="text-white font-semibold text-[15px] tracking-tight">
-              PARWA
+            <span className="text-white font-anton text-base tracking-wide">
+              SHOBH
             </span>
           </Link>
         )}
@@ -221,8 +221,8 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
           <Link href="/dashboard/tickets" className="flex items-center group mx-auto">
             <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/20">
               <img
-                src="/parwa-logo.png"
-                alt="PARWA logo"
+                src="/shobh-logo.png"
+                alt="SHOBH logo"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -247,7 +247,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full text-left',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-anton tracking-wide transition-all duration-200 w-full text-left',
                 isActive(item.href)
                   ? 'bg-orange-500/10 text-orange-400 shadow-sm shadow-orange-500/5'
                   : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
@@ -283,7 +283,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
             key={item.href}
             href={item.href}
             className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 w-full text-left',
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-anton tracking-wide transition-all duration-200 w-full text-left',
               isActive(item.href)
                 ? 'bg-orange-500/10 text-orange-400'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
@@ -302,7 +302,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
 
         {/* ── Tier Indicator ─────────────────────────────────────── */}
         {/* Hidden for trial users — the TrialBanner at the top already
-            shows "Free Trial: X/15 tickets". Showing "MINI PARWA" here
+            shows "Free Trial: X/15 tickets". Showing "MINI SHOBH" here
             was misleading mock data (useVariant defaults to 'mini').
             Also hidden while trialStatus is loading (null) to avoid
             flashing the wrong tier badge. */}
@@ -323,7 +323,7 @@ export default function DashboardSidebar({ collapsed, onToggle }: DashboardSideb
         {!collapsed && user && (
           <div className="mt-2 pt-3 border-t border-white/[0.06]">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-500 flex items-center justify-center text-white text-xs font-semibold shrink-0">
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">

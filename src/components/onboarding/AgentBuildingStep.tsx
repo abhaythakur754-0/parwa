@@ -136,7 +136,7 @@ export function AgentBuildingStep({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="min-h-[600px] bg-[#0A0A0A] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[600px] bg-[#1B1B1F] flex items-center justify-center px-4 py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -280,7 +280,7 @@ export function AgentBuildingStep({ onComplete }: { onComplete: () => void }) {
           {buildState === 'done' && (
             <button
               onClick={handleComplete}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
             >
               Go to Dashboard <ArrowRight className="w-4 h-4" />
             </button>

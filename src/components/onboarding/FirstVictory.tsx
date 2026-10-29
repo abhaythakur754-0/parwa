@@ -42,7 +42,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
           router.push('/dashboard?variant=high');
           return;
         }
-        // Default PARWA variant
+        // Default SHOBH variant
         if (variant) {
           router.push('/dashboard?variant=pro');
           return;
@@ -69,7 +69,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center px-4" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #1A1A1A 100%)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center text-center px-4" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #2C2C31 100%)' }}>
       {/* Confetti Effect */}
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -113,7 +113,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
 
         <div className="space-y-3 max-w-lg">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
-            Welcome to PARWA!
+            Welcome to SHOBH!
           </h1>
           <p className="text-xl text-white">
             Your AI assistant <span className="font-semibold text-orange-400">{aiName}</span> is ready!
@@ -132,7 +132,7 @@ export function FirstVictory({ aiName = 'Jarvis', aiGreeting }: FirstVictoryProp
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={goToDashboard}
-            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 flex items-center justify-center gap-2"
+            className="px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 flex items-center justify-center gap-2"
           >
             Go to Dashboard
             <ArrowRight className="w-4 h-4" />

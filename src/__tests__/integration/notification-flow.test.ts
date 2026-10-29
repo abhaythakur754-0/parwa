@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Tests — Notification Flow (Day 4)
+ * SHOBH Integration Tests — Notification Flow (Day 4)
  *
  * End-to-end integration tests verifying:
  * 1. Socket event → notification store → toast → unread count flow

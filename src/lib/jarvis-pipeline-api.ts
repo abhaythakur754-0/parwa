@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis Pipeline API Client
+ * SHOBH Jarvis Pipeline API Client
  *
  * Typed API client for the 3-node JARVIS pipeline endpoints.
  * All endpoints mirror backend/app/api/jarvis_routes.py

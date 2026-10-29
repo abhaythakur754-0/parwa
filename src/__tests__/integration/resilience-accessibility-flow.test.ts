@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 7 Integration Tests — Full Resilience Flow
+ * SHOBH Day 7 Integration Tests — Full Resilience Flow
  *
  * Tests the complete resilience and accessibility pipeline:
  * - Offline detection → OfflineBanner → retry with backoff → recovery → toast

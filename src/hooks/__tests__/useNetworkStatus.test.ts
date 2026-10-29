@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 /**
 
- * PARWA Day 7 Unit Tests — useNetworkStatus Hook
+ * SHOBH Day 7 Unit Tests — useNetworkStatus Hook
  *
  * Tests online/offline detection, event handling,
  * wasOffline tracking, offline count, and reset.

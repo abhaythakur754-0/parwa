@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 7 Unit Tests — useFocusTrap Hook
+ * SHOBH Day 7 Unit Tests — useFocusTrap Hook
  *
  * Tests focus trapping, Tab cycling, Shift+Tab, Escape handling,
  * auto-focus, restore focus, and deactivation.

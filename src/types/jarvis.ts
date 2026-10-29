@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis Types (Week 6 — Day 2 Phase 4)
+ * SHOBH Jarvis Types (Week 6 — Day 2 Phase 4)
  *
  * TypeScript type definitions for the Jarvis onboarding chat system.
  * Mirrors backend Pydantic schemas from backend/app/schemas/jarvis.py
@@ -415,7 +415,7 @@ export interface JarvisDemoCallInitiateResponse {
 
 // ── Error Types ───────────────────────────────────────────────────
 
-export interface ParwaApiError {
+export interface ShobhApiError {
   error: {
     code: string;
     message: string;

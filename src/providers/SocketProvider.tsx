@@ -1,5 +1,5 @@
 /**
- * PARWA Socket Provider
+ * SHOBH Socket Provider
  *
  * React Context provider that manages the Socket.io connection lifecycle.
  * - Connects after auth is verified

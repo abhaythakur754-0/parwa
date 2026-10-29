@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 6 Unit Tests — Polling Fallback Hook
+ * SHOBH Day 6 Unit Tests — Polling Fallback Hook
  *
  * Pure unit tests without React rendering to avoid OOM issues.
  * Tests the polling callback logic directly.

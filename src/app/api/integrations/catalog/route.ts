@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Catalog API Proxy
+ * SHOBH Integration Catalog API Proxy
  *
  * GET /api/integrations/catalog?industry=saas
  * Proxies to backend /api/integrations/catalog with optional industry filter.

@@ -1,5 +1,5 @@
 /**
- * PARWA Day 7 Unit Tests — UI Components
+ * SHOBH Day 7 Unit Tests — UI Components
  *
  * Tests OfflineBanner, SkipLink, AccessibilityAnnouncer,
  * DashboardSkeleton, and toast accessibility improvements.

@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis Customer Care Types (Phase 5 — Jarvis CC Dashboard)
+ * SHOBH Jarvis Customer Care Types (Phase 5 — Jarvis CC Dashboard)
  *
  * TypeScript type definitions for the Jarvis Customer Care system.
  * Mirrors backend Pydantic schemas from backend/app/schemas/jarvis_cc.py

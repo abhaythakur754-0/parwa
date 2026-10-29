@@ -14,7 +14,7 @@ import type { EnableShadowModeRequest } from '@/types/shadow-mode';
 // ── Variant Options ─────────────────────────────────────────────────
 
 const variantOptions = [
-  { value: 'parwa', label: 'Parwa', description: 'Full technique suite with RAG support' },
+  { value: 'parwa', label: 'Shobh', description: 'Full technique suite with RAG support' },
   { value: 'high', label: 'High', description: 'Advanced reasoning and escalation' },
 ];
 
@@ -74,7 +74,7 @@ export function EnableShadowModeDialog({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-lg bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+      <div className="relative w-full max-w-lg bg-[#2C2C31] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/[0.06]">
           <h2 className="text-lg font-bold text-white">Enable Shadow Mode</h2>
@@ -93,7 +93,7 @@ export function EnableShadowModeDialog({
                 className="w-full text-sm px-3 py-2 rounded-lg bg-white/5 border border-white/[0.06] text-white outline-none focus:border-purple-500/30 transition-colors"
               >
                 {variantOptions.map((v) => (
-                  <option key={v.value} value={v.value} className="bg-[#1A1A1A] text-white">
+                  <option key={v.value} value={v.value} className="bg-[#2C2C31] text-white">
                     {v.label}
                   </option>
                 ))}
@@ -113,7 +113,7 @@ export function EnableShadowModeDialog({
                 )}
               >
                 {variantOptions.map((v) => (
-                  <option key={v.value} value={v.value} className="bg-[#1A1A1A] text-white">
+                  <option key={v.value} value={v.value} className="bg-[#2C2C31] text-white">
                     {v.label}
                   </option>
                 ))}

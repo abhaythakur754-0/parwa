@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis CC Hooks (Phase 5)
+ * SHOBH Jarvis CC Hooks (Phase 5)
  *
  * React hooks for managing Jarvis Customer Care state.
  * Uses React Query for server state and local state for UI.

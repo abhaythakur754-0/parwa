@@ -1,5 +1,5 @@
 /**
- * PARWA useJarvisChat Hook (Week 6 — Day 2 Phase 4)
+ * SHOBH useJarvisChat Hook (Week 6 — Day 2 Phase 4)
  *
  * React hook managing all Jarvis onboarding chat state.
  * Single source of truth for the chat UI.
@@ -43,7 +43,7 @@ import type {
   HandoffState,
   DemoCallState,
   MessageType,
-  ParwaApiError,
+  ShobhApiError,
   JarvisPurchaseResponse,
   JarvisDemoPackStatusResponse,
   JarvisDemoCallInitiateResponse,
@@ -102,7 +102,7 @@ async function apiFetch<T>(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      (errorData as ParwaApiError)?.error?.message ||
+      (errorData as ShobhApiError)?.error?.message ||
         `API error: ${response.status}`,
     );
   }
@@ -220,7 +220,7 @@ export function useJarvisChat(entrySource?: string, entryParams?: Record<string,
             // CRITICAL: Bridge variant_tier from Models page click
             // This is what triggers the variant pipeline routing in the backend.
             // Without variant_tier, onboarding uses direct AI (legacy path).
-            // With variant_tier, onboarding routes through Mini / Parwa.
+            // With variant_tier, onboarding routes through Mini / Shobh.
             // mini → mini, parwa → parwa, high → high
             if (bridgedContext.variant_tier) {
               contextPatch.variant_tier = bridgedContext.variant_tier as string;

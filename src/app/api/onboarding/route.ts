@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding API Proxy
+ * SHOBH Onboarding API Proxy
  *
  * Catches all /api/onboarding/* requests and proxies them to the backend.
  * Uses backendProxy for CSRF-aware requests with Origin header handling.

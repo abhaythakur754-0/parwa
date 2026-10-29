@@ -1,5 +1,5 @@
 /**
- * PARWA Industry Change Impact API Proxy
+ * SHOBH Industry Change Impact API Proxy
  *
  * POST /api/integrations/industry-change-impact
  * Proxies to backend to check impact of industry change on integrations.
@@ -11,15 +11,15 @@ import { getBackendUrl } from '@/lib/backend-url';
 import {
   INTEGRATION_CATALOG,
   getIntegrationsForIndustry,
-  type ParwaIndustry,
+  type ShobhIndustry,
 } from '@/lib/integration-catalog';
 
 const BACKEND_URL = getBackendUrl();
 
 /** Compute industry change impact from the frontend catalog */
 function computeImpact(currentIndustry: string, newIndustry: string) {
-  const curr = getIntegrationsForIndustry(currentIndustry as ParwaIndustry);
-  const next = getIntegrationsForIndustry(newIndustry as ParwaIndustry);
+  const curr = getIntegrationsForIndustry(currentIndustry as ShobhIndustry);
+  const next = getIntegrationsForIndustry(newIndustry as ShobhIndustry);
 
   const currKeys = new Set(curr.map((i) => i.key));
   const nextKeys = new Set(next.map((i) => i.key));

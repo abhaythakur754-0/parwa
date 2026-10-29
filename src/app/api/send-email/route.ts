@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const safeHtml = htmlContent
       ? sanitizeEmailContent(htmlContent)
       : sanitizeEmailContent(
-          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><p>${textContent || subject}</p><hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" /><p style="color: #888; font-size: 12px;">Powered by PARWA AI Workforce Platform</p></div>`
+          `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><p>${textContent || subject}</p><hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" /><p style="color: #888; font-size: 12px;">Powered by SHOBH AI Workforce Platform</p></div>`
         );
 
     const result = await sendEmail(to, subject, safeHtml);

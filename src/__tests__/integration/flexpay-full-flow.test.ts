@@ -173,7 +173,7 @@ describe('FlexPay Integration Tests', () => {
       const plan = createFullPlan(TEST_COMPANIES[2], 'parwa');
       
       expect(plan.totalAmount).toBe(TIER_PRICES.parwa);
-      // Parwa tier ($2,499) at $100/day + extra every 3rd day = ~19-25 days
+      // Shobh tier ($2,499) at $100/day + extra every 3rd day = ~19-25 days
       expect(plan.schedule.length).toBeGreaterThanOrEqual(18);
       expect(plan.schedule.length).toBeLessThanOrEqual(35);
       

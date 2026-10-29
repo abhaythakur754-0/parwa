@@ -1,5 +1,5 @@
 /**
- * PARWA Typing Indicator Store
+ * SHOBH Typing Indicator Store
  *
  * Tracks who is currently typing on a ticket or conversation.
  * Auto-expires after a timeout (5s) if no further typing events.

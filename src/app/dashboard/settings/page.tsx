@@ -203,7 +203,7 @@ function getInitials(name: string | null | undefined): string {
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { tier, isTierAtLeast } = useVariant();
+  const { tier, tierLabel, isTierAtLeast } = useVariant();
   const searchParams = useSearchParams();
   const defaultTab = searchParams?.get('tab') || 'profile';
 
@@ -918,17 +918,17 @@ export default function SettingsPage() {
                   {/* Glow ring */}
                   <div className="absolute inset-0 blur-xl bg-orange-500/20 rounded-full" />
                   {/* Avatar */}
-                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-[#1A1A1A] ring-2 ring-orange-500/30 ring-offset-2 ring-offset-[#1A1A1A]">
+                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-2xl font-bold text-[#2C2C31] ring-2 ring-orange-500/30 ring-offset-2 ring-offset-[#2C2C31]">
                     {getInitials(fullName || user?.full_name)}
                   </div>
                   {/* Online indicator */}
-                  <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-[#1A1A1A]" />
+                  <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-[#2C2C31]" />
                 </div>
                 {/* Plan badge */}
                 <div className="flex flex-col items-center gap-1">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                    {(tier || 'parwa').charAt(0).toUpperCase() + (tier || 'parwa').slice(1)} Plan
+                    {tierLabel || 'SHOBH'} Plan
                   </span>
                   <span className="text-[10px] text-zinc-600">Active subscription</span>
                 </div>
@@ -993,7 +993,7 @@ export default function SettingsPage() {
                     <button
                       onClick={handleProfileSave}
                       disabled={profileSaving}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="w-4 h-4" />
                       {profileSaving ? 'Saving...' : 'Save Changes'}
@@ -1032,7 +1032,7 @@ export default function SettingsPage() {
                   role="switch"
                   aria-checked={notifications.email}
                   onClick={() => handleNotifToggle('email')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1A] ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C2C31] ${
                     notifications.email ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.10]'
                   }`}
                 >
@@ -1058,7 +1058,7 @@ export default function SettingsPage() {
                   role="switch"
                   aria-checked={notifications.inApp}
                   onClick={() => handleNotifToggle('inApp')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1A] ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C2C31] ${
                     notifications.inApp ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.10]'
                   }`}
                 >
@@ -1084,7 +1084,7 @@ export default function SettingsPage() {
                   role="switch"
                   aria-checked={notifications.slaAlerts}
                   onClick={() => handleNotifToggle('slaAlerts')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1A] ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C2C31] ${
                     notifications.slaAlerts ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.10]'
                   }`}
                 >
@@ -1110,7 +1110,7 @@ export default function SettingsPage() {
                   role="switch"
                   aria-checked={notifications.ticketAssignment}
                   onClick={() => handleNotifToggle('ticketAssignment')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1A] ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C2C31] ${
                     notifications.ticketAssignment ? 'bg-gradient-to-r from-orange-500 to-amber-400' : 'bg-white/[0.10]'
                   }`}
                 >
@@ -1138,7 +1138,7 @@ export default function SettingsPage() {
                     }
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                       notifications.frequency === freq
-                        ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A]'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31]'
                         : 'bg-white/[0.04] border border-white/[0.08] text-zinc-400 hover:text-white hover:border-white/[0.15]'
                     }`}
                   >
@@ -1153,7 +1153,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleNotifSave}
                 disabled={notifSaving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
                 {notifSaving ? 'Saving...' : 'Save Preferences'}
@@ -1263,7 +1263,7 @@ export default function SettingsPage() {
                   !confirmPassword ||
                   newPassword !== confirmPassword
                 }
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 <Shield className="w-4 h-4" />
                 {passwordSaving ? 'Changing...' : 'Change Password'}
@@ -1328,7 +1328,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleMfaSetup}
                     disabled={mfaSetupSaving}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {mfaSetupSaving ? 'Enabling...' : 'Enable 2FA'}
                   </button>
@@ -1352,7 +1352,7 @@ export default function SettingsPage() {
                 <h3 className="text-sm font-semibold text-white">API Keys</h3>
                 <button
                   onClick={() => setShowCreateKey(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
                 >
                   <Plus className="w-4 h-4" />
                   Create New Key
@@ -1379,7 +1379,7 @@ export default function SettingsPage() {
                     <button
                       onClick={handleCreateKey}
                       disabled={creatingKey}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                       {creatingKey ? 'Creating...' : 'Create'}
                     </button>
@@ -1570,7 +1570,7 @@ export default function SettingsPage() {
           {/* Disconnect Confirmation Dialog */}
           {showDisconnectConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowDisconnectConfirm(null)}>
-              <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-400" />
                   Disconnect Integration
@@ -1699,7 +1699,7 @@ export default function SettingsPage() {
                                 </div>
                               ))}
                             </div>
-                            <button onClick={() => handleConnectIntegration(item)} disabled={connectingType === item.type} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            <button onClick={() => handleConnectIntegration(item)} disabled={connectingType === item.type} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                               {connectingType === item.type ? <><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</> : 'Connect'}
                             </button>
                           </div>
@@ -1720,7 +1720,7 @@ export default function SettingsPage() {
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-white">Webhook Endpoints</h3>
-                  <button onClick={() => setShowCreateWebhook(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200">
+                  <button onClick={() => setShowCreateWebhook(true)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200">
                     <Plus className="w-4 h-4" /> Add Endpoint
                   </button>
                 </div>
@@ -1795,7 +1795,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={handleCreateWebhook} disabled={creatingWebhook} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                      <button onClick={handleCreateWebhook} disabled={creatingWebhook} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                         {creatingWebhook ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : 'Create Webhook'}
                       </button>
                       <button onClick={() => { setShowCreateWebhook(false); setNewWebhookUrl(''); setNewWebhookEvents(['ticket.created']); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.15] transition-all">
@@ -1811,7 +1811,7 @@ export default function SettingsPage() {
                 <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm text-amber-200/80 font-medium">Webhook Security</p>
-                  <p className="text-xs text-amber-200/50 mt-1">Each webhook includes a signing secret. Verify the <code className="text-amber-300/70">X-Parwa-Signature</code> header on your server to confirm payloads are from PARWA. Failed deliveries are retried up to 5 times with exponential backoff.</p>
+                  <p className="text-xs text-amber-200/50 mt-1">Each webhook includes a signing secret. Verify the <code className="text-amber-300/70">X-Shobh-Signature</code> header on your server to confirm payloads are from SHOBH. Failed deliveries are retried up to 5 times with exponential backoff.</p>
                 </div>
               </div>
 
@@ -1866,7 +1866,7 @@ export default function SettingsPage() {
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold">{tier ? `${tier.charAt(0).toUpperCase() + tier.slice(1).replace('_', ' ')} Plan` : 'No Plan Active'}</p>
+                  <p className="text-white font-semibold">{tier ? `${tierLabel} Plan` : 'No Plan Active'}</p>
                   <p className="text-xs text-zinc-500">Unlimited integrations included</p>
                 </div>
               </div>
@@ -1894,13 +1894,13 @@ export default function SettingsPage() {
                   onChange={(e) => setFilterCategory(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all"
                 >
-                  <option value="" className="bg-[#1A1A1A]">All Categories</option>
-                  <option value="auth" className="bg-[#1A1A1A]">Authentication</option>
-                  <option value="integration" className="bg-[#1A1A1A]">Integration</option>
-                  <option value="ai_action" className="bg-[#1A1A1A]">AI Action</option>
-                  <option value="security" className="bg-[#1A1A1A]">Security</option>
-                  <option value="data" className="bg-[#1A1A1A]">Data</option>
-                  <option value="configuration" className="bg-[#1A1A1A]">Configuration</option>
+                  <option value="" className="bg-[#2C2C31]">All Categories</option>
+                  <option value="auth" className="bg-[#2C2C31]">Authentication</option>
+                  <option value="integration" className="bg-[#2C2C31]">Integration</option>
+                  <option value="ai_action" className="bg-[#2C2C31]">AI Action</option>
+                  <option value="security" className="bg-[#2C2C31]">Security</option>
+                  <option value="data" className="bg-[#2C2C31]">Data</option>
+                  <option value="configuration" className="bg-[#2C2C31]">Configuration</option>
                 </select>
               </div>
               {/* Severity */}
@@ -1911,11 +1911,11 @@ export default function SettingsPage() {
                   onChange={(e) => setFilterSeverity(e.target.value)}
                   className="w-full bg-white/[0.04] border border-white/[0.08] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all"
                 >
-                  <option value="" className="bg-[#1A1A1A]">All Severities</option>
-                  <option value="info" className="bg-[#1A1A1A]">Info</option>
-                  <option value="warning" className="bg-[#1A1A1A]">Warning</option>
-                  <option value="critical" className="bg-[#1A1A1A]">Critical</option>
-                  <option value="security" className="bg-[#1A1A1A]">Security</option>
+                  <option value="" className="bg-[#2C2C31]">All Severities</option>
+                  <option value="info" className="bg-[#2C2C31]">Info</option>
+                  <option value="warning" className="bg-[#2C2C31]">Warning</option>
+                  <option value="critical" className="bg-[#2C2C31]">Critical</option>
+                  <option value="security" className="bg-[#2C2C31]">Security</option>
                 </select>
               </div>
               {/* Action */}
@@ -1953,7 +1953,7 @@ export default function SettingsPage() {
             <div className="flex gap-3 mt-4">
               <button
                 onClick={handleAuditSearch}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
               >
                 <Search className="w-4 h-4" />
                 Search
@@ -2309,7 +2309,7 @@ function PlanIndustrySection({ currentIndustry, companyId }: { currentIndustry: 
       {/* Industry Change Impact Modal */}
       {showImpactModal && impact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowImpactModal(false)}>
-          <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-3">Industry Change Impact</h3>
             <p className="text-sm text-zinc-400 mb-4">{impact.message as string}</p>
 

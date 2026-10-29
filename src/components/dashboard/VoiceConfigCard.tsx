@@ -1,9 +1,9 @@
 /**
- * PARWA VoiceConfigCard
+ * SHOBH VoiceConfigCard
  *
  * Settings card for voice channel configuration including:
- * - D3: Choose between Parwa-provided number or bring your own
- * - Parwa number: instant provisioning (no Twilio credentials needed)
+ * - D3: Choose between Shobh-provided number or bring your own
+ * - Shobh number: instant provisioning (no Twilio credentials needed)
  * - Bring own: client provides Twilio Account SID, Auth Token, Phone Number
  * - Caller ID name field (D3)
  * - Greeting style selector (D3)
@@ -47,7 +47,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
   // D3: Number source
   const [numberSource, setNumberSource] = useState<NumberSource>('parwa_provided');
 
-  // D3: Parwa-provided params
+  // D3: Shobh-provided params
   const [areaCode, setAreaCode] = useState('');
   const [country, setCountry] = useState('US');
 
@@ -175,9 +175,9 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg mx-4 rounded-2xl bg-[#1A1A1A] border border-white/[0.08] shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg mx-4 rounded-2xl bg-[#2C2C31] border border-white/[0.08] shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-[#1A1A1A] border-b border-white/[0.06] p-5 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#2C2C31] border-b border-white/[0.06] p-5 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
               <Settings className="w-5 h-5 text-emerald-400" />
@@ -210,10 +210,10 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
               <>
                 <div className="space-y-3">
                   <p className="text-xs text-zinc-400">
-                    Choose how you want to set up your voice number. You can use Parwa&apos;s built-in number or connect your own Twilio account.
+                    Choose how you want to set up your voice number. You can use Shobh&apos;s built-in number or connect your own Twilio account.
                   </p>
 
-                  {/* Option A: Parwa-provided */}
+                  {/* Option A: Shobh-provided */}
                   <button
                     onClick={() => { setNumberSource('parwa_provided'); setStep('configure'); }}
                     className={cn(
@@ -228,13 +228,13 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                         <Sparkles className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">Use Parwa&apos;s Number</p>
+                        <p className="text-sm font-medium text-white">Use Shobh&apos;s Number</p>
                         <p className="text-[10px] text-emerald-400">Recommended — Instant setup</p>
                       </div>
                     </div>
                     <p className="text-xs text-zinc-500 ml-12">
                       Click &quot;Enable Voice&quot; and get a number instantly. No Twilio account needed.
-                      Parwa handles everything — provisioning, webhooks, and call routing.
+                      Shobh handles everything — provisioning, webhooks, and call routing.
                     </p>
                   </button>
 
@@ -258,7 +258,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                       </div>
                     </div>
                     <p className="text-xs text-zinc-500 ml-12">
-                      Already have a Twilio number? Forward it to Parwa AI.
+                      Already have a Twilio number? Forward it to Shobh AI.
                       You&apos;ll need your Twilio Account SID, Auth Token, and Phone Number.
                     </p>
                   </button>
@@ -291,7 +291,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                       <Key className="w-4 h-4 text-blue-400" />
                     )}
                     <span className="text-xs font-medium text-white">
-                      {numberSource === 'parwa_provided' ? 'Parwa-provided number' : 'Bring your own number'}
+                      {numberSource === 'parwa_provided' ? 'Shobh-provided number' : 'Bring your own number'}
                     </span>
                   </div>
                 </div>
@@ -310,7 +310,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                         value={twilioAccountSid}
                         onChange={(e) => setTwilioAccountSid(e.target.value)}
                         placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                        className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
+                        className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
                       />
                     </div>
                     <div>
@@ -320,7 +320,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                         value={twilioAuthToken}
                         onChange={(e) => setTwilioAuthToken(e.target.value)}
                         placeholder="Your Twilio Auth Token"
-                        className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
+                        className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
                       />
                     </div>
                     <div>
@@ -330,13 +330,13 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                         value={twilioPhoneNumber}
                         onChange={(e) => setTwilioPhoneNumber(e.target.value)}
                         placeholder="+1234567890"
-                        className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
+                        className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40"
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Parwa-provided: Area code / country */}
+                {/* Shobh-provided: Area code / country */}
                 {numberSource === 'parwa_provided' && (
                   <div className="space-y-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                     <p className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
@@ -352,7 +352,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                           onChange={(e) => setAreaCode(e.target.value)}
                           placeholder="e.g. 415"
                           maxLength={5}
-                          className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
+                          className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
                         />
                       </div>
                       <div>
@@ -360,7 +360,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                         <select
                           value={country}
                           onChange={(e) => setCountry(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                          className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                         >
                           <option value="US">United States</option>
                           <option value="CA">Canada</option>
@@ -389,7 +389,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                       value={callerIdName}
                       onChange={(e) => setCallerIdName(e.target.value)}
                       placeholder="Your Company Name"
-                      className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
+                      className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -401,7 +401,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                       <select
                         value={greetingStyle}
                         onChange={(e) => setGreetingStyle(e.target.value as GreetingStyle)}
-                        className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                        className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                       >
                         <option value="professional">Professional</option>
                         <option value="friendly">Friendly</option>
@@ -416,7 +416,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                       <select
                         value={languagePreference}
                         onChange={(e) => setLanguagePreference(e.target.value)}
-                        className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                        className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                       >
                         <option value="en-US">English (US)</option>
                         <option value="en-IN">English (India)</option>
@@ -436,9 +436,9 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                   <select
                     value={defaultVariant}
                     onChange={(e) => setDefaultVariant(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
-                    <option value="parwa">Parwa — Smart AI with recommendations</option>
+                    <option value="parwa">Shobh — Smart AI with recommendations</option>
                     <option value="high">High — Fully autonomous AI</option>
                   </select>
                 </div>
@@ -474,7 +474,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                   <select
                     value={ttsVoice}
                     onChange={(e) => setTtsVoice(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
                     <option value="Polly.Matthew">Matthew (Male, US)</option>
                     <option value="Polly.Joanna">Joanna (Female, US)</option>
@@ -497,7 +497,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     value={transferNumber}
                     onChange={(e) => setTransferNumber(e.target.value)}
                     placeholder="+919652852014"
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
                   />
                 </div>
               </>
@@ -512,7 +512,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-emerald-400/60" />
                       <span className="text-xs text-zinc-400">
-                        {config.number_source === 'parwa_provided' ? 'Parwa Number' : 'Your Twilio Account'}
+                        {config.number_source === 'parwa_provided' ? 'Shobh Number' : 'Your Twilio Account'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -522,7 +522,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                   </div>
                   <p className="text-[10px] text-zinc-600 mt-2 ml-6">
                     Number: {config.twilio_phone_number || config.parwa_phone_number}
-                    {config.number_source === 'parwa_provided' && ' (Parwa-provisioned)'}
+                    {config.number_source === 'parwa_provided' && ' (Shobh-provisioned)'}
                   </p>
                 </div>
 
@@ -543,7 +543,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     value={callerIdName}
                     onChange={(e) => setCallerIdName(e.target.value)}
                     placeholder="Your Company Name"
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
                   />
                 </div>
 
@@ -554,7 +554,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     <select
                       value={greetingStyle}
                       onChange={(e) => setGreetingStyle(e.target.value as GreetingStyle)}
-                      className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                      className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                     >
                       <option value="professional">Professional</option>
                       <option value="friendly">Friendly</option>
@@ -566,7 +566,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     <select
                       value={languagePreference}
                       onChange={(e) => setLanguagePreference(e.target.value)}
-                      className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                      className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                     >
                       <option value="en-US">English (US)</option>
                       <option value="en-IN">English (India)</option>
@@ -582,9 +582,9 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                   <select
                     value={defaultVariant}
                     onChange={(e) => setDefaultVariant(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
-                    <option value="parwa">Parwa — Smart AI with recommendations</option>
+                    <option value="parwa">Shobh — Smart AI with recommendations</option>
                     <option value="high">High — Fully autonomous AI</option>
                   </select>
                 </div>
@@ -620,7 +620,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                   <select
                     value={ttsVoice}
                     onChange={(e) => setTtsVoice(e.target.value)}
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-emerald-500/40"
                   >
                     <option value="Polly.Matthew">Matthew (Male, US)</option>
                     <option value="Polly.Joanna">Joanna (Female, US)</option>
@@ -643,7 +643,7 @@ export function VoiceConfigCard({ open, onClose }: VoiceConfigCardProps) {
                     value={transferNumber}
                     onChange={(e) => setTransferNumber(e.target.value)}
                     placeholder="+919652852014"
-                    className="w-full h-9 px-3 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
+                    className="w-full h-9 px-3 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/40"
                   />
                 </div>
               </>

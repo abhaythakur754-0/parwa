@@ -1,7 +1,7 @@
 /**
- * PARWA Email Service — Backend Proxy
+ * SHOBH Email Service — Backend Proxy
  *
- * Sends emails by calling the Parwa backend API,
+ * Sends emails by calling the Shobh backend API,
  * which routes through the ProviderRegistry.
  *
  * SECURITY: Never calls Brevo/SendGrid directly from the frontend.

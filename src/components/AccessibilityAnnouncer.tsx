@@ -1,5 +1,5 @@
 /**
- * PARWA AccessibilityAnnouncer
+ * SHOBH AccessibilityAnnouncer
  *
  * Provides a centralized way to announce messages to screen readers
  * using ARIA live regions. Creates both polite and assertive regions

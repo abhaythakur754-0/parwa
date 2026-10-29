@@ -1,5 +1,5 @@
 /**
- * PARWA MFA Store — Zustand state for Multi-Factor Authentication
+ * SHOBH MFA Store — Zustand state for Multi-Factor Authentication
  *
  * Manages MFA enrollment, login verification, and disable flows.
  * All API failures show honest error states — NO demo fallbacks.

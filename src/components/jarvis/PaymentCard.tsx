@@ -1,5 +1,5 @@
 /**
- * PARWA PaymentCard (Week 6 — Day 4 Phase 6)
+ * SHOBH PaymentCard (Week 6 — Day 4 Phase 6)
  *
  * Shows $1 demo pack OR variant payment with Razorpay checkout button.
  * Metadata: { type: 'demo_pack' | 'variant', amount: number, currency: string,

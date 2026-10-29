@@ -1,5 +1,5 @@
 /**
- * PARWA Day 5 Unit Tests — DemoBanner, ErrorBoundary, 404 Page
+ * SHOBH Day 5 Unit Tests — DemoBanner, ErrorBoundary, 404 Page
  *
  * Tests the Day 5 UI components: DemoBanner dismiss behavior,
  * ErrorBoundary error catching and retry, and NotFoundPage rendering.

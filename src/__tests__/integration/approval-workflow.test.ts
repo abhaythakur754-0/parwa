@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Tests — Approval Workflow (Day 4)
+ * SHOBH Integration Tests — Approval Workflow (Day 4)
  *
  * End-to-end integration tests verifying the approval lifecycle:
  * 1. Socket event → approval store → notification → badge count

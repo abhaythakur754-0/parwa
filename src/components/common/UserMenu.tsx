@@ -1,5 +1,5 @@
 /**
- * PARWA UserMenu Component
+ * SHOBH UserMenu Component
  *
  * Reusable profile dropdown that shows user info and account actions.
  * Used in ChatHeader, NavigationBar, and Profile page.
@@ -124,7 +124,7 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-orange-500/20">
             {initials}
           </div>
-          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-orange-400 border-2 border-[#1A1A1A]" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-orange-400 border-2 border-[#2C2C31]" />
         </div>
 
         {!compact && (
@@ -139,9 +139,9 @@ export function UserMenu({ compact = false, className = '' }: UserMenuProps) {
 
       {/* ── Dropdown ── */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-orange-500/20 bg-[#1A1A1A]/95 backdrop-blur-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-orange-500/20 bg-[#2C2C31]/95 backdrop-blur-xl shadow-2xl shadow-black/40 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {/* ── User Header ── */}
-          <div className="px-5 py-4 border-b border-white/5" style={{ background: 'linear-gradient(135deg, rgba(255,127,17,0.08) 0%, transparent 100%)' }}>
+          <div className="px-5 py-4 border-b border-white/5" style={{ background: 'linear-gradient(135deg, rgba(161,161,170,0.08) 0%, transparent 100%)' }}>
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-500/20">
                 {initials}

@@ -1,5 +1,5 @@
 /**
- * PARWA Polling Fallback Hook
+ * SHOBH Polling Fallback Hook
  *
  * When Socket.io is disconnected, automatically falls back to
  * HTTP polling at a configurable interval. Stops polling when

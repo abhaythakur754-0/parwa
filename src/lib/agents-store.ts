@@ -1,5 +1,5 @@
 /**
- * PARWA Agents Store
+ * SHOBH Agents Store
  *
  * Zustand store for AI agent instances. Manages agent list,
  * status tracking, performance metrics, and tier limit enforcement.

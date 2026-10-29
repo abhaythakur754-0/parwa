@@ -1,5 +1,5 @@
 /**
- * PARWA Analytics Types
+ * SHOBH Analytics Types
  *
  * TypeScript types for the ticket analytics API.
  * Based on backend/app/api/ticket_analytics.py and ticket_analytics_service.py

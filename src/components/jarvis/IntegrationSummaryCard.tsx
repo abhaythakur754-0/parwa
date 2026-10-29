@@ -1,5 +1,5 @@
 /**
- * PARWA IntegrationSummaryCard (Integration Setup)
+ * SHOBH IntegrationSummaryCard (Integration Setup)
  *
  * Summary card showing all connected and skipped integrations.
  * Industry-aware suggestions and "continue" actions.

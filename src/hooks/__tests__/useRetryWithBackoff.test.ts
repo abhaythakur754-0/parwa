@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 7 Unit Tests — useRetryWithBackoff Hook
+ * SHOBH Day 7 Unit Tests — useRetryWithBackoff Hook
  *
  * Tests retry logic, exponential backoff, max retries,
  * cancel, reset, and callbacks.

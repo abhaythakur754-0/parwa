@@ -1,5 +1,5 @@
 /**
- * PARWA CallDetailPanel
+ * SHOBH CallDetailPanel
  *
  * Slide-out panel showing comprehensive call details including:
  * - Call info (direction, duration, status, variant)
@@ -39,7 +39,7 @@ const statusColors: Record<string, string> = {
 };
 
 const variantLabels: Record<string, string> = {
-  parwa: 'Parwa',
+  parwa: 'Shobh',
   high: 'High',
 };
 
@@ -94,11 +94,11 @@ export function CallDetailPanel({ call, open, onClose }: CallDetailPanelProps) {
 
       {/* Panel */}
       <div className={cn(
-        'fixed right-0 top-0 h-full w-full sm:w-[420px] bg-[#1A1A1A] border-l border-white/[0.06] z-50 transition-transform duration-300 ease-out overflow-y-auto',
+        'fixed right-0 top-0 h-full w-full sm:w-[420px] bg-[#2C2C31] border-l border-white/[0.06] z-50 transition-transform duration-300 ease-out overflow-y-auto',
         open ? 'translate-x-0' : 'translate-x-full'
       )}>
         {/* Header */}
-        <div className="sticky top-0 bg-[#1A1A1A] border-b border-white/[0.06] p-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-[#2C2C31] border-b border-white/[0.06] p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <div className={cn(
               'w-9 h-9 rounded-lg flex items-center justify-center',
@@ -225,7 +225,7 @@ export function CallDetailPanel({ call, open, onClose }: CallDetailPanelProps) {
               <div className="p-3 rounded-xl bg-orange-500/5 border border-orange-500/10">
                 <div className="flex items-center gap-1.5 mb-2">
                   <TrendingDown className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-[10px] font-semibold text-orange-300/70">ROI with PARWA</span>
+                  <span className="text-[10px] font-semibold text-orange-300/70">ROI with SHOBH</span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-[10px]">

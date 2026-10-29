@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Test: Multi-Tenant Tier Gating Flow
+ * SHOBH Integration Test: Multi-Tenant Tier Gating Flow
  *
  * Tests the complete flow:
  * variant-store → useVariant hook → LockedFeature component

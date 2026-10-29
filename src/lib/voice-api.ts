@@ -1,11 +1,11 @@
 /**
- * PARWA Voice API Client
+ * SHOBH Voice API Client
  *
  * Typed API client for voice channel endpoints.
  * All requests go through the Next.js proxy route at /api/voice/*.
  *
  * D3: Supports two number source modes:
- * - "parwa_provided": Parwa provisions a number instantly
+ * - "parwa_provided": Shobh provisions a number instantly
  * - "bring_own": Client provides their own Twilio credentials
  */
 
@@ -129,7 +129,7 @@ export const voiceApi = {
   updateConfig: (data: UpdateVoiceConfigRequest): Promise<{ status: string; config: VoiceChannelConfig }> =>
     request('/config', { method: 'PUT', body: JSON.stringify(data) }),
 
-  /** Delete voice channel config (also releases Parwa-provisioned number) */
+  /** Delete voice channel config (also releases Shobh-provisioned number) */
   deleteConfig: (): Promise<{ status: string }> =>
     request('/config', { method: 'DELETE' }),
 

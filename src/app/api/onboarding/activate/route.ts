@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Activate API
+ * SHOBH Onboarding Activate API
  * 
  * POST /api/onboarding/activate - Complete onboarding and activate account
  * Called after Step 3 (Knowledge Base) to move to Step 4 (First Victory)

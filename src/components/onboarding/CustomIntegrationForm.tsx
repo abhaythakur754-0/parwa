@@ -252,7 +252,7 @@ export function CustomIntegrationForm({ onSaved }: CustomIntegrationFormProps) {
             onChange={(e) => { setAuthType(e.target.value); setCredentials({}); }}
             className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-orange-500/40 transition-colors"
           >
-            {AUTH_TYPES.map(a => <option key={a.value} value={a.value} className="bg-[#1A1A1A]">{a.label}</option>)}
+            {AUTH_TYPES.map(a => <option key={a.value} value={a.value} className="bg-[#2C2C31]">{a.label}</option>)}
           </select>
 
           {/* Dynamic credential fields based on auth type */}

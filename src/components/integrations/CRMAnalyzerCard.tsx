@@ -240,7 +240,7 @@ export function CRMAnalyzerCard({
           <div className="text-center">
             <p className="font-medium text-white">Get Smart Integration Recommendations</p>
             <p className="text-sm text-zinc-500 mt-1">
-              Let Parwa analyze your data and tell you exactly which integrations you need
+              Let Shobh analyze your data and tell you exactly which integrations you need
             </p>
           </div>
           <Button variant="outline" size="sm" className="border-purple-700 text-purple-400 hover:bg-purple-950/30">

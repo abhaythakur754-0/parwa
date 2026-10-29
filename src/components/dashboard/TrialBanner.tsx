@@ -1,5 +1,5 @@
 /**
- * PARWA TrialBanner
+ * SHOBH TrialBanner
  *
  * Persistent banner shown at the top of the dashboard for users on the
  * free trial (24h OR 15 tickets, whichever hits first).

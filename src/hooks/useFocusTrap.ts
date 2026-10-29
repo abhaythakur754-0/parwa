@@ -1,5 +1,5 @@
 /**
- * PARWA useFocusTrap Hook
+ * SHOBH useFocusTrap Hook
  *
  * Traps keyboard focus within a container element.
  * Essential for modals, dialogs, and drawers to comply with WCAG 2.1

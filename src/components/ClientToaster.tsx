@@ -14,17 +14,17 @@ export function ClientToaster() {
       toastOptions={{
         duration: 4000,
         style: {
-          background: '#2A1A0A',
-          color: '#FFF4E6',
-          border: '1px solid rgba(255,127,17,0.25)',
+          background: '#303036',
+          color: '#F4F4F5',
+          border: '1px solid rgba(161,161,170,0.25)',
           borderRadius: '12px',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 40px rgba(255,127,17,0.06)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 40px rgba(161,161,170,0.06)',
         },
         success: {
-          iconTheme: { primary: '#FF9F5A', secondary: '#2A1A0A' },
+          iconTheme: { primary: '#FF9F5A', secondary: '#303036' },
         },
         error: {
-          iconTheme: { primary: '#FB7185', secondary: '#2A1A0A' },
+          iconTheme: { primary: '#FB7185', secondary: '#303036' },
         },
       }}
     />

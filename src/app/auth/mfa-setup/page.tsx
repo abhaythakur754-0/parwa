@@ -11,7 +11,7 @@ const OTP_LENGTH = 6;
 // ── Loading Fallback ──────────────────────────────────────────────────
 function MFASetupLoading() {
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E1E22] flex items-center justify-center p-4">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
         <p className="text-sm text-zinc-500">Loading&hellip;</p>
@@ -117,7 +117,7 @@ function MFASetupContent() {
   if (!mounted) return <MFASetupLoading />;
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E1E22] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link
           href="/dashboard/settings"
@@ -217,7 +217,7 @@ function MFASetupContent() {
                     <button
                       onClick={handleVerify}
                       disabled={status === 'verifying' || code.length !== OTP_LENGTH}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {status === 'verifying' ? 'Verifying...' : 'Verify & Enable 2FA'}
                     </button>
@@ -258,7 +258,7 @@ function MFASetupContent() {
 
               <button
                 onClick={() => router.push('/dashboard')}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
               >
                 Continue to Dashboard
               </button>

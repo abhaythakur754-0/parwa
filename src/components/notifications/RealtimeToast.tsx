@@ -1,5 +1,5 @@
 /**
- * PARWA RealtimeToast
+ * SHOBH RealtimeToast
  *
  * Floating toast notifications that appear when real-time events arrive.
  * Pulls from the notification store's toasts array.
@@ -95,7 +95,7 @@ export function RealtimeToast() {
           role={toast.type === 'error' ? 'alert' : 'status'}
           aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
           onClick={() => handleToastClick(toast)}
-          className={`flex items-start gap-3 p-3 rounded-lg border bg-[#1A1A1A]/95 backdrop-blur-xl shadow-xl shadow-black/30 animate-in slide-in-from-right-5 fade-in duration-300 cursor-pointer hover:bg-[#1A1A1A]/90 transition-colors ${TOAST_BG[toast.type] || TOAST_BG.system}`}
+          className={`flex items-start gap-3 p-3 rounded-lg border bg-[#2C2C31]/95 backdrop-blur-xl shadow-xl shadow-black/30 animate-in slide-in-from-right-5 fade-in duration-300 cursor-pointer hover:bg-[#2C2C31]/90 transition-colors ${TOAST_BG[toast.type] || TOAST_BG.system}`}
         >
           <span aria-hidden="true"><ToastIcon type={toast.type} /></span>
           <div className="flex-1 min-w-0">

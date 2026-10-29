@@ -1,5 +1,5 @@
 /**
- * PARWA Pricing Configuration — Frontend Single Source of Truth
+ * SHOBH Pricing Configuration — Frontend Single Source of Truth
  * ═══════════════════════════════════════════════════════════════════
  *
  * This module is the ONLY place where pricing data and variant info
@@ -14,14 +14,14 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  *
  * Pricing model: $1 = 1 ticket. What you pay is how many tickets you get.
- *   Parwa:  $2,999/mo = 2,999 tickets/mo  | $35,988/yr
+ *   Shobh:  $2,999/mo = 2,999 tickets/mo  | $35,988/yr
  *   High:   $3,999/mo = 3,999 tickets/mo  | $47,988/yr
  *
  * All variants have the SAME AI capabilities. The only difference
  * is the ticket volume restriction.
  *
- * Mini PARWA was removed on 2026-07-26. Existing Mini subscribers are
- * auto-upgraded to Parwa via normalizeTier().
+ * Mini SHOBH was removed on 2026-07-26. Existing Mini subscribers are
+ * auto-upgraded to Shobh via normalizeTier().
  *
  * Annual = 12 × monthly. NO discounts. NO free months.
  *
@@ -49,8 +49,8 @@ export const VARIANT_ANNUAL_PRICES: Record<VariantTier, number> = {
 // ── Display Names ──────────────────────────────────────────────────
 
 export const VARIANT_DISPLAY_NAMES: Record<VariantTier, string> = {
-  parwa: 'PARWA',
-  high: 'PARWA High',
+  parwa: 'SHOBH',
+  high: 'SHOBH High',
 };
 
 export const VARIANT_TAGLINES: Record<VariantTier, string> = {
@@ -122,8 +122,8 @@ export const VARIANT_TIER_ORDER: Record<VariantTier, number> = {
 
 /**
  * Normalize any variant string (including legacy names) to a canonical VariantTier.
- * Mini PARWA was removed 2026-07-26 — legacy 'mini'/'starter'/'mini_parwa' are
- * auto-upgraded to 'parwa' (existing Mini customers get Parwa features for free).
+ * Mini SHOBH was removed 2026-07-26 — legacy 'mini'/'starter'/'mini_parwa' are
+ * auto-upgraded to 'parwa' (existing Mini customers get Shobh features for free).
  */
 const LEGACY_TIER_MAP: Record<string, VariantTier> = {
   parwa: 'parwa',

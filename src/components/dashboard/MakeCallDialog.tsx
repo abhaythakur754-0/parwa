@@ -1,5 +1,5 @@
 /**
- * PARWA MakeCallDialog
+ * SHOBH MakeCallDialog
  *
  * Modal dialog for initiating outbound voice calls.
  * Features: Phone number input with E.164 validation, variant tier selector,
@@ -20,7 +20,7 @@ interface MakeCallDialogProps {
 }
 
 const VARIANT_OPTIONS = [
-  { value: 'parwa', label: 'Parwa', description: 'Smart AI agent with recommendations' },
+  { value: 'parwa', label: 'Shobh', description: 'Smart AI agent with recommendations' },
   { value: 'high', label: 'High', description: 'Fully autonomous AI agent' },
 ];
 
@@ -68,7 +68,7 @@ export function MakeCallDialog({ open, onClose, onCall, defaultNumber = '' }: Ma
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-md mx-4 rounded-2xl bg-[#1A1A1A] border border-white/[0.08] shadow-2xl">
+      <div className="relative w-full max-w-md mx-4 rounded-2xl bg-[#2C2C31] border border-white/[0.08] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
           <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ export function MakeCallDialog({ open, onClose, onCall, defaultNumber = '' }: Ma
               onChange={(e) => { setPhoneNumber(e.target.value); setError(null); }}
               placeholder="+919652852014"
               className={cn(
-                'w-full h-10 px-3 rounded-lg bg-[#0F0F0F] border text-sm text-white placeholder:text-zinc-600 focus:outline-none transition-colors',
+                'w-full h-10 px-3 rounded-lg bg-[#202024] border text-sm text-white placeholder:text-zinc-600 focus:outline-none transition-colors',
                 error ? 'border-red-500/50 focus:border-red-500/70' : 'border-white/[0.06] focus:border-orange-500/40'
               )}
               autoFocus
@@ -143,7 +143,7 @@ export function MakeCallDialog({ open, onClose, onCall, defaultNumber = '' }: Ma
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Optional greeting or context for the AI agent..."
               rows={2}
-              className="w-full px-3 py-2 rounded-lg bg-[#0F0F0F] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
+              className="w-full px-3 py-2 rounded-lg bg-[#202024] border border-white/[0.06] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
             />
           </div>
 

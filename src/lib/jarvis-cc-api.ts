@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis CC API Client (Phase 5)
+ * SHOBH Jarvis CC API Client (Phase 5)
  *
  * Centralized API client for Jarvis Customer Care endpoints.
  * All endpoints mirror backend/app/api/jarvis_cc.py

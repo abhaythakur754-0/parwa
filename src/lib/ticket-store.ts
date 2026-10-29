@@ -154,7 +154,7 @@ function generateTicketNumber(): string {
 
 /**
  * @deprecated Variant assignment now happens server-side in Node 2 of the
- * 8-node PARWA pipeline. This function is kept only for backwards
+ * 8-node SHOBH pipeline. This function is kept only for backwards
  * compatibility with existing tests; new code should NOT call it.
  */
 export function autoAssignVariant(
@@ -484,7 +484,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
             id: uuid(),
             ticket_id: id,
             sender: 'ai_agent',
-            sender_name: 'PARWA AI',
+            sender_name: 'SHOBH AI',
             content: resolution
               ? `Issue resolved: ${resolution}`
               : 'This ticket has been marked as resolved. Please let us know if you need further assistance.',
@@ -632,7 +632,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   // ── NEW: Agent Control Actions ──────────────────────────────────────
   
   /**
-   * Mark a ticket as "skipped" — PARWA will NOT auto-solve this ticket.
+   * Mark a ticket as "skipped" — SHOBH will NOT auto-solve this ticket.
    * User can still manually resolve or escalate it.
    */
   skipTicket: (id) => {
@@ -646,7 +646,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   },
 
   /**
-   * Remove skip mark — PARWA can now auto-solve this ticket again.
+   * Remove skip mark — SHOBH can now auto-solve this ticket again.
    */
   unskipTicket: (id) => {
     set((s) => ({
@@ -705,7 +705,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   // ── NEW: Computed Getters for UI Sections ───────────────────────────
 
   /**
-   * Get tickets that PARWA can auto-solve via KB matching.
+   * Get tickets that SHOBH can auto-solve via KB matching.
    * These are: open/in_progress + not skipped + not stopped + KB matched OR simple categories.
    */
   getAutoSolvableTickets: () => {

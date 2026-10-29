@@ -56,9 +56,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
         setIsSubmitted(true);
         toast.success('Demo request submitted!', {
           style: {
-            background: '#2A1A0A',
-            color: '#FFF4E6',
-            border: '1px solid rgba(255,127,17,0.25)',
+            background: '#303036',
+            color: '#F4F4F5',
+            border: '1px solid rgba(161,161,170,0.25)',
             borderRadius: '12px',
           },
         });
@@ -88,16 +88,16 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
       <div
         className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
         style={{
-          background: 'linear-gradient(180deg, #1A1A1A 0%, #2A1A0A 100%)',
-          border: '1px solid rgba(255,127,17,0.25)',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(255,127,17,0.08)',
+          background: 'linear-gradient(180deg, #2C2C31 0%, #303036 100%)',
+          border: '1px solid rgba(161,161,170,0.25)',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(161,161,170,0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'rgba(255,127,17,0.15)' }}>
+        <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: 'rgba(161,161,170,0.15)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF7F11 0%, #E06A00 100%)' }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #A1A1AA 0%, #8A8A92 100%)' }}>
               <Calendar className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -183,9 +183,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                 className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 appearance-none cursor-pointer"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <option value="" style={{ background: '#1A1A1A' }}>Select industry...</option>
+                <option value="" style={{ background: '#2C2C31' }}>Select industry...</option>
                 {INDUSTRIES.map(ind => (
-                  <option key={ind} value={ind} style={{ background: '#1A1A1A' }}>{ind}</option>
+                  <option key={ind} value={ind} style={{ background: '#2C2C31' }}>{ind}</option>
                 ))}
               </select>
             </div>
@@ -217,9 +217,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
                   className="w-full px-4 py-3 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 appearance-none cursor-pointer"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
                 >
-                  <option value="" style={{ background: '#1A1A1A' }}>Select time...</option>
+                  <option value="" style={{ background: '#2C2C31' }}>Select time...</option>
                   {TIME_SLOTS.map(slot => (
-                    <option key={slot} value={slot} style={{ background: '#1A1A1A' }}>{slot}</option>
+                    <option key={slot} value={slot} style={{ background: '#2C2C31' }}>{slot}</option>
                   ))}
                 </select>
               </div>
@@ -247,9 +247,9 @@ export function BookDemoModal({ isOpen, onClose, preSelectedIndustry }: BookDemo
               disabled={isSubmitting || !form.name || !form.email || !form.company}
               className="w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{
-                background: 'linear-gradient(135deg, #FF7F11 0%, #E06A00 100%)',
-                color: '#1A1A1A',
-                boxShadow: '0 8px 30px rgba(255,127,17,0.3)',
+                background: 'linear-gradient(135deg, #A1A1AA 0%, #8A8A92 100%)',
+                color: '#2C2C31',
+                boxShadow: '0 8px 30px rgba(161,161,170,0.3)',
               }}
             >
               {isSubmitting ? (

@@ -46,7 +46,7 @@ declare global {
 export function RazorpayCheckout({
   amount,
   currency = 'USD',
-  name = 'PARWA',
+  name = 'SHOBH',
   description = 'Subscription Payment',
   onSuccess,
   buttonText = 'Pay Now',
@@ -244,7 +244,7 @@ export function RazorpayCheckout({
         },
       },
       theme: {
-        color: '#f97316',
+        color: '#A1A1AA',
       },
     };
 
@@ -412,7 +412,7 @@ export function RazorpayCheckout({
       className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
         isFlexPayMode 
           ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-emerald-500/20 hover:shadow-emerald-500/30'
-          : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-orange-500/20 hover:shadow-orange-500/30'
+          : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] shadow-orange-500/20 hover:shadow-orange-500/30'
       }`}
     >
       {loading ? (

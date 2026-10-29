@@ -255,7 +255,7 @@ export default function PricingPage() {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0A0A]">
+    <div className="min-h-screen flex flex-col bg-[#1B1B1F]">
       <NavigationBar />
 
       <main className="flex-grow">
@@ -379,7 +379,7 @@ export default function PricingPage() {
         {/* ── Bottom CTA (when no industry selected) ───────────────── */}
         {!selectedIndustry && (
           <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 text-center">
-            <div className="bg-[#111111] rounded-2xl border border-white/[0.06] p-8 sm:p-12">
+            <div className="bg-[#232327] rounded-2xl border border-white/[0.06] p-8 sm:p-12">
               <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                 Not Sure Which Industry?
               </h3>

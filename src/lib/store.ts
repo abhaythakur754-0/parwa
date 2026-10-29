@@ -71,7 +71,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 // Expose store on window for debugging/testing (client-only)
 if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).__PARWA_STORE__ = useAppStore;
+  (window as unknown as Record<string, unknown>).__SHOBH_STORE__ = useAppStore;
 }
 
 // Helper: check if current page is a dashboard sub-page
@@ -82,7 +82,7 @@ export function isDashboardPage(page: Page): boolean {
 // Helper: get the display title for a page
 export function getPageTitle(page: Page): string {
   const titles: Record<Page, string> = {
-    landing: 'PARWA - AI Customer Support',
+    landing: 'SHOBH - AI Customer Support',
     login: 'Sign In',
     signup: 'Create Account',
     'forgot-password': 'Reset Password',
@@ -101,5 +101,5 @@ export function getPageTitle(page: Page): string {
     jarvis: 'Jarvis AI',
     profile: 'Profile',
   };
-  return titles[page] || 'PARWA';
+  return titles[page] || 'SHOBH';
 }

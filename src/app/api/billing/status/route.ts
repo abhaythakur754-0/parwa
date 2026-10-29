@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Return a safe default so the billing page can still render
     return NextResponse.json({
       tier: 'parwa',
-      plan_name: 'PARWA',
+      plan_name: 'SHOBH',
       billing_cycle: 'monthly',
       status: 'inactive',
       seats_used: 0,

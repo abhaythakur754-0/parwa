@@ -176,7 +176,7 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-4 flex items-center gap-4">
+    <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-4 flex items-center gap-4">
       <div
         className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${accent}`}
       >
@@ -206,7 +206,7 @@ function PageSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-4 flex items-center gap-4"
+            className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-4 flex items-center gap-4"
           >
             <Skeleton className="w-10 h-10 rounded-lg bg-zinc-800" />
             <div className="space-y-2">
@@ -218,12 +218,12 @@ function PageSkeleton() {
       </div>
 
       {/* Upload zone skeleton */}
-      <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-8">
+      <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-8">
         <Skeleton className="h-24 w-full bg-zinc-800 rounded-lg" />
       </div>
 
       {/* Table skeleton */}
-      <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-4 space-y-3">
+      <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-4 space-y-3">
         <Skeleton className="h-4 w-32 bg-zinc-800" />
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 py-2">
@@ -243,7 +243,7 @@ function PageSkeleton() {
 
 function EmptyState({ onUploadClick, onCreateClick }: { onUploadClick: () => void; onCreateClick: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 bg-[#1A1A1A] rounded-xl border border-white/[0.06]">
+    <div className="flex flex-col items-center justify-center py-16 bg-[#2C2C31] rounded-xl border border-white/[0.06]">
       <div className="w-20 h-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-5">
         <CloudUpload className="w-10 h-10 text-orange-400" />
       </div>
@@ -367,7 +367,7 @@ function CreateArticleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-[#1A1A1A] border-white/10 text-white p-0 gap-0 max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl bg-[#2C2C31] border-white/10 text-white p-0 gap-0 max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06]">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center">
@@ -797,7 +797,7 @@ export default function KnowledgePage() {
       </div>
 
       {/* Upload Section */}
-      <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-6">
+      <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-white">Upload Documents</h2>
           <Button
@@ -883,7 +883,7 @@ export default function KnowledgePage() {
 
         {/* Upload Progress */}
         {isUploading && (
-          <div className="mt-4 bg-[#0A0A0A] rounded-lg border border-white/[0.06] p-4">
+          <div className="mt-4 bg-[#1B1B1F] rounded-lg border border-white/[0.06] p-4">
             <div className="flex items-center gap-3 mb-2">
               <Loader2 className="w-4 h-4 text-orange-400 animate-spin shrink-0" />
               <div className="flex-1 min-w-0">
@@ -920,7 +920,7 @@ export default function KnowledgePage() {
           onCreateClick={() => setCreateArticleOpen(true)}
         />
       ) : (
-        <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] overflow-hidden">
+        <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] overflow-hidden">
           {/* Table header with search */}
           <div className="p-4 border-b border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h2 className="text-sm font-medium text-white">
@@ -935,7 +935,7 @@ export default function KnowledgePage() {
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 bg-[#0A0A0A] border-zinc-800 text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:ring-orange-500/20"
+                className="pl-9 h-9 bg-[#1B1B1F] border-zinc-800 text-white placeholder:text-zinc-600 focus:border-orange-500/50 focus:ring-orange-500/20"
               />
             </div>
           </div>
@@ -1141,7 +1141,7 @@ export default function KnowledgePage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <AlertDialogContent className="bg-[#1A1A1A] border-zinc-800">
+        <AlertDialogContent className="bg-[#2C2C31] border-zinc-800">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">
               Delete Document

@@ -1,5 +1,5 @@
 /**
- * PARWA Collision Detection Store
+ * SHOBH Collision Detection Store
  *
  * Detects when multiple users are viewing/editing the same ticket
  * simultaneously. Shows a warning banner and prevents conflicting saves.

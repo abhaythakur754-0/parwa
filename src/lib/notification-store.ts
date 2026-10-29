@@ -1,5 +1,5 @@
 /**
- * PARWA Notification Store
+ * SHOBH Notification Store
  *
  * Zustand store for real-time notification management.
  * Handles in-app notifications, toast messages, and unread tracking.

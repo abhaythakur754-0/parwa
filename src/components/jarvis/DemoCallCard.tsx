@@ -1,5 +1,5 @@
 /**
- * PARWA DemoCallCard (Week 6 — Day 4 Phase 6, Gap Fixed)
+ * SHOBH DemoCallCard (Week 6 — Day 4 Phase 6, Gap Fixed)
  *
  * Full demo call flow: Phone input → OTP verification → Call button → Timer.
  * Metadata: { phone?: string, call_id?: string, duration_limit?: number }
@@ -366,7 +366,7 @@ export function DemoCallCard({
       </div>
 
       <div className="space-y-1 mb-3">
-        <DemoFeature text="Hear how PARWA sounds in a real call" />
+        <DemoFeature text="Hear how SHOBH sounds in a real call" />
         <DemoFeature text="Ask questions about features & pricing" />
         <DemoFeature text="Completely free, no commitment" />
       </div>

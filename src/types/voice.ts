@@ -1,11 +1,11 @@
 /**
- * PARWA Voice Channel Types
+ * SHOBH Voice Channel Types
  *
  * Type definitions for voice calls, conversations, and configuration.
  * Matches the backend VoiceChannel models and API schemas.
  *
  * D3: Supports two number source modes:
- * - "parwa_provided": Parwa provisions a number using our Twilio account
+ * - "parwa_provided": Shobh provisions a number using our Twilio account
  * - "bring_own": Client provides their own Twilio credentials
  */
 
@@ -87,7 +87,7 @@ export interface VoiceChannelConfig {
   greeting_style: GreetingStyle;
   language_preference: string;
 
-  // Parwa-provided number info (only when number_source = "parwa_provided")
+  // Shobh-provided number info (only when number_source = "parwa_provided")
   parwa_phone_number?: string;
 
   // Twilio info (masked in API responses for security)
@@ -178,7 +178,7 @@ export interface CallHistoryResponse {
 /**
  * Create voice config — D3 supports two modes:
  *
- * Option A (parwa_provided): Parwa provisions a number. Only optional fields needed.
+ * Option A (parwa_provided): Shobh provisions a number. Only optional fields needed.
  *   - number_source: "parwa_provided"
  *   - area_code (optional), country (optional)
  *
@@ -190,7 +190,7 @@ export interface CreateVoiceConfigRequest {
   // D3: Number source mode
   number_source?: NumberSource;
 
-  // Option A: Parwa-provided number parameters
+  // Option A: Shobh-provided number parameters
   area_code?: string;
   country?: string;
 

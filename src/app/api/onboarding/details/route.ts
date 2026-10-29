@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Details API (Step 1)
+ * SHOBH Onboarding Details API (Step 1)
  * 
  * POST /api/onboarding/details - Save user details from Step 1
  * Saves to Supabase: full_name, company_url, work_email, legal consents

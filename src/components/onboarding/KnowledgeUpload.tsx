@@ -298,7 +298,7 @@ export function KnowledgeUpload({ onComplete, hideNextButton = false }: Knowledg
         </div>
         <h2 className="text-2xl font-bold text-white">Knowledge Base</h2>
         <p className="text-orange-200/40 text-sm">
-          Upload your documentation so PARWA can learn about your business and
+          Upload your documentation so SHOBH can learn about your business and
           provide accurate, contextual responses to your customers.
         </p>
       </div>
@@ -571,7 +571,7 @@ export function KnowledgeUpload({ onComplete, hideNextButton = false }: Knowledg
           {documents.length} document(s) uploaded
         </p>
         {!hideNextButton && (
-          <button onClick={onComplete} className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 text-sm">
+          <button onClick={onComplete} className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 text-sm">
             Continue
             {documents.length === 0 && (
               <span className="ml-2 text-[10px] opacity-60">(optional)</span>

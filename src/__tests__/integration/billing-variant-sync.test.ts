@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Integration Test: Billing + Variant Sync
+ * SHOBH Integration Test: Billing + Variant Sync
  *
  * Tests that billing plan changes propagate correctly
  * to the variant store, updating feature availability.

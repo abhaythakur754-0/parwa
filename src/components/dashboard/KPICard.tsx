@@ -83,7 +83,7 @@ export default function KPICard({
   if (isLoading) {
     return (
       <div className={cn(
-        'rounded-xl bg-[#1A1A1A] border p-5 transition-all duration-300',
+        'rounded-xl bg-[#2C2C31] border p-5 transition-all duration-300',
         style.card,
         className
       )}>
@@ -98,7 +98,7 @@ export default function KPICard({
   return (
     <div
       className={cn(
-        'rounded-xl bg-[#1A1A1A] border p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group',
+        'rounded-xl bg-[#2C2C31] border p-5 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 group',
         style.card,
         className
       )}

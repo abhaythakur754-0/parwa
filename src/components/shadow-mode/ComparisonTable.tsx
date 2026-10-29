@@ -33,7 +33,7 @@ export function ComparisonTable({
 
   if (comparisons.length === 0) {
     return (
-      <div className={cn('rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-8 text-center', className)}>
+      <div className={cn('rounded-xl border border-white/[0.06] bg-[#2C2C31] p-8 text-center', className)}>
         <svg className="w-10 h-10 text-zinc-700 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75Z" />
         </svg>
@@ -44,7 +44,7 @@ export function ComparisonTable({
   }
 
   return (
-    <div className={cn('rounded-xl border border-white/[0.06] bg-[#1A1A1A] overflow-hidden', className)}>
+    <div className={cn('rounded-xl border border-white/[0.06] bg-[#2C2C31] overflow-hidden', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white">Comparison History</h3>

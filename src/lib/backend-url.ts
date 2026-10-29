@@ -1,5 +1,5 @@
 /**
- * PARWA — Backend URL Helper
+ * SHOBH — Backend URL Helper
  *
  * Centralizes the backend URL for all API proxy routes.
  *

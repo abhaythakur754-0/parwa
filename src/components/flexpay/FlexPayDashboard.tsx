@@ -10,8 +10,8 @@
  * - Financial summary (collected, remaining, next charge)
  *
  * Business Rules (from CLAUDE.md P-002):
- * - PARWA ($2,999): ~25 days
- * - PARWA High ($3,999): 30 days ($100 base + extra $100 every 3rd day)
+ * - SHOBH ($2,999): ~25 days
+ * - SHOBH High ($3,999): 30 days ($100 base + extra $100 every 3rd day)
  *
  * CLAUDE.md Compliance:
  * - P-003: Simple language in UI text
@@ -173,8 +173,8 @@ function getInstallmentStatusIcon(status: string) {
 
 function getVariantDisplayName(variant: string): string {
   const names: Record<string, string> = {
-    parwa: 'PARWA',
-    high: 'PARWA High',
+    parwa: 'SHOBH',
+    high: 'SHOBH High',
   };
   return names[variant] || variant.toUpperCase();
 }

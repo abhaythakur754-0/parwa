@@ -1,5 +1,5 @@
 /**
- * PARWA Superglue Systems Proxy Route
+ * SHOBH Superglue Systems Proxy Route
  *
  * Proxies all Superglue system-management requests to the backend.
  * Replaces the removed Nango OAuth layer.

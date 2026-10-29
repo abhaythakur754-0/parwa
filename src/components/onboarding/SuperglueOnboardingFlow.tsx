@@ -500,7 +500,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           )}
         </div>
         <p className="text-xs text-zinc-500 mb-4">
-          First, connect your CRM. PARWA will access it on every ticket to resolve customer issues faster.
+          First, connect your CRM. SHOBH will access it on every ticket to resolve customer issues faster.
         </p>
 
         {verified && selectedCRM ? (

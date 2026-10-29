@@ -1,5 +1,5 @@
 /**
- * PARWA MessageCounter (Week 6 — Day 4 Phase 6)
+ * SHOBH MessageCounter (Week 6 — Day 4 Phase 6)
  *
  * Shows "16/20 messages remaining today" inline in chat.
  * Visual bar showing usage percentage.

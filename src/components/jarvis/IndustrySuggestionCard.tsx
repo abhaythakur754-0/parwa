@@ -1,5 +1,5 @@
 /**
- * PARWA IndustrySuggestionCard (Integration Setup)
+ * SHOBH IndustrySuggestionCard (Integration Setup)
  *
  * Suggests popular integrations based on the user's industry.
  * Clickable suggestion chips that pre-fill the provider selector.

@@ -1,5 +1,5 @@
 /**
- * PARWA MFA Proxy Route
+ * SHOBH MFA Proxy Route
  *
  * Proxies all MFA-related requests to the backend.
  * This avoids CORS issues and prevents exposing the backend URL in client-side JS.

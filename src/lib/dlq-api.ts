@@ -1,5 +1,5 @@
 /**
- * PARWA DLQ API Client (BC-018)
+ * SHOBH DLQ API Client (BC-018)
  *
  * Centralized client for the Dead Letter Queue ops endpoints.
  * All endpoints mirror backend/app/api/dlq.py (prefix: /api/dlq).
@@ -154,7 +154,7 @@ export const CRM_ERROR_TYPE_LABELS: Record<string, { label: string; severity: 'w
     label: 'Escalation Push Failed',
     severity: 'warning',
     description:
-      "Node 8 tried to tell the CRM 'this ticket was escalated' but the CRM API rejected / timed out after all retries. CRM is still showing 'open' while PARWA thinks it's pending_human.",
+      "Node 8 tried to tell the CRM 'this ticket was escalated' but the CRM API rejected / timed out after all retries. CRM is still showing 'open' while SHOBH thinks it's pending_human.",
   },
   crm_resume_push_failed: {
     label: 'Resume Push Failed',

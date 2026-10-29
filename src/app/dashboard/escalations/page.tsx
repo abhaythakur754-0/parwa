@@ -167,7 +167,7 @@ function QualityBar({ score, label }: { score: number; label: string }) {
 
 function StatCardSkeleton() {
   return (
-    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4 animate-pulse">
+    <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4 animate-pulse">
       <div className="h-3 w-24 bg-white/[0.06] rounded mb-3" />
       <div className="h-7 w-12 bg-white/[0.06] rounded" />
     </div>
@@ -176,7 +176,7 @@ function StatCardSkeleton() {
 
 function EscalationCardSkeleton() {
   return (
-    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4 animate-pulse">
+    <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4 animate-pulse">
       <div className="flex items-center justify-between mb-3">
         <div className="h-4 w-32 bg-white/[0.06] rounded" />
         <div className="h-5 w-20 bg-white/[0.06] rounded" />
@@ -211,7 +211,7 @@ function FilterSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T | 'all')}
-        className="h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-blue-500/40 appearance-none cursor-pointer pr-7"
+        className="h-8 bg-[#2C2C31] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-blue-500/40 appearance-none cursor-pointer pr-7"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
           backgroundRepeat: 'no-repeat',
@@ -280,7 +280,7 @@ function GuidanceModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="w-full max-w-2xl max-h-[85vh] bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col shadow-2xl"
+        className="w-full max-w-2xl max-h-[85vh] bg-[#2C2C31] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col shadow-2xl"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-start justify-between gap-3">
@@ -308,7 +308,7 @@ function GuidanceModal({
           {/* Original Query */}
           <section>
             <h3 className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium mb-2">Original Query</h3>
-            <div className="bg-[#0A0A0A] border border-white/[0.06] rounded-lg p-3">
+            <div className="bg-[#1B1B1F] border border-white/[0.06] rounded-lg p-3">
               <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">{escalation.original_query}</p>
             </div>
           </section>
@@ -359,7 +359,7 @@ function GuidanceModal({
               <h3 className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium mb-2">Knowledge Context Found</h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {escalation.knowledge_context.map((ctx, i) => (
-                  <div key={i} className="bg-[#0A0A0A] border border-white/[0.06] rounded-lg p-3">
+                  <div key={i} className="bg-[#1B1B1F] border border-white/[0.06] rounded-lg p-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-medium text-zinc-300">{ctx.title}</span>
                       <span className="text-[10px] text-zinc-500">{Math.round(ctx.score * 100)}% match</span>
@@ -395,7 +395,7 @@ function GuidanceModal({
               onChange={(e) => setGuidance(e.target.value)}
               placeholder="Provide context, instructions, or specific steps the AI should follow to resolve this ticket..."
               rows={5}
-              className="w-full bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 transition-colors resize-none leading-relaxed"
+              className="w-full bg-[#1B1B1F] border border-white/[0.06] rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 transition-colors resize-none leading-relaxed"
             />
             <div className="flex items-center justify-between mt-1.5">
               <span className="text-[10px] text-zinc-600">Min 5 characters</span>
@@ -413,7 +413,7 @@ function GuidanceModal({
               type="checkbox"
               checked={autoResume}
               onChange={(e) => setAutoResume(e.target.checked)}
-              className="w-3.5 h-3.5 rounded border-white/[0.15] bg-[#0A0A0A] text-blue-500 focus:ring-blue-500/30 focus:ring-offset-0 cursor-pointer"
+              className="w-3.5 h-3.5 rounded border-white/[0.15] bg-[#1B1B1F] text-blue-500 focus:ring-blue-500/30 focus:ring-offset-0 cursor-pointer"
             />
             <span className="text-[11px] text-zinc-400">Auto-resume after submit</span>
           </label>
@@ -468,7 +468,7 @@ function ViewResultPanel({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="w-full max-w-2xl max-h-[85vh] bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col shadow-2xl"
+        className="w-full max-w-2xl max-h-[85vh] bg-[#2C2C31] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col shadow-2xl"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-start justify-between gap-3">
@@ -555,7 +555,7 @@ function ViewResultPanel({
               <h3 className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium mb-2">Reprocessing Steps</h3>
               <div className="space-y-1.5">
                 {escalation.reprocess_technique_log.map((step, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2">
+                  <div key={i} className="flex items-center gap-3 bg-[#1B1B1F] border border-white/[0.06] rounded-lg px-3 py-2">
                     <span className="w-5 h-5 flex items-center justify-center text-[10px] font-bold text-blue-400 bg-blue-500/10 rounded-full shrink-0">
                       {i + 1}
                     </span>
@@ -648,7 +648,7 @@ function EscalationCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.04 }}
-      className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4 hover:border-white/[0.12] transition-colors group"
+      className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4 hover:border-white/[0.12] transition-colors group"
     >
       {/* Top Row */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -805,7 +805,7 @@ function EmptyState() {
       </div>
       <h3 className="text-lg font-semibold text-white mb-2">No Escalations</h3>
       <p className="text-sm text-zinc-500 text-center max-w-sm leading-relaxed">
-        PARWA AI is successfully resolving all tickets. Escalations will appear here when the AI needs human guidance.
+        SHOBH AI is successfully resolving all tickets. Escalations will appear here when the AI needs human guidance.
       </p>
     </motion.div>
   );
@@ -836,7 +836,7 @@ function AutoResumeDialog({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full max-w-md bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-5 shadow-2xl"
+            className="w-full max-w-md bg-[#2C2C31] border border-white/[0.06] rounded-xl p-5 shadow-2xl"
           >
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
@@ -1025,7 +1025,7 @@ export default function EscalationsPage() {
   }, [closeModal]);
 
   return (
-    <main className="min-h-screen bg-[#0A0A0A] relative">
+    <main className="min-h-screen bg-[#1B1B1F] relative">
       {/* Decorative background glow */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-orange-500/5 rounded-full blur-[120px]" />
@@ -1241,7 +1241,7 @@ export default function EscalationsPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-baseline gap-2 mb-1">
-                      <p className="text-xs font-medium text-orange-300">PARWA AI</p>
+                      <p className="text-xs font-medium text-orange-300">SHOBH AI</p>
                       <p className="text-[10px] text-zinc-600">paused · needs guidance</p>
                     </div>
                     <div className="rounded-2xl rounded-tl-md bg-orange-500/5 border border-orange-500/15 px-4 py-3">
@@ -1255,7 +1255,7 @@ export default function EscalationsPage() {
               </div>
 
               {/* Chat input — at the bottom */}
-              <div className="px-6 py-4 border-t border-white/[0.06] bg-[#0F0F0F]">
+              <div className="px-6 py-4 border-t border-white/[0.06] bg-[#202024]">
                 <div className="relative">
                   <textarea
                     value={guidanceText}

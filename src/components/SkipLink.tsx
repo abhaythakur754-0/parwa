@@ -1,5 +1,5 @@
 /**
- * PARWA SkipLink Component
+ * SHOBH SkipLink Component
  *
  * WCAG 2.1 (2.4.1 Bypass Blocks) requires a mechanism to bypass
  * repeated content (navigation, sidebar, etc.). SkipLink provides
@@ -50,7 +50,7 @@ export function SkipLink({ targetId = 'main-content', label = 'Skip to main cont
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       data-testid="skip-link"
-      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-orange-500 focus:text-[#1A1A1A] focus:font-semibold focus:text-sm focus:shadow-lg focus:shadow-orange-500/25 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-[#0A0A0A] transition-all duration-200"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-orange-500 focus:text-[#2C2C31] focus:font-semibold focus:text-sm focus:shadow-lg focus:shadow-orange-500/25 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-[#1B1B1F] transition-all duration-200"
     >
       {label}
     </a>
