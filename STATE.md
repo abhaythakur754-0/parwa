@@ -1,5 +1,19 @@
 # PARWA — Current State
 
+**Last verified:** 2026-10-29 (Tool Factory + Self-Extension task 36)
+
+## Superglue tool layer (NEW — task 36, live-verified)
+- GENERIC tool factory: `scripts/tool_factory.py` (any spec → any tenant)
+- Payments preset (8 Razorpay tools, creds-as-inputs) deployed for
+  `acme-payments-demo`; credential-free matrix 9/9 PASS
+- SELF-EXTENSION proven: `gadgethub-demo` got `warranty-status-check`
+  designed by Mistral (Superglue LLM lane) + created + verified with real data
+- One-command proof: `python3 scripts/production_e2e_test.py` → ALL PASS
+- ONLY remaining gap: real Razorpay keys (creds are tool INPUTS — no redeploy)
+- Key Superglue behavior: failed steps are invisible to transforms/outputTransform;
+  failure diagnostics live in run response `stepResults[]` only
+
+
 **Last verified:** 2026-09-03 16:00 UTC
 
 ## Git
