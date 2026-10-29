@@ -42,6 +42,7 @@ from tool_factory import (  # noqa: E402
     PAYMENTS_PRESET,
     PRESETS,
     RISK_MANIFEST,
+    RISK_MANIFESTS,
     preset_test_cases,
     run_tool,
     classify_result,
@@ -49,6 +50,10 @@ from tool_factory import (  # noqa: E402
     validate_spec,
 )
 from self_extension_loop import extend_toolset  # noqa: E402
+try:  # best-effort DB registry for deploy-phase ownership tracking
+    from tool_registry_db import register_tool
+except Exception:  # noqa: BLE001
+    register_tool = None
 
 BUILDER_URL = "https://p11668uhxhd1-d.space-z.ai"
 BUILDER_KEY = "bld_16983ffb226ec89575dea48c5b6ee245cc56ebb649ae04b5"
@@ -138,6 +143,21 @@ def phase1_toolset() -> bool:
                 continue
             up = upsert_tool(spec)
             print(f"  {'✓' if up['ok'] else '✗'} deploy {spec['id']} → {up['action']}")
+            if up["ok"] and register_tool is not None:
+                slug = spec["id"].split("__", 1)[-1]
+                meta = RISK_MANIFESTS.get(preset, {}).get(slug, {})
+                db = register_tool(
+                    company_id=tenant,
+                    tool_id=spec["id"],
+                    tool_name=spec.get("name", spec["id"]),
+                    risk=meta.get("risk", "read"),
+                    approval_required=bool(meta.get("approval_required", False)),
+                    capability=slug,
+                    created_by="tool_factory",
+                    origin="preset_deploy",
+                    tool_definition=spec,
+                )
+                print(f"      db_register: {'ok' if db.get('ok') else 'FAILED: ' + str(db.get('error'))}")
             if not up["ok"]:
                 errs.append(up)
     deploy_ok = not errs

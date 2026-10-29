@@ -632,7 +632,13 @@ def extend_toolset(tenant: str, capability: str, context: str, test_inputs: dict
     det = detect_missing_tool(tenant, CAPABILITY_HINTS.get(capability, {}).get("slug", capability))
     note("detect", **det)
     if det["exists"]:
-        return {"status": "use_existing", "tool_id": det["tool_id"]}
+        # ownership tracking: make sure a pre-existing tool is in the DB registry too
+        reg = _register_in_db(
+            journal, tenant, det["tool_id"], {"name": det["tool_id"]},
+            risk=CAPABILITY_HINTS.get(capability, {}).get("risk", "read"),
+            capability=capability, origin="preexisting_sync",
+        )
+        return {"status": "use_existing", "tool_id": det["tool_id"], "db_register": reg}
 
     # 2. DESIGN
     designed = design_tool_spec(capability, tenant, context, allow_llm=allow_llm)

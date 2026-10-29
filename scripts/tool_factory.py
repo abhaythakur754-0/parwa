@@ -1337,6 +1337,11 @@ def cmd_deploy(args):
         sys.exit(1)
 
     report = {"tenant": tenant, "deployed": [], "errors": [], "ts": datetime.now(timezone.utc).isoformat()}
+    try:  # best-effort DB registry — never blocks a deploy
+        from tool_registry_db import register_tool
+    except Exception:  # noqa: BLE001
+        register_tool = None
+    db_ok = 0
     for raw in specs:
         spec = dict(raw)
         spec["id"] = namespaced(spec["id"], tenant)
@@ -1349,9 +1354,31 @@ def cmd_deploy(args):
         mark = "✓" if up["ok"] else "✗"
         print(f"  {mark} {spec['id']}: {up['action']} (http {up['status']})")
         entry = {k: v for k, v in up.items()}
+        # DB registry: tool inventory + agent↔tool ownership (best-effort)
+        if up["ok"] and register_tool is not None:
+            slug = spec["id"].split("__", 1)[-1]
+            meta = manifest_src.get(slug, {})
+            db = register_tool(
+                company_id=tenant,
+                tool_id=spec["id"],
+                tool_name=spec.get("name", spec["id"]),
+                risk=meta.get("risk", "read"),
+                approval_required=bool(meta.get("approval_required", False)),
+                capability=slug,
+                created_by="tool_factory",
+                origin="preset_deploy",
+                tool_definition=spec,
+            )
+            entry["db_register"] = db.get("ok", False)
+            if db.get("ok"):
+                db_ok += 1
+            else:
+                print(f"    ⚠ db_register failed: {db.get('error')}")
         if not up["ok"]:
             report["errors"].append(entry)
         report["deployed"].append(entry)
+    if register_tool is not None:
+        print(f"  db registry: {db_ok}/{len(report['deployed'])} tools registered")
 
     # side-car manifest (namespaced)
     manifest = {
