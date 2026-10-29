@@ -946,3 +946,29 @@ re-sends LAST not FAILED msg; (3) /api/billing/razorpay/trial-status → 500
 welcome, ticket context not passed to /api/chat; (6) chat rate counter
 stuck at 20; (7) Google button renders in Chinese locale.
 VERDICT: UI ~85-90% production ready — fix the 7 bugs before launch.
+
+## Task 44 — Fixed all 7 live-UI bugs, deployed, re-verified on parwa.buzz
+Commit 6efdee2 pushed → Vercel deployed (confirmed via /escalations 307).
+
+1. Jarvis 504: route maxDuration=60 + backend timeout 55s (was 90s inside
+   a 10s-killed Vercel function). Live: first message → 200 with full reply.
+2. Retry: now targets last ERRORED user message, removes by id (was
+   re-sending the last message regardless).
+3. Billing: fetchWithRetry (5xx/network, 1.5s pause) + maxDuration=60.
+   Live: trial-status → 200, billing page renders.
+4. Redirects: /escalations,/settings,/integrations,/billing,/knowledge,
+   /tickets → /dashboard/* (307). Live: verified.
+5. Ticket "Discuss with Jarvis": added Superglue LLM lane as first provider
+   in /api/chat (z-ai sdk + free keys unavailable on Vercel → canned
+   welcome). Live: contextual answer referencing TKT-2CE961AC, KB state,
+   next steps.
+6. Chat counter: server-truth-or-local-decrement logic. Live: 20→19→18.
+7. Google GIS script ?hl=en. Live: script URL confirmed deployed.
+
+IMPORTANT tooling lesson: this chat gateway eats literal '[m' sequences in
+displayed/typed text (ANSI-strip artifact). It created the ILLUSION of
+'const essages' corruption in 5 files; od -c proved files were intact.
+Never trust displayed '[messages' vs 'essages' — verify with od -c.
+Build-safety: tsc found ZERO syntax errors in src (only type errors,
+ignored by build config). Login/billing transient failures during the
+re-test were Render free-tier cold starts (mitigated by retry #3).
