@@ -81,3 +81,10 @@
 - Commit identity fixed for Vercel deployment (was sandbox placeholder).
 - Remaining owner action: Supabase project active + DATABASE_URL set on the
   hosting platform (Render/Vercel) for the backend to boot and self-heal.
+
+## Ticket-driven lifecycle (proven live, task 40)
+- New ticket → missing capability → self-extension builds tool → DB stores
+  tool inventory + agent ownership + origin ticket → later tickets reuse
+  from DB. Demo: scripts/ticket_to_tool_demo.py → ALL PASS on live Superglue.
+- Gotchas: sqlite URL must be absolute (4 slashes) or best-effort registry
+  silently skips; Superglue list endpoint 404s → use tool_exists(id).

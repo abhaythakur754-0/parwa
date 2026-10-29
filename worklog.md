@@ -865,3 +865,24 @@ NOTE for owner: DATABASE_URL on the hosting platform MUST URL-encode the
 Stage Summary:
 - **Status**: ✅ production DB locked down + linter categories closed live;
   deploys now safe; owner sets DATABASE_URL (encoded) on platform → go-live.
+
+## Task 40 — Ticket-driven tool lifecycle demo (ALL PASS)
+Date: 2026-02-05 | scripts/ticket_to_tool_demo.py (new)
+
+Proves the full production story end-to-end on LIVE Superglue + local DB:
+fresh tenant 'urbanstyle-demo' (0 tools):
+- Ticket 1 (meeting_setup, WRITE-risk) → DB miss → self-extension loop →
+  tool created_and_verified (booking ref MTG-19397) → DB stores inventory
+  + agent ownership + origin ticket (approval_required=YES).
+- Ticket 2 (weather_check, READ-risk) → DB miss → built + verified (real
+  open-meteo data) → stored.
+- Ticket 3 weeks later (same capability) → DB HIT → reuse → verdict
+  success, 0 new tools / 0 LLM calls.
+- DB queries: full tool inventory (risk/approval flags) + agent↔tool
+  ownership map.
+
+Fix during demo: sqlite URL needed 4 slashes (absolute); 3 slashes =
+relative path → best-effort registry silently skipped. Guard + comment
+added. Resolve-existing path now handles missing rows gracefully.
+
+Artifacts: scripts/out/ticket_driven_demo_*.json (all_ok=true).
