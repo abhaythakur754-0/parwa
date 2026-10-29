@@ -808,3 +808,27 @@ Stage Summary:
 - **Files**: scripts/tool_registry_db.py (new), scripts/self_extension_loop.py,
   scripts/tool_factory.py, scripts/production_e2e_test.py
 - **Status**: ✅ Tool ownership tracked in DB; E2E all-green; PUSHED to origin.
+
+## 2026-10-29 (later) — Security hardening auto-applied on deploy (task 39)
+
+User could not paste SQL into Supabase dashboard; asked for push-and-auto-apply.
+Linter findings: "RLS Disabled in Public" (ai_wiki_entries, one-by-one for all
+public tables) + "Security Definer View" (v_company_usage_dashboard).
+
+- scripts/sql/fix_rls_all_tables.sql: dashboard variant (RLS on all public
+  tables, srv_full_access for service_role, anon_app_access ONLY on jarvis_*
+  — the only PostgREST consumers; vault RPC grant guarded).
+- scripts/sql/fix_security_definer_views.sql: dashboard variant (security_
+  invoker on every public view matching linter rule 0011).
+- backend/database/alembic/versions/042_rls_and_view_security.py: BOTH fixes
+  as an idempotent migration → runs automatically on every deploy via the
+  existing lifespan `alembic upgrade head`. Postgres-only guard.
+- Local verification with real alembic machinery on embedded Postgres:
+  8/8 checks (0 tables missing RLS; anon locked out of tickets/ai_wiki/
+  view-leak; jarvis_* app access kept; owner unaffected; 0 views match
+  rule 0011; version=042). Dashboard SQL variants: 7/7 + 6/6 checks.
+- Commits: 26920b9 (RLS sql), bb7e456 (views sql), 3d744f5 (migration 042).
+
+Stage Summary:
+- **Status**: ✅ security self-heals on every deploy; only owner action left:
+  fix/restore Supabase project + keep DATABASE_URL valid on Render.
