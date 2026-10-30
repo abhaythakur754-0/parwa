@@ -63,7 +63,7 @@ const INTENT_PATTERNS: Record<string, { keywords: string[]; phrases: string[]; w
   integrations: { keywords: ['integration', 'integrate', 'connect', 'shopify', 'zendesk', 'slack', 'freshdesk', 'intercom', 'salesforce', 'hubspot', 'stripe', 'api', 'webhook'], phrases: ['integrates with', 'connect to', 'works with', 'compatible with'], weight: 1.0 },
   demo: { keywords: ['demo', 'try', 'show me', 'test', 'experience', 'see it', 'live demo', 'sample', 'example', 'roleplay'], phrases: ['show me how', 'can i try', 'give me a demo', 'let me see', 'walk me through'], weight: 1.1 },
   roi: { keywords: ['roi', 'save', 'savings', 'comparison', 'compare', 'worth', 'return', 'investment', 'value', 'benefit'], phrases: ['return on investment', 'cost savings', 'how much save', 'is it worth', 'money back'], weight: 1.0 },
-  security: { keywords: ['security', 'gdpr', 'hipaa', 'data', 'privacy', 'safe', 'compliance', 'encrypt', 'soc', 'audit', 'breach', 'protection'], phrases: ['data security', 'is it safe', 'gdpr compliant', 'hipaa compliant', 'data protection'], weight: 1.0 },
+  security: { keywords: ['security', 'gdpr', 'hipaa', 'data', 'privacy', 'safe', 'compliance', 'encrypt', 'audit', 'breach', 'protection'], phrases: ['data security', 'is it safe', 'gdpr compliant', 'hipaa compliant', 'data protection'], weight: 1.0 },
   competitors: { keywords: ['intercom', 'zendesk', 'freshdesk', 'crisp', 'tidio', 'drift', 'ada', 'chatbase', 'kommunicate', 'competitor', 'vs'], phrases: ['compared to', 'vs intercom', 'vs zendesk', 'better than', 'alternative to', 'how do you compare'], weight: 1.2 },
   how_it_works: { keywords: ['how does it work', 'how do you', 'technology', 'ai engine', 'under the hood', 'architecture', 'approach', 'methodology', 'process'], phrases: ['how does parwa work', 'how do you handle', 'how are you different', 'what technology'], weight: 0.9 },
   buy_signup: { keywords: ['buy', 'signup', 'get started', 'subscribe', 'checkout', 'sign up', 'purchase', 'order', 'onboard'], phrases: ['i want to buy', 'how to sign up', 'get started', 'ready to purchase'], weight: 1.0 },
@@ -658,7 +658,7 @@ export class JarvisAIEngine {
   }
 
   private buildSecurityResponse(): string {
-    return "Data security is SHOBH's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, SOC 2 Type II, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
+    return "Data security is SHOBH's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
   }
 
   private buildROIResponse(session: SessionLike): string {

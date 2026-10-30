@@ -495,7 +495,7 @@ PLAN CAPABILITIES (both tiers have the SAME AI — only ticket volume differs):
 
 ROI: SHOBH saves ~$186K/yr. SHOBH High saves ~$288K/yr. 85-92% savings vs hiring human agents.
 
-SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
+SECURITY: GDPR, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
 - vs Intercom: SHOBH fully resolves, Intercom only triages
@@ -506,7 +506,7 @@ vs COMPETITORS:
 OBJECTIONS (handle naturally):
 - "A single agent costs → "A single agent costs $4-6K/mo. SHOBH at $2,999 does the work of 5 — 80% savings from day one."
 - "Shobh and High use" → "Shobh and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
+- "Data security?" → "GDPR, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
 - "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
 - "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
 - "We use Intercom/Zendesk" → "SHOBH integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
@@ -1022,8 +1022,8 @@ function getKeywordResponse(message: string, session: any): string {
       `💪 SHOBH works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
     ],
     security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with SHOBH.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
+      `🔒 Security is baked in:\n\n- GDPR, HIPAA ready\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
+      `🛡️ Your data is safe with SHOBH.\n\n📜 GDPR + HIPAA ready\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
     ],
     integrations: [
       `🔗 SHOBH plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,

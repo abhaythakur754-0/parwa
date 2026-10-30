@@ -122,6 +122,8 @@ from app.api.classification import router as classification_router  # Text class
 from app.api.signals import router as signals_router  # Signal extraction
 from app.api.ai_classification import router as ai_classification_router  # AI classification
 from app.api.ai_signals import router as ai_signals_router  # AI signal extraction
+from app.api.qa_metrics import router as qa_metrics_router  # AI QA Report Card (company-locked)
+from app.api.ghostwriter import router as ghostwriter_router  # Ghostwriter drafts (company-locked)
 from app.api.rag import router as rag_router  # RAG retrieval
 from app.api.response import router as response_api_router  # Response generation + brand voice + assignment + migration
 from app.api.system_health import router as system_health_router  # System health monitoring for frontend dashboard
@@ -307,6 +309,24 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         _lg = get_logger("lifespan")
         _lg.warning("superglue_columns_sql_fallback_failed: %s", str(exc))
+
+    # ── AI QA (Report Card) + Ghostwriter tables ──
+    # Idempotent ensure (safe every startup): alembic is the canonical
+    # path, this guards environments where migrations lag behind.
+    # qa_report_card deliberately NOT named qa_scores — legacy stub in
+    # analytics.py owns that table name.
+    try:
+        from database.models.qa_score import QAReportCard as _QARow
+        from database.models.ghostwriter import GhostwriterDraft as _GWRow
+        from database.base import SessionLocal as _QASL
+        _qa_bind = _QASL().get_bind()
+        _QARow.__table__.create(bind=_qa_bind, checkfirst=True)
+        _GWRow.__table__.create(bind=_qa_bind, checkfirst=True)
+        get_logger("lifespan").info("qa_ghostwriter_tables_ensured")
+    except Exception as exc:
+        get_logger("lifespan").warning(
+            "qa_ghostwriter_tables_ensure_failed: %s", str(exc)
+        )
 
     # ── Direct SQL fallback for voice BYO schema (migration 040) ──
     # 040 adds voice_channel_configs.provider, retires parwa_provided, and
@@ -1480,6 +1500,8 @@ app.include_router(classification_router, tags=["classification"])  # prefix: /a
 app.include_router(signals_router, tags=["signals"])  # prefix: /api/signals
 app.include_router(ai_classification_router, tags=["ai-classification"])  # prefix: /api/ai/classification
 app.include_router(ai_signals_router, tags=["ai-signals"])  # prefix: /api/ai/signals
+app.include_router(qa_metrics_router, tags=["ai-qa"])  # prefix: /api/qa — company-locked
+app.include_router(ghostwriter_router, tags=["ghostwriter"])  # prefix: /api/ghostwriter — company-locked
 app.include_router(rag_router, tags=["rag"])  # prefix: /api/rag
 
 # Response generation + brand voice + AI assignment + migration

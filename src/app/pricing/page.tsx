@@ -18,7 +18,6 @@ import {
   Sparkles,
   ArrowRight,
   Zap,
-  Shield,
   Clock,
 } from 'lucide-react';
 
@@ -165,7 +164,6 @@ const variantData: Record<IndustryKey, VariantData[]> = {
 
 const trustBadges = [
   { icon: <Zap className="w-4 h-4" />, label: '10x faster responses' },
-  { icon: <Shield className="w-4 h-4" />, label: 'SOC 2 compliant' },
   { icon: <Clock className="w-4 h-4" />, label: '24/7 AI availability' },
 ];
 

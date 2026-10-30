@@ -851,6 +851,24 @@ async def send_cc_message(
     except Exception:
         pass  # BC-008
 
+    # ── Step 13: AI QA grade (Report Card) — fail-open by design ──
+    # Layer 1 is pure code ($0, milliseconds). If flagged, ONE background
+    # officer review is scheduled — the customer never waits. Nothing in
+    # this block may ever break the conversation itself (BC-008).
+    try:
+        from app.services.qa_service import grade_and_schedule_review
+        await grade_and_schedule_review(
+            db=db,
+            company_id=company_id,
+            conversation_id=session_id,
+            channel=channel,
+            user_message=user_message,
+            ai_response=ai_content,
+            metadata=metadata,
+        )
+    except Exception:
+        pass  # BC-008: QA must never break a conversation
+
     total_ms = round((time.monotonic() - start_time) * 1000, 2)
     logger.info(
         "cc_message_complete: session=%s, pipeline=%s, total_ms=%s",

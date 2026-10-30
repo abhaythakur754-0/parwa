@@ -117,3 +117,5 @@ from database.models.crm_analysis import (  # noqa: F401
 from database.models.superglue_action_safety import (  # noqa: F401
     SuperglueActionSafety,
 )
+from database.models.qa_score import QAReportCard  # noqa: F401
+from database.models.ghostwriter import GhostwriterDraft  # noqa: F401

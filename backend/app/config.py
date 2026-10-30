@@ -213,6 +213,17 @@ class Settings(BaseSettings):
     AI_HEAVY_MODEL: str = "groq/gpt-oss-120b"
     AI_FAILOVER_MODEL: str = "groq/llama-3.1-8b"
 
+    # ── AI QA Report Card (grading = $0; officer reviews capped) ──
+    QA_ENABLED: bool = True
+    QA_OFFICER_MODEL: str = ""             # "" = reuse AI_LIGHT_MODEL
+    QA_OFFICER_ESCALATION_MODEL: str = ""  # "" = reuse AI_HEAVY_MODEL
+    QA_OFFICER_DAILY_CAP: int = 500        # hard daily stop, zero new infra
+
+    # ── Ghostwriter (gap → draft article for human approval) ──
+    GHOSTWRITER_ENABLED: bool = True
+    GHOSTWRITER_MODEL: str = ""            # "" = reuse AI_LIGHT_MODEL
+    GHOSTWRITER_DAILY_CAP: int = 50        # drafts/day across all tenants
+
     # ── Email (Brevo) ────────────────────────────────────────────
     BREVO_API_KEY: str = ""  # Set via env var on Render
     FROM_EMAIL: str = "thakurabhaychowhan@parwa.buzz"

@@ -202,7 +202,7 @@ TWO PLANS:
 INDUSTRIES: E-commerce, SaaS, Logistics, Healthcare
 
 BILLING: FlexPay daily installments ($100/day) or monthly. Cancel anytime. $0.10 overage/ticket.
-SECURITY: GDPR, SOC 2, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
+SECURITY: GDPR, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
 vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
 
 ═══════════════════════════════════════════════
