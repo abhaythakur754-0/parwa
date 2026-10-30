@@ -95,3 +95,14 @@
 - New: universal fallback template (any capability), risk param on
   extend_toolset, repair shape guard. Unknown capability no longer
   dead-ends or borrows wrong-domain templates.
+
+## Daily Learning Loop (task 45, 2026-10-30)
+- Memory: db/learning.db (committed) + scripts/learning_loop.py (stdlib,
+  zero deps). Commands: briefing / add-lesson / add-gap / decide /
+  log-day / start-done-drop-gap / export / selfcheck.
+- Ritual: ONE long session daily — briefing -> build -> write-back
+  (log-day never skipped) -> commit. Receipts make "improve day by day"
+  provable, not a slogan.
+- Seeded with real history: 7 rules, 8 open gaps (P1 = Supabase creds
+  rotation), 3 decisions.
+- Selfcheck 17/17 PASS; edge battery PASS.

@@ -972,3 +972,36 @@ Never trust displayed '[messages' vs 'essages' — verify with od -c.
 Build-safety: tsc found ZERO syntax errors in src (only type errors,
 ignored by build config). Login/billing transient failures during the
 re-test were Render free-tier cold starts (mitigated by retry #3).
+
+## Task 45 — Daily Learning Loop built (memory DB + briefing tool)
+Owner greenlit the every-day-improvement loop: ONE long session daily,
+receipts every day. Built per CLAUDE.md/AGENTS.md: graphify rule-5 check
+first (graph rebuilt: 82,180 nodes / 147,611 edges; no reuse target for a
+dev-process memory — backend ai_wiki_entries is a product feature on
+expired Supabase creds; affected(new file) = no match), Ponytail rung 3 =
+stdlib sqlite, one file, zero dependencies.
+
+- db/learning.db (committed): lessons / gaps / decisions / daily_log.
+  connect() auto-ensures schema -> fresh clone just works.
+- scripts/learning_loop.py: init, seed (one-time real history), briefing,
+  add-lesson, hit-lesson, retire-lesson, add-gap, start/done/drop-gap,
+  decide, log-day, export, selfcheck. Parameterized SQL only; IST dates;
+  PARWA_LEARNING_DB env override; connect() takes a filesystem path so
+  the sqlite-URL 3/4-slash bug class cannot exist here (lesson #1).
+- Seeded REAL history: 7 rules (sqlite 4-slash x2, (journal or {}) guard,
+  universal fallback + write->approval gate, LLM shape guard, foreground
+  timeout, no str(dict).get, '[m' gateway strip -> verify with od -c) /
+  8 open gaps (P1 Supabase creds rotation; P2 tenant_policies, ticket
+  notifier, deploy routine; P3 queue audit, CI tests, Razorpay keys,
+  rust core) / 3 decisions (daily long session + committed memory;
+  config-first per-client behavior; single AI client).
+- Tests: selfcheck 17/17 PASS (idempotent init/seed, invalid-id exit 1,
+  missing-arg exit 2, unicode+quotes roundtrip, row-level state checks,
+  COUNT verification) + edge battery PASS (path with spaces, foreign
+  CWD, export -> valid JSON).
+- Live proof of rule #7: briefing DISPLAYED the rule text stripped, DB
+  verified INTACT via assert — the '[m' strip is display-only in the
+  chat gateway. The loop caught its own trap on day one.
+
+VERDICT: loop is production-ready for daily use. Next session: owner says
+"continue Parwa" -> briefing -> top gap.

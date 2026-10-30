@@ -69,3 +69,6 @@ download/
 .mock_crm*
 local_test.db
 local_smoke.db
+
+# learning-loop memory IS committed — it must travel with the repo (task 45)
+!db/learning.db
