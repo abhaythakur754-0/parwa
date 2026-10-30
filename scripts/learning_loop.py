@@ -523,4 +523,12 @@ def main(argv=None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BrokenPipeError:
+        # reader closed early (e.g. `briefing | head`) — not an error for a
+        # reporter tool. Redirect remaining output to devnull so interpreter
+        # shutdown doesn't raise a second BrokenPipeError (Python docs recipe).
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(0)
