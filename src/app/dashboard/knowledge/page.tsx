@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { CrmHistoryBackfillCard } from '@/components/knowledge/CrmHistoryBackfillCard';
+import { GhostwriterDraftsCard } from '@/components/ghostwriter/GhostwriterDraftsCard';
 import {
   Upload,
   FileText,
@@ -746,6 +747,9 @@ export default function KnowledgePage() {
 
       {/* Phase 2: learn from CRM history (self-teaching from past resolutions) */}
       <CrmHistoryBackfillCard />
+
+      {/* Ghostwriter: gap → AI draft → human approve → agent knowledge */}
+      <GhostwriterDraftsCard />
 
       {/* Processing banner — shows when any document is still processing */}
       {hasProcessing && (
