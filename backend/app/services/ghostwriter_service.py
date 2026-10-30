@@ -270,3 +270,115 @@ def set_draft_status(
         "ghostwriter_draft_%s company=%s draft=%s", status, company_id, draft_id,
     )
     return draft
+
+
+def publish_draft_to_knowledge(
+    db: Session, company_id: str, draft_id: str,
+) -> Optional[KnowledgeDocument]:
+    """Close the loop: an APPROVED draft becomes agent knowledge.
+
+    Creates one KnowledgeDocument (status="completed") + one DocumentChunk
+    holding the article text, both stamped with the same company_id. Node 3
+    of the live pipeline (knowledge fetch, tier 2) reads exactly these two
+    tables with the company_id + status="completed" filter, so the next
+    customer question on this topic is answered from the approved article.
+
+    Idempotent: the doc is stamped file_path="ghostwriter://draft/<id>" —
+    calling twice returns the existing doc instead of duplicating.
+
+    Returns None when the draft doesn't exist for this company, isn't
+    approved yet, or has no article text. Only the API's approve endpoint
+    calls this — never automatic (honesty rule: approval is human).
+    """
+    draft = (
+        db.query(GhostwriterDraft)
+        .filter_by(id=draft_id, company_id=company_id)
+        .first()
+    )
+    if draft is None or draft.status != "approved":
+        return None
+
+    content = (draft.content or "").strip()
+    if not content:
+        logger.warning(
+            "ghostwriter_publish_skipped_empty company=%s draft=%s",
+            company_id, draft_id,
+        )
+        return None
+
+    marker = f"ghostwriter://draft/{draft_id}"
+    existing = (
+        db.query(KnowledgeDocument)
+        .filter_by(company_id=company_id, file_path=marker)
+        .first()
+    )
+    if existing is not None:
+        return existing
+
+    title = (draft.title or draft.gap_topic or "Untitled article").strip()[:255]
+    filename = title if title.endswith(".md") else f"{title}.md"
+
+    doc = KnowledgeDocument(
+        company_id=company_id,
+        filename=filename,
+        file_type="text/markdown",
+        file_size=len(content.encode("utf-8")),
+        category="ghostwriter",
+        status="completed",
+        chunk_count=1,
+        file_path=marker,
+    )
+    db.add(doc)
+    db.flush()
+
+    # ponytail: one chunk per article — ceiling is that very long articles
+    # rank worse on narrow BM25 queries; upgrade path is splitting by headings.
+    db.add(DocumentChunk(
+        document_id=doc.id,
+        company_id=company_id,
+        content=content,
+        chunk_index=0,
+    ))
+    db.flush()
+
+    logger.info(
+        "ghostwriter_published company=%s draft=%s doc=%s",
+        company_id, draft_id, doc.id,
+    )
+    return doc
+
+
+def approve_and_publish(
+    db: Session, company_id: str, draft_id: str,
+) -> Dict[str, Any]:
+    """The API's approve action: record the human decision, then close the
+    loop by feeding the approved article into agent knowledge.
+
+    A publish failure never undoes the approval — it is reported honestly
+    in the response ("published": False + publish_error) so the client can
+    retry without a second approval.
+    """
+    draft = set_draft_status(db, company_id, draft_id, "approved")
+    if draft is None:
+        return {"id": None, "status": None, "published": False,
+                "publish_error": None}
+
+    published = False
+    publish_error: Optional[str] = None
+    try:
+        published = (
+            publish_draft_to_knowledge(db, company_id, draft_id) is not None
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "ghostwriter_publish_failed company=%s draft=%s: %s",
+            company_id, draft_id, str(exc)[:200],
+        )
+        publish_error = str(exc)[:200]
+
+    return {
+        "id": draft.id,
+        "status": draft.status,
+        "published": published,
+        "publish_error": publish_error,
+    }

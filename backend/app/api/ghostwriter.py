@@ -5,9 +5,11 @@ Tenant lock: every route resolves company_id from the authenticated
 user (BC-001). Approve/reject filters by BOTH id and company_id, so a
 client physically cannot touch another client's drafts.
 
-Honesty: nothing auto-publishes. "approved"/"rejected" are recorded
-decisions — wiring an approved draft into the live retrieval index is
-a separate, explicit step outside this router.
+Honesty: nothing auto-publishes. Approve is a recorded human decision AND
+the explicit step that feeds the approved article into the agent's
+knowledge store (knowledge_documents + document_chunks) — the same tables
+the live pipeline's knowledge fetch reads. Publish failures never undo
+the approval; they are reported honestly in the response.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from app.api.deps import get_company_id
 from app.services.ghostwriter_service import (
     DraftCapReached,
     GhostwriterDisabled,
+    approve_and_publish,
     create_draft_from_gap,
     list_drafts,
     set_draft_status,
@@ -82,10 +85,10 @@ async def approve_draft(
     company_id: str = Depends(get_company_id),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
-    draft = set_draft_status(db, company_id, draft_id, "approved")
-    if draft is None:
+    result = approve_and_publish(db, company_id, draft_id)
+    if result["id"] is None:
         raise HTTPException(status_code=404, detail="Draft not found")
-    return {"id": draft.id, "status": draft.status}
+    return result
 
 
 @router.post("/drafts/{draft_id}/reject")
