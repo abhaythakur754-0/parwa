@@ -106,3 +106,19 @@
 - Seeded with real history: 7 rules, 8 open gaps (P1 = Supabase creds
   rotation), 3 decisions.
 - Selfcheck 17/17 PASS; edge battery PASS.
+
+## HumanReplacement loop (task 46, 2026-11-01) — CLOSED END-TO-END
+- The ticket flow is now: AI gives up → mistake noted in AI wiki
+  (unsolved, with the escalation ask) → request pushed to the tenant's
+  CRM → CRM human solves it there → resolution webhook applies via
+  CRMResolutionService → wiki note upgraded (solved_after_failure) →
+  next identical ticket solved by AI from memory.
+- Notifications follow "one escalation, one ring": tenant CRM connected
+  → CRM tells its humans (PARWA agent email skipped). No CRM → PARWA
+  email+in-app stays (only channel). awaiting_client nudges go through
+  the CRM thread; email only as fallback.
+- Self-check: backend/tests/test_humanreplacement_loop.py (stdlib
+  assert, runs anywhere) — 5/5 PASS.
+- Gap #10 closed; lesson #9 (snapshot before upsert); day #4 logged.
+- NEXT: live test with a real CRM sandbox ticket (webhook → wiki upgrade
+  → AI resolves the repeat from memory).

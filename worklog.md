@@ -1005,3 +1005,51 @@ stdlib sqlite, one file, zero dependencies.
 
 VERDICT: loop is production-ready for daily use. Next session: owner says
 "continue Parwa" -> briefing -> top gap.
+
+## 2026-11-01 — HumanReplacement loop closed end-to-end (task 46)
+
+Owner go signal: "fix all here" after two discussions (why agent emails
+fire when the CRM already notifies; why the AI wiki never notes mistakes).
+Rules followed: CLAUDE.md read first (graphify §5 — sandbox had wiped the
+graph, rebuilt in background while the real flow was traced manually file
+by file), AGENTS.md Ponytail (reuse found: CRMResolutionService already
+existed — the learn-back was BUILT but had ZERO callers; the fix is wiring,
+not new machinery).
+
+KEY FINDING (the product truth): the loop was 80% built and dead.
+- crm_pending + escalation ask + auto_retry + fetch_resolved_tickets: existed.
+- CRMResolutionService.resolve_ticket (relay + resolve + teach wiki): existed,
+  never called. Resolution webhooks re-ran the FULL pipeline instead.
+
+WHAT WAS BUILT (commit 56773003, 7 files, +556/-6):
+1. Wiki notes MISTAKES now: ai_wiki_store.write_ticket_failure() — unsolved
+   note (failure_type/problem/asked_from_team) under the SAME deterministic
+   key as success patterns. Hooked into all 4 give-up paths (2 dispatcher
+   interrupt paths, mid-pipeline escalation, handle_ai_cant_solve) via
+   CRMResolutionService.record_failure_in_wiki() (BC-008, never raises).
+2. Resolution UPGRADES the note: learn_from_resolution snapshots the old
+   entry BEFORE the upsert (write() replaces content — lesson #9), stamps
+   solved_after_failure + keeps failure history. Wiki remembers failures,
+   not just wins.
+3. The loop actually fires: crm_webhooks._apply_resolution_update() —
+   resolved/closed webhook on a crm_pending ticket → resolve_ticket
+   (notify_customer=False on purpose: the CRM thread already reached the
+   customer; double contact is what the owner hates), learn=True.
+4. One escalation, ONE ring: notify_human_queue skips PARWA agent
+   email+in-app when the tenant has an active CRM integration (CRM tells
+   its own humans). No CRM → email stays (only channel, no dead ends).
+5. awaiting_client nudges go through the CRM THREAD (status pending_human
+   → CRM "pending") with email fallback if the push fails.
+
+TESTS: tests/test_humanreplacement_loop.py — stdlib assert self-check
+(importlib file-load; package __init__ pulls langgraph, absent in slim
+sandbox), 5/5 PASS: key equality failure↔pattern, upgrade-in-place (no
+duplicate rows), search exposes status/failure_type, resolution-status
+spellings (solved/closed/done... vs open/pending), record_failure never
+raises on a broken env. py_compile clean on all 6 touched files.
+
+Loop write-back: gap #10 CLOSED (was: replace awaiting_human with
+instant-notify flow), lesson #9 added, day #4 logged.
+
+NEXT: live test with a real CRM sandbox ticket (resolution webhook →
+wiki upgrade → next identical ticket resolved by AI from memory).
