@@ -1,0 +1,11 @@
+{
+  "name": "llm-shim",
+  "version": "1.0.0",
+  "description": "OpenAI-compatible chat/completions shim over z-ai-web-dev-sdk (lets the Python pipeline use real AI in the sandbox)",
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "z-ai-web-dev-sdk": "^0.0.18"
+  }
+}

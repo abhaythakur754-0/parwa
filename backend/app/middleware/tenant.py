@@ -129,6 +129,12 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # without this, every speech gather 403'd and calls died at greeting.
         "/api/v1/voice/webhook/",
         "/api/v1/sms/webhook/",
+        # Provider CRM webhooks (Zendesk/HubSpot/generic): the CRM's own
+        # servers POST these — no PARWA JWT can exist on them. Tenant comes
+        # from the pipeline default; route-level verify_crm_webhook HMAC-
+        # verifies the payload (fail-closed in production). Live-test
+        # finding: without this every CRM ticket/resolution 403'd here.
+        "/api/crm/webhooks/",
         "/api/jarvis/",
         "/api/setup/",
         "/api/jarvis",

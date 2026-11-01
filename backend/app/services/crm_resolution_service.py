@@ -316,14 +316,28 @@ class CRMResolutionService:
 
     @staticmethod
     def find_ticket_by_crm_id(db, crm_ticket_id: str):
-        """Locate a Parwa ticket by its CRM reference in metadata_json."""
+        """Locate a Parwa ticket by its CRM reference in metadata_json.
+
+        Matches BOTH json spellings — compact '"crm_ticket_id":"<id>"' and
+        spaced '"crm_ticket_id": "<id>"' (default json.dumps). Live-test
+        finding: a spaced write made this matcher silently return None and
+        resolution webhooks fell through to the pipeline as new tickets.
+        """
+        from sqlalchemy import or_
         from database.models.tickets import Ticket
 
         if not crm_ticket_id:
             return None
+        compact = f'"crm_ticket_id":"{crm_ticket_id}"'
+        spaced = f'"crm_ticket_id": "{crm_ticket_id}"'
         return (
             db.query(Ticket)
-            .filter(Ticket.metadata_json.contains(f'"crm_ticket_id":"{crm_ticket_id}"'))
+            .filter(
+                or_(
+                    Ticket.metadata_json.contains(compact),
+                    Ticket.metadata_json.contains(spaced),
+                )
+            )
             .order_by(Ticket.created_at.desc())
             .first()
         )

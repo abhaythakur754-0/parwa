@@ -110,11 +110,13 @@ def _extract_tool_inputs(details: Dict, action: str, knowledge: str) -> Dict[str
             inputs["amount"] = int(round(float(_details_amount) * 100))
         except (TypeError, ValueError):
             pass
-    amount_match = re.search(r'\$(\d+(?:\.\d+)?)', text)
+    amount_match = re.search(r'\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)', text)
     if amount_match and "amount" not in inputs:
-        # Convert dollars to cents (Superglue tools expect cents)
+        # Convert dollars to cents (Superglue tools expect cents).
+        # 2026-11 live-test fix: comma-formatted amounts ("$4,500") used to
+        # parse as "$4" and slip past the tier refund limit.
         try:
-            dollars = float(amount_match.group(1))
+            dollars = float(amount_match.group(1).replace(",", ""))
             inputs["amount"] = int(dollars * 100)
         except ValueError:
             pass
@@ -1746,6 +1748,21 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
     })
 
     # L1-5. Rule-based action check (enhanced with time/frequency/category)
+    # 2026-11 live-test fix: the tier limit needs the REAL amount. If node 1
+    # didn't extract it into details, pull it from the query here — comma
+    # formats ("$4,500") included — or the guardrail is blind (amount=0).
+    if not (details or {}).get("amount"):
+        import re as _re_amount
+        _amt_match = _re_amount.search(
+            r"\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)",
+            str(state.get("query") or state.get("original_query") or ""),
+        )
+        if _amt_match:
+            try:
+                details = dict(details or {})
+                details["amount"] = float(_amt_match.group(1).replace(",", ""))
+            except ValueError:
+                pass
     rule_check = _rule_based_check_enhanced(action, details, tier, dynamic_ctx)
     logs.append({"node": 5, "technique": "RuleBasedAction", "duration_ms": 0, "result_summary": f"execute={rule_check['can_execute']}"})
 
@@ -1850,11 +1867,15 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
         if not rule_check["can_execute"]:
             actions_taken.append({
                 "action": action,
-                "thought": f"Cannot execute: {rule_check['reason']}. Providing recommendation instead.",
-                "observation": "Recommendation provided (not executed)",
-                "status": "recommended",
+                "thought": f"Cannot execute: {rule_check['reason']}. Needs human approval.",
+                "observation": "Blocked by policy rule — escalating for approval",
+                "status": "blocked",
             })
-            verified = True  # recommendation is always "safe"
+            # 2026-11 live-test finding: a rule-blocked action must NOT
+            # self-certify as a safe text recommendation. Tier limits are
+            # human-approval rules (P-002/BC-009): the guardrail reason
+            # flows to the escalation signal below and to Node 8.
+            verified = False
             verification_result = rule_check["reason"]
         else:
             actions_taken.append({
@@ -1887,6 +1908,22 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
 
     # L3-3. Escalation: auto-escalate high risk
     escalation = _should_escalate(action, reverse_result or {}, zsv, contradiction, tier)
+
+    # 2026-11 live-test finding: a rule-blocked action (e.g. $4,500 refund
+    # over the parwa tier's $500 limit) must ESCALATE for approval — node 1
+    # classifies such refunds as action="process", which the basic check
+    # didn't restrict, and node 6's quality pass then overrode the block.
+    # Guardrail signal beats answer quality (P-002 / BC-009).
+    if not rule_check["can_execute"]:
+        escalation["escalate"] = True
+        escalation["reasons"].append(
+            f"approval_required: {rule_check.get('reason', 'policy block')}"
+        )
+        logs.append({
+            "node": 5, "technique": "GuardrailEscalation", "duration_ms": 0,
+            "result_summary": f"reason={rule_check.get('reason', '')}",
+        })
+
     logs.append({
         "node": 5, "technique": "Escalation", "duration_ms": 0,
         "result_summary": f"escalate={escalation['escalate']} reasons={len(escalation['reasons'])}",

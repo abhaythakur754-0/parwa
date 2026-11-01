@@ -562,6 +562,12 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
 
     # Decision
     passed = super_quality > QUALITY_SUPER_THRESHOLD
+    # 2026-11 live-test finding: a Node-5 rule guardrail block (e.g. a
+    # $4,500 refund over the parwa tier's $500 limit) is a HUMAN-APPROVAL
+    # rule — a well-written answer cannot approve it. Force the escalation
+    # path so the ticket goes to the tenant's CRM.
+    if state.get("escalation_required", False):
+        passed = False
     notification_key = None
     status = "resolved" if passed else "escalated"
     escalation_context = {}
@@ -581,6 +587,9 @@ async def node_8_super_node(state: PipelineV2State) -> dict:
             "complexity": state.get("complexity", ""),
             "required_action": state.get("required_action", ""),
             "what_was_tried": f"Techniques: Reflexion, SelfConsistency(2), ToT, ReverseThinking, CRP, CoT + 11 non-LLM",
+            # Guardrail reason (why the AI cannot self-approve)
+            "reason": "; ".join(state.get("escalation_reasons") or [])
+            or "ai_cant_solve",
         }
         logs.append({"node": 8, "technique": "Escalation", "duration_ms": 0, "result_summary": f"key={notification_key}"})
 

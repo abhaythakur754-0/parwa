@@ -196,8 +196,46 @@ async def _run_pipeline_from_crm(
     # Build pipeline state from CRM ticket data
     from app.core.parwa_pipeline.state_v2 import PipelineV2State
 
+    ticket_id = f"TKT-CRM-{ticket_data.get('ticket_id', str(int(time.time())))}"
+
+    # ── Persist the ticket BEFORE the pipeline runs ──────────────────
+    # The whole HumanReplacement loop keys off a real Ticket row with
+    # metadata crm_ticket_id: the resolution webhook matches it via
+    # CRMResolutionService.find_ticket_by_crm_id, and auto-retry /
+    # priority / lifecycle services only see rows that exist. Live-test
+    # finding: this path ran the graph in-memory only, so the resolution
+    # webhook could never match and learn-back silently never fired.
+    try:
+        import json
+        from database.base import SessionLocal
+        from database.models.tickets import Ticket
+
+        db = SessionLocal()
+        try:
+            db.add(Ticket(
+                id=ticket_id,
+                company_id=tenant_id,
+                channel="crm",
+                status="processing",
+                subject=(ticket_data.get("query") or "CRM ticket")[:255],
+                # Compact separators — CRMResolutionService.find_ticket_by_crm_id
+                # matches metadata via '"crm_ticket_id":"<id>"' (no spaces).
+                # Live-test finding: default json.dumps spacing broke the
+                # match, so resolution webhooks never found the ticket.
+                metadata_json=json.dumps({
+                    "source": "crm_webhook",
+                    "crm_provider": provider,
+                    "crm_ticket_id": ticket_data.get("ticket_id", ""),
+                }, separators=(",", ":")),
+            ))
+            db.commit()
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 — persistence must not break ingestion
+        logger.warning("crm_ticket_row_persist_failed ticket=%s", ticket_id, exc_info=True)
+
     initial_state: PipelineV2State = {
-        "ticket_id": f"TKT-CRM-{ticket_data.get('ticket_id', str(int(time.time())))}",
+        "ticket_id": ticket_id,
         "tenant_id": tenant_id,
         "query": ticket_data.get("query", ""),
         "channel_type": ticket_data.get("channel_type", "email"),
@@ -225,6 +263,36 @@ async def _run_pipeline_from_crm(
     result["elapsed_ms"] = elapsed
     result["crm_provider"] = provider
     result["crm_ticket_id"] = ticket_data.get("ticket_id", "")
+
+    # ── HumanReplacement loop: record the escalation outcome ─────────
+    # AI gave up and the ticket went to the tenant's CRM? Mark the row
+    # crm_pending and note the MISTAKE in the AI wiki — the failure note
+    # the resolution webhook upgrades in place later (solved_after_failure).
+    if str(result.get("status", "")) == "escalated":
+        try:
+            from app.services.crm_resolution_service import CRMResolutionService
+            from database.base import SessionLocal
+            from database.models.tickets import Ticket
+
+            db = SessionLocal()
+            try:
+                ticket = db.get(Ticket, ticket_id)
+                if ticket is not None:
+                    ticket.status = "crm_pending"
+                    db.commit()
+                    CRMResolutionService.record_failure_in_wiki(
+                        db, ticket,
+                        reason=str(
+                            (result.get("escalation_context") or {}).get("reason")
+                            or "ai_cant_solve"
+                        ),
+                    )
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001 — persistence must not break the webhook
+            logger.warning(
+                "crm_escalation_record_failed ticket=%s", ticket_id, exc_info=True,
+            )
 
     return result
 

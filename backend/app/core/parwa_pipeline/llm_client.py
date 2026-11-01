@@ -621,7 +621,10 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
     }
 
     last_error = ""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    # Env-overridable for alternate backends whose rate limits need longer
+    # polite backoff than the default 30s (non-production shim setups).
+    _llm_http_timeout = float(os.environ.get("LLM_HTTP_TIMEOUT", "30"))
+    async with httpx.AsyncClient(timeout=_llm_http_timeout) as client:
         for model_id in candidates:
             payload = {
                 "model": model_id,
@@ -630,7 +633,13 @@ async def _call_groq_direct(messages: list, temperature: float, max_tokens: int,
                 "max_tokens": max_tokens,
             }
             r = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                # Env override so alternate OpenAI-compatible backends
+                # (proxies, local shims) can serve the Groq role in
+                # non-production environments; default unchanged.
+                os.environ.get(
+                    "GROQ_BASE_URL",
+                    "https://api.groq.com/openai/v1",
+                ).rstrip("/") + "/chat/completions",
                 json=payload,
                 headers=headers,
             )

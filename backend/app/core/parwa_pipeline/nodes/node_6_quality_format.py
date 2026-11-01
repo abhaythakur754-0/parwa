@@ -678,6 +678,8 @@ def _sufficiency_check(query: str, answer: str) -> Dict[str, Any]:
 def _should_escalate(
     quality_passed: bool, loop_count: int, contradiction: Dict,
     sufficiency: Dict, quality_score: float,
+    action_escalation_required: bool = False,
+    action_escalation_reasons: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Determine if this ticket should be escalated to human review.
 
@@ -685,8 +687,18 @@ def _should_escalate(
     1. Quality failed AND loop exhausted (max retries hit)
     2. LLM contradicts non-LLM by > 0.30
     3. Answer doesn't solve the problem (sufficiency fail)
+    4. Node 5 rule guardrail blocked the action (2026-11 live-test fix:
+       a well-written answer cannot approve a policy block — a $4,500
+       refund promise that scores 0.97 is still not ours to make)
     """
     reasons = []
+
+    # Node 5 guardrail overrides a quality pass (P-002 / BC-009)
+    if action_escalation_required:
+        reasons.extend(
+            f"Guardrail (node 5): {r}"
+            for r in (action_escalation_reasons or ["policy block"])
+        )
 
     if not quality_passed and loop_count >= QUALITY_LOOP_THRESHOLD:
         reasons.append(f"Quality {quality_score:.2f} below threshold, loop exhausted ({loop_count})")
@@ -1716,7 +1728,11 @@ async def node_6_quality_format(state: PipelineV2State) -> dict:
     })
 
     # 23. Escalation: auto-escalate on quality fail (non-LLM)
-    escalation = _should_escalate(quality_passed, loop_count, contradiction, sufficiency, quality_score)
+    escalation = _should_escalate(
+        quality_passed, loop_count, contradiction, sufficiency, quality_score,
+        action_escalation_required=bool(state.get("escalation_required", False)),
+        action_escalation_reasons=state.get("escalation_reasons") or [],
+    )
     logs.append({
         "node": 6, "technique": "Escalation", "duration_ms": 0,
         "result_summary": f"escalate={escalation['escalate']} reasons={len(escalation['reasons'])}",

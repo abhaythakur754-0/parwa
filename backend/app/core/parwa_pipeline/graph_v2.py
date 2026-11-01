@@ -241,6 +241,16 @@ def _route_after_node_6(state: PipelineV2State) -> Literal["node_4", "node_8", "
         )
         return "wiki_finalize"
 
+    # 2026-11 live-test finding: a node-5 rule guardrail block (approval-
+    # required money action) must reach Node 8's escalation path even when
+    # the answer text scored well — quality cannot approve a policy block.
+    if state.get("escalation_required", False):
+        logger.info(
+            "Node 5 guardrail escalation → Node 8 (approval path), quality=%.4f",
+            state.get("quality_score", 0.0),
+        )
+        return "node_8"
+
     quality = state.get("quality_score", 0.0)
     loop_count = state.get("loop_count", 0)
 
