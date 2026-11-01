@@ -751,6 +751,13 @@ def _run_pipeline_sync(
                 reason="interrupt_needs_input",
                 context_hint=str(question_text)[:250],
             )
+            # Note the mistake in the AI wiki (unsolved → upgraded when the
+            # CRM team resolves it — CRMResolutionService.learn_from_resolution)
+            from app.services.crm_resolution_service import CRMResolutionService
+            CRMResolutionService.record_failure_in_wiki(
+                db, ticket, reason="interrupt_needs_input",
+                context_hint=str(question_text)[:250],
+            )
             # Convey the variant's ask to the owner (variant → owner path)
             notify_owner_of_escalation(
                 db, ticket, extra_summary=str(question_text)[:300],
@@ -803,6 +810,12 @@ def _run_pipeline_sync(
             apply_escalation_ask(
                 ticket,
                 reason="interrupt_needs_input",
+                context_hint=str(interrupt_question)[:250],
+            )
+            # Note the mistake in the AI wiki (unsolved → upgraded on resolution)
+            from app.services.crm_resolution_service import CRMResolutionService
+            CRMResolutionService.record_failure_in_wiki(
+                db, ticket, reason="interrupt_needs_input",
                 context_hint=str(interrupt_question)[:250],
             )
             # Convey the variant's ask to the owner (variant → owner path)
@@ -1027,6 +1040,16 @@ def _run_pipeline_sync(
                 ticket,
                 reason=_esc_reason,
                 required_action=str(result.get("required_action") or ""),
+                context_hint=str(
+                    result.get("interrupt_question")
+                    or result.get("failure_analysis")
+                    or ""
+                )[:250],
+            )
+            # Note the mistake in the AI wiki (unsolved → upgraded on resolution)
+            from app.services.crm_resolution_service import CRMResolutionService
+            CRMResolutionService.record_failure_in_wiki(
+                db, ticket, reason=_esc_reason,
                 context_hint=str(
                     result.get("interrupt_question")
                     or result.get("failure_analysis")

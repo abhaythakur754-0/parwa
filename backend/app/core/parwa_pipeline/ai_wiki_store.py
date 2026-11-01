@@ -712,6 +712,48 @@ class AIWikiStore:
             tier=tier,
         )
 
+    def write_ticket_failure(
+        self,
+        tenant_id: str,
+        ticket_type: str,
+        query: str,
+        failure_type: str,
+        problem: str,
+        asked_from_team: str,
+        tier: str = "parwa",
+    ) -> Optional[WikiEntry]:
+        """Record an UNSOLVED ticket in Section A — the mistake note.
+
+        Uses the SAME deterministic entry key as write_ticket_pattern(),
+        so when the CRM team later resolves the ticket the success write
+        UPSERTS this entry in place: the wiki goes from "we failed this,
+        here's why" to "solved, here's how" without duplicate rows.
+
+        Called at the moment the AI gives up (escalation_ask paths).
+        """
+        entry_key = ticket_pattern_entry_key(ticket_type, query)
+
+        content = {
+            "status": "unsolved",
+            "query_pattern": query[:300],
+            "ticket_type": ticket_type,
+            "failure_type": failure_type,          # missing_connection / missing_knowledge / ...
+            "problem": problem[:500],              # what blocked the AI, plain words
+            "asked_from_team": asked_from_team[:300],  # the concrete ask
+            "key_terms": list(set(w.lower() for w in query.split() if len(w) > 4))[:15],
+        }
+
+        return self.write(
+            tenant_id=tenant_id,
+            section="A",
+            entry_key=entry_key,
+            title=f"Unsolved: {ticket_type} ({failure_type})",
+            content=content,
+            created_by="parwa",
+            tags=[ticket_type, "unsolved", failure_type],
+            tier=tier,
+        )
+
     def find_similar_patterns(
         self,
         tenant_id: str,
@@ -739,6 +781,8 @@ class AIWikiStore:
             c = entry.content
             patterns.append({
                 "entry_key": entry.entry_key,
+                "status": c.get("status", "solved"),  # "unsolved" until a resolution upgrades it
+                "failure_type": c.get("failure_type", ""),
                 "query_pattern": c.get("query_pattern", ""),
                 "ticket_type": c.get("ticket_type", ""),
                 "complexity": c.get("complexity", ""),

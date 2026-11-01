@@ -225,18 +225,55 @@ class NotificationService:
     ) -> Dict[str, Any]:
         """
         PS03: Notify human queue when client asks for human.
-        
+
         Includes AI conversation summary.
+
+        HumanReplacement channel rule: when the tenant has an ACTIVE CRM
+        integration, the CRM — not PARWA — tells its humans about the
+        escalation (the structured ask is pushed to the CRM ticket by the
+        dispatcher / node 8). PARWA then SKIPS its own agent email+in-app
+        blast: one escalation must not ring twice. No CRM connected →
+        PARWA's notification is the only channel, so it still goes out.
+
+        ponytail: known ceiling — if the CRM push later fails after this
+        skip, the ask is still visible on the Escalations dashboard and
+        the DLQ; no email retry.
         """
         # Get ticket details
         ticket = self.db.query(Ticket).filter(
             Ticket.id == ticket_id,
             Ticket.company_id == self.company_id,
         ).first()
-        
+
         if not ticket:
             raise NotFoundError(f"Ticket {ticket_id} not found")
-        
+
+        # ── CRM connected? Then the CRM notifies its own humans ────────
+        try:
+            from app.services.integration_service import IntegrationService
+
+            _svc = IntegrationService(self.db)
+            crm_connected = any(
+                _svc.get_credential_config(self.company_id, _p)
+                for _p in ("hubspot", "zendesk", "generic")
+            )
+        except Exception:  # noqa: BLE001 — never break the notify path
+            logger.warning("crm_guard_check_failed ticket=%s", str(ticket_id)[:8])
+            crm_connected = False
+
+        if crm_connected:
+            logger.info(
+                "notify_human_queue_skipped_crm_connected ticket=%s — CRM is the channel",
+                str(ticket_id)[:8],
+            )
+            # success=True so escalation_notify's idempotence marker is set
+            # (this escalation is considered handled — by the CRM).
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "crm_connected",
+            }
+
         # Find human agents in the appropriate queue
         # This would typically query assignment rules or department members
         agents = self._get_available_agents(ticket.category if hasattr(ticket, 'category') else None)

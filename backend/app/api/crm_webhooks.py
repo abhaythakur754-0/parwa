@@ -255,6 +255,106 @@ async def _run_pipeline_async(initial_state: Dict[str, Any]) -> Dict[str, Any]:
     return dict(result)
 
 
+# ── Resolution Updates (HumanReplacement loop closure) ──────
+
+
+async def _apply_resolution_update(
+    provider: str,
+    payload: Dict[str, Any],
+    ticket_data: Dict[str, Any],
+) -> Optional[CRMWebhookResponse]:
+    """Resolution webhook? Apply it and SKIP the pipeline.
+
+    HumanReplacement loop closure: when the tenant's CRM reports a
+    crm_pending Parwa ticket as solved/closed, CRMResolutionService
+    marks it resolved and TEACHES the AI wiki — the "unsolved" mistake
+    note recorded at escalation time is upgraded in place to a solved
+    pattern (solved_after_failure), so the next similar ticket is
+    resolved autonomously.
+
+    notify_customer=False on purpose: the human already answered the
+    customer INSIDE the CRM thread — relaying again via PARWA's channel
+    would contact the customer twice.
+
+    Returns the response to send back, or None when this webhook is NOT
+    a resolution update (caller runs the normal pipeline — unchanged
+    behavior for every other event type).
+    """
+    from database.base import SessionLocal
+    from app.services.crm_resolution_service import CRMResolutionService
+
+    # Resolution status may sit at payload["ticket"]["status"] (Zendesk),
+    # payload["status"] (generic) or payload["properties"] (HubSpot).
+    status = ""
+    if isinstance(payload, dict):
+        t = payload.get("ticket")
+        if isinstance(t, dict):
+            status = str(t.get("status") or "")
+        status = status or str(payload.get("status") or "")
+        props = payload.get("properties") or (
+            payload.get("ticket") or {}
+        ).get("properties")
+        if isinstance(props, dict):
+            status = status or str(
+                props.get("status") or props.get("hs_ticket_status") or ""
+            )
+    if not CRMResolutionService.is_resolution_status(status):
+        return None
+
+    crm_ticket_id = str(ticket_data.get("ticket_id") or "")
+    if not crm_ticket_id:
+        return None
+
+    # Best-effort resolution text (what the human did/said).
+    text = ""
+    for source_dict in (payload, payload.get("ticket") or {}):
+        if not isinstance(source_dict, dict):
+            continue
+        for field in ("resolution", "comment", "body", "message", "description"):
+            val = source_dict.get(field)
+            if isinstance(val, str) and val.strip():
+                text = val.strip()
+                break
+        if text:
+            break
+
+    db = SessionLocal()
+    try:
+        ticket = CRMResolutionService.find_ticket_by_crm_id(db, crm_ticket_id)
+        if ticket is None or ticket.status not in ("crm_pending", "awaiting_human"):
+            return None  # not our crm_pending ticket — normal pipeline path
+
+        result = CRMResolutionService.resolve_ticket(
+            db=db,
+            ticket=ticket,
+            resolution_text=text or "Resolved by the support team in your CRM.",
+            resolved_by=f"{provider}:crm",
+            source="crm_webhook",
+            notify_customer=False,  # CRM thread already reached the customer
+            learn=True,             # THIS is the self-learning step
+        )
+        logger.info(
+            "crm_resolution_webhook_applied provider=%s crm_ticket=%s parwa=%s "
+            "learned=%s wiki_key=%s",
+            provider, crm_ticket_id, str(ticket.id)[:8],
+            result.get("learned"), result.get("wiki_key"),
+        )
+        return CRMWebhookResponse(
+            success=True,
+            provider=provider,
+            crm_ticket_id=crm_ticket_id,
+            parwa_ticket_id=str(ticket.id),
+            pipeline_status="resolved",
+            quality_score=0.0,
+            elapsed_ms=0,
+        )
+    except Exception as exc:  # noqa: BLE001 — never break the webhook on resolution errors
+        logger.error("crm_resolution_webhook_failed provider=%s err=%s", provider, str(exc)[:200])
+        return None
+    finally:
+        db.close()
+
+
 # ── Webhook Endpoints ────────────────────────────────────────
 
 
@@ -287,6 +387,11 @@ async def receive_zendesk_webhook(request: Request) -> CRMWebhookResponse:
 
     ticket_data = ingest_result["ticket_data"]
     logger.info("Zendesk webhook: ticket=%s", ticket_data.get("ticket_id", "?"))
+
+    # Resolution update for a crm_pending ticket? Apply + learn, skip pipeline.
+    resolved = await _apply_resolution_update("zendesk", payload, ticket_data)
+    if resolved is not None:
+        return resolved
 
     # Run pipeline
     try:
@@ -335,6 +440,11 @@ async def receive_hubspot_webhook(request: Request) -> CRMWebhookResponse:
 
     ticket_data = ingest_result["ticket_data"]
     logger.info("HubSpot webhook: ticket=%s", ticket_data.get("ticket_id", "?"))
+
+    # Resolution update for a crm_pending ticket? Apply + learn, skip pipeline.
+    resolved = await _apply_resolution_update("hubspot", payload, ticket_data)
+    if resolved is not None:
+        return resolved
 
     try:
         result = await _run_pipeline_from_crm(provider="hubspot", ticket_data=ticket_data)
@@ -386,6 +496,11 @@ async def receive_generic_webhook(request: Request) -> CRMWebhookResponse:
 
     ticket_data = ingest_result["ticket_data"]
     logger.info("Generic webhook: ticket=%s", ticket_data.get("ticket_id", "?"))
+
+    # Resolution update for a crm_pending ticket? Apply + learn, skip pipeline.
+    resolved = await _apply_resolution_update("generic", payload, ticket_data)
+    if resolved is not None:
+        return resolved
 
     try:
         result = await _run_pipeline_from_crm(provider="generic", ticket_data=ticket_data)

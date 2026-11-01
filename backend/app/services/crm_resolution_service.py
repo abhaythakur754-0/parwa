@@ -165,10 +165,18 @@ class CRMResolutionService:
         Reuses the exact store the pipeline reads from, so the very next
         similar ticket benefits — this is the whole self-learning loop.
         Non-fatal: a wiki failure never blocks the ticket resolution.
+
+        If record_failure_in_wiki() noted this ticket as "unsolved", the
+        deterministic key means THIS write upgrades the same entry in
+        place: unsolved mistake note → solved pattern (with the failure
+        history kept as solved_after_failure).
         """
         try:
             from database.models.tickets import TicketMessage
-            from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+            from app.core.parwa_pipeline.ai_wiki_store import (
+                get_wiki_store,
+                ticket_pattern_entry_key,
+            )
 
             first_msg = (
                 db.query(TicketMessage)
@@ -184,7 +192,25 @@ class CRMResolutionService:
                 or "general"
             )
 
-            entry = get_wiki_store().write_ticket_pattern(
+            store = get_wiki_store()
+
+            # Snapshot the mistake note BEFORE the upsert — write() replaces
+            # content, so this is the only chance to keep the failure history.
+            entry_key = ticket_pattern_entry_key(str(ticket_type), query_text[:1000])
+            prev_content: Dict[str, Any] = {}
+            try:
+                existing = store.read(
+                    tenant_id=str(ticket.company_id),
+                    section="A",
+                    entry_key=entry_key,
+                    tier="parwa",
+                )
+                if existing and isinstance(existing[0].content, dict):
+                    prev_content = existing[0].content
+            except Exception:  # noqa: BLE001 — history snapshot is best-effort
+                prev_content = {}
+
+            entry = store.write_ticket_pattern(
                 tenant_id=str(ticket.company_id),
                 ticket_type=str(ticket_type),
                 query=query_text[:1000],
@@ -195,6 +221,17 @@ class CRMResolutionService:
                 tier="parwa",
             )
             if entry:
+                # Upgrading a mistake note? Keep the failure history so the
+                # wiki shows "AI failed this once, human showed the answer".
+                if prev_content.get("status") == "unsolved":
+                    entry.content["solved_after_failure"] = True
+                    entry.content["status"] = "solved_by_human"
+                    entry.content["failure_type"] = (
+                        prev_content.get("failure_type") or "unknown"
+                    )
+                    entry.content["asked_from_team"] = prev_content.get("asked_from_team", "")
+                    from app.core.parwa_pipeline.ai_wiki_store import _db_persist
+                    _db_persist(entry)  # re-sync the stamped content
                 logger.info("crm_learning_written ticket=%s wiki_key=%s",
                             str(ticket.id)[:8], entry.entry_key)
                 return entry.entry_key
@@ -202,6 +239,80 @@ class CRMResolutionService:
             logger.warning("crm_learning_write_failed ticket=%s err=%s",
                            str(ticket.id)[:8], str(exc)[:200])
         return None
+
+    @staticmethod
+    def record_failure_in_wiki(db, ticket, reason: str = "", context_hint: str = "") -> Optional[str]:
+        """NOTE THE MISTAKE at the moment the AI gives up (BC-008: never raises).
+
+        Writes an "unsolved" note into AI Wiki Section A: what the customer
+        asked, why the AI couldn't (escalation ask), what it needs from the
+        team. When the CRM team later resolves the ticket,
+        learn_from_resolution() upgrades THE SAME entry (deterministic key)
+        into a solved pattern — the wiki remembers failures, not just wins.
+
+        Callers: every escalation path (dispatcher interrupts, mid-pipeline
+        escalations, handle_ai_cant_solve).
+        """
+        try:
+            from database.models.tickets import TicketMessage
+            from app.core.parwa_pipeline.ai_wiki_store import get_wiki_store
+
+            first_msg = (
+                db.query(TicketMessage)
+                .filter(TicketMessage.ticket_id == ticket.id, TicketMessage.role == "customer")
+                .order_by(TicketMessage.created_at.asc())
+                .first()
+            )
+            query_text = (first_msg.content if first_msg else "") or (ticket.subject or "")
+            if not query_text.strip():
+                return None
+
+            # Same derivation as learn_from_resolution → same entry key.
+            ticket_type = (
+                getattr(ticket, "classification_type", None)
+                or getattr(ticket, "category", None)
+                or "general"
+            )
+
+            # Pull the structured ask off the ticket (apply_escalation_ask
+            # already stored it) so the note says what the team must do.
+            ask: Dict[str, Any] = {}
+            try:
+                import json as _json
+                meta = _json.loads(ticket.metadata_json or "{}")
+                if isinstance(meta, dict) and isinstance(meta.get("escalation_ask"), dict):
+                    ask = meta["escalation_ask"]
+            except (ValueError, TypeError):
+                pass
+
+            entry = get_wiki_store().write_ticket_failure(
+                tenant_id=str(ticket.company_id),
+                ticket_type=str(ticket_type),
+                query=query_text[:1000],
+                failure_type=str(ask.get("escalation_type") or reason or "unknown"),
+                problem=str(ask.get("problem") or context_hint or reason or "AI could not resolve"),
+                asked_from_team=str(ask.get("needed_from_team") or ""),
+                tier="parwa",
+            )
+            if entry:
+                logger.info("crm_failure_noted ticket=%s wiki_key=%s",
+                            str(ticket.id)[:8], entry.entry_key)
+                return entry.entry_key
+        except Exception as exc:  # noqa: BLE001 — BC-008: note is best-effort
+            logger.warning("crm_failure_note_failed ticket=%s err=%s",
+                           str(ticket.id)[:8], str(exc)[:200])
+        return None
+
+    @staticmethod
+    def is_resolution_status(status: str) -> bool:
+        """True when a CRM webhook status means the human resolved the ticket.
+
+        Covers Zendesk (solved/closed), HubSpot (closed) and common
+        generic-CRM spellings in one lowercase check.
+        """
+        return str(status or "").strip().lower() in (
+            "solved", "closed", "resolved", "done", "complete", "completed",
+        )
 
     @staticmethod
     def find_ticket_by_crm_id(db, crm_ticket_id: str):

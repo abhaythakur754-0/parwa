@@ -15,6 +15,7 @@ This service coordinates all ticket lifecycle operations.
 """
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -25,6 +26,8 @@ from sqlalchemy.orm import Session
 from app.exceptions import NotFoundError, ValidationError
 from database.models.tickets import Ticket, TicketStatus, TicketPriority
 from database.models.core import User, Company
+
+logger = logging.getLogger("parwa.services.ticket_lifecycle")
 
 
 class TicketLifecycleService:
@@ -142,6 +145,11 @@ class TicketLifecycleService:
             ticket.escalation_level = (ticket.escalation_level or 0) + 1
             
             self.db.commit()
+            
+            # Note the mistake in the AI wiki (unsolved → upgraded when the
+            # CRM resolution comes back via CRMResolutionService)
+            from app.services.crm_resolution_service import CRMResolutionService
+            CRMResolutionService.record_failure_in_wiki(self.db, ticket, reason=reason)
         
         return result
     
@@ -418,6 +426,12 @@ class TicketLifecycleService:
     ) -> Dict[str, Any]:
         """
         PS08: Send reminder for ticket awaiting client response.
+
+        Channel rule (HumanReplacement): if the ticket lives in the tenant's
+        CRM, the nudge goes through the CRM THREAD (public reply + status
+        "pending") so the conversation stays in one history. Only tickets
+        without a CRM home get a direct PARWA email. CRM push failure →
+        email fallback, so the customer is never left unnudged.
         """
         ticket = self._get_ticket(ticket_id)
         
@@ -426,6 +440,60 @@ class TicketLifecycleService:
             "7d": "This ticket needs your input. Please respond to keep it active.",
             "14d": "Last reminder: This ticket will be closed if we don't hear from you soon.",
         }
+        message = messages.get(reminder_type, "Reminder: Please respond to your ticket.")
+        
+        # ── CRM-thread nudge when the ticket has a CRM home ───────────
+        crm_ticket_id = ""
+        try:
+            import json as _json
+            meta = _json.loads(ticket.metadata_json or "{}")
+            if isinstance(meta, dict):
+                crm_ticket_id = str(meta.get("crm_ticket_id") or "")
+        except (ValueError, TypeError):
+            pass
+        
+        if crm_ticket_id:
+            sent_via_crm = False
+            try:
+                import asyncio
+                from app.core.crm_bridge.crm_bridge import CRMBridge
+                from app.services.integration_service import IntegrationService
+                
+                provider = ""
+                try:
+                    provider = str(meta.get("crm_provider") or "")
+                except Exception:  # noqa: BLE001
+                    provider = ""
+                if not provider:
+                    svc = IntegrationService(self.db)
+                    for p in ("hubspot", "zendesk", "generic"):
+                        if svc.get_credential_config(self.company_id, p):
+                            provider = p
+                            break
+                
+                if provider:
+                    result = asyncio.run(CRMBridge.push_response(
+                        provider=provider,
+                        ticket_id=crm_ticket_id,
+                        response=message,
+                        status="pending_human",  # adapters map this to CRM "pending"
+                        internal_note=f"Awaiting client reminder ({reminder_type})",
+                        config=IntegrationService(self.db).get_credential_config(
+                            self.company_id, provider),
+                    ))
+                    sent_via_crm = bool(result.get("success"))
+            except Exception as exc:  # noqa: BLE001 — email fallback below
+                logger.warning("awaiting_client_crm_nudge_failed ticket=%s err=%s",
+                               str(ticket_id)[:8], str(exc)[:150])
+            
+            if sent_via_crm:
+                return {
+                    "ticket_id": ticket_id,
+                    "sent": True,
+                    "channel": "crm_thread",
+                    "reminder_type": reminder_type,
+                }
+            # CRM push failed → fall through to the email path
         
         from app.services.notification_service import NotificationService
         
@@ -437,7 +505,7 @@ class TicketLifecycleService:
             data={
                 "ticket_id": ticket.id,
                 "ticket_subject": ticket.subject,
-                "message": messages.get(reminder_type, "Reminder: Please respond to your ticket."),
+                "message": message,
                 "reminder_type": reminder_type,
             },
             channels=["email"],
