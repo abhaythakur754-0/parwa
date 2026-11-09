@@ -544,7 +544,7 @@ class ExternalToolBus:
             f"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>"
             f"<p>{body}</p>"
             f"<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;' />"
-            f"<p style='color: #888; font-size: 12px;'>Powered by PARWA AI Workforce Platform</p>"
+            f"<p style='color: #888; font-size: 12px;'>Powered by SHOBH AI Workforce Platform</p>"
             f"</div>"
         )
 
@@ -1166,7 +1166,7 @@ class ExternalToolBus:
         results: dict[str, ToolResult] = {}
 
         # Build notification message
-        prefix = f"[PARWA] {ticket_number}"
+        prefix = f"[SHOBH] {ticket_number}"
         notification_body = message or f"Hi {customer_name}, your ticket status has been updated to: {status}."
 
         # Email notification

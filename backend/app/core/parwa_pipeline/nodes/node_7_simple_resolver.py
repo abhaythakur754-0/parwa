@@ -584,7 +584,7 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
 
         customer_name = state.get("customer_context", {}).get("customer_name", "there")
         kb_block = _build_synthesis_knowledge(knowledge_docs, turbo)
-        synth_prompt = f"""You are PARWA AI customer support. Write a helpful response to the customer.
+        synth_prompt = f"""You are SHOBH AI customer support. Write a helpful response to the customer.
 
 Customer: {customer_name}
 Their question: {query}

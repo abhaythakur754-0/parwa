@@ -154,22 +154,22 @@ class TestBuildCcWelcome:
 
     def test_mini_parwa_welcome(self):
         msg = _build_cc_welcome("mini_parwa", "ecommerce")
-        assert "Mini PARWA" in msg
+        assert "SHOBH Starter" in msg
         assert "ecommerce" in msg
 
     def test_parwa_welcome(self):
         msg = _build_cc_welcome("parwa", "saas")
-        assert "PARWA" in msg
+        assert "SHOBH Growth" in msg
         assert "saas" in msg
 
     def test_parwa_high_welcome(self):
         msg = _build_cc_welcome("parwa_high", "healthcare")
-        assert "PARWA High" in msg
+        assert "SHOBH High" in msg
         assert "healthcare" in msg
 
     def test_unknown_tier_uses_default(self):
         msg = _build_cc_welcome("unknown_tier", "general")
-        assert "PARWA" in msg  # Falls back to default name
+        assert "SHOBH" in msg  # Falls back to default name
 
 
 class TestGetTierCapabilities:

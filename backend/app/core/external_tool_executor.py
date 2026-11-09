@@ -270,7 +270,7 @@ async def _send_ticket_notification(
     """Send ticket status notification across available channels via ExternalToolBus."""
     results: Dict[str, ToolResult] = {}
     response_text = pipeline_result.get("formatted_response", "")
-    prefix = f"[PARWA] {ticket_number}"
+    prefix = f"[SHOBH] {ticket_number}"
     notification_body = response_text[:200] if response_text else f"Your ticket status has been updated to: {status}."
 
     # Email notification
@@ -323,7 +323,7 @@ async def _execute_single_action(
 
     try:
         if channel == Channel.EMAIL and customer_email:
-            subject = action_data.get("subject", f"[PARWA] Update regarding your ticket {ticket_number}")
+            subject = action_data.get("subject", f"[SHOBH] Update regarding your ticket {ticket_number}")
             return await _execute_channel_call(
                 variant_tier, company_id, channel,
                 to=customer_email,
@@ -332,7 +332,7 @@ async def _execute_single_action(
             )
 
         elif channel == Channel.SMS and customer_phone:
-            sms_body = body[:160] if body else f"[PARWA] Update on ticket {ticket_number}"
+            sms_body = body[:160] if body else f"[SHOBH] Update on ticket {ticket_number}"
             return await _execute_channel_call(
                 variant_tier, company_id, channel,
                 to=customer_phone,

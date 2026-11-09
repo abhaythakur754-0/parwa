@@ -146,7 +146,7 @@ async def builder_chat(
 
     # Use Groq for the chat response (replaces local builder_llm_call)
     chat_prompt = (
-        f"You are the PARWA Agent Builder. A user wants to create a customer care agent.\n"
+        f"You are the SHOBH Agent Builder. A user wants to create a customer care agent.\n"
         f"User says: {body.message}\n\n"
         f"Help them design the agent. Ask about:\n"
         f"1. What specific customer problems should this agent handle?\n"

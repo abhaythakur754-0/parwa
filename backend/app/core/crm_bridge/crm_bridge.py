@@ -325,7 +325,7 @@ class ZendeskAdapter(CRMAdapter):
                     note_payload = {
                         "ticket": {
                             "comment": {
-                                "body": f"[PARWA AI Analysis]\n{internal_note}",
+                                "body": f"[SHOBH AI Analysis]\n{internal_note}",
                                 "public": False,
                             }
                         }
@@ -374,7 +374,7 @@ class ZendeskAdapter(CRMAdapter):
             what_was_tried = escalation_context.get("what_was_tried", "")
 
             note = (
-                f"[PARWA AI Escalation — {notification_key}]\n\n"
+                f"[SHOBH AI Escalation — {notification_key}]\n\n"
                 f"AI attempted to resolve this ticket but quality threshold was not met.\n\n"
                 f"Quality Score: {quality_score:.2f}\n"
                 f"Failure Analysis: {failure_analysis[:500]}\n"
@@ -437,7 +437,7 @@ class ZendeskAdapter(CRMAdapter):
             headers = {"Content-Type": "application/json"}
 
             internal_note = (
-                f"[PARWA AI Resume — Human Assisted]\n\n"
+                f"[SHOBH AI Resume — Human Assisted]\n\n"
                 f"Quality Score (with human guidance): {quality_score:.2f}\n"
                 f"Human Guidance: {human_guidance[:300]}\n"
             )
@@ -510,7 +510,7 @@ class ZendeskAdapter(CRMAdapter):
             what_was_tried = failure_context.get("what_was_tried", "")
 
             note = (
-                f"[PARWA AI — Cannot Resolve, Returned to Human Queue]\n\n"
+                f"[SHOBH AI — Cannot Resolve, Returned to Human Queue]\n\n"
                 f"AI attempted to resolve this ticket {attempts} times with human guidance "
                 f"but could not meet the quality threshold.\n\n"
                 f"Last Quality Score: {last_quality:.2f}\n"
@@ -795,7 +795,7 @@ class HubSpotAdapter(CRMAdapter):
                 if internal_note:
                     note_payload = {
                         "properties": {
-                            "hs_note_body": f"[PARWA AI] {internal_note}",
+                            "hs_note_body": f"[SHOBH AI] {internal_note}",
                             "hs_timestamp": str(int(__import__('time').time() * 1000)),
                         },
                         "associations": [
@@ -842,7 +842,7 @@ class HubSpotAdapter(CRMAdapter):
             failure_analysis = escalation_context.get("failure_analysis", "")
 
             note_body = (
-                f"[PARWA AI Escalation — {notification_key}]\n"
+                f"[SHOBH AI Escalation — {notification_key}]\n"
                 f"Quality: {quality_score:.2f} | "
                 f"Analysis: {failure_analysis[:300]} | "
                 f"Status: Escalated to human"
@@ -914,7 +914,7 @@ class HubSpotAdapter(CRMAdapter):
                 note_payload = {
                     "properties": {
                         "hs_note_body": (
-                            f"[PARWA AI Resume — Human Assisted]\n"
+                            f"[SHOBH AI Resume — Human Assisted]\n"
                             f"Quality: {quality_score:.2f}\n"
                             f"Human Guidance: {human_guidance[:300]}"
                         ),
@@ -988,7 +988,7 @@ class HubSpotAdapter(CRMAdapter):
                 note_payload = {
                     "properties": {
                         "hs_note_body": (
-                            f"[PARWA AI — Cannot Resolve, Returned to Human Queue]\n"
+                            f"[SHOBH AI — Cannot Resolve, Returned to Human Queue]\n"
                             f"Attempts: {attempts}\n"
                             f"Last Quality: {last_quality:.2f}\n"
                             f"Failure Analysis: {failure_analysis[:400]}\n"

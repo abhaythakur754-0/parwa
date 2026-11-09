@@ -30,25 +30,34 @@ logger = get_logger("variant_tier_mapper")
 # ══════════════════════════════════════════════════════════════════
 
 # Frontend variant_id → Backend pipeline tier
+# (Rebrand fix: starter previously mapped to "parwa" — contradicted the
+# module contract below; Starter card is the mini_parwa tier.)
 VARIANT_ID_TO_TIER: Dict[str, str] = {
-    "starter": "parwa",
+    "starter": "mini_parwa",
     "growth": "parwa",
     "high": "parwa_high",
 }
 
 # Backend pipeline tier → Frontend variant_id (reverse map)
+# (Rebrand fix: duplicate "parwa" key silently dropped mini_parwa —
+# the Starter tier could never reverse-map to its card.)
 TIER_TO_VARIANT_ID: Dict[str, str] = {
-    "parwa": "starter",
+    "mini_parwa": "starter",
     "parwa": "growth",
     "parwa_high": "high",
 }
 
 # Frontend variant name → Backend pipeline tier
+# SHOBH keys are what the rebranded frontend actually sends; legacy
+# PARWA keys kept for backward compatibility with old clients.
 VARIANT_NAME_TO_TIER: Dict[str, str] = {
-    "parwa starter": "parwa",
+    "shobh starter": "mini_parwa",
+    "shobh growth": "parwa",
+    "shobh high": "parwa_high",
+    "parwa starter": "mini_parwa",
     "parwa growth": "parwa",
     "parwa high": "parwa_high",
-    "starter": "parwa",
+    "starter": "mini_parwa",
     "growth": "parwa",
     "high": "parwa_high",
 }
@@ -67,8 +76,8 @@ INDUSTRY_LABEL_TO_ENUM: Dict[str, str] = {
 
 # Pipeline tier metadata for display/context
 TIER_METADATA: Dict[str, Dict[str, str]] = {
-    "parwa": {
-        "display_name": "PARWA Starter",
+    "mini_parwa": {
+        "display_name": "SHOBH Starter",
         "tagline": "The 24/7 Trainee",
         "pipeline_nodes": "8",
         "pipeline_type": "unified_v2",
@@ -77,7 +86,7 @@ TIER_METADATA: Dict[str, Dict[str, str]] = {
         "routing": "Node 2 routes more queries to simple_path",
     },
     "parwa": {
-        "display_name": "PARWA Growth",
+        "display_name": "SHOBH Growth",
         "tagline": "The Junior Agent",
         "pipeline_nodes": "8",
         "pipeline_type": "unified_v2",
@@ -86,7 +95,7 @@ TIER_METADATA: Dict[str, Dict[str, str]] = {
         "routing": "Node 2 balanced routing between simple and complex paths",
     },
     "parwa_high": {
-        "display_name": "PARWA High",
+        "display_name": "SHOBH High",
         "tagline": "The Senior Agent",
         "pipeline_nodes": "8",
         "pipeline_type": "unified_v2",
@@ -130,7 +139,8 @@ def variant_id_to_tier(variant_id: str) -> str:
 def variant_name_to_tier(variant_name: str) -> str:
     """Map a frontend variant display name to a backend pipeline tier.
 
-    Handles names like "PARWA Starter", "PARWA Growth", "PARWA High",
+    Handles names like "SHOBH Starter", "SHOBH Growth", "SHOBH High"
+    (legacy "PARWA ..." names still accepted),
     as well as just "Starter", "Growth", "High".
 
     Args:

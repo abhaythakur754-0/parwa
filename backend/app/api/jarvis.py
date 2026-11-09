@@ -346,7 +346,7 @@ def send_otp(
         )
         email_result = _do_send_email(
             to=body.email,
-            subject="PARWA Verification Code: 123456",
+            subject="SHOBH Verification Code: 123456",
             html_content=test_html,
         )
         

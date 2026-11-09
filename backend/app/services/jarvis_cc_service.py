@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from app.core.variant_tier_mapper import TIER_METADATA
 from app.exceptions import (
     NotFoundError,
     ValidationError,
@@ -1298,7 +1299,7 @@ def get_cc_session_health(
 _CC_BASE_PROMPT = """## IDENTITY: JARVIS — AI CUSTOMER CARE EMPLOYEE
 
 You are NOT a chatbot. You are NOT automation. You are Jarvis — an AI employee
-of PARWA, hired by this company to handle their customer care operations.
+of SHOBH, hired by this company to handle their customer care operations.
 
 You think, act, and respond like a skilled human support agent who:
 - Understands the customer's problem deeply
@@ -1361,7 +1362,7 @@ def _get_tier_capabilities(variant_tier: str) -> str:
             "- GSD state tracking for conversation continuity"
         ),
         "parwa": (
-            "- All Mini PARWA capabilities, plus:\n"
+            "- All Mini SHOBH capabilities, plus:\n"
             "- SMS and Voice channel support\n"
             "- Advanced classification with signal extraction\n"
             "- Tier 1+2 reasoning (Chain-of-Thought, ReAct, Step-Back, Reverse Thinking)\n"
@@ -1370,7 +1371,7 @@ def _get_tier_capabilities(variant_tier: str) -> str:
             "- Context enrichment from knowledge base"
         ),
         "parwa_high": (
-            "- All PARWA capabilities, plus:\n"
+            "- All SHOBH capabilities, plus:\n"
             "- Social media and WhatsApp channel support\n"
             "- Tier 1+2+3 reasoning (Tree-of-Thought, Self-Consistency, Reflexion, etc.)\n"
             "- Strictest quality gate (8-check, threshold 95)\n"
@@ -1386,6 +1387,10 @@ def _get_tier_capabilities(variant_tier: str) -> str:
 def _build_cc_welcome(variant_tier: str, industry: str) -> str:
     """Build a welcome message for a new customer care session.
 
+    Tier-aware (SHOBH branding): mentions the tier's display name so the
+    client knows which plan's AI employee they're talking to, plus the
+    industry vertical. Falls back to the plain SHOBH name for unknown tiers.
+
     Args:
         variant_tier: The variant tier for this session.
         industry: The industry vertical.
@@ -1393,9 +1398,16 @@ def _build_cc_welcome(variant_tier: str, industry: str) -> str:
     Returns:
         Welcome message string.
     """
+    try:
+        display_name = TIER_METADATA.get(variant_tier, {}).get(
+            "display_name", "SHOBH"
+        )
+    except Exception:
+        display_name = "SHOBH"
     return (
-        "Hey! I'm Jarvis. I keep an eye on your tickets, help you figure out "
-        "what needs attention, and can jump in when the AI needs guidance.\n\n"
+        f"Hey! I'm Jarvis — your {display_name} assistant for {industry}. "
+        "I keep an eye on your tickets, help you figure out what needs "
+        "attention, and can jump in when the AI needs guidance.\n\n"
         "What's on your mind?"
     )
 

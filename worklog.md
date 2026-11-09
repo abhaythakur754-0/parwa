@@ -1084,3 +1084,46 @@ landing + dashboard headers still say PARWA.
 
 NEXT: run backend checks + frontend lint, then push; QA dashboard page is
 the natural next feature.
+
+## Day 6 (cont.) — QA Report Card dashboard + full SHOBH backend sweep
+
+WHAT: (1) Built the QA Report Card dashboard page (/dashboard/qa) — KPI row
+(avg quality / graded total / flagged / double-checks vs cap), Problems
+panel with expandable reasons+evidence+officer verdict, volume bars,
+channel chips, top flag reasons, honest "how grading runs" strip. New
+/api/qa/[...path] Next.js proxy (GET only, 30s timeout, refresh-retry —
+ghostwriter pattern) + src/lib/qa-api.ts client. Sidebar: "AI Quality"
+nav item with inline clipboard-check icon. (2) SHOBH sweep of ALL
+customer/agent-visible backend strings: crm_bridge notes [PARWA AI]->[SHOBH AI]
+(10 sites), production_connector SMS/voice bodies (4), external_tool_
+executor/bus email subjects + "Powered by" footer (6), node_7 synthesis
+prompt self-identity, builder_agent prompt, jarvis debug email subject,
+jarvis_cc system prompt identity + capability lists, tier display_names
+-> SHOBH Starter/Growth/High, tier-aware _build_cc_welcome implemented
+(branch tests expected it; was generic string — 4 tests now pass).
+
+BUG FIXES found during sweep (pre-existing): variant_tier_mapper had TWO
+duplicate dict keys — TIER_TO_VARIANT_ID["parwa"] twice (mini_parwa
+unreachable in reverse map) and TIER_METADATA["parwa"] twice (Starter
+metadata was dead code, overwritten by Growth). Also VARIANT_ID_TO_TIER
+starter->parwa contradicted the module contract (starter = mini_parwa).
+Fixed all three; added "shobh starter/growth/high" keys to
+VARIANT_NAME_TO_TIER (the rebranded frontend sends those names — they
+silently fell to default tier before). Maps were unused dead constants
+before, so zero behavior risk.
+
+REBRAND REALITY CHECK: frontend src/ had ZERO PARWA/Parwa strings left
+(the branch sweep was complete — my "landing still says PARWA" claim in
+the merge report was wrong, unverified assumption). Real gap was backend
+display strings only — now closed. Internal identifiers (logger names,
+task names, parwa_at cookie, table names) deliberately untouched.
+
+TESTS: py_compile clean on 10 touched backend files; backend imports
+(734 routes); tsc 85 errors = exact pre-change baseline, 0 in new files;
+test_jarvis_cc_service 46 pass (was 42 — welcome tests now green);
+qa/ghostwriter suites still 54/54. Remaining 9 failures in
+TestSendCcMessage/TestRateLimiting are pre-existing branch issues
+(ValidationError guards + bridge routing) — next candidate.
+
+NEXT: 9 pre-existing jarvis_cc send/rate-limit failures; Ghostwriter gap
+-> "Draft this gap" button wiring on the QA problems panel.

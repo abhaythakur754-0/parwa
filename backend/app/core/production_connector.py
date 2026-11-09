@@ -195,7 +195,7 @@ class ProductionConnector:
                 variant=variant_tier,
                 company_id=company_id,
                 to=customer_phone,
-                body=f"PARWA: Your support ticket {ticket_id} has been received. "
+                body=f"SHOBH: Your support ticket {ticket_id} has been received. "
                      f"We're reviewing your request now.",
             )
             results["sms"] = _tool_result_to_integration(tool_result, "send_sms")
@@ -334,7 +334,7 @@ class ProductionConnector:
                 variant=variant_tier,
                 company_id=company_id,
                 to=customer_phone,
-                body=f"PARWA: Your refund of ${amount:.2f} for ticket {ticket_id} has been approved. "
+                body=f"SHOBH: Your refund of ${amount:.2f} for ticket {ticket_id} has been approved. "
                      f"It will be processed within 3-5 business days.",
             )
             results["sms_notification"] = _tool_result_to_integration(tool_result, "send_sms")
@@ -366,7 +366,7 @@ class ProductionConnector:
                 company_id=company_id,
                 to=customer_phone,
                 message=(
-                    f"Hello {customer_name}, this is PARWA Support "
+                    f"Hello {customer_name}, this is SHOBH Support "
                     f"calling regarding your ticket {ticket_id}. "
                     f"We wanted to personally follow up to ensure your issue has been resolved. "
                     f"If you need further assistance, please let us know. "
@@ -448,7 +448,7 @@ class ProductionConnector:
                 company_id=company_id,
                 to=customer_phone,
                 message=(
-                    f"Hi {customer_name}, this is PARWA Support "
+                    f"Hi {customer_name}, this is SHOBH Support "
                     f"from your online store. We noticed you left items worth "
                     f"${cart_value:.2f} in your cart. "
                     f"Would you like help completing your purchase? "
