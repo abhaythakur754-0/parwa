@@ -19,6 +19,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytest.skip(
+    "Imports app.core.circuit_breaker_manager (CircuitBreakerManager/"
+    "SingleCircuitBreaker/CircuitState/...) — a module that was never "
+    "merged to main; production circuit breaking lives in "
+    "app.core.parwa_core_bridge (get_parwa_circuit_breaker, Rust-backed). "
+    "Spec kept for revival against the bridge API.",
+    allow_module_level=True,
+)
+
 from app.core.circuit_breaker_manager import (
     CircuitBreakerConfig,
     CircuitBreakerManager,

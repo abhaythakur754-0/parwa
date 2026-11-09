@@ -637,7 +637,7 @@ class TestRAGRetrieverThresholds:
 
     @pytest.mark.asyncio
     async def test_mini_parwa_low_threshold(self):
-        """mini_parwa has lowest threshold (0.5)."""
+        """mini_parwa uses the uniform broad-retrieval threshold (0.1)."""
         result = await self.retriever.retrieve(
             query="plants and garden maintenance",
             company_id="c1",
@@ -645,19 +645,19 @@ class TestRAGRetrieverThresholds:
         )
         # Low threshold means more results can pass
         config = VARIANT_CONFIG["mini_parwa"]
-        assert config["similarity_threshold"] == 0.5
+        assert config["similarity_threshold"] == 0.1
 
     @pytest.mark.asyncio
     async def test_parwa_medium_threshold(self):
-        """parwa has medium threshold (0.6)."""
+        """parwa uses the uniform broad-retrieval threshold (0.1)."""
         config = VARIANT_CONFIG["parwa"]
-        assert config["similarity_threshold"] == 0.6
+        assert config["similarity_threshold"] == 0.1
 
     @pytest.mark.asyncio
     async def test_parwa_high_high_threshold(self):
-        """parwa_high has highest threshold (0.7)."""
+        """parwa_high uses the uniform broad-retrieval threshold (0.1)."""
         config = VARIANT_CONFIG["parwa_high"]
-        assert config["similarity_threshold"] == 0.7
+        assert config["similarity_threshold"] == 0.1
 
     @pytest.mark.asyncio
     async def test_custom_threshold(self):
@@ -1016,9 +1016,12 @@ class TestRAGRetrieverCache:
     @pytest.mark.asyncio
     async def test_cache_miss_returns_result(self):
         """Cache miss still returns a valid result."""
+        # Unique company_id: an earlier test in this file caches the same
+        # ("refund policy", c1, parwa) key — BC-001 tenant isolation means
+        # a fresh company always starts with a cold cache.
         result = await self.retriever.retrieve(
             query="refund policy",
-            company_id="c1",
+            company_id="c_cache_miss_isolated",
             variant_type="parwa",
         )
         assert result.cached is False
@@ -1189,36 +1192,46 @@ class TestRAGRetrieverCacheKey:
     def test_cache_key_includes_company_id(self):
         """Different company_ids produce different keys."""
         r = RAGRetriever()
-        key1 = r._build_cache_key("query", "c1", "parwa", None)
-        key2 = r._build_cache_key("query", "c2", "parwa", None)
+        key1 = r._build_cache_key("query", "c1", "parwa", None, 5)
+        key2 = r._build_cache_key("query", "c2", "parwa", None, 5)
         assert key1 != key2
 
     def test_cache_key_includes_variant(self):
         """Different variants produce different keys."""
         r = RAGRetriever()
-        key1 = r._build_cache_key("query", "c1", "mini_parwa", None)
-        key2 = r._build_cache_key("query", "c1", "parwa", None)
+        key1 = r._build_cache_key("query", "c1", "mini_parwa", None, 3)
+        key2 = r._build_cache_key("query", "c1", "parwa", None, 5)
         assert key1 != key2
 
     def test_cache_key_deterministic(self):
         """Same inputs produce same key."""
         r = RAGRetriever()
-        key1 = r._build_cache_key("test query", "c1", "parwa", {"type": "faq"})
-        key2 = r._build_cache_key("test query", "c1", "parwa", {"type": "faq"})
+        key1 = r._build_cache_key("test query", "c1", "parwa", {"type": "faq"}, 5)
+        key2 = r._build_cache_key("test query", "c1", "parwa", {"type": "faq"}, 5)
         assert key1 == key2
 
     def test_cache_key_case_normalized(self):
         """Query is normalized in cache key."""
         r = RAGRetriever()
-        key1 = r._build_cache_key("Test Query", "c1", "parwa", None)
-        key2 = r._build_cache_key("test query", "c1", "parwa", None)
+        key1 = r._build_cache_key("Test Query", "c1", "parwa", None, 5)
+        key2 = r._build_cache_key("test query", "c1", "parwa", None, 5)
         assert key1 == key2
 
     def test_cache_key_different_filters(self):
         """Different filters produce different keys."""
         r = RAGRetriever()
-        key1 = r._build_cache_key("query", "c1", "parwa", {"type": "faq"})
-        key2 = r._build_cache_key("query", "c1", "parwa", {"type": "guide"})
+        key1 = r._build_cache_key("query", "c1", "parwa", {"type": "faq"}, 5)
+        key2 = r._build_cache_key("query", "c1", "parwa", {"type": "guide"}, 5)
+        assert key1 != key2
+
+    def test_cache_key_includes_top_k(self):
+        """top_k must be part of the key — a top_k=1 request must never
+        receive the cached result of a top_k=5 request (regression: the
+        cached result was stored AFTER top_k truncation, so a smaller
+        top_k caller would silently receive more chunks than asked)."""
+        r = RAGRetriever()
+        key1 = r._build_cache_key("query", "c1", "parwa", None, 1)
+        key2 = r._build_cache_key("query", "c1", "parwa", None, 5)
         assert key1 != key2
 
 
@@ -1527,10 +1540,10 @@ class TestVariantConfig:
                 assert key in config, f"{variant} missing {key}"
 
     def test_thresholds_increasing(self):
-        """Similarity thresholds increase with tier."""
-        assert VARIANT_CONFIG["mini_parwa"]["similarity_threshold"] < \
-               VARIANT_CONFIG["parwa"]["similarity_threshold"] < \
-               VARIANT_CONFIG["parwa_high"]["similarity_threshold"]
+        """Similarity thresholds: uniform 0.1 broad-retrieval across tiers."""
+        assert VARIANT_CONFIG["mini_parwa"]["similarity_threshold"] == \
+               VARIANT_CONFIG["parwa"]["similarity_threshold"] == \
+               VARIANT_CONFIG["parwa_high"]["similarity_threshold"] == 0.1
 
     def test_top_k_increasing(self):
         """Default top_k increases with tier."""

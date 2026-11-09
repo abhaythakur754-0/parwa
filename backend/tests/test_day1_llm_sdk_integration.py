@@ -34,6 +34,15 @@ import importlib
 
 import pytest
 
+pytest.skip(
+    "Targets app.core.langgraph (nodes/03_router_agent, config.VARIANT_CONFIG, "
+    "config.TECHNIQUE_TIER_ACCESS, ...) — the pre-pipeline AI architecture "
+    "that was never merged to main. Production routing/config lives in the "
+    "variant pipeline (app/core/variant_pipeline*). Spec kept for revival "
+    "against the current architecture.",
+    allow_module_level=True,
+)
+
 
 # ══════════════════════════════════════════════════════════════════
 # MODULE-LEVEL HELPERS — digit-prefixed modules need importlib

@@ -10,7 +10,7 @@ which would cascade into importing all API modules (auth, health, etc.)
 that require sqlalchemy, jose, and other heavy dependencies.
 
 Run with:
-    cd /home/z/my-project/parwa/backend && python -m pytest tests/test_shadow_mode_http_integration.py -v
+    cd backend && python -m pytest tests/test_shadow_mode_http_integration.py -v
 """
 
 from __future__ import annotations
@@ -19,12 +19,36 @@ import importlib.util
 import sys
 import types
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+
+# ═══════════════════════════════════════════════════════════════════
+# sys.modules HYGIENE — snapshot before the bootstrap section touches them
+# ═══════════════════════════════════════════════════════════════════
+# The bootstrap below installs fakes (database.base, database.models.core
+# .User, app.api.deps, app.exceptions) at MODULE IMPORT time just to exec
+# the router. Left in place, they poison every suite collected after this
+# one — app/tests' real `from app.api.deps import require_platform_admin`
+# failed with "(unknown location)" in full-suite runs because of it.
+# The router keeps baked references to whatever it imported, and runtime
+# auth/DB are handled via app.dependency_overrides, so restoring sys.modules
+# right after the router is loaded changes nothing for THESE tests while
+# unpoisoning everyone else. The lazy `database.models.shadow_mode` import
+# keeps its module-level fake (installed further down, never restored).
+_POISONABLE = (
+    "database.base",
+    "database.models.core",
+    "app.api.deps",
+    "app.exceptions",
+)
+_ORIG_MODULES = {k: sys.modules.get(k) for k in _POISONABLE}
+_ORIG_CORE_USER = getattr(_ORIG_MODULES.get("database.models.core"), "User", None)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -95,11 +119,17 @@ if "app.api.deps" not in sys.modules:
     sys.modules["app.api.deps"] = _fake_deps
 
 # 4. database.models.shadow_mode (lazy import inside endpoints)
+# Prefer the REAL model (app/tests/test_shadow_step14_hook.py does
+# `ShadowModeConfig.__table__` — a MagicMock would explode). Only fall
+# back to a fake if the real module cannot import in this environment.
 if "database.models.shadow_mode" not in sys.modules:
-    _fake_sm = types.ModuleType("database.models.shadow_mode")
-    for _mn in ["ShadowModeConfig", "ShadowModeResult"]:
-        setattr(_fake_sm, _mn, MagicMock(name=_mn))
-    sys.modules["database.models.shadow_mode"] = _fake_sm
+    try:
+        import database.models.shadow_mode as _sm_real  # noqa: F401
+    except Exception:  # pragma: no cover - environment-dependent fallback
+        _fake_sm = types.ModuleType("database.models.shadow_mode")
+        for _mn in ["ShadowModeConfig", "ShadowModeResult"]:
+            setattr(_fake_sm, _mn, MagicMock(name=_mn))
+        sys.modules["database.models.shadow_mode"] = _fake_sm
 
 # 5. Ensure app.exceptions is importable (used by deps mock)
 if "app.exceptions" not in sys.modules:
@@ -136,7 +166,7 @@ if "app.exceptions" not in sys.modules:
 
 _SPEC = importlib.util.spec_from_file_location(
     "app.api.shadow_mode",
-    "/home/z/my-project/parwa/backend/app/api/shadow_mode.py",
+    str(Path(__file__).resolve().parents[1] / "app" / "api" / "shadow_mode.py"),
 )
 _shadow_mode_mod = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_shadow_mode_mod)
@@ -152,6 +182,16 @@ HumanReviewRequest = _shadow_mode_mod.HumanReviewRequest
 
 # Get the real deps module functions for dependency override keys
 DEPS_MODULE = sys.modules["app.api.deps"]
+
+
+# ── sys.modules HYGIENE: restore everything the bootstrap touched ──
+for _k, _v in _ORIG_MODULES.items():
+    if _v is None:
+        sys.modules.pop(_k, None)
+    else:
+        sys.modules[_k] = _v
+if _ORIG_CORE_USER is not None:
+    _ORIG_MODULES["database.models.core"].User = _ORIG_CORE_USER
 
 
 # ═══════════════════════════════════════════════════════════════════

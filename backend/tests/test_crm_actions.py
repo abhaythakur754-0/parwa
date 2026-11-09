@@ -30,6 +30,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import types
+from pathlib import Path
 from typing import Any, AsyncIterator, Generator
 from unittest.mock import AsyncMock, MagicMock
 
@@ -37,12 +38,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+# Resolve repo locations relative to THIS file — absolute /home/z/... paths
+# break the moment the checkout lives anywhere else.
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
 
 # ── Module loading (avoid app.api.__init__ which has heavy deps) ──
 
 _spec = importlib.util.spec_from_file_location(
     "app.api.crm_actions",
-    "/home/z/my-project/parwa/backend/app/api/crm_actions.py",
+    str(_BACKEND_DIR / "app" / "api" / "crm_actions.py"),
 )
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
@@ -560,7 +566,7 @@ class TestMCPStatusResponseTranslation:
             sys.modules["mcp_server.models"] = md
         spec = importlib.util.spec_from_file_location(
             "mcp_server.integrations.crm_server",
-            "/home/z/my-project/parwa/mcp_server/integrations/crm_server.py",
+            str(_REPO_ROOT / "mcp_server" / "integrations" / "crm_server.py"),
         )
         m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m)

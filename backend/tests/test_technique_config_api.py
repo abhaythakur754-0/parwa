@@ -16,6 +16,7 @@ Minimum 40 tests.
 
 import importlib.util
 import sys
+from pathlib import Path
 from typing import Generator
 
 import pytest
@@ -37,7 +38,7 @@ if _module_path is None:
 
 _spec = importlib.util.spec_from_file_location(
     "app.api.technique_config",
-    "/home/z/my-project/parwa/backend/app/api/technique_config.py",
+    str(Path(__file__).resolve().parents[1] / "app" / "api" / "technique_config.py"),
 )
 _tc_mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_tc_mod)

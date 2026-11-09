@@ -17,15 +17,23 @@ from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── Mock ONLY modules that don't exist in test env ──
+# Prefer the REAL jose package when importable. These module-level fakes
+# poison later-collected suites: app/api/deps.py → app/core/jwt_auth.py
+# does `from jose import JWTError, jwt`, which died with
+# "(unknown location)" in whole-directory runs when this fake won the
+# sys.modules race (collection order: test_jarvis_gaps_* < test_superglue_*).
 if "jose" not in sys.modules:
-    jose_mock = ModuleType("jose")
-    jose_mock.jwt = MagicMock()
-    jose_mock.exceptions = MagicMock()
-    jose_mock.jws = MagicMock()
-    sys.modules["jose"] = jose_mock
-    sys.modules["jose.jwt"] = jose_mock.jwt
-    sys.modules["jose.exceptions"] = jose_mock.exceptions
-    sys.modules["jose.jws"] = jose_mock.jws
+    try:
+        import jose  # noqa: F401
+    except ImportError:  # pragma: no cover - environment-dependent fallback
+        jose_mock = ModuleType("jose")
+        jose_mock.jwt = MagicMock()
+        jose_mock.exceptions = MagicMock()
+        jose_mock.jws = MagicMock()
+        sys.modules["jose"] = jose_mock
+        sys.modules["jose.jwt"] = jose_mock.jwt
+        sys.modules["jose.exceptions"] = jose_mock.exceptions
+        sys.modules["jose.jws"] = jose_mock.jws
 
 
 class TestJV01ZAIClientSDKInit(unittest.TestCase):

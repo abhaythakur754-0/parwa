@@ -31,6 +31,52 @@ if not os.environ.get("ENVIRONMENT"):
 
 
 # ════════════════════════════════════════════════════════════════════════
+# Phase 1.5: Prefer the REAL database package when it is importable
+# ════════════════════════════════════════════════════════════════════════
+# The fakes below are installed via sys.modules.setdefault, which checks
+# dict membership — NOT importability. When this conftest is collected
+# before app/tests/conftest.py (e.g. `pytest tests/ app/tests/`), the fake
+# `database.models` wins and app/tests' real
+# `from database.models.qa_score import QAReportCard` dies with
+# "'database.models' is not a package" — the full suite could never run in
+# one command. Importing the real chain FIRST makes every setdefault a
+# no-op for the package keys, while fake SUBMODULE keys (jarvis_cc, core,
+# tickets, ...) still install exactly as before. If the real package
+# cannot import in this environment, fall back to the fakes unchanged.
+try:
+    import database  # noqa: F401
+    import database.base  # noqa: F401
+    import database.models  # noqa: F401
+    # shared.knowledge_base.vector_search EXISTS on disk (with the real
+    # MockVectorStore) and is imported by name from app/tests suites
+    # (test_rag_retrieval, test_all_gaps_d6_d7, test_day7_gaps). Importing
+    # it here makes the _FAKE_KB_VECTOR setdefault a no-op so those suites
+    # exercise the REAL implementation. NOTE: shared.knowledge_base.manager
+    # / retriever / chunker do NOT exist on disk — their fakes below still
+    # install. shared.utils fakes are also left alone (tests rely on the
+    # mocked hash/verify behaviour).
+    import shared  # noqa: F401
+    import shared.knowledge_base  # noqa: F401
+    import shared.knowledge_base.vector_search  # noqa: F401
+    # reindexing also exists on disk (ReindexJob/ReindexingManager) and is
+    # imported by name from app/tests (test_rag_retrieval, test_day7_gaps).
+    import shared.knowledge_base.reindexing  # noqa: F401
+    # Real model modules that app/tests/conftest.py imports by name for its
+    # ORM fixtures (JarvisMessage, DocumentChunk, KnowledgeDocument). If
+    # these stay unfaked-here, the setdefault fakes below would win and
+    # app/tests fixtures would build tables from MagicMock classes.
+    import database.models.jarvis  # noqa: F401
+    import database.models.onboarding  # noqa: F401
+except Exception:  # pragma: no cover - environment-dependent fallback
+    for _k in ("database", "database.base", "database.models",
+               "database.models.jarvis", "database.models.onboarding",
+               "shared", "shared.knowledge_base",
+               "shared.knowledge_base.vector_search",
+               "shared.knowledge_base.reindexing"):
+        sys.modules.pop(_k, None)
+
+
+# ════════════════════════════════════════════════════════════════════════
 # Phase 2: Mock modules that DON'T exist on disk
 # ════════════════════════════════════════════════════════════════════════
 

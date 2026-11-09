@@ -1171,3 +1171,79 @@ KNOWN REMAINING DEBT (honest): ~150 hardcoded /home/z/my-project paths
 across legacy test files (week1_security, langgraph, security_gaps...
 many suites can't run on a moved checkout); paddle_service module never
 committed; combined-session conftest pollution. All pre-existing.
+
+## Day 6 (cont. 2) — Full-suite runnable in ONE command + RAG cache bug fix
+
+User said "do whatever you want, make it production ready." Prior session
+left 2 candidates; this session verified both were already done in a22d4b9
+(jarvis_cc test debt + Draft-this-gap), then went after the biggest
+production-readiness blocker: the backend suite could not even COLLECT as
+one command (13 collection errors + sys.modules poisoning).
+
+ROOT CAUSES FIXED (all pre-existing branch-inherited debt):
+- tests/conftest.py installed fake `database*`/`shared*` modules via
+  sys.modules.setdefault — setdefault checks dict membership, NOT
+  importability. When tests/ collected first, fakes won and app/tests'
+  real `from database.models.qa_score import QAReportCard` died with
+  "'database.models' is not a package". FIX: Phase 1.5 imports the REAL
+  chain first (database, database.base, database.models, jarvis,
+  onboarding, shared.knowledge_base.vector_search + reindexing); fake
+  SUBMODULE keys (jarvis_cc, core, tickets... manager/retriever/chunker
+  which don't exist on disk) still install via setdefault unchanged.
+- test_shadow_mode_http_integration.py installed fake app.api.deps +
+  overwrote database.models.core.User + faked database.models.shadow_mode
+  at MODULE level, never restored → poisoned later-collected suites
+  (require_platform_admin "(unknown location)", shadow_step14
+  "__table__" on MagicMock). FIX: snapshot/restore around router exec;
+  shadow_mode fake now prefers the REAL model (which exists).
+- test_jarvis_gaps_jv01_jv03_{unit,integration}.py faked `jose` at module
+  level → app.core.jwt_auth `from jose import JWTError` died in whole-dir
+  runs. FIX: real-first with fake fallback (real python-jose IS in venv).
+- 3 test files used hardcoded /home/z/my-project/parwa/... paths
+  (crm_actions, technique_config, shadow_mode HTTP) — resolved relative
+  to __file__ now (same pattern as a22d4b9's jarvis_cc fix).
+- 5 dead paddle e2e tests DELETED (TestPaddleWebhookSessionUpdate → kept
+  the paddle-independent session-context test as
+  TestDemoPackSessionContext; Paddle removed as billing provider
+  2026-06-24 per app/api/webhooks.py, PaddleService never existed in git
+  history). e2e now 43/43 ZERO failures.
+- 6 stale-architecture suites skip(allow_module_level=True) with reasons:
+  test_day1_llm_sdk_integration (old app.core.langgraph arch — never
+  merged), test_circuit_breaker_manager + test_self_healing_service +
+  week7/test_load_and_failover (old pure-Python CB manager — prod uses
+  parwa_core_bridge Rust-backed singleton), test_phase9_phase10_{unit,
+  integration} (app.core.integration_rate_limiter never merged). Specs
+  preserved for revival; collection stays green.
+
+REAL PRODUCT BUG FIXED:
+- app/core/rag_retrieval.py RAGRetriever cache key omitted top_k —
+  retrieve() stores the result AFTER top_k truncation, so a top_k=1
+  request could receive the CACHED result of a top_k=5 request (user gets
+  more chunks than asked; token cost + inconsistent behavior). top_k is
+  now part of the cache key; regression test added
+  (test_cache_key_includes_top_k). Found by the newly-runnable rag suites.
+- Stale rag/day7 test specs updated to production reality: uniform
+  similarity_threshold 0.1 across tiers (was asserting old 0.5/0.6/0.7),
+  test_cache_miss uses tenant-isolated company_id (BC-001).
+
+VERIFICATION:
+- Full collection: 15,498 tests, ZERO collection errors (was 13 errors,
+  interrupted).
+- Product-heart suites green: jarvis_cc 170/170, day1 e2e 43/43,
+  rag+day7+all_gaps 315/315, crm_actions+technique_config+jarvis_gaps
+  105/105, shadow HTTP 46/46 + 6 module skips, tests/unit 211/211.
+- app/tests chunk 1 (42 files): 2084 passed / 236 failed — FIRST-TIME
+  runs of suites that could not even collect on the a22d4b9 baseline
+  (worktree run of same chunk: 1 collection error, interrupted in 7.7s).
+  Failures are stale branch-era specs, NOT regressions; documented debt.
+- Frontend: bunx tsc --noEmit = 85 errors, IDENTICAL to pre-session
+  baseline (repo runs ignoreBuildErrors: true; no frontend files touched).
+- PARWA rebrand audit re-run: zero customer-visible PARWA product-name
+  strings remain; leftovers are internal identifiers (parwa_ cookies/
+  tokens/analytics keys, mini_parwa tier ids) and the live parwa.buzz
+  domain — intentionally untouched (renaming breaks live sessions).
+
+KNOWN REMAINING DEBT (honest, all pre-existing): ~236 first-run failures
+in app/tests chunk 1 + large pre-existing failures across tests/ tree
+(v2_unit/comprehensive baseline-verified); 8988 tests in tests/ mostly
+never bulk-run; ESLint broken (tsc used instead).

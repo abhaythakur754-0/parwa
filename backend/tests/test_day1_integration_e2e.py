@@ -816,186 +816,21 @@ class TestAwarenessCommandIntegration:
 
 
 # ══════════════════════════════════════════════════════════════════
-# FLOW 3: Paddle Webhook → Session Update Flow
+# FLOW 3: Demo Pack → Session Context Update
 # ══════════════════════════════════════════════════════════════════
 
 
-class TestPaddleWebhookSessionUpdate:
-    """Integration test: Paddle webhook → session updated → new limits used.
+class TestDemoPackSessionContext:
+    """Integration test: demo pack result → update_cc_context → new limits.
 
-    Tests that Paddle webhook events correctly update session data
-    which is then used by subsequent operations.
+    History: FLOW 3 was originally TestPaddleWebhookSessionUpdate (6 tests)
+    targeting a `PaddleService` that was never implemented. Paddle was
+    removed as a billing provider on 2026-06-24 — Razorpay is the sole
+    provider (see app/api/webhooks.py SUPPORTED_PROVIDERS) — so the five
+    paddle-webhook tests were deleted as dead debt. The paddle-independent
+    session-context test below remains: it covers the demo-pack → context
+    merge path via jarvis_cc_service.update_cc_context.
     """
-
-    def test_demo_pack_webhook_updates_session_data(self, company_id):
-        """Flow: demo_pack webhook → PaddleService returns updated data → session updated.
-
-        Verifies:
-        - handle_demo_pack_webhook extracts session_id from custom_data
-        - Returns correct pack limits (500 messages, 24h expiry)
-        - Pack type is set to "demo"
-        - Demo call remaining is True
-        """
-        import asyncio
-        from app.services.paddle_service import PaddleService
-
-        service = PaddleService(client=MagicMock())
-
-        event_data = {
-            "transaction_id": "txn_demo_001",
-            "customer_id": "cust_001",
-            "amount": "1.00",
-            "currency": "USD",
-            "status": "completed",
-            "custom_data": {
-                "session_id": "cc_sess_e2e_001",
-                "pack_type": "demo",
-                "source": "jarvis_onboarding",
-            },
-        }
-
-        result = asyncio.run(service.handle_demo_pack_webhook(event_data))
-
-        # Verify the returned data for session update
-        assert result["status"] == "processed"
-        assert result["action"] == "demo_pack_activated"
-        assert result["session_id"] == "cc_sess_e2e_001"
-        assert result["pack_type"] == "demo"
-        assert result["messages_allowed"] == 500
-        assert result["remaining_today"] == 500
-        assert result["demo_call_remaining"] is True
-        assert result["demo_call_minutes"] == 3
-
-        # Verify expiry is 24 hours from now
-        from datetime import datetime, timezone
-        expiry = datetime.fromisoformat(result["pack_expiry"])
-        now = datetime.now(timezone.utc)
-        assert (expiry - now).total_seconds() > 23 * 3600  # At least 23 hours
-        assert (expiry - now).total_seconds() <= 25 * 3600  # At most 25 hours
-
-    def test_demo_pack_webhook_missing_session_id_raises(self, company_id):
-        """Flow: demo_pack webhook with no session_id → WebhookProcessingError.
-
-        Verifies:
-        - Missing session_id in custom_data raises WebhookProcessingError
-        - Error includes transaction_id in details
-        """
-        import asyncio
-        from app.services.paddle_service import (
-            PaddleService, WebhookProcessingError,
-        )
-
-        service = PaddleService(client=MagicMock())
-
-        event_data = {
-            "transaction_id": "txn_demo_002",
-            "amount": "1.00",
-            "status": "completed",
-            "custom_data": {},  # No session_id!
-        }
-
-        with pytest.raises(WebhookProcessingError) as exc_info:
-            asyncio.run(service.handle_demo_pack_webhook(event_data))
-
-        assert "session_id" in str(exc_info.value.message).lower()
-
-    def test_subscription_webhook_records_hired_variants(self, company_id):
-        """Flow: subscription webhook → hired_variants recorded → industry captured.
-
-        Verifies:
-        - handle_subscription_webhook builds hired_variants list
-        - Each variant includes quantity and paddle_price_id
-        - Industry and variant_ids are captured from custom_data
-        """
-        import asyncio
-        from app.services.paddle_service import PaddleService
-
-        service = PaddleService(client=MagicMock())
-
-        event_data = {
-            "subscription_id": "sub_001",
-            "customer_id": "cust_001",
-            "status": "active",
-            "currency": "USD",
-            "custom_data": {
-                "session_id": "cc_sess_e2e_001",
-                "pack_type": "subscription",
-                "source": "jarvis_onboarding",
-                "industry": "e-commerce",
-                "variant_ids": ["returns_refunds", "shipping_inquiries"],
-                "variant_quantities": {"returns_refunds": 2, "shipping_inquiries": 1},
-            },
-        }
-
-        result = asyncio.run(service.handle_subscription_webhook(event_data))
-
-        # Verify hired variants
-        assert result["status"] == "processed"
-        assert result["action"] == "subscription_activated"
-        assert result["session_id"] == "cc_sess_e2e_001"
-        assert result["subscription_id"] == "sub_001"
-        assert result["industry"] == "e-commerce"
-        assert len(result["hired_variants"]) == 2
-
-        # Check individual variants
-        variant_ids = [v["id"] for v in result["hired_variants"]]
-        assert "returns_refunds" in variant_ids
-        assert "shipping_inquiries" in variant_ids
-
-        # Check quantities
-        for variant in result["hired_variants"]:
-            if variant["id"] == "returns_refunds":
-                assert variant["quantity"] == 2
-            elif variant["id"] == "shipping_inquiries":
-                assert variant["quantity"] == 1
-
-    def test_subscription_webhook_missing_session_id_raises(self, company_id):
-        """Flow: subscription webhook with no session_id → WebhookProcessingError.
-
-        Verifies:
-        - Missing session_id in custom_data raises WebhookProcessingError
-        """
-        import asyncio
-        from app.services.paddle_service import (
-            PaddleService, WebhookProcessingError,
-        )
-
-        service = PaddleService(client=MagicMock())
-
-        event_data = {
-            "subscription_id": "sub_002",
-            "status": "active",
-            "custom_data": {},  # No session_id!
-        }
-
-        with pytest.raises(WebhookProcessingError) as exc_info:
-            asyncio.run(service.handle_subscription_webhook(event_data))
-
-        assert "session_id" in str(exc_info.value.message).lower()
-
-    def test_idempotency_prevents_duplicate_webhook_processing(self, company_id):
-        """Flow: duplicate event → is_duplicate_event returns True → skipped.
-
-        Verifies:
-        - PaddleService.is_duplicate_event correctly detects duplicates
-        - mark_event_processed adds event to processed set
-        """
-        from app.services.paddle_service import PaddleService
-
-        service = PaddleService(client=MagicMock())
-        processed_ids = set()
-
-        event_id = "evt_001"
-
-        # First check — not a duplicate
-        assert service.is_duplicate_event(event_id, processed_ids) is False
-
-        # Mark as processed
-        service.mark_event_processed(event_id, processed_ids)
-        assert event_id in processed_ids
-
-        # Second check — is a duplicate
-        assert service.is_duplicate_event(event_id, processed_ids) is True
 
     def test_demo_pack_data_applied_to_session_context(
         self, mock_db, sample_cc_session, company_id, user_id, session_id,

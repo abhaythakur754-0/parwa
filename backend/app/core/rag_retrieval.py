@@ -193,7 +193,9 @@ class RAGRetriever:
             similarity_threshold = config["similarity_threshold"]
 
         # ── Step 1: Check cache ──────────────────────────────────
-        cache_key = self._build_cache_key(query, company_id, variant_type, filters)
+        cache_key = self._build_cache_key(
+            query, company_id, variant_type, filters, top_k
+        )
         cached_result = await self._check_cache(company_id, cache_key)
         if cached_result is not None:
             cached_result.retrieval_time_ms = round(
@@ -537,8 +539,16 @@ class RAGRetriever:
         company_id: str,
         variant_type: str,
         filters: Optional[Dict[str, Any]],
+        top_k: int,
     ) -> str:
-        """Build a deterministic cache key."""
+        """Build a deterministic cache key.
+
+        top_k MUST be part of the key: retrieve() stores the result AFTER
+        truncating to top_k, so two requests that differ only in top_k
+        would otherwise share one entry and the smaller-top_k caller would
+        receive the larger cached result (product bug found by
+        test_top_k_one / day7 keyword-fallback ordering).
+        """
         query_hash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()[:16]
         filter_hash = ""
         if filters:
@@ -546,7 +556,7 @@ class RAGRetriever:
             filter_hash = hashlib.sha256(
                 json.dumps(filters, sort_keys=True).encode("utf-8")
             ).hexdigest()[:8]
-        return f"rag:{company_id}:{variant_type}:{query_hash}:{filter_hash}"
+        return f"rag:{company_id}:{variant_type}:{top_k}:{query_hash}:{filter_hash}"
 
     async def _check_cache(
         self, company_id: str, cache_key: str
