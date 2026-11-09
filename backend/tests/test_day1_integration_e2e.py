@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch, call, PropertyMock
@@ -74,6 +75,20 @@ class _AttrChainer:
         return self
     def __bool__(self):
         return True
+
+
+def _run(coro):
+    """Drive async service calls from sync integration tests.
+
+    ASYNC FIX follow-up: send_cc_message became async so one slow LLM call
+    can no longer block FastAPI's event loop. Tests stay sync and complete
+    the coroutine on a dedicated event loop.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -282,7 +297,7 @@ class TestE2ETicketResolutionFlow:
 
         from app.services.jarvis_cc_service import send_cc_message
 
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db=mock_db,
             session_id=session_id,
             user_id=user_id,
@@ -290,7 +305,7 @@ class TestE2ETicketResolutionFlow:
             user_message="I'd like a refund for my last order please",
             ticket_id="ticket_001",
             channel="chat",
-        )
+        ))
 
         # Verify variant pipeline was called with correct context
         mock_pipeline_sync.assert_called_once()
@@ -348,13 +363,13 @@ class TestE2ETicketResolutionFlow:
 
             from app.services.jarvis_cc_service import send_cc_message
 
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id=session_id,
                 user_id=user_id,
                 company_id=company_id,
                 user_message="I need a refund for order #12345",
-            )
+            ))
 
             # Should have received some response (never crash - BC-008)
             assert ai_msg is not None
@@ -419,13 +434,13 @@ class TestE2ETicketResolutionFlow:
 
             from app.services.jarvis_cc_service import send_cc_message
 
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id=session_id,
                 user_id=user_id,
                 company_id=company_id,
                 user_message="Hello, I need help",
-            )
+            ))
 
             # Pipeline should NOT have been called
             mock_pipeline_sync.assert_not_called()
@@ -556,13 +571,13 @@ class TestE2ETicketResolutionFlow:
 
             from app.services.jarvis_cc_service import send_cc_message
 
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id=session_id,
                 user_id=user_id,
                 company_id=company_id,
                 user_message="/pause all AI",
-            )
+            ))
 
             # Verify command was processed
             assert metadata["pipeline_status"] == "command_executed"
@@ -1889,13 +1904,13 @@ class TestErrorPropagationAndFallback:
 
             from app.services.jarvis_cc_service import send_cc_message
 
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id=session_id,
                 user_id=user_id,
                 company_id=company_id,
                 user_message="Help me!",
-            )
+            ))
 
             # Should still get a friendly response
             assert ai_msg is not None

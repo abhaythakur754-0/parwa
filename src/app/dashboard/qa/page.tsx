@@ -19,12 +19,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import KPICard from '@/components/dashboard/KPICard';
 import {
   qaApi,
   type QaSummary,
   type QaFlaggedConversation,
 } from '@/lib/qa-api';
+import { ghostwriterApi } from '@/lib/ghostwriter-api';
 import { getErrorMessage } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -40,6 +42,7 @@ import {
   Loader2,
   Info,
   ListChecks,
+  FilePlus2,
 } from 'lucide-react';
 
 // ── Small building blocks ─────────────────────────────────────────────
@@ -131,20 +134,64 @@ function VolumeBars({ volumeByDay }: { volumeByDay: Record<string, number> }) {
   );
 }
 
+/**
+ * Derive a Ghostwriter topic from a flagged conversation.
+ *
+ * The customer's own question is the honest topic — it's the thing the
+ * knowledge base failed to answer. Falls back to the flag reasons when no
+ * excerpt was recorded (older rows). Backend accepts 3-255 chars.
+ */
+function topicFromConvo(convo: QaFlaggedConversation): string {
+  const excerpt = (convo.question_excerpt || '').trim();
+  if (excerpt.length >= 3) return excerpt.slice(0, 255);
+  const reasons = (convo.flag_reasons || []).map((r) => r.replace(/_/g, ' ')).join(', ');
+  const fallback = reasons
+    ? `Knowledge gap: ${reasons}`
+    : 'Knowledge gap from a flagged conversation';
+  return fallback.slice(0, 255);
+}
+
 /** Expandable row in the Problems panel. */
 function FlaggedRow({ convo }: { convo: QaFlaggedConversation }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const hasDetails =
     (convo.evidence && convo.evidence.length > 0) ||
     convo.officer_notes ||
     convo.officer_verdict;
 
+  /**
+   * Close the loop: flagged conversation → Ghostwriter draft → human
+   * approves → article lands in the knowledge store. The draft is ONE
+   * cheap LLM call over this company's own evidence — can take tens of
+   * seconds, so the button stays disabled with a spinner meanwhile.
+   */
+  const draftGap = async () => {
+    if (drafting) return;
+    setDrafting(true);
+    try {
+      const draft = await ghostwriterApi.createDraft(topicFromConvo(convo));
+      toast.success('Draft ready for your review', {
+        description: draft.title || draft.gap_topic,
+        action: {
+          label: 'Open drafts',
+          onClick: () => router.push('/dashboard/knowledge'),
+        },
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02]">
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-stretch">
       <button
         type="button"
         onClick={() => hasDetails && setOpen(!open)}
-        className={`w-full text-left px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 ${
+        className={`flex-1 min-w-0 text-left px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 ${
           hasDetails ? 'cursor-pointer hover:bg-white/[0.03]' : 'cursor-default'
         }`}
         aria-expanded={open}
@@ -183,29 +230,28 @@ function FlaggedRow({ convo }: { convo: QaFlaggedConversation }) {
           )}
         </div>
       </button>
-      {open && hasDetails && (
-        <div className="px-4 pb-4 pt-1 border-t border-white/[0.05] space-y-2">
-          {convo.officer_verdict && (
-            <p className="text-xs text-zinc-400">
-              <span className="text-zinc-500 font-medium">Officer review:</span>{' '}
-              <span className={convo.officer_verdict === 'pass' ? 'text-emerald-400' : 'text-red-400'}>
-                {convo.officer_verdict}
-              </span>
-            </p>
+      <div className="shrink-0 flex items-center pr-3 pl-1 border-l border-white/[0.04]">
+        <button
+          type="button"
+          onClick={draftGap}
+          disabled={drafting}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 disabled:opacity-60 disabled:pointer-events-none transition-colors"
+          title="Have Ghostwriter draft an article for this gap from your own docs — you approve before anything is used"
+          aria-label={`Draft article for gap: ${convo.question_excerpt || convo.flag_reasons?.join(', ') || 'flagged conversation'}`}
+        >
+          {drafting ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+              Drafting…
+            </>
+          ) : (
+            <>
+              <FilePlus2 className="w-3.5 h-3.5" aria-hidden />
+              Draft this gap
+            </>
           )}
-          {convo.officer_notes && (
-            <p className="text-xs text-zinc-400 whitespace-pre-wrap">
-              <span className="text-zinc-500 font-medium">Notes: </span>
-              {convo.officer_notes}
-            </p>
-          )}
-          {(convo.evidence || []).map((ev, i) => (
-            <p key={i} className="text-xs text-zinc-500 font-mono break-all">
-              • {typeof ev === 'string' ? ev : JSON.stringify(ev)}
-            </p>
-          ))}
-        </div>
-      )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -342,7 +388,7 @@ export default function QaReportCardPage() {
       {/* Problems panel */}
       <SectionCard
         title="Problems caught"
-        subtitle={`${flaggedTotal} flagged conversation${flaggedTotal === 1 ? '' : 's'} — click a row to see why`}
+        subtitle={`${flaggedTotal} flagged conversation${flaggedTotal === 1 ? '' : 's'} — click a row to see why, or draft the missing article`}
       >
         {isLoading ? (
           <div className="space-y-2">

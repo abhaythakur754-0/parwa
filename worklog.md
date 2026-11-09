@@ -1127,3 +1127,47 @@ TestSendCcMessage/TestRateLimiting are pre-existing branch issues
 
 NEXT: 9 pre-existing jarvis_cc send/rate-limit failures; Ghostwriter gap
 -> "Draft this gap" button wiring on the QA problems panel.
+
+Day 7 — jarvis_cc test debt paid + QA → Ghostwriter loop closed
+
+JARVIS_CC TESTS (54 stale failures → 0):
+- Root cause was NOT the service: send_cc_message went async (ASYNC FIX
+  2026-08-12, stops 60s event-loop blocking) but 3 test files still called
+  it synchronously — pytest raised "coroutine never awaited" and DID-NOT-
+  RAISE ghosts. Fixed tests, not the service: _run() helper drives the
+  coroutine (new_event_loop + run_until_complete, NOT asyncio.run — the
+  legacy-fallback test patches asyncio.run globally, so the helper must
+  not touch it).
+- test_jarvis_cc_api.py also had TWO hardcoded absolute paths
+  (/home/z/my-project/parwa/... from another checkout) — resolved
+  relative to __file__ now. Endpoint test updated to AsyncMock +
+  asyncio.run (endpoint is async too).
+- day1 welcome test asserted "PARWA" in msg — service correctly says
+  SHOBH since the sweep; assertion flipped to SHOBH-brand check.
+- e2e: 5th stale call site found + wrapped; has_variant_tier_in_context
+  now validates tier against TIER_TO_VARIANT_ID keys (unknown/corrupt
+  tier → direct-AI fallback instead of pipeline guessing mini_parwa and
+  spending money on a guessed persona; jarvis chat.py consumer is
+  try/except-wrapped, safe).
+- PER-SUITE GREEN: cc_service 55/55, cc_api 46/46, day1_cc 69/69, e2e
+  43/48 (remaining 5 = app.services.paddle_service never existed in git
+  history — structural, out of scope). v2_unit 25 / comprehensive 80
+  failures pre-existing, untouched (baseline-verified via stash).
+- NOTE: running all 8 suites in ONE pytest session still mass-fails
+  (238 baseline / 195 now) — pre-existing sys.modules conftest pollution
+  across test dirs; run suites individually or in their natural groups.
+
+QA → GHOSTWRITER ("Draft this gap"):
+- Every flagged row on /dashboard/qa now has a Draft action beside the
+  expand button (sibling, not nested — no button-in-button). Topic =
+  customer's own question_excerpt (the honest gap), fallback to flag
+  reasons for old rows. POSTs /api/ghostwriter/drafts through the
+  existing proxy; spinner while the ONE LLM call runs (tens of seconds);
+  success toast carries an "Open drafts" action → /dashboard/knowledge
+  where GhostwriterDraftsCard does approve/reject. Human approval before
+  publish remains the only path — nothing auto-publishes.
+
+KNOWN REMAINING DEBT (honest): ~150 hardcoded /home/z/my-project paths
+across legacy test files (week1_security, langgraph, security_gaps...
+many suites can't run on a moved checkout); paddle_service module never
+committed; combined-session conftest pollution. All pre-existing.

@@ -54,6 +54,7 @@ from app.core.variant_tier_mapper import (
     resolve_tier_from_context,
     resolve_industry_from_context,
     get_tier_metadata,
+    TIER_TO_VARIANT_ID,
 )
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
 from app.logger import get_logger
@@ -493,23 +494,32 @@ def process_onboarding_message_sync(
 
 
 def has_variant_tier_in_context(session_context: Dict[str, Any]) -> bool:
-    """Check if a session context has a variant tier set.
+    """Check if a session context has a KNOWN variant tier set.
 
     Used by jarvis_service to decide whether to route through the
     PARWA pipeline or fall back to direct AI.
+
+    Contract: an unknown/corrupted tier string must return False so the
+    caller falls back to cheap direct AI, instead of entering the pipeline
+    where the tier mapper would silently guess mini_parwa (spends money on
+    a guessed persona). Known tiers are the canonical values in
+    variant_tier_mapper (mini_parwa / parwa / parwa_high).
 
     Args:
         session_context: The Jarvis session's context_json (dict).
 
     Returns:
-        True if variant_tier or enough context exists to resolve one.
+        True if a resolvable, recognized tier (or equivalent) is present.
     """
     try:
         if not session_context or not isinstance(session_context, dict):
             return False
 
-        # Direct tier
-        if session_context.get("variant_tier"):
+        known_tiers = set(TIER_TO_VARIANT_ID.keys())
+
+        # Direct tier — must be a tier the pipeline actually knows.
+        tier = session_context.get("variant_tier")
+        if tier and str(tier).strip().lower() in known_tiers:
             return True
 
         # Variant ID that maps to a tier

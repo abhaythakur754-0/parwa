@@ -13,6 +13,7 @@ BC-008: All tests verify graceful degradation on invalid inputs.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import pytest
 from datetime import datetime, timezone
@@ -39,6 +40,16 @@ from app.services.jarvis_cc_service import (
 )
 from app.exceptions import NotFoundError, ValidationError, RateLimitError
 from database.models.jarvis import JarvisSession, JarvisMessage
+
+
+def _run(coro):
+    """Drive async service calls from sync unit tests.
+
+    ASYNC FIX follow-up: send_cc_message became async so one slow LLM call
+    can no longer block FastAPI's event loop for up to 60s. These unit
+    tests stay sync and simply complete the coroutine with asyncio.run().
+    """
+    return asyncio.run(coro)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -425,52 +436,52 @@ class TestSendCcMessage:
         mock_db.query.return_value.filter.return_value.first.return_value = sample_cc_session
 
         with pytest.raises(ValidationError):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="",
-            )
+            ))
 
     def test_rejects_whitespace_only_message(self, mock_db, sample_cc_session):
         """Should raise ValidationError for whitespace-only messages."""
         mock_db.query.return_value.filter.return_value.first.return_value = sample_cc_session
 
         with pytest.raises(ValidationError):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="   ",
-            )
+            ))
 
     def test_rejects_oversized_message(self, mock_db, sample_cc_session):
         """Should raise ValidationError for messages over 10K chars."""
         mock_db.query.return_value.filter.return_value.first.return_value = sample_cc_session
 
         with pytest.raises(ValidationError):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="x" * 10001,
-            )
+            ))
 
     def test_raises_not_found_for_missing_session(self, mock_db):
         """Should raise NotFoundError for non-existent session."""
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
         with pytest.raises(NotFoundError):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="nonexistent",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="Hello",
-            )
+            ))
 
     @patch("app.services.jarvis_cc_service.process_customer_care_message_sync", create=True)
     def test_routes_through_pipeline_bridge(self, mock_pipeline, mock_db, sample_cc_session):
@@ -503,13 +514,13 @@ class TestSendCcMessage:
             "app.core.variant_pipeline_bridge.process_customer_care_message_sync",
             return_value=mock_result,
         ):
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="I need help with my billing",
-            )
+            ))
 
         # Should save both user and AI messages
         assert mock_db.add.call_count >= 2
@@ -540,13 +551,13 @@ class TestSendCcMessage:
         mock_db.query.return_value.filter.return_value.order_by.return_value.first.side_effect = mock_first
         mock_db.query.return_value.filter.return_value.first.side_effect = mock_first
 
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db=mock_db,
             session_id="cc_session_001",
             user_id="user_001",
             company_id="company_001",
             user_message="Help me!",
-        )
+        ))
 
         assert metadata.get("ai_paused") is True
 
@@ -577,13 +588,13 @@ class TestSendCcMessage:
             "app.core.variant_pipeline_bridge.process_customer_care_message_sync",
             return_value=mock_result,
         ):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="Hello",
-            )
+            ))
 
         # Counters should have been incremented
         assert sample_cc_session.message_count_today == initial_today + 1
@@ -880,13 +891,13 @@ class TestRateLimiting:
         mock_db.query.return_value.filter.return_value.first.return_value = sample_cc_session
 
         with pytest.raises(RateLimitError):
-            send_cc_message(
+            _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="This should be rate limited",
-            )
+            ))
 
     def test_allows_message_below_limit(self, mock_db, sample_cc_session):
         """Should allow messages when below daily limit."""
@@ -914,13 +925,13 @@ class TestRateLimiting:
             return_value=mock_result,
         ):
             # Should not raise
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db=mock_db,
                 session_id="cc_session_001",
                 user_id="user_001",
                 company_id="company_001",
                 user_message="This should work",
-            )
+            ))
 
 
 # ══════════════════════════════════════════════════════════════════

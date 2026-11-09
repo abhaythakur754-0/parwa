@@ -16,13 +16,16 @@ dependency chain.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 import types
+from pathlib import Path
+
 import pytest
 from datetime import datetime, timezone
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -330,9 +333,13 @@ def _import_jarvis_cc_helpers():
 
     # Now import the jarvis_cc module directly from file
     import importlib.util
+    # Resolve relative to THIS test file — an absolute path from another
+    # machine/checkout (/home/z/my-project/parwa/...) breaks the suite the
+    # moment the repo lives anywhere else.
+    _backend_root = Path(__file__).resolve().parents[2]
     spec = importlib.util.spec_from_file_location(
         "app.api.jarvis_cc",
-        "/home/z/my-project/parwa/backend/app/api/jarvis_cc.py",
+        str(_backend_root / "app" / "api" / "jarvis_cc.py"),
     )
     module = importlib.util.module_from_spec(spec)
     sys.modules["app.api.jarvis_cc"] = module
@@ -522,8 +529,11 @@ class TestSendCcMessageEndpoint:
         pipeline_meta = {"quality_score": 0.85, "technique_used": "chain_of_thought"}
 
         with patch.object(cc, "jarvis_cc_service") as mock_svc:
-            mock_svc.send_cc_message.return_value = (
-                sample_user_message, sample_ai_message, pipeline_meta
+            # ASYNC FIX follow-up: the endpoint and service are both async now.
+            # AsyncMock makes `await jarvis_cc_service.send_cc_message(...)`
+            # resolve to the tuple; asyncio.run drives the async endpoint.
+            mock_svc.send_cc_message = AsyncMock(
+                return_value=(sample_user_message, sample_ai_message, pipeline_meta)
             )
 
             from app.schemas.jarvis_cc import JarvisCCMessageSend
@@ -531,7 +541,9 @@ class TestSendCcMessageEndpoint:
                 content="I need help with my billing",
                 session_id="cc_session_001",
             )
-            result = cc.send_cc_message(body=body, user=mock_user, db=MagicMock())
+            result = asyncio.run(
+                cc.send_cc_message(body=body, user=mock_user, db=MagicMock())
+            )
 
         assert result.role == "jarvis"
         assert result.pipeline_metadata == pipeline_meta
@@ -808,7 +820,10 @@ class TestRouterRegistration:
         assert "/session/health" in route_suffixes
 
     def test_api_init_includes_cc_router(self):
-        with open("/home/z/my-project/parwa/backend/app/api/__init__.py") as f:
+        # Resolve relative to this test file — hardcoded absolute paths break
+        # the suite the moment the repo is checked out anywhere else.
+        _backend_root = Path(__file__).resolve().parents[2]
+        with open(_backend_root / "app" / "api" / "__init__.py") as f:
             content = f.read()
         assert "jarvis_cc" in content
         assert "jarvis_cc.router" in content

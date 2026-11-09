@@ -19,6 +19,7 @@ import sys
 import os
 import json
 import types
+import asyncio
 import pytest
 from unittest.mock import MagicMock, patch, call
 from datetime import datetime, timedelta, timezone
@@ -83,6 +84,24 @@ def _kwarg_mock(**kwargs):
     for k, v in kwargs.items():
         setattr(m, k, v)
     return m
+
+
+def _run(coro):
+    """Drive async service calls from sync unit tests.
+
+    ASYNC FIX follow-up: send_cc_message became async so one slow LLM call
+    can no longer block FastAPI's event loop. Tests stay sync and complete
+    the coroutine on a dedicated event loop.
+
+    Uses new_event_loop() + run_until_complete() instead of asyncio.run()
+    because some tests patch "asyncio.run" globally (legacy-fallback test)
+    and that patch must only affect the service's internal call.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 @pytest.fixture(autouse=True)
@@ -657,7 +676,7 @@ class TestSendCCMessage:
         )
         db = _make_db()
         with pytest.raises(NotFoundError):
-            send_cc_message(db, "sess-1", "user-1", "company-1", "Hello")
+            _run(send_cc_message(db, "sess-1", "user-1", "company-1", "Hello"))
 
     @patch("app.services.jarvis_cc_service.get_cc_session")
     def test_validates_message_not_empty(self, mock_get_session):
@@ -667,7 +686,7 @@ class TestSendCCMessage:
 
         db = _make_db()
         with pytest.raises(ValidationError) as exc_info:
-            send_cc_message(db, "sess-cc-1", "user-1", "company-1", "")
+            _run(send_cc_message(db, "sess-cc-1", "user-1", "company-1", ""))
         assert "empty" in str(exc_info.value.message).lower()
 
     @patch("app.services.jarvis_cc_service.get_cc_session")
@@ -678,7 +697,7 @@ class TestSendCCMessage:
 
         db = _make_db()
         with pytest.raises(ValidationError) as exc_info:
-            send_cc_message(db, "sess-cc-1", "user-1", "company-1", "x" * 10001)
+            _run(send_cc_message(db, "sess-cc-1", "user-1", "company-1", "x" * 10001))
         assert "too long" in str(exc_info.value.message).lower()
 
     @patch("app.services.jarvis_cc_service.get_cc_session")
@@ -689,7 +708,7 @@ class TestSendCCMessage:
 
         db = _make_db()
         with pytest.raises(ValidationError):
-            send_cc_message(db, "sess-cc-1", "user-1", "company-1", "   \n\t  ")
+            _run(send_cc_message(db, "sess-cc-1", "user-1", "company-1", "   \n\t  "))
 
     @patch("app.services.jarvis_cc_service.get_cc_session")
     def test_checks_daily_message_limit(self, mock_get_session):
@@ -702,7 +721,7 @@ class TestSendCCMessage:
 
         db = _make_db()
         with pytest.raises(RateLimitError) as exc_info:
-            send_cc_message(db, "sess-cc-1", "user-1", "company-1", "Hello")
+            _run(send_cc_message(db, "sess-cc-1", "user-1", "company-1", "Hello"))
         assert "limit" in str(exc_info.value.message).lower()
 
     @patch("app.services.jarvis_cc_service.get_cc_session")
@@ -722,9 +741,9 @@ class TestSendCCMessage:
         mock_pipeline.return_value = _pipeline_result()
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "Help me!"
-        )
+        ))
 
         # Counters should be incremented
         assert session.message_count_today == 6
@@ -747,9 +766,9 @@ class TestSendCCMessage:
         mock_pipeline.return_value = pr
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "I need billing help"
-        )
+        ))
 
         assert ai_msg.content == "Here's your answer"
         mock_pipeline.assert_called_once()
@@ -782,9 +801,9 @@ class TestSendCCMessage:
                    return_value=legacy_result):
             with patch("asyncio.run", return_value=legacy_result):
                 db = _make_db()
-                user_msg, ai_msg, metadata = send_cc_message(
+                user_msg, ai_msg, metadata = _run(send_cc_message(
                     db, "sess-cc-1", "user-1", "company-1", "Help me"
-                )
+                ))
 
         assert ai_msg.content == "Legacy response"
 
@@ -811,9 +830,9 @@ class TestSendCCMessage:
         )
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "Help me"
-        )
+        ))
 
         assert ai_msg.content == "Direct AI response"
 
@@ -836,9 +855,9 @@ class TestSendCCMessage:
         mock_reset.return_value = None
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "Help me"
-        )
+        ))
 
         friendly_error = _get_friendly_error_message()
         assert ai_msg.content == friendly_error
@@ -871,9 +890,9 @@ class TestSendCCMessage:
         }
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "/pause"
-        )
+        ))
 
         assert "pause" in ai_msg.content.lower()
         assert metadata["pipeline_status"] == "command_executed"
@@ -905,9 +924,9 @@ class TestSendCCMessage:
         }
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "Jarvis status"
-        )
+        ))
 
         assert "operational" in ai_msg.content
         assert metadata["pipeline_status"] == "command_executed"
@@ -930,9 +949,9 @@ class TestSendCCMessage:
         db = _make_db()
         db.query.return_value = _q(returning_first=mock_emergency)
 
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "Hello", channel="chat"
-        )
+        ))
 
         assert "paused" in ai_msg.content.lower()
         assert metadata["ai_paused"] is True
@@ -957,9 +976,9 @@ class TestSendCCMessage:
         mock_pipeline.return_value = _pipeline_result(response_text="Response")
 
         db = _make_db()
-        user_msg, ai_msg, metadata = send_cc_message(
+        user_msg, ai_msg, metadata = _run(send_cc_message(
             db, "sess-cc-1", "user-1", "company-1", "My email is test@test.com"
-        )
+        ))
 
         assert ai_msg.content == "Response"
 
@@ -979,9 +998,9 @@ class TestSendCCMessage:
         db = _make_db()
         with patch("app.services.pii_scan_service.PIIScanService",
                    side_effect=ImportError("no pii module")):
-            user_msg, ai_msg, metadata = send_cc_message(
+            user_msg, ai_msg, metadata = _run(send_cc_message(
                 db, "sess-cc-1", "user-1", "company-1", "Hello"
-            )
+            ))
 
         assert ai_msg.content == "Response"
 
@@ -1351,8 +1370,11 @@ class TestPrivateHelpers:
         assert "CLARA" in caps  # mini_parwa default
 
     def test_build_cc_welcome(self):
+        """Welcome message is SHOBH-branded (tier display name + industry)."""
         msg = _build_cc_welcome("parwa", "healthcare")
-        assert "PARWA" in msg
+        # SHOBH sweep: tier display names are SHOBH <Tier>, never "PARWA".
+        assert "SHOBH" in msg
+        assert "PARWA" not in msg
         assert "healthcare" in msg
         assert "Jarvis" in msg
 
