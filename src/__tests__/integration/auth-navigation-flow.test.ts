@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Test: Auth + App Store Navigation Flow
+ * SHOBH Integration Test: Auth + App Store Navigation Flow
  *
  * Tests the complete authentication and navigation flow:
  * landing → login → dashboard → navigate sub-pages → logout

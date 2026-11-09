@@ -1,5 +1,5 @@
 /**
- * PARWA ChatHeader Component
+ * SHOBH ChatHeader Component
  *
  * Header bar for the Jarvis chat interface.
  * Auth-aware: shows user greeting + profile dropdown when logged in,
@@ -83,7 +83,7 @@ export function ChatHeader({ session, isLoading }: ChatHeaderProps) {
           </div>
           {/* Online indicator dot */}
           <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1A1A1A] ${
+            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#2C2C31] ${
               isLoading
                 ? 'bg-amber-400 animate-pulse'
                 : 'bg-orange-400 animate-pulse'

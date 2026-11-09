@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 7 Unit Tests — useKeyboardShortcut Hook
+ * SHOBH Day 7 Unit Tests — useKeyboardShortcut Hook
  *
  * Tests keyboard shortcut registration, modifier keys,
  * input field filtering, and cleanup.

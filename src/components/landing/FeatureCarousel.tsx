@@ -17,7 +17,7 @@ const slides: SlideData[] = [
     title: 'Control Everything\nwith Just a Chat',
     subtitle: 'Chat with Jarvis. Control from Dashboard. Zero training needed.',
     description: 'Just type what you need. Jarvis understands and does it instantly. Like texting a super-smart employee who never sleeps.',
-    accentGlow: 'rgba(255, 127, 17, 0.15)',
+    accentGlow: 'rgba(161, 161, 170, 0.15)',
   },
   {
     id: 2,
@@ -31,7 +31,7 @@ const slides: SlideData[] = [
     title: 'It Gets Smarter Every Day',
     subtitle: 'Upload your docs. Watch it learn.',
     description: 'Your manuals, FAQs, policies — feed them once. Jarvis reads, understands, and starts answering like your best agent.',
-    accentGlow: 'rgba(255, 159, 68, 0.12)',
+    accentGlow: 'rgba(196, 196, 203, 0.12)',
   },
   {
     id: 4,
@@ -45,7 +45,7 @@ const slides: SlideData[] = [
     title: 'Meet Jarvis — Your AI Employee',
     subtitle: 'Like Iron Man\'s Jarvis, but for your business.',
     description: 'Your personal AI officer who never complains, never takes a day off, and always delivers. Available 24/7/365.',
-    accentGlow: 'rgba(255, 127, 17, 0.18)',
+    accentGlow: 'rgba(161, 161, 170, 0.18)',
   },
 ];
 
@@ -142,11 +142,11 @@ function LeftAnimation2() {
 
       {/* Confetti */}
       {[
-        { left: '15%', delay: '0s', color: '#FF7F11' },
-        { left: '30%', delay: '1.5s', color: '#FF9F44' },
-        { left: '50%', delay: '3s', color: '#FBBF24' },
-        { left: '70%', delay: '0.8s', color: '#FF7F11' },
-        { left: '85%', delay: '2.2s', color: '#FF9F44' },
+        { left: '15%', delay: '0s', color: '#A1A1AA' },
+        { left: '30%', delay: '1.5s', color: '#C4C4CB' },
+        { left: '50%', delay: '3s', color: '#A1A1AA' },
+        { left: '70%', delay: '0.8s', color: '#A1A1AA' },
+        { left: '85%', delay: '2.2s', color: '#C4C4CB' },
       ].map((confetti, i) => (
         <div key={i} className="absolute w-2 h-2 rounded-sm top-0"
           style={{
@@ -189,7 +189,7 @@ function LeftAnimation3() {
         { top: '88%', left: '68%', size: 'w-3 h-3', delay: '1.5s', color: 'bg-orange-500' },
       ].map((node, i) => (
         <div key={i} className={`absolute rounded-full ${node.size} ${node.color}/70`}
-          style={{ top: node.top, left: node.left, animation: `slide3NeuralPulse ${3 + i * 0.3}s ease-in-out infinite ${node.delay}`, boxShadow: `0 0 8px ${node.color === 'bg-orange-400' ? 'rgba(255,159,68,0.5)' : node.color === 'bg-orange-500' ? 'rgba(255,127,17,0.5)' : 'rgba(255,212,168,0.4)'}` }} />
+          style={{ top: node.top, left: node.left, animation: `slide3NeuralPulse ${3 + i * 0.3}s ease-in-out infinite ${node.delay}`, boxShadow: `0 0 8px ${node.color === 'bg-orange-400' ? 'rgba(196,196,203,0.5)' : node.color === 'bg-orange-500' ? 'rgba(161,161,170,0.5)' : 'rgba(232,232,235,0.4)'}` }} />
       ))}
 
       {/* Central brain glow */}
@@ -222,15 +222,15 @@ function LeftAnimation3() {
 
       {/* Neural connection SVG */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="none" opacity="0.25">
-        <line x1="200" y1="100" x2="350" y2="200" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="200" y1="100" x2="350" y2="200" stroke="#A1A1AA" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite' }} />
-        <line x1="350" y1="200" x2="500" y2="150" stroke="#FF9F44" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="350" y1="200" x2="500" y2="150" stroke="#C4C4CB" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 0.5s' }} />
-        <line x1="350" y1="200" x2="400" y2="350" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="350" y1="200" x2="400" y2="350" stroke="#A1A1AA" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 1s' }} />
-        <line x1="500" y1="150" x2="600" y2="300" stroke="#FF9F44" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="500" y1="150" x2="600" y2="300" stroke="#C4C4CB" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 1.5s' }} />
-        <line x1="400" y1="350" x2="600" y2="300" stroke="#FF7F11" strokeWidth="1" strokeDasharray="4 4"
+        <line x1="400" y1="350" x2="600" y2="300" stroke="#A1A1AA" strokeWidth="1" strokeDasharray="4 4"
           style={{ animation: 'slide3ConnectionFlow 3s linear infinite 2s' }} />
       </svg>
     </div>
@@ -246,28 +246,28 @@ function LeftAnimation4() {
       {/* Large animated clock */}
       <div className="absolute top-1/2 left-[25%] -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64">
         <svg viewBox="0 0 100 100" className="w-full h-full">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,159,68,0.25)" strokeWidth="2" />
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,159,68,0.12)" strokeWidth="1" />
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(196,196,203,0.25)" strokeWidth="2" />
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(196,196,203,0.12)" strokeWidth="1" />
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i * 30 - 90) * (Math.PI / 180);
             const x1 = (50 + 38 * Math.cos(angle)).toFixed(4);
             const y1 = (50 + 38 * Math.sin(angle)).toFixed(4);
             const x2 = (50 + 42 * Math.cos(angle)).toFixed(4);
             const y2 = (50 + 42 * Math.sin(angle)).toFixed(4);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,159,68,0.4)" strokeWidth="1.5" suppressHydrationWarning />;
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(196,196,203,0.4)" strokeWidth="1.5" suppressHydrationWarning />;
           })}
-          <line x1="50" y1="50" x2="50" y2="25" stroke="rgba(255,159,68,0.7)" strokeWidth="3" strokeLinecap="round"
+          <line x1="50" y1="50" x2="50" y2="25" stroke="rgba(196,196,203,0.7)" strokeWidth="3" strokeLinecap="round"
             style={{ transformOrigin: '50px 50px', animation: 'slide4ClockHand 4s linear infinite' }} />
-          <line x1="50" y1="50" x2="50" y2="18" stroke="rgba(255,159,68,0.5)" strokeWidth="2" strokeLinecap="round"
+          <line x1="50" y1="50" x2="50" y2="18" stroke="rgba(196,196,203,0.5)" strokeWidth="2" strokeLinecap="round"
             style={{ transformOrigin: '50px 50px', animation: 'slide4ClockHand 12s linear infinite' }} />
-          <circle cx="50" cy="50" r="2.5" fill="rgba(255,159,68,0.7)" />
+          <circle cx="50" cy="50" r="2.5" fill="rgba(196,196,203,0.7)" />
         </svg>
       </div>
 
       {/* Outer spinning ring */}
       <div className="absolute top-1/2 left-[25%] -translate-y-1/2 w-56 h-56 sm:w-72 sm:h-72 opacity-25">
         <svg viewBox="0 0 100 100" className="w-full h-full" style={{ animation: 'spin 12s linear infinite' }}>
-          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(251, 191, 36, 0.5)" strokeWidth="1" strokeDasharray="4 6" />
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(161, 161, 170, 0.5)" strokeWidth="1" strokeDasharray="4 6" />
         </svg>
       </div>
 
@@ -339,20 +339,20 @@ function LeftAnimation5() {
 
       {/* Circuit board SVG pattern */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 600" preserveAspectRatio="none" opacity="0.2">
-        <line x1="300" y1="150" x2="550" y2="150" stroke="#FF9F44" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="300" y1="150" x2="550" y2="150" stroke="#C4C4CB" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite' }} />
-        <line x1="350" y1="250" x2="600" y2="250" stroke="#FFD4A8" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="350" y1="250" x2="600" y2="250" stroke="#E8E8EB" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 1s' }} />
-        <line x1="280" y1="350" x2="520" y2="350" stroke="#FF9F44" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="280" y1="350" x2="520" y2="350" stroke="#C4C4CB" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 2s' }} />
-        <line x1="320" y1="450" x2="580" y2="450" stroke="#FFD4A8" strokeWidth="0.8" strokeDasharray="6 4"
+        <line x1="320" y1="450" x2="580" y2="450" stroke="#E8E8EB" strokeWidth="0.8" strokeDasharray="6 4"
           style={{ animation: 'slide5CircuitFlow 4s linear infinite 3s' }} />
-        <line x1="400" y1="150" x2="400" y2="250" stroke="#FF9F44" strokeWidth="0.5" />
-        <line x1="500" y1="250" x2="500" y2="350" stroke="#FFD4A8" strokeWidth="0.5" />
-        <line x1="450" y1="350" x2="450" y2="450" stroke="#FF9F44" strokeWidth="0.5" />
-        <circle cx="400" cy="150" r="2" fill="#FF9F44" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite' }} />
-        <circle cx="500" cy="250" r="2" fill="#FFD4A8" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 0.5s' }} />
-        <circle cx="450" cy="350" r="2" fill="#FF9F44" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 1s' }} />
+        <line x1="400" y1="150" x2="400" y2="250" stroke="#C4C4CB" strokeWidth="0.5" />
+        <line x1="500" y1="250" x2="500" y2="350" stroke="#E8E8EB" strokeWidth="0.5" />
+        <line x1="450" y1="350" x2="450" y2="450" stroke="#C4C4CB" strokeWidth="0.5" />
+        <circle cx="400" cy="150" r="2" fill="#C4C4CB" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite' }} />
+        <circle cx="500" cy="250" r="2" fill="#E8E8EB" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 0.5s' }} />
+        <circle cx="450" cy="350" r="2" fill="#C4C4CB" style={{ animation: 'slide5DotPulse 3s ease-in-out infinite 1s' }} />
       </svg>
 
       {/* Energy particles floating up */}
@@ -432,7 +432,7 @@ export default function FeatureCarousel() {
           className="relative h-screen min-h-[600px] overflow-hidden pt-[4rem]"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          style={{ background: 'linear-gradient(135deg, #1A1A1A 0%, #2A1A0A 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #2C2C31 0%, #303036 100%)' }}
         >
           {slides.map((slide, index) => {
             const BackgroundComponent = slideBackgrounds[index];
@@ -449,7 +449,7 @@ export default function FeatureCarousel() {
 
                 {/* Dark overlay for text readability — gradient from right */}
                 <div className="absolute inset-0 bg-gradient-to-l from-black/80 via-black/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A]/50 via-transparent to-[#1A1A1A]/20" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C31]/50 via-transparent to-[#2C2C31]/20" />
 
                 {/* Accent Glow */}
                 <div
@@ -483,7 +483,7 @@ export default function FeatureCarousel() {
           })}
 
           {/* Bottom Controls */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#1A1A1A]/70 via-[#1A1A1A]/30 to-transparent pt-6 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
+          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#2C2C31]/70 via-[#2C2C31]/30 to-transparent pt-6 pb-5 sm:pb-6 md:pb-8 px-4 sm:px-6">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
               <button
                 onClick={prevSlide}

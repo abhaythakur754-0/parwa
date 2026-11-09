@@ -1,5 +1,5 @@
 /**
- * PARWA Login API Route
+ * SHOBH Login API Route
  *
  * Forwards credentials to the backend (sole token issuer) and stores the
  * backend's JWT tokens in httpOnly cookies. The frontend never mints its

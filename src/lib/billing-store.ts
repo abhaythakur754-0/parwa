@@ -1,5 +1,5 @@
 /**
- * PARWA Billing Store
+ * SHOBH Billing Store
  *
  * Zustand store for billing and subscription data.
  * Manages current plan, invoices, usage, and payment methods.

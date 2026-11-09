@@ -1,5 +1,5 @@
 /**
- * PARWA Webhook Event Log API Proxy
+ * SHOBH Webhook Event Log API Proxy
  *
  * BFF route that proxies GET /api/webhooks/events to the backend
  * to fetch recent inbound webhook events for the event log viewer.

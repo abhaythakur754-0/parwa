@@ -1,5 +1,5 @@
 /**
- * PARWA Custom Connector & OpenAPI Import API Proxy
+ * SHOBH Custom Connector & OpenAPI Import API Proxy
  *
  * Proxies all /api/integrations/custom/* and /api/integrations/openapi-import/* requests to backend.
  *

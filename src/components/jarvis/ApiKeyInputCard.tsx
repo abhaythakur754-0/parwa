@@ -1,5 +1,5 @@
 /**
- * PARWA ApiKeyInputCard (Integration Setup)
+ * SHOBH ApiKeyInputCard (Integration Setup)
  *
  * Input card for API key with auto-detection, test connection, and connect flow.
  * States: idle → detecting → detected → testing → tested (success/error) → connecting → connected

@@ -1,5 +1,5 @@
 /**
- * PARWA ActiveCallCard
+ * SHOBH ActiveCallCard
  *
  * Shows a single active call with live status, duration timer,
  * variant tier badge, and action buttons (End, Transfer).
@@ -83,7 +83,7 @@ export function ActiveCallCard({ call, onEnd, onTransfer, onClick }: ActiveCallC
       onClick={() => onClick(call)}
       className={cn(
         'rounded-xl border p-4 cursor-pointer transition-all duration-300 hover:border-white/[0.12]',
-        'bg-[#1A1A1A] border-white/[0.06]',
+        'bg-[#2C2C31] border-white/[0.06]',
         config.animate && 'border-emerald-500/10'
       )}
     >
@@ -121,7 +121,7 @@ export function ActiveCallCard({ call, onEnd, onTransfer, onClick }: ActiveCallC
           'text-[10px] px-2 py-0.5 rounded-full border',
           variantColors[call.variant_tier] || variantColors.parwa
         )}>
-          {call.variant_tier || 'PARWA'}
+          {call.variant_tier || 'SHOBH'}
         </span>
         {call.intent_detected && (
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">

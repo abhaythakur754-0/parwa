@@ -1,11 +1,11 @@
 /** @jest-environment jsdom */
 /**
- * PARWA useVariant Hook — Unit Tests
+ * SHOBH useVariant Hook — Unit Tests
  *
  * Tests the React hook wrapper around the variant Zustand store,
  * including auto-fetch, refetch, and computed properties.
  *
- * Updated 2026-07-26: Mini PARWA removed — codebase now has 2 tiers
+ * Updated 2026-07-26: Mini SHOBH removed — codebase now has 2 tiers
  * (parwa $2,499/mo + high $3,999/mo). All variants share the SAME AI
  * capabilities; tiers differ only in ticket volume / numeric limits.
  */
@@ -76,7 +76,7 @@ describe('useVariant', () => {
   describe('computed properties', () => {
     it('returns tierLabel for parwa', () => {
       const { result } = renderHook(() => useVariant());
-      expect(result.current.tierLabel).toBe('PARWA');
+      expect(result.current.tierLabel).toBe('SHOBH');
     });
 
     it('returns tierPrice for parwa', () => {
@@ -96,7 +96,7 @@ describe('useVariant', () => {
         useVariantStore.getState().setTier('high');
       });
 
-      expect(result.current.tierLabel).toBe('PARWA High');
+      expect(result.current.tierLabel).toBe('SHOBH High');
       expect(result.current.tierPrice).toBe('$3,999/mo');
       expect(result.current.tierColor).toContain('from-orange');
     });

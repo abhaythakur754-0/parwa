@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis Component Barrel Export (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
+ * SHOBH Jarvis Component Barrel Export (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
  *
  * Single entry point for all Jarvis chat UI components.
  */

@@ -58,13 +58,11 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-18 md:py-20">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 sm:gap-14">
           <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2.5 mb-5 group focus-visible-ring rounded-xl px-1 py-0.5">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-                </svg>
+            <Link href="/" className="flex items-center gap-2 mb-5 group focus-visible-ring rounded-xl px-1 py-0.5">
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
               </div>
-              <span className="text-lg font-bold text-white group-hover:text-orange-300 transition-colors duration-300">PARWA</span>
+              <span className="text-2xl font-anton text-white group-hover:text-orange-300 transition-colors duration-300 tracking-wide">SHOBH</span>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed mb-1">AI-powered support that feels like magic.</p>
             <p className="text-gray-500 text-xs leading-relaxed">AI-powered customer care platform.</p>
@@ -88,7 +86,7 @@ export default function Footer() {
           ))}
         </div>
         <div className="mt-12 sm:mt-16 pt-6 sm:pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-5 sm:gap-6">
-          <p className="text-gray-500 text-xs sm:text-sm">&copy; 2026 PARWA. All rights reserved.</p>
+          <p className="text-gray-500 text-xs sm:text-sm">&copy; 2026 SHOBH. All rights reserved.</p>
           <div className="flex items-center gap-2">
             {socialLinks.map((social) => (
               <a key={social.name} href={social.href} target="_blank" rel="noopener noreferrer"

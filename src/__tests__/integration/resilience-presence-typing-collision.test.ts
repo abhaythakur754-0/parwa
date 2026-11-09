@@ -1,5 +1,5 @@
 /**
- * PARWA Day 6 Integration Tests — Reconnection, Presence, Typing, Collision
+ * SHOBH Day 6 Integration Tests — Reconnection, Presence, Typing, Collision
  *
  * End-to-end flow tests verifying:
  * - Presence: bulk load → online/offline → status updates → fetch

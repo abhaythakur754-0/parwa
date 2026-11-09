@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Instance API Proxy
+ * SHOBH Integration Instance API Proxy
  *
  * Proxies /api/integrations/{id} requests to backend.
  * Handles: POST /{id}/test, DELETE /{id}

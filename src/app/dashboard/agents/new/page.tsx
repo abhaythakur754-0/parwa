@@ -123,7 +123,7 @@ export default function NewAgentPage() {
     } finally { setIsSubmitting(false); }
   };
 
-  const inputClasses = "w-full px-4 py-2.5 rounded-lg bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-all text-sm";
+  const inputClasses = "w-full px-4 py-2.5 rounded-lg bg-[#2C2C31] border border-zinc-800 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-all text-sm";
   const labelClasses = "block text-sm font-medium text-zinc-300 mb-1.5";
   const sectionClasses = "rounded-xl border border-white/[0.05] bg-white/[0.015] p-4 space-y-3";
   const sectionTitleClasses = "text-xs font-semibold text-zinc-300 uppercase tracking-wide flex items-center gap-2";
@@ -135,7 +135,7 @@ export default function NewAgentPage() {
     }`;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="min-h-screen bg-[#1B1B1F]">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-8">
           <button onClick={() => router.push('/dashboard/agents')} className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4">
@@ -214,7 +214,7 @@ export default function NewAgentPage() {
                 <div>
                   <div className="text-sm font-medium text-orange-300 mb-1">Superglue tool will be auto-generated</div>
                   <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    When this agent is saved, PARWA asks Superglue to automatically generate
+                    When this agent is saved, SHOBH asks Superglue to automatically generate
                     a multi-step tool (find customer → process action → send confirmation).
                     Tool is created in the background — you&apos;ll see a badge on the agent card when ready.
                   </p>
@@ -224,7 +224,7 @@ export default function NewAgentPage() {
 
             <div className="flex items-center gap-3 pt-4 border-t border-zinc-800">
               <button type="button" onClick={() => router.push('/dashboard/agents')} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] border border-zinc-800 transition-all">Cancel</button>
-              <button type="submit" disabled={isSubmitting || !form.name.trim() || !form.canHandle.trim()} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none">
+              <button type="submit" disabled={isSubmitting || !form.name.trim() || !form.canHandle.trim()} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none">
                 {isSubmitting ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Creating...</span>) : (<span className="inline-flex items-center gap-2"><Save className="w-4 h-4" />Create Agent</span>)}
               </button>
             </div>
@@ -259,7 +259,7 @@ export default function NewAgentPage() {
             </div>
             <div className="flex items-center gap-3 pt-4 border-t border-zinc-800">
               <button type="button" onClick={() => router.push('/dashboard/agents')} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] border border-zinc-800 transition-all">Cancel</button>
-              <button type="button" onClick={handleScanSubmit} disabled={isSubmitting} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button type="button" onClick={handleScanSubmit} disabled={isSubmitting} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 {isSubmitting ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Scanning...</span>) : (<span className="inline-flex items-center gap-2"><Sparkles className="w-4 h-4" />Start Scan + Build</span>)}
               </button>
             </div>
@@ -286,7 +286,7 @@ export default function NewAgentPage() {
             </div>
             <div className="flex items-center gap-3 pt-4 border-t border-zinc-800">
               <button type="button" onClick={() => router.push('/dashboard/agents')} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] border border-zinc-800 transition-all">Cancel</button>
-              <button type="button" onClick={handleDescribeSubmit} disabled={isSubmitting || !describeText.trim()} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+              <button type="button" onClick={handleDescribeSubmit} disabled={isSubmitting || !describeText.trim()} className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 {isSubmitting ? (<span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Generating...</span>) : (<span className="inline-flex items-center gap-2"><Wand2 className="w-4 h-4" />Generate Agent</span>)}
               </button>
             </div>

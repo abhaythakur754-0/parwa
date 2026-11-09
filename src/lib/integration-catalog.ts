@@ -1,5 +1,5 @@
 /**
- * PARWA Unified Integration Catalog
+ * SHOBH Unified Integration Catalog
  *
  * SINGLE SOURCE OF TRUTH for all integration metadata.
  * Used by: Onboarding IntegrationStep, Settings Integrations tab, BFF routes.
@@ -55,7 +55,7 @@ export type IntegrationTier = 'tier1_prebuilt' | 'tier2_openapi' | 'tier3_custom
 
 // ── Industry (D1 — 4 industries only) ──────────────────────────────────
 
-export type ParwaIndustry = 'saas' | 'ecommerce' | 'logistics' | 'other';
+export type ShobhIndustry = 'saas' | 'ecommerce' | 'logistics' | 'other';
 
 // ── Integration Definition ─────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ export interface IntegrationDefinition {
     successMessage?: string;
   };
   /** Industries where this integration is SUGGESTED (not restricted to) */
-  suggestedIndustries: ParwaIndustry[];
+  suggestedIndustries: ShobhIndustry[];
   /** Which variants can use this (empty = all) */
   availableForVariants?: ('parwa' | 'high')[];
   /** Icon identifier for frontend rendering */
@@ -912,7 +912,7 @@ export const CATEGORY_META: Record<IntegrationCategory, { label: string; order: 
  * Per D3: Suggestions are NOT restrictions — clients can always connect outside their industry.
  */
 export function getIntegrationsForIndustry(
-  industry: ParwaIndustry
+  industry: ShobhIndustry
 ): IntegrationDefinition[] {
   if (industry === 'other') {
     return INTEGRATION_CATALOG.filter((i) => i.available);
@@ -926,7 +926,7 @@ export function getIntegrationsForIndustry(
  * Get integrations grouped by category for a specific industry.
  */
 export function getIntegrationsGroupedByCategory(
-  industry: ParwaIndustry
+  industry: ShobhIndustry
 ): Record<IntegrationCategory, IntegrationDefinition[]> {
   const filtered = getIntegrationsForIndustry(industry);
   const grouped: Record<string, IntegrationDefinition[]> = {};
@@ -966,13 +966,13 @@ export function isIntegrationAvailableForVariant(
 }
 
 /**
- * Map frontend Industry type (14 values) to ParwaIndustry (4 values).
+ * Map frontend Industry type (14 values) to ShobhIndustry (4 values).
  * Mirrors backend's map_onboarding_industry_to_enum().
  */
-export function mapIndustryToParwaIndustry(
+export function mapIndustryToShobhIndustry(
   industry: string
-): ParwaIndustry {
-  const mapping: Record<string, ParwaIndustry> = {
+): ShobhIndustry {
+  const mapping: Record<string, ShobhIndustry> = {
     ecommerce: 'ecommerce',
     retail: 'ecommerce',
     hospitality: 'ecommerce',

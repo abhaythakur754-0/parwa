@@ -33,7 +33,7 @@ export default function VariantCard({
         'relative flex flex-col rounded-2xl transition-all duration-300 overflow-hidden',
         isSelected
           ? 'bg-[#0F1A16] border-emerald-500/30 shadow-lg shadow-emerald-500/5'
-          : 'bg-[#111111] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#141414]'
+          : 'bg-[#232327] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#141414]'
       )}
     >
       {/* Top accent line when selected */}

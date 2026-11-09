@@ -1,5 +1,5 @@
 /**
- * PARWA Presence Store — Agent Online/Offline Presence
+ * SHOBH Presence Store — Agent Online/Offline Presence
  *
  * Tracks which agents are currently online, their status,
  * and updates via Socket.io events.

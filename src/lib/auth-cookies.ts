@@ -1,5 +1,5 @@
 /**
- * PARWA — HTTP-only Cookie Helpers
+ * SHOBH — HTTP-only Cookie Helpers
  *
  * All auth tokens should be set as httpOnly cookies to prevent XSS theft.
  * The frontend reads user data from a separate non-httpOnly cookie or from the /me endpoint.

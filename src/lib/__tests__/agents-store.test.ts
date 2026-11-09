@@ -1,5 +1,5 @@
 /**
- * PARWA Agents Store — Unit Tests
+ * SHOBH Agents Store — Unit Tests
  *
  * Tests fetchAgents, filtering, metrics aggregation, and error handling.
  */

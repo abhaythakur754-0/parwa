@@ -4,4 +4,6 @@ export { default as HeroSection } from './HeroSection';
 export { default as WhyChooseUs } from './WhyChooseUs';
 export { default as HowItWorks } from './HowItWorks';
 export { default as JarvisDemo } from './JarvisDemo';
+export { default as QaDashboardPreview } from './QaDashboardPreview';
+export { default as TrustSection } from './TrustSection';
 export { default as Footer } from './Footer';

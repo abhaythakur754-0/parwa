@@ -74,7 +74,7 @@ export function CCChatInput({
   };
 
   return (
-    <div className={cn('border-t border-white/[0.06] bg-[#111111]', className)}>
+    <div className={cn('border-t border-white/[0.06] bg-[#232327]', className)}>
       {/* Command mode indicator */}
       {isCommand && (
         <div className="flex items-center gap-1.5 px-4 pt-2">

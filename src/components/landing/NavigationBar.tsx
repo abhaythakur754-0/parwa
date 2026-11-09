@@ -8,7 +8,7 @@ import { UserMenu } from '@/components/common/UserMenu';
  * NavigationBar Component
  *
  * Dark premium navigation bar with orange accents — matches the
- * PARWA dark theme (#0D0D0D/#1A1A1A + #FF7F11 orange).
+ * SHOBH dark theme (#1E1E22/#2C2C31 + #A1A1AA orange).
  *
  * When the user is logged in (parwa_user in localStorage), shows their
  * name with a dropdown menu (Logout, Delete Account). When not logged
@@ -77,8 +77,8 @@ export default function NavigationBar() {
       }`}
       style={{
         background: isScrolled
-          ? 'linear-gradient(165deg, rgba(26,26,26,0.95) 0%, rgba(42,26,10,0.95) 30%, rgba(45,31,14,0.95) 60%, rgba(61,42,16,0.95) 80%, rgba(26,26,26,0.95) 100%)'
-          : 'linear-gradient(165deg, rgba(26,26,26,0.7) 0%, rgba(42,26,10,0.7) 30%, rgba(45,31,14,0.7) 60%, rgba(61,42,16,0.7) 80%, rgba(26,26,26,0.7) 100%)',
+          ? 'linear-gradient(165deg, rgba(44,44,49,0.95) 0%, rgba(30,30,32,0.95) 30%, rgba(32,32,35,0.95) 60%, rgba(40,40,43,0.95) 80%, rgba(44,44,49,0.95) 100%)'
+          : 'linear-gradient(165deg, rgba(44,44,49,0.7) 0%, rgba(30,30,32,0.7) 30%, rgba(32,32,35,0.7) 60%, rgba(40,40,43,0.7) 80%, rgba(44,44,49,0.7) 100%)',
       }}
       role="navigation"
       aria-label="Main navigation"
@@ -88,18 +88,18 @@ export default function NavigationBar() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 sm:gap-3 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
-            aria-label="PARWA home"
+            className="flex items-center gap-1.5 sm:gap-2 group focus-visible-ring rounded-xl px-2 py-1.5 -ml-2"
+            aria-label="SHOBH home"
           >
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:shadow-orange-500/40 transition-all duration-500 group-hover:scale-105">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
               <img
-                src="/parwa-logo.png"
-                alt="PARWA logo"
+                src="/shobh-logo.png"
+                alt="SHOBH logo"
                 className="w-full h-full object-cover"
               />
             </div>
-            <span className="text-lg sm:text-xl font-bold text-white group-hover:text-orange-400 transition-colors duration-500 tracking-tight">
-              PARWA
+            <span className="text-2xl sm:text-3xl font-anton text-white group-hover:text-orange-400 transition-colors duration-500 tracking-wide">
+              SHOBH
             </span>
           </Link>
 

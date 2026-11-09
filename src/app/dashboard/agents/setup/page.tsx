@@ -123,13 +123,13 @@ export default function AgentSetupPage() {
     setTimeout(() => router.push('/dashboard/agents'), 1200);
   };
 
-  const inputClasses = "w-full px-4 py-2.5 rounded-lg bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-all text-sm";
+  const inputClasses = "w-full px-4 py-2.5 rounded-lg bg-[#2C2C31] border border-zinc-800 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30 transition-all text-sm";
   const labelClasses = "block text-sm font-medium text-zinc-300 mb-1.5";
   const sectionClasses = "rounded-xl border border-white/[0.05] bg-white/[0.015] p-4 space-y-3";
   const sectionTitleClasses = "text-xs font-semibold text-zinc-300 uppercase tracking-wide flex items-center gap-2";
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="min-h-screen bg-[#1B1B1F]">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -190,7 +190,7 @@ export default function AgentSetupPage() {
           <button
             onClick={handleAnalyze}
             disabled={isAnalyzing || jd.trim().length < 50}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
           >
             {isAnalyzing ? (
               <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Analyzing...</span>

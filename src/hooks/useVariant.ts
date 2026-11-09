@@ -1,5 +1,5 @@
 /**
- * PARWA useVariant Hook
+ * SHOBH useVariant Hook
  *
  * React hook for accessing multi-tenant variant (tier) data.
  * Wraps the variant Zustand store with React lifecycle management

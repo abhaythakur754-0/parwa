@@ -32,7 +32,7 @@ const tierColors: Record<string, string> = {
 };
 
 const tierLabels: Record<string, string> = {
-  parwa: 'Parwa',
+  parwa: 'Shobh',
   high: 'High',
 };
 
@@ -47,7 +47,7 @@ export function VariantInstanceCard({ instance, onEscalate, onRebalance, onShado
   const utilization = instance.capacity > 0 ? instance.activeTickets / instance.capacity : 0;
 
   return (
-    <div className={cn('rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-4 hover:border-white/10 transition-all', className)}>
+    <div className={cn('rounded-xl border border-white/[0.06] bg-[#2C2C31] p-4 hover:border-white/10 transition-all', className)}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className={cn('w-2 h-2 rounded-full', statusDots[instance.status] || 'bg-zinc-500')} />

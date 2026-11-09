@@ -15,14 +15,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import type { ParwaIndustry } from '@/lib/integration-catalog';
+import type { ShobhIndustry } from '@/lib/integration-catalog';
 
 // ── Variant Types ──────────────────────────────────────────────────────
 
-export type ParwaVariant = 'parwa' | 'high';
+export type ShobhVariant = 'parwa' | 'high';
 
 export interface VariantDefinition {
-  key: ParwaVariant;
+  key: ShobhVariant;
   name: string;
   price: number;
   priceLabel: string;
@@ -36,8 +36,8 @@ export interface VariantDefinition {
 }
 
 export interface PricingContext {
-  industry: ParwaIndustry;
-  variant: ParwaVariant;
+  industry: ShobhIndustry;
+  variant: ShobhVariant;
   addOns: {
     voice: boolean;
     customApi: boolean;
@@ -53,7 +53,7 @@ import { VARIANT_PRICES, VARIANT_AI_INFO, VARIANT_LIMITS } from '@/lib/pricing-c
 const VARIANTS: VariantDefinition[] = [
   {
     key: 'parwa',
-    name: 'PARWA',
+    name: 'SHOBH',
     price: VARIANT_PRICES.parwa,
     priceLabel: `$${VARIANT_PRICES.parwa.toLocaleString()}/mo`,
     aiPipeline: VARIANT_AI_INFO.parwa.pipelineSteps,
@@ -66,7 +66,7 @@ const VARIANTS: VariantDefinition[] = [
   },
   {
     key: 'high',
-    name: 'PARWA High',
+    name: 'SHOBH High',
     price: VARIANT_PRICES.high,
     priceLabel: `$${VARIANT_PRICES.high.toLocaleString()}/mo`,
     aiPipeline: VARIANT_AI_INFO.high.pipelineSteps,
@@ -82,7 +82,7 @@ const VARIANTS: VariantDefinition[] = [
 // ── Industry Options (D1 — 4 industries) ───────────────────────────────
 
 const INDUSTRY_OPTIONS: Array<{
-  value: ParwaIndustry;
+  value: ShobhIndustry;
   label: string;
   description: string;
   icon: React.ElementType;
@@ -121,14 +121,14 @@ const INDUSTRY_OPTIONS: Array<{
 // ── Props ──────────────────────────────────────────────────────────────
 
 interface IndustryVariantStepProps {
-  onComplete: (data: { industry: ParwaIndustry; variant: ParwaVariant }) => void;
+  onComplete: (data: { industry: ShobhIndustry; variant: ShobhVariant }) => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────
 
 export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
-  const [industry, setIndustry] = useState<ParwaIndustry | null>(null);
-  const [variant, setVariant] = useState<ParwaVariant | null>(null);
+  const [industry, setIndustry] = useState<ShobhIndustry | null>(null);
+  const [variant, setVariant] = useState<ShobhVariant | null>(null);
   const [uniqueId, setUniqueId] = useState('');
   const [uniqueIdChecked, setUniqueIdChecked] = useState<boolean | null>(null);
   const [uniqueIdChecking, setUniqueIdChecking] = useState(false);
@@ -244,7 +244,7 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
             <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
           </svg>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-white">Welcome to PARWA</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-white">Welcome to SHOBH</h2>
         <p className="text-orange-200/50 text-sm max-w-md mx-auto">
           Configure your AI-powered customer support. Choose your industry and plan to get started.
         </p>
@@ -372,7 +372,7 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
                   <span className={cn(
                     'absolute -top-2 right-3 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full',
                     v.key === 'parwa'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A]'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31]'
                       : 'bg-white/10 text-orange-200/60'
                   )}>
                     {v.badge}
@@ -424,7 +424,7 @@ export function IndustryVariantStep({ onComplete }: IndustryVariantStepProps) {
           className={cn(
             'px-8 py-3 font-semibold rounded-xl transition-all duration-300 text-sm flex items-center gap-2',
             industry && variant
-              ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#1A1A1A] shadow-lg shadow-orange-500/25'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-400 hover:to-amber-300 text-[#2C2C31] shadow-lg shadow-orange-500/25'
               : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
           )}
         >

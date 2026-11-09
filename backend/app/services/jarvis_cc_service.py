@@ -31,6 +31,7 @@ BC-008: Every public method wrapped in try/except — never crash.
 BC-012: All timestamps UTC.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -851,6 +852,51 @@ async def send_cc_message(
     except Exception:
         pass  # BC-008
 
+    # ── Step 13: AI QA grade (Report Card) — fail-open by design ──
+    # Layer 1 is pure code ($0, milliseconds). If flagged, ONE background
+    # officer review is scheduled — the customer never waits. Nothing in
+    # this block may ever break the conversation itself (BC-008).
+    try:
+        from app.services.qa_service import grade_and_schedule_review
+        await grade_and_schedule_review(
+            db=db,
+            company_id=company_id,
+            conversation_id=session_id,
+            channel=channel,
+            user_message=user_message,
+            ai_response=ai_content,
+            metadata=metadata,
+        )
+    except Exception:
+        pass  # BC-008: QA must never break a conversation
+
+    # ── Step 14: Shadow A/B comparison — fail-open, background ──
+    # If Shadow Mode is on, the challenger variant answers the same
+    # message in the background (customer NEVER sees it, NEVER waits) and
+    # the SAME CLARA checklist that grades the Report Card judges both
+    # sides. Winner feeds the dashboard; promotion stays a human click.
+    # The sampling dice roll exactly ONCE, here (BC-008: never break a send).
+    try:
+        from app.services.shadow_mode_service import get_shadow_mode_service
+        should_shadow, _reason = get_shadow_mode_service().should_process_shadow(
+            company_id, user_message,
+        )
+        if should_shadow:
+            task = asyncio.create_task(
+                _shadow_comparison_task(
+                    company_id=company_id,
+                    session_id=session_id,
+                    user_message=user_message,
+                    live_response=ai_content,
+                    live_ctx=ctx,
+                    live_elapsed_ms=(time.monotonic() - start_time) * 1000,
+                )
+            )
+            _shadow_tasks.add(task)
+            task.add_done_callback(_shadow_tasks.discard)
+    except Exception:
+        pass  # BC-008: shadow must never break a conversation
+
     total_ms = round((time.monotonic() - start_time) * 1000, 2)
     logger.info(
         "cc_message_complete: session=%s, pipeline=%s, total_ms=%s",
@@ -858,6 +904,128 @@ async def send_cc_message(
     )
 
     return user_msg, ai_msg, metadata
+
+
+# ════════════════════════════════════════════════════════════════════
+# Step 14 — Shadow A/B comparison (background, fail-open)
+# ════════════════════════════════════════════════════════════════════
+
+_shadow_tasks: set = set()  # strong refs — prevent GC of in-flight tasks
+
+
+async def _shadow_comparison_task(
+    company_id: str,
+    session_id: str,
+    user_message: str,
+    live_response: str,
+    live_ctx: Dict[str, Any],
+    live_elapsed_ms: float,
+) -> None:
+    """Run the challenger variant on the same message and record a
+    QA-scored comparison. Fail-safe: errors are logged, never raised —
+    shadow mode must never affect a live conversation (BC-008).
+
+    The customer NEVER sees the shadow reply and NEVER waits for it (the
+    live answer is already composed). The judge is the SAME CLARA
+    checklist that grades the QA Report Card (pure code, $0) scoring
+    BOTH sides — one referee, fair fight. Promotion to live stays a
+    human decision (the shadow service's graduation gates handle that).
+    """
+    try:
+        from app.services.shadow_mode_service import (
+            ShadowComparison,
+            get_shadow_mode_service,
+        )
+
+        svc = get_shadow_mode_service()
+        # Sampling dice were rolled once in the request path (Step 14
+        # gate) — here we only re-validate that the config is still active.
+        config = svc.get_shadow_config(company_id)
+        if not config or not config.get("is_active"):
+            return
+        shadow_variant = config.get("shadow_variant") or ""
+        if not shadow_variant:
+            return
+
+        # The challenger answers the same message with the same history,
+        # under its own variant tier (and its own instance when set).
+        shadow_ctx = dict(live_ctx)
+        shadow_ctx["variant_tier"] = shadow_variant
+        if config.get("shadow_instance_id"):
+            shadow_ctx["variant_instance_id"] = config["shadow_instance_id"]
+
+        from database.base import get_db_context
+
+        with get_db_context() as db:
+            shadow_prompt = build_cc_system_prompt(
+                db, session_id, company_id, shadow_ctx,
+            )
+            history = _get_recent_history(db, session_id)
+
+        t0 = time.monotonic()
+        shadow_content, _, _, _ = await _call_ai_provider_fallback(
+            shadow_prompt, history, user_message, shadow_ctx,
+        )
+        if not shadow_content or shadow_content == _get_friendly_error_message():
+            # The challenger never really answered — recording this would
+            # poison the win/loss stats. Skip honestly.
+            logger.warning(
+                "shadow_comparison_skipped_no_answer session=%s", session_id,
+            )
+            return
+        shadow_latency_ms = int((time.monotonic() - t0) * 1000)
+
+        # ── Judge: CLARA checklist scores BOTH sides ($0, pure code) ──
+        from app.core.clara_quality_gate import CLARAQualityGate
+
+        clara = CLARAQualityGate()
+        live_eval = await clara.evaluate(
+            response=live_response or "",
+            query=user_message or "",
+            company_id=company_id,
+        )
+        shadow_eval = await clara.evaluate(
+            response=shadow_content or "",
+            query=user_message or "",
+            company_id=company_id,
+        )
+        live_score = float(live_eval.overall_score or 0.0)
+        shadow_score = float(shadow_eval.overall_score or 0.0)
+
+        comparison = ShadowComparison(
+            company_id=company_id,
+            config_id=config.get("id", ""),
+            conversation_id=session_id,
+            message_hash=svc._hash_message(user_message),
+            live_variant=config.get("live_variant", ""),
+            live_response=live_response or "",
+            live_quality_score=live_score,
+            # ponytail: live latency = whole pipeline, shadow = raw provider
+            # call — informational only, quality_delta decides the winner.
+            live_latency_ms=int(live_elapsed_ms),
+            live_tokens_used=0,
+            shadow_variant=shadow_variant,
+            shadow_response=shadow_content or "",
+            shadow_quality_score=shadow_score,
+            shadow_latency_ms=shadow_latency_ms,
+            shadow_tokens_used=0,
+            quality_delta=shadow_score - live_score,
+            latency_delta_ms=shadow_latency_ms - int(live_elapsed_ms),
+            token_delta=0,
+            shadow_winner=shadow_score >= live_score,
+            mode_at_comparison=config.get("status", "shadow"),
+        )
+        svc.record_comparison(company_id, comparison)
+        logger.info(
+            "shadow_comparison_recorded company=%s session=%s "
+            "live=%.2f shadow=%.2f shadow_winner=%s",
+            company_id, session_id, live_score, shadow_score,
+            comparison.shadow_winner,
+        )
+    except Exception as exc:
+        logger.warning(
+            "shadow_comparison_failed session=%s: %s", session_id, exc,
+        )
 
 
 def get_cc_history(

@@ -1,8 +1,8 @@
 /**
- * PARWA — JWT Utility (Edge-compatible using jose)
+ * SHOBH — JWT Utility (Edge-compatible using jose)
  *
  * VERIFIES JWTs for the Next.js frontend auth layer. The frontend never
- * signs tokens — the PARWA backend is the sole issuer (the old frontend
+ * signs tokens — the SHOBH backend is the sole issuer (the old frontend
  * signing functions caused the historic dual-JWT auth bug and were removed).
  * Supports both HS256 (symmetric) and RS256 (asymmetric) algorithms.
  * Algorithm is determined by NEXT_PUBLIC_JWT_ALGORITHM env var.
@@ -98,7 +98,7 @@ export interface VerifiedToken {
  * Supports both HS256 and RS256 tokens.
  *
  * IMPORTANT: Does NOT enforce issuer/audience claims so that tokens issued
- * by the PARWA backend (which doesn't set iss/aud) are accepted. The
+ * by the SHOBH backend (which doesn't set iss/aud) are accepted. The
  * backend is the sole token issuer — the frontend only verifies.
  * Returns null if invalid/expired.
  */

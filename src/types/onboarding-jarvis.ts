@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Jarvis — Type Definitions
+ * SHOBH Onboarding Jarvis — Type Definitions
  *
  * Types for the pre-purchase demo chat experience where
  * potential clients interact with Jarvis AI.

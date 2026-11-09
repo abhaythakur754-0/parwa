@@ -99,7 +99,7 @@ export default function HowItWorks() {
           }`}
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
-            How <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">PARWA</span> Works
+            How <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">SHOBH</span> Works
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Your support runs on autopilot — instant, automatic, zero effort.

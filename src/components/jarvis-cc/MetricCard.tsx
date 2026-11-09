@@ -31,7 +31,7 @@ export function MetricCard({
   className,
 }: MetricCardProps) {
   const variantStyles: Record<string, string> = {
-    default: 'bg-[#1A1A1A] border-white/[0.06]',
+    default: 'bg-[#2C2C31] border-white/[0.06]',
     success: 'bg-emerald-500/5 border-emerald-500/20',
     warning: 'bg-amber-500/5 border-amber-500/20',
     danger: 'bg-red-500/5 border-red-500/20',

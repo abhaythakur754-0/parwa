@@ -483,7 +483,7 @@ export function generateCheckoutOptions(params: {
     key: keyId,
     amount: firstChargeCents,
     currency: 'USD',
-    name: 'PARWA - FlexPay',
+    name: 'SHOBH - FlexPay',
     description: `USD $${firstChargeUsd} • Day 1 of ${totalInstallments} • Total: $${params.totalAmount.toLocaleString()} USD`,
     prefill: {
       // Don't prefill card data for security
@@ -498,7 +498,7 @@ export function generateCheckoutOptions(params: {
       purpose: 'initial_tokenization',
     },
     theme: {
-      color: '#f97316', // Orange to match PARWA brand
+      color: '#A1A1AA', // Orange to match SHOBH brand
     },
     modal: {
       ondismiss: function () {

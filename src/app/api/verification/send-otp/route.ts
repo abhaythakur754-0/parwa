@@ -1,5 +1,5 @@
 /**
- * PARWA Send OTP (business email verification)
+ * SHOBH Send OTP (business email verification)
  *
  * POST /api/verification/send-otp
  *

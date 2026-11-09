@@ -70,7 +70,7 @@ export default function IndustrySelector({
               'relative cursor-pointer rounded-2xl transition-all duration-300 overflow-hidden group select-none',
               isActive
                 ? 'bg-[#0F1A16] border-emerald-500/40 shadow-lg shadow-emerald-500/10 scale-[1.02]'
-                : 'bg-[#111111] border-white/[0.06] hover:border-white/[0.15] hover:bg-[#141414] hover:scale-[1.01]'
+                : 'bg-[#232327] border-white/[0.06] hover:border-white/[0.15] hover:bg-[#141414] hover:scale-[1.01]'
             )}
             role="button"
             tabIndex={0}

@@ -1,5 +1,5 @@
 /**
- * PARWA Day 6 Unit Tests — UI Components (Typing, Collision, Presence)
+ * SHOBH Day 6 Unit Tests — UI Components (Typing, Collision, Presence)
  *
  * Tests TypingIndicator, CollisionBanner, AgentPresenceBadge
  * WITHOUT the polling hook (that's in its own test file).

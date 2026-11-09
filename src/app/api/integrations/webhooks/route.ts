@@ -1,5 +1,5 @@
 /**
- * PARWA Outbound Webhooks API Proxy
+ * SHOBH Outbound Webhooks API Proxy
  *
  * BFF route that proxies /api/integrations/webhooks to the backend.
  * Supports GET (list), POST (create) for outbound webhooks.

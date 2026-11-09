@@ -27,7 +27,7 @@ export default function TestRazorpayPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-6">
+    <div className="min-h-screen bg-[#1B1B1F] text-white p-6">
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Razorpay Standard Checkout — Test</h1>
@@ -85,7 +85,7 @@ export default function TestRazorpayPage() {
 
           <RazorpayCheckout
             amount={amount}
-            name="PARWA Test"
+            name="SHOBH Test"
             description="Manual test payment"
             buttonText={`Pay ₹${amount}`}
             onSuccess={(paymentId, orderId) => {

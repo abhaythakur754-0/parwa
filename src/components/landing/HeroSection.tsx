@@ -89,7 +89,7 @@ export default function HeroSection() {
         <div
           className="absolute w-[400px] h-[400px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,127,17,0.2) 0%, rgba(255,127,17,0.03) 60%, transparent 80%)',
+            background: 'radial-gradient(circle, rgba(161,161,170,0.2) 0%, rgba(161,161,170,0.03) 60%, transparent 80%)',
             top: '20%',
             left: '10%',
             transform: `translate(${mousePos.x * 12}px, ${mousePos.y * 8}px)`,
@@ -100,7 +100,7 @@ export default function HeroSection() {
         <div
           className="absolute w-[350px] h-[350px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,215,0,0.08) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+            background: 'radial-gradient(circle, rgba(212,212,216,0.08) 0%, rgba(212,212,216,0.01) 60%, transparent 80%)',
             top: '60%',
             right: '5%',
             transform: `translate(${mousePos.x * -15}px, ${mousePos.y * -10}px)`,
@@ -111,7 +111,7 @@ export default function HeroSection() {
         <div
           className="absolute w-[250px] h-[250px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,159,68,0.12) 0%, rgba(255,159,68,0.02) 60%, transparent 80%)',
+            background: 'radial-gradient(circle, rgba(196,196,203,0.12) 0%, rgba(196,196,203,0.02) 60%, transparent 80%)',
             top: '10%',
             right: '30%',
             transform: `translate(${mousePos.x * 8}px, ${mousePos.y * 6}px)`,
@@ -163,10 +163,10 @@ export default function HeroSection() {
           }`}
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5 text-balance">
-            Human Support vs <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">PARWA AI</span>
+            Human Support vs <span className="bg-gradient-to-r from-orange-300 via-orange-400 to-orange-200 bg-clip-text text-transparent">SHOBH AI</span>
           </h2>
           
-          <div className="inline-flex items-center gap-3 sm:gap-4 mt-6 mb-4 px-5 sm:px-6 py-3 sm:py-4 rounded-2xl border border-orange-500/20 backdrop-blur-sm" style={{ background: 'rgba(255,127,17,0.08)' }}>
+          <div className="inline-flex items-center gap-3 sm:gap-4 mt-6 mb-4 px-5 sm:px-6 py-3 sm:py-4 rounded-2xl border border-orange-500/20 backdrop-blur-sm" style={{ background: 'rgba(161,161,170,0.08)' }}>
             <div className="flex items-baseline gap-1">
               <span className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-300 ${counterValue === 92 ? 'counter-bounce' : ''}`}>
                 {counterValue}%
@@ -238,23 +238,23 @@ export default function HeroSection() {
             </ul>
           </div>
 
-          {/* PARWA AI Card */}
+          {/* SHOBH AI Card */}
           <div
             className={`rounded-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden transition-all duration-700 ${
               visibleCards.includes(1) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
             }`}
             style={{
-              background: 'linear-gradient(135deg, rgba(255,127,17,0.08) 0%, rgba(255,127,17,0.02) 100%)',
-              border: '1px solid rgba(255,127,17,0.3)',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.2), 0 0 80px rgba(255,127,17,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
+              background: 'linear-gradient(135deg, rgba(161,161,170,0.08) 0%, rgba(161,161,170,0.02) 100%)',
+              border: '1px solid rgba(161,161,170,0.3)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.2), 0 0 80px rgba(161,161,170,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
             }}
           >
-            <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.15)' }} />
+            <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.15)' }} />
             <div className="relative flex items-center gap-3 mb-8">
               <div className="w-11 h-11 rounded-xl bg-orange-500/10 border border-orange-500/25 flex items-center justify-center">
                 <Check className="w-5 h-5 text-orange-400" />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white">PARWA AI</h3>
+              <h3 className="text-lg sm:text-xl font-anton text-white tracking-wide">SHOBH AI</h3>
               <span className="hidden sm:inline-flex ml-auto px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/25 text-orange-300 text-xs font-semibold tracking-wide recommended-glow">
                 ✨ RECOMMENDED
               </span>
@@ -315,7 +315,7 @@ export default function HeroSection() {
                 }
                 router.push('/dashboard');
               }}
-              className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 focus-visible-ring"
+              className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] shadow-lg shadow-orange-500/25 hover:from-orange-400 hover:to-orange-300 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 focus-visible-ring"
             >
               <MessageSquare className="w-4.5 h-4.5" />
               Get Started with Jarvis

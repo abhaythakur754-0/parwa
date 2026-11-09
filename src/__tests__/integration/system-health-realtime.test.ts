@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Tests — System Health Real-Time Updates (Day 4)
+ * SHOBH Integration Tests — System Health Real-Time Updates (Day 4)
  *
  * End-to-end integration tests verifying:
  * 1. Socket events → system health store → overall status

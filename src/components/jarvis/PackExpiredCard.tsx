@@ -1,5 +1,5 @@
 /**
- * PARWA PackExpiredCard (Week 6 — Day 4 Phase 6)
+ * SHOBH PackExpiredCard (Week 6 — Day 4 Phase 6)
  *
  * "Demo pack expired. Options: free tier / repurchase."
  */

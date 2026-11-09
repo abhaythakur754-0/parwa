@@ -1,5 +1,5 @@
 /**
- * PARWA ChatWindow Component (Week 6 — Day 3 Phase 5)
+ * SHOBH ChatWindow Component (Week 6 — Day 3 Phase 5)
  *
  * Scrollable message list with auto-scroll behavior.
  * Renders ChatMessage for each message in the history.
@@ -116,7 +116,7 @@ function getWelcomeMessage(
     if (!hasRoi && industry) {
       return {
         heading: `${industry.charAt(0).toUpperCase() + industry.slice(1)} solutions 🏢`,
-        body: `I see you're exploring PARWA for ${industry}. Want to see how our AI agents can help your business grow?`,
+        body: `I see you're exploring SHOBH for ${industry}. Want to see how our AI agents can help your business grow?`,
       };
     }
     if (variant) {
@@ -137,7 +137,7 @@ function getWelcomeMessage(
   if (entrySource === 'roi') {
     return {
       heading: 'Welcome back! 📊',
-      body: "I see you've been checking out our ROI calculator. Want to see how PARWA can save you money?",
+      body: "I see you've been checking out our ROI calculator. Want to see how SHOBH can save you money?",
     };
   }
   if (entrySource === 'features' || entrySource === 'models') {
@@ -157,7 +157,7 @@ function getWelcomeMessage(
   if (pagesVisited.includes('roi_calculator')) {
     return {
       heading: 'Hey there! 👋',
-      body: "Welcome! I see you've been using our ROI calculator. Ready to see PARWA in action?",
+      body: "Welcome! I see you've been using our ROI calculator. Ready to see SHOBH in action?",
     };
   }
   if (pagesVisited.includes('models_page')) {
@@ -170,7 +170,7 @@ function getWelcomeMessage(
   // ── Default / direct / onboarding ──
   return {
     heading: "Hey there! 👋",
-    body: "I'm Jarvis, your AI assistant from PARWA. I'll help you find the perfect AI agents for your business. What brings you here today?",
+    body: "I'm Jarvis, your AI assistant from SHOBH. I'll help you find the perfect AI agents for your business. What brings you here today?",
   };
 }
 
@@ -281,7 +281,7 @@ function QuickSuggestion({ text, onClick }: { text: string; onClick?: (text: str
 
 /** Starter suggestions shown in the empty state */
 const SUGGESTIONS = [
-  '💡 What is PARWA?',
+  '💡 What is SHOBH?',
   '💰 Show me pricing',
   '🛒 How it works for e-commerce?',
   '🚀 Help me get started',

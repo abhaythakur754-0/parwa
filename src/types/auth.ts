@@ -1,5 +1,5 @@
 /**
- * PARWA Auth Types
+ * SHOBH Auth Types
  * 
  * Types for authentication including user, tokens, and auth responses.
  * Based on backend/app/schemas/auth.py

@@ -1,5 +1,5 @@
 /**
- * PARWA Token Refresh API Route
+ * SHOBH Token Refresh API Route
  *
  * Primary path: Proxies POST /api/auth/refresh to the backend.
  * The backend reads the refresh token from the httpOnly parwa_rt cookie

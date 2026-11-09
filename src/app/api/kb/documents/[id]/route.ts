@@ -1,5 +1,5 @@
 /**
- * PARWA Knowledge Base Document API Proxy
+ * SHOBH Knowledge Base Document API Proxy
  *
  * Handles /api/kb/documents/:id (DELETE) and /api/kb/documents/:id/retry (POST)
  */

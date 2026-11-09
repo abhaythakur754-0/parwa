@@ -1,5 +1,5 @@
 /**
- * PARWA Outbound Webhook Test API Proxy
+ * SHOBH Outbound Webhook Test API Proxy
  *
  * BFF route that proxies POST /api/integrations/webhooks/[webhookId]/test
  * to the backend for sending test events to webhook endpoints.

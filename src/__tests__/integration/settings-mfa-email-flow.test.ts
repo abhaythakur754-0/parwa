@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * PARWA Day 5 Integration Tests — Settings, MFA, Email Verification
+ * SHOBH Day 5 Integration Tests — Settings, MFA, Email Verification
  *
  * End-to-end flow tests verifying:
  * - Settings page tab navigation and form interactions

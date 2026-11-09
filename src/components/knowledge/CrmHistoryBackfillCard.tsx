@@ -130,7 +130,7 @@ export function CrmHistoryBackfillCard() {
 
   if (isLoading) {
     return (
-      <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-4 animate-pulse h-[104px]" />
+      <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-4 animate-pulse h-[104px]" />
     );
   }
 
@@ -140,7 +140,7 @@ export function CrmHistoryBackfillCard() {
   const busy = isRunning || st === 'running';
 
   return (
-    <div className="bg-[#1A1A1A] rounded-xl border border-white/[0.06] p-4">
+    <div className="bg-[#2C2C31] rounded-xl border border-white/[0.06] p-4">
       <div className="flex items-start gap-4">
         <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
           <GraduationCap className="w-5 h-5 text-orange-400" aria-hidden="true" />
@@ -155,7 +155,7 @@ export function CrmHistoryBackfillCard() {
             )}
           </div>
           <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-            Teach PARWA from how your team solved past tickets. Each import reads 50
+            Teach SHOBH from how your team solved past tickets. Each import reads 50
             resolved tickets from your CRM (read-only) and stores the solutions — the
             AI then answers similar tickets on its own.
           </p>

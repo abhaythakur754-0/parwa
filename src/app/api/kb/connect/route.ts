@@ -1,5 +1,5 @@
 /**
- * PARWA Knowledge Base Connect API
+ * SHOBH Knowledge Base Connect API
  * 
  * POST /api/kb/connect - Connect to an existing knowledge base
  * Can connect to:

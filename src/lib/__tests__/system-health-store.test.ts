@@ -1,5 +1,5 @@
 /**
- * PARWA System Health Store — Unit Tests (Day 4)
+ * SHOBH System Health Store — Unit Tests (Day 4)
  *
  * Tests system health monitoring: service status, queue metrics,
  * alerts, maintenance mode, and Socket.io event handlers.

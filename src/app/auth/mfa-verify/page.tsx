@@ -79,7 +79,7 @@ export default function MFAVerifyPage() {
   const displayError = localError || error;
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E1E22] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Back link */}
         <Link
@@ -155,7 +155,7 @@ export default function MFAVerifyPage() {
           <button
             onClick={handleVerify}
             disabled={status === 'verifying'}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
           >
             {status === 'verifying' ? 'Verifying...' : 'Verify'}
           </button>

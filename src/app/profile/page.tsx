@@ -1,5 +1,5 @@
 /**
- * PARWA Profile Page
+ * SHOBH Profile Page
  *
  * Full user profile/account page showing:
  *   - Personal info (name, email, phone, company)
@@ -124,7 +124,7 @@ export default function ProfilePage() {
 
   if (!userData) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <div className="animate-spin w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full" />
       </div>
     );
@@ -133,18 +133,18 @@ export default function ProfilePage() {
   return (
     <div
       className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}
     >
       {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[500px] h-[500px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,127,17,0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(161,161,170,0.1) 0%, transparent 70%)',
           top: '-10%',
           right: '-10%',
           animation: 'orbFloat 10s ease-in-out infinite',
         }} />
         <div className="absolute w-[400px] h-[400px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,215,0,0.05) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(212,212,216,0.05) 0%, transparent 70%)',
           bottom: '-10%',
           left: '-10%',
           animation: 'orbFloat 12s ease-in-out infinite',
@@ -166,13 +166,13 @@ export default function ProfilePage() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(255,127,17,0.2)',
+            border: '1px solid rgba(161,161,170,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)',
           }}
         >
           {/* Glow */}
-          <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.08)' }} />
+          <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-[80px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.08)' }} />
 
           <div className="relative flex flex-col sm:flex-row items-center gap-5">
             {/* Avatar */}
@@ -180,7 +180,7 @@ export default function ProfilePage() {
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-2xl font-bold shadow-xl shadow-orange-500/20">
                 {initials}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-orange-400 border-3 border-[#1A1A1A] flex items-center justify-center">
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-orange-400 border-3 border-[#2C2C31] flex items-center justify-center">
                 <Zap className="w-3 h-3 text-white" />
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function ProfilePage() {
             {/* Edit Profile button */}
             <Link
               href="/models"
-              className="px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#1A1A1A] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-400 text-[#2C2C31] shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
             >
               <Crown className="w-4 h-4" />
               Upgrade
@@ -440,7 +440,7 @@ export default function ProfilePage() {
 
         {/* ── Footer ── */}
         <p className="text-center text-[11px] text-white/15 pb-8">
-          PARWA — Your AI-powered customer support assistant
+          SHOBH — Your AI-powered customer support assistant
         </p>
       </div>
 

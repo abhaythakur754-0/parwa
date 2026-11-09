@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  * Professional gold banner - trust indicator at top of page.
  * NO emojis - using SVG icon.
  * 
- * Color: Gold (#FFD700) as per Frontend Docs.
+ * Color: Gold (#D4D4D8) as per Frontend Docs.
  * 
  * Features:
  * - Shimmer animation
@@ -58,9 +58,9 @@ export default function DogfoodingBanner({ onOpenDemo }: DogfoodingBannerProps) 
           <button
             onClick={onOpenDemo}
             className="underline hover:no-underline font-bold focus-visible-ring rounded px-1"
-            aria-label="Try PARWA AI demo"
+            aria-label="Try SHOBH AI demo"
           >
-            PARWA AI
+            SHOBH AI
           </button>
           {' '}- Try it now!
         </p>

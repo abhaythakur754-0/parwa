@@ -1,5 +1,5 @@
 /**
- * PARWA Ticket Store — Unit Tests
+ * SHOBH Ticket Store — Unit Tests
  *
  * Tests CRUD operations, status transitions, auto-variant assignment,
  * message handling, statistics, and edge cases.
@@ -495,7 +495,7 @@ describe('useTicketStore', () => {
 
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'How can I help?',
       });
 
@@ -518,7 +518,7 @@ describe('useTicketStore', () => {
 
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'Response',
       });
 
@@ -539,7 +539,7 @@ describe('useTicketStore', () => {
 
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'First response',
       });
 
@@ -698,7 +698,7 @@ describe('useTicketStore', () => {
       // Add AI response → auto transitions to in_progress
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'I can help with that',
       });
       expect(useTicketStore.getState().getTicket(ticket.id)!.status).toBe('in_progress');
@@ -730,7 +730,7 @@ describe('useTicketStore', () => {
 
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'Let me help you',
       });
 

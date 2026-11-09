@@ -1,5 +1,5 @@
 /**
- * PARWA Knowledge Base List API
+ * SHOBH Knowledge Base List API
  * 
  * GET /api/kb/list - List all available knowledge bases (for connection)
  * Shows both user's own KBs and available CRM KBs

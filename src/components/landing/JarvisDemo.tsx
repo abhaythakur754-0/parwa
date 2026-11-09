@@ -118,7 +118,7 @@ export default function JarvisDemo() {
         <div
           className="absolute w-[500px] h-[500px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,127,17,0.25) 0%, rgba(255,127,17,0.05) 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(161,161,170,0.25) 0%, rgba(161,161,170,0.05) 50%, transparent 70%)',
             top: '10%',
             left: '15%',
             transform: `translate(${mousePos.x * 15}px, ${mousePos.y * 10}px)`,
@@ -129,7 +129,7 @@ export default function JarvisDemo() {
         <div
           className="absolute w-[400px] h-[400px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,159,68,0.2) 0%, rgba(255,159,68,0.03) 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(196,196,203,0.2) 0%, rgba(196,196,203,0.03) 50%, transparent 70%)',
             bottom: '5%',
             right: '10%',
             transform: `translate(${mousePos.x * -20}px, ${mousePos.y * -12}px)`,
@@ -140,7 +140,7 @@ export default function JarvisDemo() {
         <div
           className="absolute w-[300px] h-[300px] rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(255,215,0,0.12) 0%, rgba(255,215,0,0.02) 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(212,212,216,0.12) 0%, rgba(212,212,216,0.02) 50%, transparent 70%)',
             top: '50%',
             left: '55%',
             transform: `translate(-50%, -50%) translate(${mousePos.x * 8}px, ${mousePos.y * 8}px)`,
@@ -158,7 +158,7 @@ export default function JarvisDemo() {
             className="absolute inset-0 rounded-full border border-orange-500/20"
             style={{
               animation: 'jarvisRingExpand 4s ease-in-out infinite',
-              boxShadow: '0 0 40px rgba(255,127,17,0.08), inset 0 0 40px rgba(255,127,17,0.03)',
+              boxShadow: '0 0 40px rgba(161,161,170,0.08), inset 0 0 40px rgba(161,161,170,0.03)',
             }}
           />
           {/* Ring 2 */}
@@ -167,7 +167,7 @@ export default function JarvisDemo() {
             style={{
               inset: '60px',
               animation: 'jarvisRingExpand 4s ease-in-out infinite 1s',
-              boxShadow: '0 0 30px rgba(255,159,68,0.06)',
+              boxShadow: '0 0 30px rgba(196,196,203,0.06)',
             }}
           />
           {/* Ring 3 */}
@@ -176,7 +176,7 @@ export default function JarvisDemo() {
             style={{
               inset: '120px',
               animation: 'jarvisRingExpand 4s ease-in-out infinite 2s',
-              boxShadow: '0 0 20px rgba(255,212,168,0.05)',
+              boxShadow: '0 0 20px rgba(232,232,235,0.05)',
             }}
           />
           {/* Core glow */}
@@ -184,7 +184,7 @@ export default function JarvisDemo() {
             className="absolute rounded-full"
             style={{
               inset: '200px',
-              background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.03) 60%, transparent 100%)',
+              background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.03) 60%, transparent 100%)',
               animation: 'jarvisCorePulse 3s ease-in-out infinite',
             }}
           />
@@ -218,8 +218,8 @@ export default function JarvisDemo() {
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.08 }}>
         <defs>
           <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FF7F11" />
-            <stop offset="100%" stopColor="#FF9F44" />
+            <stop offset="0%" stopColor="#A1A1AA" />
+            <stop offset="100%" stopColor="#C4C4CB" />
           </linearGradient>
         </defs>
         {[0, 1, 2, 3, 4].map((i) => (
@@ -285,18 +285,18 @@ export default function JarvisDemo() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 50%, rgba(255,127,17,0.05) 100%)',
-            border: '1px solid rgba(255,127,17,0.2)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 50%, rgba(161,161,170,0.05) 100%)',
+            border: '1px solid rgba(161,161,170,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(255,127,17,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.3), 0 0 80px rgba(161,161,170,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
           }}
         >
           {/* Chat Header */}
           <div
             className="px-5 sm:px-6 py-4 flex items-center gap-3"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,127,17,0.25) 0%, rgba(224,109,0,0.2) 100%)',
-              borderBottom: '1px solid rgba(255,127,17,0.15)',
+              background: 'linear-gradient(135deg, rgba(161,161,170,0.25) 0%, rgba(224,109,0,0.2) 100%)',
+              borderBottom: '1px solid rgba(161,161,170,0.15)',
             }}
           >
             <div className="relative w-10 h-10 rounded-full bg-orange-500/20 border border-orange-400/30 flex items-center justify-center flex-shrink-0">
@@ -335,9 +335,9 @@ export default function JarvisDemo() {
                     <div
                       className="rounded-2xl rounded-bl-md p-4 sm:p-5"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.05) 100%)',
-                        border: '1px solid rgba(255,127,17,0.25)',
-                        boxShadow: '0 0 30px rgba(255,127,17,0.06)',
+                        background: 'linear-gradient(135deg, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.05) 100%)',
+                        border: '1px solid rgba(161,161,170,0.25)',
+                        boxShadow: '0 0 30px rgba(161,161,170,0.06)',
                       }}
                     >
                       <div className="flex items-center gap-2 mb-3">
@@ -357,8 +357,8 @@ export default function JarvisDemo() {
                         : 'text-orange-100/80 rounded-bl-md'
                     }`}
                     style={message.sender === 'user' ? {
-                      background: 'linear-gradient(135deg, #E06D00 0%, #FF7F11 100%)',
-                      boxShadow: '0 4px 16px rgba(255,127,17,0.25)',
+                      background: 'linear-gradient(135deg, #E06D00 0%, #A1A1AA 100%)',
+                      boxShadow: '0 4px 16px rgba(161,161,170,0.25)',
                     } : {
                       background: 'rgba(255,255,255,0.06)',
                       border: '1px solid rgba(255,255,255,0.08)',
@@ -400,7 +400,7 @@ export default function JarvisDemo() {
           </div>
 
           {/* Chat Footer */}
-          <div className="px-5 sm:px-6 py-3.5 flex items-center gap-2" style={{ background: 'rgba(2,44,34,0.6)', borderTop: '1px solid rgba(255,127,17,0.1)' }}>
+          <div className="px-5 sm:px-6 py-3.5 flex items-center gap-2" style={{ background: 'rgba(2,44,34,0.6)', borderTop: '1px solid rgba(161,161,170,0.1)' }}>
             <div className="flex-1 text-xs text-orange-500/40">
               Automated demo — loops every {((chatScript.length * (TYPING_DELAY + MESSAGE_DELAY)) / 1000 + PAUSE_BEFORE_LOOP / 1000).toFixed(0)}s
             </div>

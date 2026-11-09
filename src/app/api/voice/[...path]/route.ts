@@ -1,5 +1,5 @@
 /**
- * PARWA Voice API — Next.js Catch-All Proxy Route
+ * SHOBH Voice API — Next.js Catch-All Proxy Route
  *
  * Proxies all /api/voice/* requests to the backend FastAPI server
  * at BACKEND_URL/api/v1/voice/*.

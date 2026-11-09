@@ -12,20 +12,20 @@
   body {
     overflow-x: hidden;
     @apply text-gray-100 antialiased;
-    background: linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 30%, #2D1F0E 60%, #3D2A10 80%, #1A1A1A 100%);
+    background: linear-gradient(165deg, #2C2C31 0%, #303036 30%, #333338 60%, #3A3A40 80%, #2C2C31 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
   
   * {
-    border-color: rgba(255,127,17,0.15);
+    border-color: rgba(161,161,170,0.15);
   }
   
   input:focus,
   textarea:focus,
   select:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(255,127,17,0.2);
+    box-shadow: 0 0 0 2px rgba(161,161,170,0.2);
   }
 }
 
@@ -129,30 +129,30 @@
     text-wrap: balance;
   }
 
-  /* ── Premium Gradients (Orange — PARWA) ────────────────── */
+  /* ── Premium Gradients (Orange — SHOBH) ────────────────── */
 
   .premium-gradient {
     background: linear-gradient(
       160deg,
-      #1A1A1A 0%,
-      #2A1A0A 25%,
-      #2D1F0E 50%,
-      #3D2A10 75%,
-      #1A1A1A 100%
+      #2C2C31 0%,
+      #303036 25%,
+      #333338 50%,
+      #3A3A40 75%,
+      #2C2C31 100%
     );
   }
 
   .comfort-bg {
     background: linear-gradient(
       145deg,
-      #1A1A1A 0%,
-      #2A1A0A 30%,
-      #2D1F0E 60%,
-      #1A1A1A 100%
+      #2C2C31 0%,
+      #303036 30%,
+      #333338 60%,
+      #2C2C31 100%
     );
   }
 
-  /* ── Glass Premium (Orange — PARWA) ────────────────────── */
+  /* ── Glass Premium (Orange — SHOBH) ────────────────────── */
 
   .glass-premium {
     @apply backdrop-blur-xl border border-orange-500/25;
@@ -160,12 +160,12 @@
       135deg,
       rgba(255, 255, 255, 0.06) 0%,
       rgba(255, 255, 255, 0.03) 50%,
-      rgba(255, 127, 17, 0.05) 100%
+      rgba(161, 161, 170, 0.05) 100%
     );
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 60px rgba(255, 127, 17, 0.04);
+      0 0 60px rgba(161, 161, 170, 0.04);
   }
 
   /* ── Slide Full Width ───────────────────────────────────── */
@@ -179,12 +179,12 @@
     overflow-x: hidden;
   }
 
-  /* ── Ambient Glow Effects (Orange — PARWA) ─────────────── */
+  /* ── Ambient Glow Effects (Orange — SHOBH) ─────────────── */
 
   .ambient-glow-parrot {
     box-shadow:
-      0 0 80px rgba(255, 127, 17, 0.08),
-      0 0 160px rgba(255, 127, 17, 0.03);
+      0 0 80px rgba(161, 161, 170, 0.08),
+      0 0 160px rgba(161, 161, 170, 0.03);
   }
 
   .ambient-glow-gold {
@@ -327,11 +327,11 @@
   @keyframes badgePulse {
     0%, 100% {
       transform: scale(1);
-      box-shadow: 0 0 0 0 rgba(255, 127, 17, 0.3);
+      box-shadow: 0 0 0 0 rgba(161, 161, 170, 0.3);
     }
     50% {
       transform: scale(1.03);
-      box-shadow: 0 0 0 8px rgba(255, 127, 17, 0);
+      box-shadow: 0 0 0 8px rgba(161, 161, 170, 0);
     }
   }
 
@@ -366,10 +366,10 @@
 
   @keyframes recommendedGlow {
     0%, 100% {
-      box-shadow: 0 0 0 0 rgba(255, 127, 17, 0.25);
+      box-shadow: 0 0 0 0 rgba(161, 161, 170, 0.25);
     }
     50% {
-      box-shadow: 0 0 0 6px rgba(255, 127, 17, 0);
+      box-shadow: 0 0 0 6px rgba(161, 161, 170, 0);
     }
   }
 
@@ -464,14 +464,14 @@
   .gradient-border {
     position: relative;
     background: linear-gradient(white, white) padding-box,
-                linear-gradient(135deg, rgba(255, 127, 17, 0.4), rgba(255, 127, 17, 0.1)) border-box;
+                linear-gradient(135deg, rgba(161, 161, 170, 0.4), rgba(161, 161, 170, 0.1)) border-box;
     border: 1px solid transparent;
   }
   
-  /* ── Glow Effects (Orange — PARWA) ──────────────────────────────────── */
+  /* ── Glow Effects (Orange — SHOBH) ──────────────────────────────────── */
   
   .glow {
-    box-shadow: 0 0 40px rgba(255, 127, 17, 0.15);
+    box-shadow: 0 0 40px rgba(161, 161, 170, 0.15);
   }
   
   .glow-gold {
@@ -479,11 +479,11 @@
   }
   
   .glow-sm {
-    box-shadow: 0 0 20px rgba(255, 127, 17, 0.1);
+    box-shadow: 0 0 20px rgba(161, 161, 170, 0.1);
   }
   
   .glow-lg {
-    box-shadow: 0 0 60px rgba(255, 127, 17, 0.2);
+    box-shadow: 0 0 60px rgba(161, 161, 170, 0.2);
   }
 
   /* ── Carousel Cross-Fade ────────────────────────────────────────── */
@@ -528,11 +528,11 @@
     display: none;
   }
 
-  /* ── Premium Scrollbar (Orange — PARWA) ────────────────── */
+  /* ── Premium Scrollbar (Orange — SHOBH) ────────────────── */
 
   .scrollbar-premium {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 127, 17, 0.3) transparent;
+    scrollbar-color: rgba(161, 161, 170, 0.3) transparent;
   }
 
   .scrollbar-premium::-webkit-scrollbar {
@@ -544,18 +544,18 @@
   }
 
   .scrollbar-premium::-webkit-scrollbar-thumb {
-    background: rgba(255, 127, 17, 0.3);
+    background: rgba(161, 161, 170, 0.3);
     border-radius: 999px;
   }
 
   .scrollbar-premium::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 127, 17, 0.5);
+    background: rgba(161, 161, 170, 0.5);
   }
   
   /* ── Focus States for Accessibility ─────────────────────────────────── */
   
   .focus-visible-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1A1A1A];
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2C2C31];
   }
   
   /* ── Reduced Motion Support ────────────────────────────────────────── */
@@ -611,18 +611,18 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,127,17,0.3);
+  background: rgba(161,161,170,0.3);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,127,17,0.5);
+  background: rgba(161,161,170,0.5);
 }
 
-/* ── Selection (Orange — PARWA) ────────────────────────────── */
+/* ── Selection (Orange — SHOBH) ────────────────────────────── */
 
 ::selection {
-  background: rgba(255,127,17,0.3);
-  color: #FFF3E0;
+  background: rgba(161,161,170,0.3);
+  color: #E4E4E7;
 }
 
 /* ── Glass Effect (Light) ────────────────────────────────────────────── */
@@ -630,7 +630,7 @@
 .glass {
   background: rgba(255,255,255,0.05);
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,127,17,0.15);
+  border: 1px solid rgba(161,161,170,0.15);
 }
 
 .glass-dark {
@@ -843,8 +843,8 @@
 }
 
 @keyframes slide5CoreGlow {
-  0%, 100% { box-shadow: 0 0 40px rgba(224, 109, 0, 0.2), 0 0 80px rgba(255, 127, 17, 0.1); }
-  50% { box-shadow: 0 0 60px rgba(224, 109, 0, 0.35), 0 0 120px rgba(255, 127, 17, 0.15); }
+  0%, 100% { box-shadow: 0 0 40px rgba(224, 109, 0, 0.2), 0 0 80px rgba(161, 161, 170, 0.1); }
+  50% { box-shadow: 0 0 60px rgba(224, 109, 0, 0.35), 0 0 120px rgba(161, 161, 170, 0.15); }
 }
 
 @keyframes slide5DotPulse {
@@ -907,7 +907,7 @@
   50% { opacity: 0.35; transform: scale(1.15); }
 }
 
-/* ── Jarvis Animations (PARWA Dot Pulse & Orb Float) ─────── */
+/* ── Jarvis Animations (SHOBH Dot Pulse & Orb Float) ─────── */
 
 @keyframes jarvisDotPulse {
   0%, 100% { opacity: 0; transform: scale(0.5); }
@@ -922,4 +922,132 @@
 @keyframes jarvisOrbFloat2 {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-35px) scale(1.06); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Shobh Grey Theme — amber/yellow default scales remapped to grey
+   (brand rebrand: orange/brown → dark grey + light grey)
+   ═══════════════════════════════════════════════════════════════════ */
+@theme {
+  --color-amber-50: #FAFAFA;
+  --color-amber-100: #F4F4F5;
+  --color-amber-200: #E4E4E7;
+  --color-amber-300: #D4D4D8;
+  --color-amber-400: #A1A1AA;
+  --color-amber-500: #71717A;
+  --color-amber-600: #52525B;
+  --color-amber-700: #3F3F46;
+  --color-amber-800: #3A3A40;
+  --color-amber-900: #2A2A2F;
+  --color-amber-950: #1D1D22;
+  --color-yellow-50: #FAFAFA;
+  --color-yellow-100: #F4F4F5;
+  --color-yellow-200: #E4E4E7;
+  --color-yellow-300: #D4D4D8;
+  --color-yellow-400: #A1A1AA;
+  --color-yellow-500: #71717A;
+  --color-yellow-600: #52525B;
+  --color-yellow-700: #3F3F46;
+  --color-yellow-800: #3A3A40;
+  --color-yellow-900: #2A2A2F;
+  --color-yellow-950: #1D1D22;
+  /* orange scale → grey (legacy brand colour; user: dashboard + everything grey).
+     Same zinc ladder as amber/yellow above, so every remaining orange-* class
+     site-wide (dashboard pages, TrialBanner, btn-primary, spinners…) renders grey. */
+  --color-orange-50: #FAFAFA;
+  --color-orange-100: #F4F4F5;
+  --color-orange-200: #E4E4E7;
+  --color-orange-300: #D4D4D8;
+  --color-orange-400: #A1A1AA;
+  --color-orange-500: #71717A;
+  --color-orange-600: #52525B;
+  --color-orange-700: #3F3F46;
+  --color-orange-800: #3A3A40;
+  --color-orange-900: #2A2A2F;
+  --color-orange-950: #1D1D22;
+  /* purple/violet/fuchsia → grey (decorative accents in shadow-mode, integrations,
+     onboarding Superglue sections; user: dashboard + everything inside grey).
+     Semantic status colours (emerald=ok, red=error, blue/sky=info) intentionally stay. */
+  --color-purple-50: #FAFAFA;
+  --color-purple-100: #F4F4F5;
+  --color-purple-200: #E4E4E7;
+  --color-purple-300: #D4D4D8;
+  --color-purple-400: #A1A1AA;
+  --color-purple-500: #71717A;
+  --color-purple-600: #52525B;
+  --color-purple-700: #3F3F46;
+  --color-purple-800: #3A3A40;
+  --color-purple-900: #2A2A2F;
+  --color-purple-950: #1D1D22;
+  --color-violet-50: #FAFAFA;
+  --color-violet-100: #F4F4F5;
+  --color-violet-200: #E4E4E7;
+  --color-violet-300: #D4D4D8;
+  --color-violet-400: #A1A1AA;
+  --color-violet-500: #71717A;
+  --color-violet-600: #52525B;
+  --color-violet-700: #3F3F46;
+  --color-violet-800: #3A3A40;
+  --color-violet-900: #2A2A2F;
+  --color-violet-950: #1D1D22;
+  --color-fuchsia-50: #FAFAFA;
+  --color-fuchsia-100: #F4F4F5;
+  --color-fuchsia-200: #E4E4E7;
+  --color-fuchsia-300: #D4D4D8;
+  --color-fuchsia-400: #A1A1AA;
+  --color-fuchsia-500: #71717A;
+  --color-fuchsia-600: #52525B;
+  --color-fuchsia-700: #3F3F46;
+  --color-fuchsia-800: #3A3A40;
+  --color-fuchsia-900: #2A2A2F;
+  --color-fuchsia-950: #1D1D22;
+}
+
+/* Shobh lighter grey — zinc/neutral/gray dark defaults lifted (bg-only usage verified) */
+@theme {
+  --color-zinc-800: #34343A;
+  --color-zinc-900: #2A2A30;
+  --color-zinc-950: #1D1D22;
+  --color-neutral-800: #34343A;
+  --color-neutral-900: #2A2A30;
+  --color-neutral-950: #1D1D22;
+  --color-gray-950: #1D1D22;
+}
+
+/* Anton — brand wordmark + sidebar font (via `font-anton` utility).
+   Site-wide default is Archivo (below). */
+@theme inline {
+  --font-anton: var(--font-anton-src);
+  --font-sans: var(--font-archivo-src), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Site-wide default typeface = Archivo (all visible text inherits from html);
+   Anton remains opt-in for brand wordmarks + dashboard sidebar. */
+html {
+  font-family: var(--font-archivo-src), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── Interactive background — autonomous aurora blob drift paths ── */
+@keyframes shobh-drift-a {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(9vw, 6vh, 0) scale(1.18); }
+  100% { transform: translate3d(-5vw, -4vh, 0) scale(0.94); }
+}
+@keyframes shobh-drift-b {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-8vw, -7vh, 0) scale(1.22); }
+  100% { transform: translate3d(6vw, 5vh, 0) scale(0.9); }
+}
+@keyframes shobh-drift-c {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(7vw, -6vh, 0) scale(0.92); }
+  100% { transform: translate3d(-6vw, 7vh, 0) scale(1.15); }
+}
+@keyframes shobh-drift-d {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-7vw, 5vh, 0) scale(1.12); }
+  100% { transform: translate3d(8vw, -6vh, 0) scale(0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shobh-blob-freeze { animation: none !important; }
 }

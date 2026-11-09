@@ -134,7 +134,7 @@ function StatCard({
   return (
     <motion.div
       variants={itemVariants}
-      className={`rounded-xl bg-[#1A1A1A] border p-5 transition-all duration-300 ${borderMap[v]}`}
+      className={`rounded-xl bg-[#2C2C31] border p-5 transition-all duration-300 ${borderMap[v]}`}
     >
       <div className="flex items-start justify-between">
         <div className="space-y-1.5">
@@ -277,7 +277,7 @@ function EmptyState() {
       </p>
       <Link
         href="/dashboard/agents/new"
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200"
       >
         <Plus className="w-4 h-4" />
         Create Agent
@@ -311,7 +311,7 @@ function TierLimitBanner({ used, limit }: { used: number; limit: number }) {
       </div>
       <Link
         href="/dashboard/billing"
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 shrink-0"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200 shrink-0"
       >
         <Crown className="w-3.5 h-3.5" />
         Upgrade to add more agents
@@ -363,7 +363,7 @@ export default function AgentsPage() {
         {/* Stats skeleton */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5 animate-pulse">
+            <div key={i} className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-5 animate-pulse">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <div className="h-3 w-20 bg-white/[0.06] rounded" />
@@ -429,7 +429,7 @@ export default function AgentsPage() {
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shrink-0 ${
                 atAgentLimit
                   ? 'bg-white/[0.05] text-zinc-500 cursor-not-allowed pointer-events-none'
-                  : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5'
+                  : 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5'
               }`}
               aria-disabled={atAgentLimit}
               onClick={(e) => { if (atAgentLimit) e.preventDefault(); }}

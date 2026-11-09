@@ -1,5 +1,5 @@
 /**
- * PARWA Shadow Mode API Client
+ * SHOBH Shadow Mode API Client
  *
  * Centralized API client for Shadow Mode endpoints.
  * All endpoints mirror backend/app/api/shadow_mode.py

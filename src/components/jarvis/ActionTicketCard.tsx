@@ -1,5 +1,5 @@
 /**
- * PARWA ActionTicketCard (Week 6 — Day 4 Phase 6)
+ * SHOBH ActionTicketCard (Week 6 — Day 4 Phase 6)
  *
  * Displays an action ticket with status indicator.
  * Statuses: pending → in_progress → completed / failed

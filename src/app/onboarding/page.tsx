@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Page — /onboarding
+ * SHOBH Onboarding Page — /onboarding
  *
  * Shows the 4-step onboarding wizard:
  *   1. Details (Name, Website, Email OTP, Legal Docs)

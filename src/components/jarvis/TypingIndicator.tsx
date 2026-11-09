@@ -1,5 +1,5 @@
 /**
- * PARWA TypingIndicator Component (Week 6 — Day 3 Phase 5)
+ * SHOBH TypingIndicator Component (Week 6 — Day 3 Phase 5)
  *
  * Animated three-bouncing-dots indicator shown while Jarvis is
  * generating a response. Uses existing .typing-dot CSS animation

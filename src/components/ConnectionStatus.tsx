@@ -1,5 +1,5 @@
 /**
- * PARWA ConnectionStatus
+ * SHOBH ConnectionStatus
  *
  * Small indicator showing the Socket.io connection state.
  * Green dot when connected, yellow when reconnecting, red when disconnected.

@@ -1,5 +1,5 @@
 /**
- * PARWA ChatInput Component (Week 6 — Day 3 Phase 5)
+ * SHOBH ChatInput Component (Week 6 — Day 3 Phase 5)
  *
  * Text input area with send button for the Jarvis chat.
  * Handles keyboard shortcuts (Enter to send, Shift+Enter for newline),
@@ -133,7 +133,7 @@ export function ChatInput({
   );
 
   return (
-    <div className="shrink-0 bg-[#0D0D0D] px-4 pb-8 pt-2">
+    <div className="shrink-0 bg-[#1E1E22] px-4 pb-8 pt-2">
       <div className="max-w-3xl mx-auto">
         {/* Limit reached banner */}
         {isLimitReached && (

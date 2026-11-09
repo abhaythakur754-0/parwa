@@ -1,5 +1,10 @@
 import path from "path";
 
+// X-Frame-Options is a production-only protection (anti-clickjacking).
+// In development (sandbox preview panel) the site is embedded in an iframe,
+// so the header must be skipped or browsers show "refused to connect".
+const isProduction = process.env.NODE_ENV === "production";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -19,7 +24,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '*.space-z.ai', 'space-z.ai'],
   turbopack: {
     root: path.dirname(new URL(import.meta.url).pathname),
   },
@@ -35,10 +40,14 @@ const nextConfig = {
             key: "X-Content-Type-Options",
             value: "nosniff",
           },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
+          ...(isProduction
+            ? [
+                {
+                  key: "X-Frame-Options",
+                  value: "DENY",
+                },
+              ]
+            : []),
           {
             key: "X-XSS-Protection",
             value: "0", // Modern browsers handle XSS via CSP

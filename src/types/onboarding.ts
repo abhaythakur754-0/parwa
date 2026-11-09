@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Types
+ * SHOBH Onboarding Types
  * 
  * Types for the onboarding flow including user details,
  * onboarding state, and related entities.
@@ -210,7 +210,7 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, 'isCompleted' | 'isActive'>[
   {
     id: 3,
     title: 'Build & Launch',
-    description: 'PARWA creates agents + tools + MCP connections',
+    description: 'SHOBH creates agents + tools + MCP connections',
     isOptional: false,
   },
 ];

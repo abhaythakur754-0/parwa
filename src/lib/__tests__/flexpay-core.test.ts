@@ -66,7 +66,7 @@ describe('FlexPay Core Algorithm', () => {
 
   describe('calculateInstallmentSchedule', () => {
 
-    describe('Mini PARWA Tier ($999)', () => {
+    describe('Mini SHOBH Tier ($999)', () => {
       it('should generate correct schedule for $999 tier', () => {
         const schedule = calculateInstallmentSchedule(999, 'mini');
         
@@ -86,7 +86,7 @@ describe('FlexPay Core Algorithm', () => {
       });
     });
 
-    describe('PARWA Tier ($2,499)', () => {
+    describe('SHOBH Tier ($2,499)', () => {
       it('should generate correct schedule for $2,499 tier', () => {
         const schedule = calculateInstallmentSchedule(2499, 'parwa');
         
@@ -106,7 +106,7 @@ describe('FlexPay Core Algorithm', () => {
       });
     });
 
-    describe('PARWA High Tier ($3,999)', () => {
+    describe('SHOBH High Tier ($3,999)', () => {
       it('should generate full 30-day schedule for $3,999 tier', () => {
         const schedule = calculateInstallmentSchedule(3999, 'high');
         

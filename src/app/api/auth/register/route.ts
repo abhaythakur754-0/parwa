@@ -1,5 +1,5 @@
 /**
- * PARWA Register API Route
+ * SHOBH Register API Route
  *
  * Forwards registration data to the backend (sole token issuer) and stores
  * the backend's JWT tokens in httpOnly cookies. The frontend never mints

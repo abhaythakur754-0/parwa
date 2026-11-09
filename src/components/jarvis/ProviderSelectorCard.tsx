@@ -1,5 +1,5 @@
 /**
- * PARWA ProviderSelectorCard (Integration Setup)
+ * SHOBH ProviderSelectorCard (Integration Setup)
  *
  * Shows a list of available providers for a given category (email/sms/payment/crm/etc).
  * Rendered inline in the Jarvis chat stream during onboarding.

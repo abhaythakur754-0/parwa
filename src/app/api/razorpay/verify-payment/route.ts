@@ -1,5 +1,5 @@
 /**
- * PARWA Verify Razorpay Payment API
+ * SHOBH Verify Razorpay Payment API
  * 
  * POST /api/razorpay/verify-payment
  * Verifies payment signature and updates status in Supabase

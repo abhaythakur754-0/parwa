@@ -1,5 +1,5 @@
 /**
- * PARWA Audit Trail API Proxy (Phase 9)
+ * SHOBH Audit Trail API Proxy (Phase 9)
  *
  * Proxies audit trail requests from the frontend to the backend.
  *

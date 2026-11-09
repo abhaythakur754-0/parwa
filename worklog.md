@@ -1053,3 +1053,34 @@ instant-notify flow), lesson #9 added, day #4 logged.
 
 NEXT: live test with a real CRM sandbox ticket (resolution webhook →
 wiki upgrade → next identical ticket resolved by AI from memory).
+
+## Merge day 6 — all branches unified into main
+
+WHAT: merged dependabot/npm_and_yarn (zod+puppeteer bump in /scripts) and
+feature/ai-qa-ghostwriter (11 commits, forked 25 main-commits ago) into main.
+Feature brings: AI QA Report Card (qa_service: $0 checklist layer + capped
+officer layer, /api/qa/summary + /api/qa/conversations, qa_report_card table),
+Ghostwriter (gap -> draft -> human approve/reject, never auto-publishes,
+ghostwriter drafts table), Jarvis CC service wiring, SHOBH rebrand (228
+files: comments/UI strings, shobh-logo assets, auth pages orange->zinc,
+SOC 2 dropped from security claims), next.config sandbox-preview fix
+(space-z.ai origins, X-Frame-Options prod-only).
+
+CONFLICTS: only worklog.md real-conflicted (kept main's full history);
+next.config.mjs / chat route / jarvis route / useJarvisChat auto-merged and
+were verified to keep BOTH sides (redirects + origins; superglue lane +
+HIPAA; maxDuration + HIPAA; retry fix + ShobhApiError rename, definition
+confirmed in src/types/jarvis.ts).
+
+JUNK EXCLUDED at merge time per owner decision: 43 verify-*.png screenshots,
+preview-new-grey.png, 235 venv/site-packages paths, 88 __pycache__/.pyc,
+runtime DBs (parwa_dev.db, custom.db, dev.pid restored from main).
+.gitignore now blocks verify-*.png / preview-*.png.
+
+KNOWN GAPS (not blocking): QA Report Card has backend + landing preview but
+no app-router dashboard page yet; jarvis_cc_service wired on branch (api +
+models + alembic 020 already on main). Rebrand covers auth/comments/logo —
+landing + dashboard headers still say PARWA.
+
+NEXT: run backend checks + frontend lint, then push; QA dashboard page is
+the natural next feature.

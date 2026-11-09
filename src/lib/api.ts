@@ -1,5 +1,5 @@
 /**
- * PARWA API Client
+ * SHOBH API Client
  * 
  * Centralized API client for making requests to the backend.
  * 

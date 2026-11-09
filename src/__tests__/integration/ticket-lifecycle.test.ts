@@ -1,5 +1,5 @@
 /**
- * PARWA Integration Test: Ticket Lifecycle Flow
+ * SHOBH Integration Test: Ticket Lifecycle Flow
  *
  * Tests the complete ticket lifecycle from creation through
  * resolution, including status transitions, message handling,
@@ -38,7 +38,7 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       // 2. AI responds (auto-transitions to in_progress)
       const aiMsg = useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: "I've located the duplicate charge. Initiating a refund now.",
       });
 
@@ -62,7 +62,7 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       // 4. AI provides final answer and resolves
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: 'The refund will appear within 3-5 business days.',
       });
 
@@ -96,7 +96,7 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       // 2. AI responds and recognizes need for escalation
       useTicketStore.getState().addMessage(ticket.id, {
         sender: 'ai_agent',
-        sender_name: 'PARWA AI',
+        sender_name: 'SHOBH AI',
         content: "I've received your request. Escalating to our Data Protection Officer.",
       });
 

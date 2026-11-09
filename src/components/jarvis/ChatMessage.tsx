@@ -1,5 +1,5 @@
 /**
- * PARWA ChatMessage Component (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
+ * SHOBH ChatMessage Component (Week 6 — Day 3 Phase 5, Updated Day 4 Phase 6)
  *
  * Renders a single chat message with support for multiple message types.
  * - text: Markdown-rendered bubble (supports **bold** inline formatting)

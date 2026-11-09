@@ -1,5 +1,5 @@
 /**
- * PARWA ConnectionErrorCard (Integration Setup)
+ * SHOBH ConnectionErrorCard (Integration Setup)
  *
  * Dedicated error card with troubleshooting steps for failed integrations.
  * Shows common fixes, retry, support link, and skip option.

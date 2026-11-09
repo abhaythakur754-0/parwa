@@ -9,6 +9,8 @@ import {
   WhyChooseUs,
   HowItWorks,
   JarvisDemo,
+  QaDashboardPreview,
+  TrustSection,
   Footer,
 } from '@/components/landing';
 
@@ -56,7 +58,9 @@ export default function HomePage() {
       <HeroSection />
       <HowItWorks />
       <JarvisDemo />
+      <QaDashboardPreview />
       <WhyChooseUs />
+      <TrustSection />
       <Footer />
     </main>
   );

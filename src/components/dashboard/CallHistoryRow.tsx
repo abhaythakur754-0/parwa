@@ -1,5 +1,5 @@
 /**
- * PARWA CallHistoryRow
+ * SHOBH CallHistoryRow
  *
  * Table row for call history with:
  * - Direction icon (outbound/inbound)
@@ -41,7 +41,7 @@ const variantColors: Record<string, string> = {
 };
 
 const variantLabels: Record<string, string> = {
-  parwa: 'Parwa',
+  parwa: 'Shobh',
   high: 'High',
 };
 

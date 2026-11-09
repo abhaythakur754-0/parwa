@@ -15,9 +15,9 @@ const config: Config = {
            shadcn/ui Theme (CSS variable driven)
            ═══════════════════════════════════════════════════════════════ */
         background: {
-          DEFAULT: '#FFF7ED',
-          secondary: '#FFEDD5',
-          tertiary: '#FED7AA',
+          DEFAULT: '#FAFAFA',
+          secondary: '#F4F4F5',
+          tertiary: '#E4E4E7',
         },
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -50,7 +50,7 @@ const config: Config = {
         },
         border: {
           DEFAULT: 'hsl(var(--border))',
-          hover: 'rgba(255,127,17,0.25)',
+          hover: 'rgba(161,161,170,0.25)',
         },
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -63,35 +63,35 @@ const config: Config = {
         },
 
         /* ═══════════════════════════════════════════════════════════════
-           Parwa Brand Colors
+           Shobh Brand Colors — Dark Grey / Light Grey (monochrome)
            ═══════════════════════════════════════════════════════════════ */
 
-        // PRIMARY — Logistics Orange
+        // PRIMARY — Silver Grey accent
         parrot: {
-          50: '#FFF7ED',
-          100: '#FFEDD5',
-          200: '#FED7AA',
-          300: '#FDBA74',
-          400: '#FB923C',
-          500: '#FF7F11',
-          600: '#EA580C',
-          700: '#C2410C',
-          800: '#9A3412',
-          900: '#7C2D12',
-          950: '#431407',
+          50: '#FAFAFA',
+          100: '#F4F4F5',
+          200: '#E4E4E7',
+          300: '#D4D4D8',
+          400: '#A1A1AA',
+          500: '#71717A',
+          600: '#52525B',
+          700: '#3F3F46',
+          800: '#34343A',
+          900: '#2A2A30',
+          950: '#1E1E23',
         },
 
         gold: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#FFD700',
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50: '#FAFAFA',
+          100: '#F4F4F5',
+          200: '#E4E4E7',
+          300: '#D4D4D8',
+          400: '#A1A1AA',
+          500: '#D4D4D8',
+          600: '#A1A1AA',
+          700: '#71717A',
+          800: '#52525B',
+          900: '#3F3F46',
         },
 
         // DARK TEXT — Black & White
@@ -123,23 +123,24 @@ const config: Config = {
         },
 
         orange: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
-          700: '#c2410c',
-          800: '#9a3412',
-          900: '#7c2d12',
+          50: '#FAFAFA',
+          100: '#F4F4F5',
+          200: '#E4E4E7',
+          300: '#D4D4D8',
+          400: '#A1A1AA',
+          500: '#71717A',
+          600: '#52525B',
+          700: '#3F3F46',
+          800: '#34343A',
+          900: '#2A2A30',
+          950: '#1E1E23',
         },
 
-        // UI Colors — Orange Theme
+        // UI Colors — Grey Theme
         surface: {
           DEFAULT: '#ffffff',
-          hover: '#FFF7ED',
-          active: '#FFEDD5',
+          hover: '#F4F4F5',
+          active: '#E4E4E7',
         },
 
         // Status Colors
@@ -186,7 +187,7 @@ const config: Config = {
       },
 
       /* ═══════════════════════════════════════════════════════════════
-         Parwa Animations & Keyframes
+         Shobh Animations & Keyframes
          ═══════════════════════════════════════════════════════════════ */
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',

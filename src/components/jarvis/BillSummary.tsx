@@ -24,9 +24,9 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
   const totalMonthly = metadata.totalMonthly as number || 0;
 
   const planNames: Record<string, string> = {
-    'mini-parwa': 'PARWA',
-    'parwa': 'PARWA',
-    'high-parwa': 'PARWA High',
+    'mini-parwa': 'SHOBH',
+    'parwa': 'SHOBH',
+    'high-parwa': 'SHOBH High',
   };
 
   const variants = (metadata.variants as Array<Record<string, unknown>>) || [];
@@ -36,7 +36,7 @@ export function BillSummary({ metadata, onConfirm, onChangePlan }: BillSummaryPr
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-500 px-4 py-2.5">
         <h4 className="text-white text-sm font-bold flex items-center gap-2">
-          <span>&#x1f4cb;</span> Your PARWA Plan
+          <span>&#x1f4cb;</span> Your SHOBH Plan
         </h4>
       </div>
 

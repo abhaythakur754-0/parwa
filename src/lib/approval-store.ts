@@ -1,5 +1,5 @@
 /**
- * PARWA Approval Store
+ * SHOBH Approval Store
  *
  * Zustand store for human-in-the-loop approval management.
  * Tracks AI agent approval requests (refunds, cancellations, escalations, etc.)

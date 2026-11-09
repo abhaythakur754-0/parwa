@@ -13,7 +13,7 @@ type VerifyState = 'loading' | 'success' | 'error' | 'expired';
 // ── Loading Fallback ──────────────────────────────────────────────────
 function VerifyEmailLoading() {
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E1E22] flex items-center justify-center p-4">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-4" />
         <p className="text-sm text-zinc-500">Loading&hellip;</p>
@@ -108,7 +108,7 @@ function VerifyEmailContent() {
   const { bg, color, Icon } = icons[state];
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#1E1E22] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Link href="/login" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-white transition-colors mb-8">
           <ArrowLeft className="w-4 h-4" /> Back to login
@@ -121,20 +121,20 @@ function VerifyEmailContent() {
           <p className="text-sm text-zinc-400 text-center mb-6">{descriptions[state]}</p>
 
           {state === 'success' && (
-            <button onClick={() => router.push('/dashboard')} className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200">
+            <button onClick={() => router.push('/dashboard')} className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 hover:-translate-y-0.5 transition-all duration-200">
               Continue to Dashboard
             </button>
           )}
 
           {(state === 'expired' || state === 'error') && email && (
-            <button onClick={handleResend} disabled={resending || countdown > 0} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button onClick={handleResend} disabled={resending || countdown > 0} className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
               <RefreshCw className={`w-4 h-4 ${resending ? 'animate-spin' : ''}`} />
               {resending ? 'Sending...' : countdown > 0 ? `Resend in ${countdown}s` : 'Resend Verification Email'}
             </button>
           )}
 
           {(state === 'expired' || state === 'error') && !email && (
-            <Link href="/login" className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200">
+            <Link href="/login" className="w-full inline-flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-200">
               Go to Login
             </Link>
           )}

@@ -1,5 +1,5 @@
 /**
- * PARWA SystemHealthMonitor
+ * SHOBH SystemHealthMonitor
  *
  * Real-time system health dashboard showing service statuses,
  * queue metrics, and active alerts. All data updates via Socket.io.
@@ -97,7 +97,7 @@ export function SystemHealthMonitor() {
   };
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] overflow-hidden">
+    <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">

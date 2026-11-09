@@ -1,5 +1,5 @@
 /**
- * PARWA Day 1 Security Tests — Dashboard Auth (C-01 Fix)
+ * SHOBH Day 1 Security Tests — Dashboard Auth (C-01 Fix)
  *
  * Tests that dashboard API routes use real JWT verification,
  * not the old fake requireAuth() that only checked header existence.

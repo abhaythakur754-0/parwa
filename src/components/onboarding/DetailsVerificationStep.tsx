@@ -361,7 +361,7 @@ export function DetailsVerificationStep({
           </button>
           {expandedCard === 'terms' && (
             <div className="px-4 py-3 text-xs text-zinc-500 border-t border-white/[0.04]">
-              By accepting, you agree to PARWA's Terms of Service. You consent to use PARWA's AI-powered customer support platform in accordance with our terms. You are responsible for all activity under your account and must not misuse the service.
+              By accepting, you agree to SHOBH's Terms of Service. You consent to use SHOBH's AI-powered customer support platform in accordance with our terms. You are responsible for all activity under your account and must not misuse the service.
             </div>
           )}
         </div>
@@ -386,7 +386,7 @@ export function DetailsVerificationStep({
           </button>
           {expandedCard === 'privacy' && (
             <div className="px-4 py-3 text-xs text-zinc-500 border-t border-white/[0.04]">
-              PARWA collects and processes your data to provide AI-powered customer support services. We do not sell your data. Your data is stored securely and used only for providing and improving our services. You can request data deletion at any time.
+              SHOBH collects and processes your data to provide AI-powered customer support services. We do not sell your data. Your data is stored securely and used only for providing and improving our services. You can request data deletion at any time.
             </div>
           )}
         </div>
@@ -411,7 +411,7 @@ export function DetailsVerificationStep({
           </button>
           {expandedCard === 'ai' && (
             <div className="px-4 py-3 text-xs text-zinc-500 border-t border-white/[0.04]">
-              PARWA uses AI models to process customer support tickets. Your customer data may be processed by AI to generate responses. We use industry-standard security practices. AI responses are verified before delivery to customers.
+              SHOBH uses AI models to process customer support tickets. Your customer data may be processed by AI to generate responses. We use industry-standard security practices. AI responses are verified before delivery to customers.
             </div>
           )}
         </div>
@@ -431,7 +431,7 @@ export function DetailsVerificationStep({
         className={cn(
           'w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold transition-all',
           canSubmit && !isLoading
-            ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#1A1A1A] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5'
+            ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-[#2C2C31] shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:-translate-y-0.5'
             : 'bg-white/[0.04] text-zinc-600 cursor-not-allowed'
         )}
       >

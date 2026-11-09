@@ -1,5 +1,5 @@
 /**
- * PARWA DashboardLayout
+ * SHOBH DashboardLayout
  *
  * Main layout shell for the dashboard.
  * Uses DashboardSidebar component with collapse/expand on desktop,
@@ -173,7 +173,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // sees something instead of an infinite spinner.
   if ((!isInitialized || isLoading) && !maxLoadExceeded) {
     return (
-      <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#2C2C31] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-zinc-500">Loading...</p>
@@ -196,7 +196,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // block during cold starts.
   if (onboardingCheckState === 'checking' || onboardingCheckState === 'incomplete') {
     return (
-      <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#2C2C31] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-zinc-500">
@@ -222,7 +222,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SocketErrorBoundary>
       <SocketProvider>
-        <div className="min-h-screen bg-[#1A1A1A] flex">
+        <div className="min-h-screen bg-[#2C2C31] flex">
         {/* Mobile overlay */}
         {isMobileOpen && (
           <div
@@ -257,7 +257,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <TrialBanner />
 
           {/* Top bar */}
-          <header className="sticky top-0 z-30 h-14 bg-[#1A1A1A]/90 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 lg:px-6 gap-3">
+          <header className="sticky top-0 z-30 h-14 bg-[#2C2C31]/90 backdrop-blur-xl border-b border-white/[0.06] flex items-center px-4 lg:px-6 gap-3">
             {/* Mobile hamburger */}
             {isMobile && (
               <button
@@ -273,7 +273,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Mobile brand */}
             {isMobile && (
-              <span className="text-sm font-semibold text-white">PARWA</span>
+              <span className="text-lg font-anton text-white tracking-wide">SHOBH</span>
             )}
 
             {/* Spacer */}

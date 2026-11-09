@@ -1,5 +1,5 @@
 /**
- * PARWA Voice Call Store (Zustand)
+ * SHOBH Voice Call Store (Zustand)
  *
  * Manages voice call state for the dashboard:
  * - Active calls (in-progress, ringing, queued)

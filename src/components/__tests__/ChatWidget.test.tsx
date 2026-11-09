@@ -1,5 +1,5 @@
 /**
- * PARWA ChatWidget Component — Unit Tests
+ * SHOBH ChatWidget Component — Unit Tests
  *
  * Tests rendering, chat interaction, industry detection,
  * interest detection, and CTA behavior.

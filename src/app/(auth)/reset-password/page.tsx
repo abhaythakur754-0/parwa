@@ -60,13 +60,13 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, transparent 70%)', top: '20%', left: '15%', animation: 'orbFloat 10s ease-in-out infinite' }} />
-          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,165,0,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
+          <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, transparent 70%)', top: '20%', left: '15%', animation: 'orbFloat 10s ease-in-out infinite' }} />
+          <div className="absolute w-[250px] h-[250px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(161,161,170,0.1) 0%, transparent 70%)', bottom: '20%', right: '15%', animation: 'orbFloat 12s ease-in-out infinite' }} />
         </div>
         <div className="w-full max-w-md relative z-10">
-          <div className="rounded-2xl p-6 sm:p-8 text-center space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,127,17,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)' }}>
+          <div className="rounded-2xl p-6 sm:p-8 text-center space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(161,161,170,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)' }}>
             <div className="w-16 h-16 mx-auto rounded-full bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-orange-400" />
             </div>
@@ -81,11 +81,11 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}>
       {/* Animated background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)', top: '15%', left: '10%', animation: 'orbFloat1 10s ease-in-out infinite' }} />
-        <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, transparent 70%)', bottom: '10%', right: '10%', animation: 'orbFloat2 12s ease-in-out infinite' }} />
+        <div className="absolute w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.02) 60%, transparent 80%)', top: '15%', left: '10%', animation: 'orbFloat1 10s ease-in-out infinite' }} />
+        <div className="absolute w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,212,216,0.06) 0%, transparent 70%)', bottom: '10%', right: '10%', animation: 'orbFloat2 12s ease-in-out infinite' }} />
         {Array.from({ length: 10 }).map((_, i) => {
           const row = Math.floor(i / 4); const col = i % 4;
           return <div key={i} className="absolute w-1 h-1 rounded-full bg-orange-400" style={{ left: `${(col + 0.5) * 25}%`, top: `${(row + 0.5) * 25}%`, animation: `dotPulse 3s ease-in-out infinite ${(i * 0.4) % 4}s`, opacity: 0 }} />;
@@ -94,20 +94,18 @@ function ResetPasswordContent() {
 
       <div className="w-full max-w-md space-y-8 relative z-10">
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2.25 2.25 0 002-2V5a2.25 2.25 0 00-2-2H5a2.25 2.25 0 00-2 2v10a2.25 2.25 0 002 2z" />
-              </svg>
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-11 h-11 flex items-center justify-center">
+              <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-3xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
           <h1 className="text-3xl font-bold text-white">Reset your password</h1>
           <p className="mt-2 text-sm text-orange-200/50">Enter a new password for your account</p>
         </div>
 
-        <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(255,127,17,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)' }}>
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
+        <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)', border: '1px solid rgba(161,161,170,0.2)', backdropFilter: 'blur(20px)', boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)' }}>
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.1)' }} />
 
           {!token ? (
             <div className="text-center space-y-4">
@@ -170,7 +168,7 @@ function ResetPasswordContent() {
 
               {/* Submit */}
               <button type="submit" disabled={isLoading || !isPasswordValid}
-                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40">
+                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40">
                 {isLoading ? (<><Loader2 className="w-5 h-5 animate-spin" /> Resetting password...</>) : 'Reset Password'}
               </button>
             </form>
@@ -196,7 +194,7 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
       </div>
     }>

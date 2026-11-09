@@ -1,5 +1,5 @@
 /**
- * PARWA Integrations API Proxy
+ * SHOBH Integrations API Proxy
  *
  * Catches /api/integrations requests and proxies to backend.
  */

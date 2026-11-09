@@ -1,5 +1,5 @@
 /**
- * PARWA OtpVerificationCard (Week 6 — Day 4 Phase 6)
+ * SHOBH OtpVerificationCard (Week 6 — Day 4 Phase 6)
  *
  * Full OTP flow: email input → Send OTP → 6-digit input → Verify.
  * Uses useJarvisChat hook actions: sendOtp, verifyOtp.

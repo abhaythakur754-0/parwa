@@ -1,5 +1,5 @@
 /**
- * PARWA ConnectionStatusCard (Integration Setup)
+ * SHOBH ConnectionStatusCard (Integration Setup)
  *
  * Shows connection status after testing a provider integration.
  * States: disconnected → connecting → connected | error

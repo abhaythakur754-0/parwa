@@ -77,7 +77,7 @@ export function AntiArbitrageMatrix() {
             <ArrowRightLeft className="w-6 h-6 text-orange-400" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">PARWA vs PARWA High</h3>
+            <h3 className="text-xl font-bold text-white">SHOBH vs SHOBH High</h3>
             <p className="text-sm text-orange-200/50">Is the upgrade worth $1,500/month? Here&apos;s the real comparison</p>
           </div>
         </div>
@@ -94,14 +94,14 @@ export function AntiArbitrageMatrix() {
               <th className="text-left py-3 px-4 text-xs font-semibold text-amber-400/60 uppercase tracking-wider">
                 <div className="flex items-center gap-1.5">
                   <X className="w-3.5 h-3.5" />
-                  PARWA
+                  SHOBH
                 </div>
                 <span className="block text-xs font-normal text-amber-200/30 mt-0.5 normal-case">$2,999/mo</span>
               </th>
               <th className="text-left py-3 px-4 text-xs font-semibold text-purple-400/60 uppercase tracking-wider">
                 <div className="flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
-                  PARWA High
+                  SHOBH High
                 </div>
                 <span className="block text-xs font-normal text-purple-200/30 mt-0.5 normal-case">$3,999/mo</span>
               </th>
@@ -158,10 +158,10 @@ export function AntiArbitrageMatrix() {
           <ArrowRight className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-purple-300 mb-1">
-              For $1,500 more/month, PARWA High gives you 60% more capacity + unlimited financial actions
+              For $1,500 more/month, SHOBH High gives you 60% more capacity + unlimited financial actions
             </p>
             <p className="text-xs text-purple-200/40 leading-relaxed">
-              More agents, more tickets, more voice slots, and unlimited refund/credit authority. PARWA High doesn&apos;t just handle more volume — it makes autonomous financial decisions that would otherwise require human approval.
+              More agents, more tickets, more voice slots, and unlimited refund/credit authority. SHOBH High doesn&apos;t just handle more volume — it makes autonomous financial decisions that would otherwise require human approval.
             </p>
           </div>
         </div>

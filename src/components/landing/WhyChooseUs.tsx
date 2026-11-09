@@ -11,8 +11,8 @@ const features = [
   {
     icon: <Shield className="w-6 h-6 sm:w-7 sm:h-7" />,
     title: 'Bank-Grade Security',
-    description: 'Your data is encrypted end-to-end. GDPR-ready. SOC 2 ready.',
-    details: ['End-to-end encryption', 'GDPR-ready', 'SOC 2 ready', 'Regular security audits'],
+    description: 'Your data is encrypted end-to-end. GDPR-ready.',
+    details: ['End-to-end encryption', 'GDPR-ready', 'Regular security audits'],
     color: 'orange' as const,
   },
   {
@@ -98,7 +98,7 @@ export default function WhyChooseUs() {
           }`}
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-5">
-            Why Businesses Choose <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">PARWA</span>
+            Why Businesses Choose <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">SHOBH</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto px-4">
             Built for businesses that demand reliability, security, and instant results.
@@ -108,11 +108,8 @@ export default function WhyChooseUs() {
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-xs sm:text-sm font-semibold text-orange-300">
               💎 99.9% Uptime SLA
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/25 text-xs sm:text-sm font-semibold text-orange-300">
-              🔒 SOC 2 Certified
-            </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-xs sm:text-sm font-semibold text-sky-300">
-              🛡️ GDPR Compliant
+              🛡️ GDPR-Ready
             </span>
             <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs sm:text-sm font-semibold text-amber-300">
               🔐 Bank-Grade Encryption

@@ -1,5 +1,5 @@
 /**
- * PARWA Onboarding Complete Step API
+ * SHOBH Onboarding Complete Step API
  * 
  * POST /api/onboarding/complete-step?step=N - Mark a step as completed
  * Updates onboarding session in Supabase

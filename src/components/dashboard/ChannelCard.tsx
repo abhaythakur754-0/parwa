@@ -138,9 +138,9 @@ export default function ChannelCard({
         className={cn(
           'rounded-xl border transition-all duration-300',
           channel.is_enabled
-            ? 'bg-[#1A1A1A] border-white/[0.08] hover:border-white/[0.15]'
-            : 'bg-[#111111] border-white/[0.04] hover:border-white/[0.08] opacity-80',
-          isOpen && 'border-[#FF7F11]/30',
+            ? 'bg-[#2C2C31] border-white/[0.08] hover:border-white/[0.15]'
+            : 'bg-[#232327] border-white/[0.04] hover:border-white/[0.08] opacity-80',
+          isOpen && 'border-[#A1A1AA]/30',
         )}
       >
         {/* Card Header - Always visible */}
@@ -315,7 +315,7 @@ export default function ChannelCard({
                   value={charLimit}
                   onChange={(e) => setCharLimit(e.target.value)}
                   placeholder="No limit"
-                  className="w-full bg-[#0D0D0D] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FF7F11]/50 transition-colors"
+                  className="w-full bg-[#1E1E22] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#A1A1AA]/50 transition-colors"
                 />
               </div>
 
@@ -336,7 +336,7 @@ export default function ChannelCard({
                   value={allowedFileTypes}
                   onChange={(e) => setAllowedFileTypes(e.target.value)}
                   placeholder="pdf, doc, png, jpg"
-                  className="w-full bg-[#0D0D0D] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FF7F11]/50 transition-colors"
+                  className="w-full bg-[#1E1E22] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#A1A1AA]/50 transition-colors"
                 />
               </div>
 
@@ -359,7 +359,7 @@ export default function ChannelCard({
                   placeholder="5"
                   min="1"
                   max="100"
-                  className="w-full bg-[#0D0D0D] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FF7F11]/50 transition-colors"
+                  className="w-full bg-[#1E1E22] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-[#A1A1AA]/50 transition-colors"
                 />
               </div>
             </div>
@@ -372,7 +372,7 @@ export default function ChannelCard({
                 className={cn(
                   'rounded-lg text-sm font-medium px-6 transition-all duration-300',
                   hasChanges
-                    ? 'bg-gradient-to-r from-[#FF7F11] to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg shadow-[#FF7F11]/25'
+                    ? 'bg-gradient-to-r from-[#A1A1AA] to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg shadow-[#A1A1AA]/25'
                     : 'bg-white/[0.05] text-gray-500 cursor-not-allowed',
                 )}
               >

@@ -1,5 +1,5 @@
 /**
- * PARWA useAuth Hook
+ * SHOBH useAuth Hook
  * 
  * Re-exports the useAuth hook from AuthContext for cleaner imports.
  * 

@@ -1,5 +1,5 @@
 /**
- * PARWA Integrations Available API Proxy
+ * SHOBH Integrations Available API Proxy
  *
  * Handles POST /api/integrations/available (test/validate connection)
  */

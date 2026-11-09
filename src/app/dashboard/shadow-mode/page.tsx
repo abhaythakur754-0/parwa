@@ -154,7 +154,7 @@ export default function ShadowModePage() {
 
       {/* Phase Progress Stepper */}
       {isActive && (
-        <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-4">
+        <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-4">
           <div className="flex items-center justify-between">
             {phaseSteps.map((step, index) => {
               const isCompleted = currentStepIndex > index;
@@ -220,19 +220,19 @@ export default function ShadowModePage() {
       {/* Sample Rate & Configuration Info */}
       {isActive && status && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-4">
+          <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-4">
             <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Sample Rate</p>
             <p className="text-lg font-bold text-white">{Math.round(status.sample_rate * 100)}%</p>
             <p className="text-[10px] text-zinc-600">of messages are shadow-processed</p>
           </div>
-          <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-4">
+          <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-4">
             <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Total Comparisons</p>
             <p className="text-lg font-bold text-white">{status.total_comparisons}</p>
             <p className="text-[10px] text-zinc-600">
               {status.shadow_wins} shadow wins ({status.total_comparisons > 0 ? Math.round((status.shadow_wins / status.total_comparisons) * 100) : 0}%)
             </p>
           </div>
-          <div className="rounded-xl border border-white/[0.06] bg-[#1A1A1A] p-4">
+          <div className="rounded-xl border border-white/[0.06] bg-[#2C2C31] p-4">
             <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Quality Streak</p>
             <p className="text-lg font-bold text-white">{status.quality_streak}</p>
             <p className="text-[10px] text-zinc-600">
@@ -253,7 +253,7 @@ export default function ShadowModePage() {
 
       {/* Disabled State — Empty State */}
       {!isActive && !isLoading && (
-        <div className="flex flex-col items-center justify-center py-16 bg-[#1A1A1A] rounded-xl border border-white/[0.06]">
+        <div className="flex flex-col items-center justify-center py-16 bg-[#2C2C31] rounded-xl border border-white/[0.06]">
           <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456Z" />
@@ -315,7 +315,7 @@ export default function ShadowModePage() {
       {isDisableConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDisableConfirmOpen(false)} />
-          <div className="relative w-full max-w-sm bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl p-6">
+          <div className="relative w-full max-w-sm bg-[#2C2C31] border border-white/10 rounded-2xl shadow-2xl p-6">
             <h3 className="text-lg font-bold text-white mb-2">Disable Shadow Mode?</h3>
             <p className="text-sm text-zinc-400 mb-6">
               This will immediately stop shadow processing. The live variant will continue handling all messages normally. No data will be lost.

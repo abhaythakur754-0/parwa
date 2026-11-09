@@ -51,7 +51,7 @@ const TABS: TabItem[] = [
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4 animate-pulse', className)}>
+    <div className={cn('rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4 animate-pulse', className)}>
       <div className="h-3 w-20 bg-white/[0.06] rounded mb-3" />
       <div className="h-6 w-16 bg-white/[0.06] rounded" />
     </div>
@@ -62,7 +62,7 @@ function SkeletonCard({ className }: { className?: string }) {
 
 function StatCard({ label, value, sub, color, icon }: { label: string; value: string | number; sub?: string; color?: string; icon?: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+    <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">{label}</span>
         {icon && <span className="text-zinc-600">{icon}</span>}
@@ -145,7 +145,7 @@ function QualityTab() {
 
       {/* Weekly report preview */}
       {quality.report.data && (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
           <h3 className="text-sm font-semibold text-white mb-3">Weekly Report Preview</h3>
           <pre className="text-xs text-zinc-400 whitespace-pre-wrap max-h-48 overflow-y-auto">{JSON.stringify(quality.report.data, null, 2)}</pre>
         </div>
@@ -153,7 +153,7 @@ function QualityTab() {
 
       {/* Quality alerts */}
       {alertsList.length > 0 && (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
           <h3 className="text-sm font-semibold text-white mb-3">Quality Alerts</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {alertsList.map((alert, i) => {
@@ -179,7 +179,7 @@ function QualityTab() {
 
       {/* Active flags */}
       {flags.flags.data && Array.isArray(flags.flags.data?.active_flags) && (flags.flags.data.active_flags as unknown[]).length > 0 && (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
           <h3 className="text-sm font-semibold text-white mb-3">Active Flags</h3>
           <div className="space-y-2">
             {(flags.flags.data.active_flags as unknown[]).map((flag, i) => {
@@ -223,7 +223,7 @@ function SlaTab() {
           <><SkeletonCard className="h-32" /><SkeletonCard className="h-32" /></>
         ) : (
           <>
-            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+            <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-5">
               <h3 className="text-sm font-semibold text-white mb-4">SLA Status</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
@@ -244,7 +244,7 @@ function SlaTab() {
                 </div>
               </div>
             </div>
-            <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-5">
+            <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-5">
               <h3 className="text-sm font-semibold text-white mb-4">SLA Credits</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
@@ -300,7 +300,7 @@ function ApprovalsTab() {
       {approvals.pending.status === 'loading' ? (
         <div className="space-y-2"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
       ) : pendingList.length === 0 ? (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 text-center">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-8 text-center">
           <p className="text-sm text-zinc-500">No pending approvals</p>
         </div>
       ) : (
@@ -308,7 +308,7 @@ function ApprovalsTab() {
           {pendingList.map((item, i) => {
             const a = item as Record<string, unknown>;
             return (
-              <div key={i} className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4 flex items-center justify-between">
+              <div key={i} className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-white">{String(a.command_type || a.action || 'Approval')}</p>
                   <p className="text-[10px] text-zinc-600 mt-0.5">{String(a.reason || a.description || '')}</p>
@@ -356,7 +356,7 @@ function NotificationsTab() {
       {notifs.notifications.status === 'loading' ? (
         <div className="space-y-2"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
       ) : notifsList.length === 0 ? (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 text-center">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-8 text-center">
           <p className="text-sm text-zinc-500">No notifications</p>
         </div>
       ) : (
@@ -410,7 +410,7 @@ function Wave8Tab() {
   return (
     <div className="space-y-4">
       {/* Agents list */}
-      <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+      <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white">Provisioned Agents</h3>
           <button onClick={() => wave8.fetchAgents()} className="text-[10px] text-zinc-500 hover:text-zinc-300">Refresh</button>
@@ -436,7 +436,7 @@ function Wave8Tab() {
       </div>
 
       {/* Copilot Draft */}
-      <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+      <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
         <h3 className="text-sm font-semibold text-white mb-3">Copilot — Draft Response</h3>
         <div className="space-y-2">
           <input
@@ -469,7 +469,7 @@ function Wave8Tab() {
       </div>
 
       {/* Teach Skill */}
-      <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+      <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
         <h3 className="text-sm font-semibold text-white mb-3">Teach New Skill</h3>
         <div className="space-y-2">
           <input value={teachAgent} onChange={e => setTeachAgent(e.target.value)} placeholder="Agent name" className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-orange-500/30" />
@@ -483,7 +483,7 @@ function Wave8Tab() {
 
       {/* Skills list */}
       {skillsList.length > 0 && (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
           <h3 className="text-sm font-semibold text-white mb-3">Known Skills</h3>
           <div className="flex flex-wrap gap-2">
             {skillsList.map((skill, i) => {
@@ -499,7 +499,7 @@ function Wave8Tab() {
       )}
 
       {/* Provisioning Logs */}
-      <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-4">
+      <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white">Provisioning Logs</h3>
           <button onClick={() => wave8.fetchLogs()} className="text-[10px] text-zinc-500 hover:text-zinc-300">Refresh</button>
@@ -544,14 +544,14 @@ function AuditTab() {
       {audit.audit.status === 'loading' ? (
         <div className="space-y-2"><SkeletonCard /><SkeletonCard /><SkeletonCard /></div>
       ) : auditList.length === 0 ? (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] p-8 text-center">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] p-8 text-center">
           <p className="text-sm text-zinc-500">No audit entries</p>
         </div>
       ) : (
-        <div className="rounded-xl bg-[#1A1A1A] border border-white/[0.06] overflow-hidden">
+        <div className="rounded-xl bg-[#2C2C31] border border-white/[0.06] overflow-hidden">
           <div className="max-h-[60vh] overflow-y-auto">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-[#1A1A1A] border-b border-white/[0.06]">
+              <thead className="sticky top-0 bg-[#2C2C31] border-b border-white/[0.06]">
                 <tr>
                   <th className="text-left px-4 py-2 text-zinc-500 font-medium">Timestamp</th>
                   <th className="text-left px-4 py-2 text-zinc-500 font-medium">Action</th>

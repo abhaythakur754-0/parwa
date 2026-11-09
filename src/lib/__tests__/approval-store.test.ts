@@ -1,5 +1,5 @@
 /**
- * PARWA Approval Store — Unit Tests (Day 4)
+ * SHOBH Approval Store — Unit Tests (Day 4)
  *
  * Tests approval lifecycle: add, approve, reject, timeout, batch.
  * Covers Socket.io event handlers, API integration, and computed values.

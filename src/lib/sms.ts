@@ -1,7 +1,7 @@
 /**
- * PARWA SMS Service — Backend Proxy
+ * SHOBH SMS Service — Backend Proxy
  *
- * Sends SMS messages by calling the Parwa backend API,
+ * Sends SMS messages by calling the Shobh backend API,
  * which routes through the ProviderRegistry.
  *
  * SECURITY: Never calls Twilio directly from the frontend.
@@ -65,7 +65,7 @@ export async function sendSMS(
 }
 
 export function buildTicketSMS(ticketNumber: string, status: string, customerName: string, message?: string): string {
-  const prefix = `[PARWA] ${ticketNumber}`;
+  const prefix = `[SHOBH] ${ticketNumber}`;
   const maxLength = 160;
 
   let body: string;

@@ -1,5 +1,5 @@
 /**
- * PARWA Shadow Mode Types
+ * SHOBH Shadow Mode Types
  *
  * TypeScript type definitions for the Shadow Mode system.
  * Mirrors backend Pydantic schemas from backend/app/api/shadow_mode.py

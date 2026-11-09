@@ -1,7 +1,7 @@
 /**
- * PARWA Socket.io Client Manager
+ * SHOBH Socket.io Client Manager
  *
- * Singleton Socket.io client for the entire PARWA application.
+ * Singleton Socket.io client for the entire SHOBH application.
  * Manages connection lifecycle, authentication, tenant room subscriptions,
  * reconnection with exponential backoff, and event listener cleanup.
  *
@@ -56,19 +56,19 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function devLog(...args: unknown[]) {
   if (isDev) {
-    console.log('[PARWA Socket]', ...args);
+    console.log('[SHOBH Socket]', ...args);
   }
 }
 
 function devWarn(...args: unknown[]) {
   if (isDev) {
-    console.warn('[PARWA Socket]', ...args);
+    console.warn('[SHOBH Socket]', ...args);
   }
 }
 
 function devError(...args: unknown[]) {
   if (isDev) {
-    console.error('[PARWA Socket]', ...args);
+    console.error('[SHOBH Socket]', ...args);
   }
 }
 

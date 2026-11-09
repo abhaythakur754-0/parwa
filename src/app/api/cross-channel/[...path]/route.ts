@@ -1,5 +1,5 @@
 /**
- * PARWA Cross-Channel API Proxy (Phase 8)
+ * SHOBH Cross-Channel API Proxy (Phase 8)
  *
  * Proxies cross-channel customer recognition requests to the backend.
  *

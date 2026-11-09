@@ -1,12 +1,12 @@
 /**
- * PARWA WelcomeCard
+ * SHOBH WelcomeCard
  *
  * Shows:
  *   - Greeting + company name + unique ID
  *   - Onboarding data: Company URL, Email, Connected KB
  *   - "Your Active Variants" panel — pulled from /api/billing/razorpay/subscriptions
  *     (real data, NOT mock). For each subscribed variant shows:
- *       • Variant name (PARWA / PARWA High)
+ *       • Variant name (SHOBH / SHOBH High)
  *       • Seats (quantity)
  *       • Monthly ticket limit (quantity × VARIANT_LIMITS[variant].monthlyTickets)
  *       • Combined usage progress bar (tickets used this month / total limit)
@@ -259,14 +259,14 @@ export function WelcomeCard({
     };
   }, []);
 
-  // For trial users with no paid subscriptions, show PARWA High (Trial)
+  // For trial users with no paid subscriptions, show SHOBH High (Trial)
   // as their active variant. They get the full High tier experience during
   // the 24h / 15-ticket trial window.
   const isTrial = trialInfo?.is_trial === true && activeVariants.length === 0;
   const displayVariants = isTrial
     ? [{
         tier: 'high' as VariantTier,
-        name: 'PARWA High (Trial)',
+        name: 'SHOBH High (Trial)',
         seats: 1,
         ticketLimit: trialInfo!.tickets_limit,
         pricePerSeat: VARIANT_PRICES.high,

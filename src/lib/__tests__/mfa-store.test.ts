@@ -1,5 +1,5 @@
 /**
- * PARWA MFA Store Unit Tests
+ * SHOBH MFA Store Unit Tests
  *
  * Tests the Zustand MFA store: initiateSetup, verifyAndEnroll,
  * verifyLogin, disableMfa, error handling.

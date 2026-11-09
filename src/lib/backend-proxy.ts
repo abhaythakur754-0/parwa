@@ -1,5 +1,5 @@
 /**
- * PARWA — Backend Proxy Helper
+ * SHOBH — Backend Proxy Helper
  *
  * Handles CSRF token acquisition and forwarding for backend proxy requests.
  *
@@ -57,7 +57,7 @@ function getProxyOrigin(): string {
 function getFallbackOrigins(): string[] {
   const primary = getProxyOrigin();
   const fallbacks: string[] = [];
-  // Add common PARWA domains as fallbacks (skip the primary to avoid duplicate)
+  // Add common SHOBH domains as fallbacks (skip the primary to avoid duplicate)
   const allDomains = [
     'https://parwa.buzz',
     'https://parwa.vercel.app',

@@ -262,9 +262,9 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
             onChange={(e) => { setIndustry(e.target.value); if (formErrors.industry) setFormErrors(prev => ({ ...prev, industry: undefined })); }}
             className={formErrors.industry ? darkSelectErrorClass : darkSelectClass}
             disabled={isDisabled}>
-            <option value="" className="bg-[#1A1A1A] text-white">Select your industry</option>
+            <option value="" className="bg-[#2C2C31] text-white">Select your industry</option>
             {INDUSTRIES.map((ind) => (
-              <option key={ind.value} value={ind.value} className="bg-[#1A1A1A] text-white">{ind.label}</option>
+              <option key={ind.value} value={ind.value} className="bg-[#2C2C31] text-white">{ind.label}</option>
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -338,7 +338,7 @@ export function SignupForm({ onSubmit, onCheckEmail, isLoading = false, error }:
 
       {/* Submit */}
       <button type="submit" disabled={isDisabled}
-        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#1A1A1A] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40">
+        className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-400 hover:to-orange-300 text-[#2C2C31] font-semibold rounded-xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40">
         {isDisabled ? (
           <><Loader2 className="w-5 h-5 animate-spin" /> Creating account...</>
         ) : 'Create account'}

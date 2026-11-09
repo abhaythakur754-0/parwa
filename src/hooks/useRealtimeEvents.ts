@@ -1,5 +1,5 @@
 /**
- * PARWA useRealtimeEvents Hook
+ * SHOBH useRealtimeEvents Hook
  *
  * Central event dispatcher that subscribes to all backend Socket.io events
  * and routes them to the appropriate Zustand stores.

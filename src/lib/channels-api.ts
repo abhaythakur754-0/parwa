@@ -1,5 +1,5 @@
 /**
- * PARWA Channels API Client
+ * SHOBH Channels API Client
  *
  * API helper functions for channel configuration management.
  * Communicates with the backend channels API endpoints.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * PARWA — Next.js Middleware (SIMPLIFIED)
+ * SHOBH — Next.js Middleware (SIMPLIFIED)
  *
  * Route protection for authenticated routes.
  * Public paths bypass auth. Everything else requires a valid parwa_at cookie.

@@ -145,7 +145,7 @@ function FilterSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T | 'all')}
-        className="h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
+        className="h-8 bg-[#2C2C31] border border-white/[0.06] rounded-lg px-2.5 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer pr-7"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
           backgroundRepeat: 'no-repeat',
@@ -175,7 +175,7 @@ function StatPill({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="group relative flex items-center gap-2.5 bg-[#1A1A1A] border border-white/[0.06] rounded-lg px-3.5 py-2.5 hover:border-white/[0.12] hover:bg-white/[0.02] transition-all duration-200">
+    <div className="group relative flex items-center gap-2.5 bg-[#2C2C31] border border-white/[0.06] rounded-lg px-3.5 py-2.5 hover:border-white/[0.12] hover:bg-white/[0.02] transition-all duration-200">
       {/* Status dot with glow */}
       <span className={`relative w-2 h-2 rounded-full ${dotColor}`}>
         <span className={`absolute inset-0 rounded-full ${dotColor} opacity-60 group-hover:animate-ping`} style={{ animationDuration: '2s' }} />
@@ -277,7 +277,7 @@ function DiscussWithJarvis({ ticket }: { ticket: Ticket }) {
 
   // Build system prompt with ticket context for Llama 3.1
   const buildSystemPrompt = () => {
-    return `You are Jarvis, PARWA's AI assistant. You have deep knowledge of how PARWA's customer support automation works.
+    return `You are Jarvis, SHOBH's AI assistant. You have deep knowledge of how SHOBH's customer support automation works.
 
 CURRENT TICKET CONTEXT:
 - Ticket #: ${ticket.ticket_number}
@@ -294,21 +294,21 @@ CURRENT TICKET CONTEXT:
 ${ticket.resolution_time_hours ? `- Resolution Time: ${ticket.resolution_time_hours}h` : ''}
 ${ticket.tags.length > 0 ? `- Tags: ${ticket.tags.join(', ')}` : ''}
 
-PARWA PIPELINE STATUS:
+SHOBH PIPELINE STATUS:
 ${ticket.status === 'resolved' || ticket.status === 'closed' 
   ? `This ticket is RESOLVED/CLOSED. It took ${ticket.resolution_time_hours || 'unknown'} hours to resolve.`
   : ticket.skipped 
     ? `This ticket was SKIPPED by the user - they want to handle it manually instead of AI auto-solving.`
     : ticket.agent_stopped
       ? `Agent processing was STOPPED by the user mid-work.`
-      : `This ticket is currently in the queue being processed by PARWA's AI pipeline.`}
+      : `This ticket is currently in the queue being processed by SHOBH's AI pipeline.`}
 
 YOUR ROLE:
 - Answer questions about this specific ticket
-- Explain what PARWA's AI is doing or will do with this ticket
+- Explain what SHOBH's AI is doing or will do with this ticket
 - Suggest next steps if the user asks
 - If asked about resolution strategies, provide helpful guidance
-- Be concise but thorough - you're talking to a support agent using PARWA
+- Be concise but thorough - you're talking to a support agent using SHOBH
 
 Company context: ${user?.company_name || 'Unknown company'}
 User asking: ${user?.full_name || 'User'}`;
@@ -557,7 +557,7 @@ function TicketDetailPanel({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.25 }}
-      className="w-full lg:w-[440px] xl:w-[480px] shrink-0 bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col max-h-[calc(100vh-180px)]"
+      className="w-full lg:w-[440px] xl:w-[480px] shrink-0 bg-[#2C2C31] border border-white/[0.06] rounded-xl overflow-hidden flex flex-col max-h-[calc(100vh-180px)]"
     >
       {/* Header */}
       <div className="p-4 border-b border-white/[0.06] flex items-start justify-between gap-3">
@@ -761,7 +761,7 @@ function TicketDetailPanel({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full left-0 mt-1 w-40 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
+                className="absolute top-full left-0 mt-1 w-40 bg-[#2C2C31] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
               >
                 {ALL_PRIORITIES.map((p) => (
                   <button
@@ -802,7 +802,7 @@ function TicketDetailPanel({
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full left-0 mt-1 w-48 bg-[#1A1A1A] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
+                className="absolute top-full left-0 mt-1 w-48 bg-[#2C2C31] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
               >
                 {ALL_STATUSES.map((s) => (
                   <button
@@ -882,7 +882,7 @@ function TicketDetailPanel({
               }}
               placeholder="Type a reply..."
               rows={2}
-              className="flex-1 bg-[#0A0A0A] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
+              className="flex-1 bg-[#1B1B1F] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
             />
             <button
               onClick={handleSendReply}
@@ -1008,7 +1008,7 @@ function SkeletonLoader() {
         ))}
       </div>
       {/* Table skeleton */}
-      <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl overflow-hidden">
+      <div className="bg-[#2C2C31] border border-white/[0.06] rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <div className="h-3 w-40 bg-white/[0.04] rounded" />
         </div>
@@ -1411,7 +1411,7 @@ export default function TicketsPage() {
   const stats = useMemo(() => ticketStats(), [tickets, ticketStats]);
 
   // ── SPLIT VIEW: Auto-Solvable vs In-Queue Tickets ──
-  // UPPER section: Tickets PARWA AI can auto-solve (KB matched or simple categories)
+  // UPPER section: Tickets SHOBH AI can auto-solve (KB matched or simple categories)
   // LOWER section: Tickets in queue (filtered by company context)
   const autoSolvableTickets = useMemo(() => getAutoSolvableTickets(), [tickets, getAutoSolvableTickets]);
   
@@ -1677,7 +1677,7 @@ export default function TicketsPage() {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Search tickets..."
-              className="w-full h-8 bg-[#1A1A1A] border border-white/[0.06] rounded-lg pl-8 pr-3 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
+              className="w-full h-8 bg-[#2C2C31] border border-white/[0.06] rounded-lg pl-8 pr-3 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/40 transition-colors"
             />
           </div>
         </div>
@@ -1706,7 +1706,7 @@ export default function TicketsPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <h2 className="text-sm font-semibold text-white">Auto-Solvable by PARWA AI</h2>
+                <h2 className="text-sm font-semibold text-white">Auto-Solvable by SHOBH AI</h2>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   {filteredAutoSolvable.length} tickets
                 </span>
@@ -1715,7 +1715,7 @@ export default function TicketsPage() {
             </div>
 
             {filteredAutoSolvable.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+              <div className="bg-[#2C2C31] border border-white/[0.06] rounded-xl p-6 text-center">
                 <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
@@ -1725,7 +1725,7 @@ export default function TicketsPage() {
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden xl:block bg-[#1A1A1A] border border-emerald-500/10 rounded-xl overflow-hidden">
+                <div className="hidden xl:block bg-[#2C2C31] border border-emerald-500/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-emerald-500/5">
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
@@ -1776,7 +1776,7 @@ export default function TicketsPage() {
             </div>
 
             {filteredQueue.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+              <div className="bg-[#2C2C31] border border-white/[0.06] rounded-xl p-6 text-center">
                 <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
                 </svg>
@@ -1786,7 +1786,7 @@ export default function TicketsPage() {
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden xl:block bg-[#1A1A1A] border border-blue-500/10 rounded-xl overflow-hidden">
+                <div className="hidden xl:block bg-[#2C2C31] border border-blue-500/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-blue-500/5">
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
@@ -1835,7 +1835,7 @@ export default function TicketsPage() {
             </div>
 
             {filteredSolved.length === 0 ? (
-              <div className="bg-[#1A1A1A] border border-white/[0.06] rounded-xl p-6 text-center">
+              <div className="bg-[#2C2C31] border border-white/[0.06] rounded-xl p-6 text-center">
                 <svg className="w-8 h-8 mx-auto mb-2 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
@@ -1845,7 +1845,7 @@ export default function TicketsPage() {
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden xl:block bg-[#1A1A1A] border border-green-500/10 rounded-xl overflow-hidden">
+                <div className="hidden xl:block bg-[#2C2C31] border border-green-500/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[5rem_1fr_7rem_5rem_5rem] gap-2 items-center px-4 py-2.5 border-b border-white/[0.06] bg-green-500/5">
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">#</span>
                     <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Subject</span>
@@ -1982,7 +1982,7 @@ function ConnectedIntegrationsSection() {
           const icon = INTEGRATION_ICONS[integration.integration_type] || '🔌';
           const name = INTEGRATION_NAMES[integration.integration_type] || integration.name || integration.integration_type;
           return (
-            <div key={integration.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1A1A1A] border border-white/[0.06]">
+            <div key={integration.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#2C2C31] border border-white/[0.06]">
               <span className="text-2xl">{icon}</span>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">{name}</p>

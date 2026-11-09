@@ -1,5 +1,5 @@
 /**
- * PARWA JarvisChat — Main Container Component (Week 6 — Day 3 Phase 5)
+ * SHOBH JarvisChat — Main Container Component (Week 6 — Day 3 Phase 5)
  *
  * Root-level component that composes all chat sub-components and
  * manages the useJarvisChat hook. Acts as the single integration
@@ -86,7 +86,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
 
   if (isLoading && messages.length === 0) {
     return (
-      <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#2C2C31]">
         <ChatHeader session={null} isLoading={true} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
@@ -115,7 +115,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
 
   if (error && messages.length === 0 && !session) {
     return (
-      <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
+      <div className="h-dvh [height:100dvh] flex flex-col bg-[#2C2C31]">
         <ChatHeader session={null} isLoading={false} />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
@@ -144,7 +144,7 @@ export function JarvisChat({ isOpen, onClose, entrySource, entryParams }: Jarvis
   // ── Main Chat Layout ─────────────────────────────────────────
 
   return (
-    <div className="h-dvh [height:100dvh] flex flex-col bg-[#1A1A1A]">
+    <div className="h-dvh [height:100dvh] flex flex-col bg-[#2C2C31]">
       {/* Header */}
       <ChatHeader session={session} isLoading={false} />
 

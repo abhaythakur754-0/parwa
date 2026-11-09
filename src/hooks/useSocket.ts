@@ -1,5 +1,5 @@
 /**
- * PARWA useSocket Hook
+ * SHOBH useSocket Hook
  *
  * Component-level Socket.io event subscription with automatic cleanup.
  *

@@ -1,5 +1,5 @@
 /**
- * PARWA App Store — Unit Tests
+ * SHOBH App Store — Unit Tests
  *
  * Tests navigation, auth state, sidebar, and helper functions.
  */
@@ -161,7 +161,7 @@ describe('isDashboardPage', () => {
 
 describe('getPageTitle', () => {
   it('returns correct title for landing', () => {
-    expect(getPageTitle('landing')).toBe('PARWA - AI Customer Support');
+    expect(getPageTitle('landing')).toBe('SHOBH - AI Customer Support');
   });
 
   it('returns correct title for dashboard', () => {

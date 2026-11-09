@@ -1,5 +1,5 @@
 /**
- * PARWA Notification Service
+ * SHOBH Notification Service
  *
  * Sends real email/SMS notifications when tickets are created,
  * AI responds, or tickets are resolved/escalated.
@@ -78,23 +78,23 @@ async function sendTicketEmail(payload: NotificationPayload): Promise<{ success:
 
   switch (status) {
     case 'created':
-      emailSubject = `[PARWA] ${ticketNumber} - Ticket Created: ${subject}`;
+      emailSubject = `[SHOBH] ${ticketNumber} - Ticket Created: ${subject}`;
       htmlBody = buildCreatedEmail(safeName, ticketNumber, safeSubject);
       break;
     case 'in_progress':
-      emailSubject = `[PARWA] ${ticketNumber} - We're working on your request`;
+      emailSubject = `[SHOBH] ${ticketNumber} - We're working on your request`;
       htmlBody = buildInProgressEmail(safeName, ticketNumber, safeAiResponse);
       break;
     case 'resolved':
-      emailSubject = `[PARWA] ${ticketNumber} - Your ticket has been resolved`;
+      emailSubject = `[SHOBH] ${ticketNumber} - Your ticket has been resolved`;
       htmlBody = buildResolvedEmail(safeName, ticketNumber, safeResolution);
       break;
     case 'escalated':
-      emailSubject = `[PARWA] ${ticketNumber} - Escalated to specialist`;
+      emailSubject = `[SHOBH] ${ticketNumber} - Escalated to specialist`;
       htmlBody = buildEscalatedEmail(safeName, ticketNumber);
       break;
     default:
-      emailSubject = `[PARWA] ${ticketNumber} - Update`;
+      emailSubject = `[SHOBH] ${ticketNumber} - Update`;
       htmlBody = buildCreatedEmail(safeName, ticketNumber, safeSubject);
   }
 
@@ -122,13 +122,13 @@ function buildCreatedEmail(name: string, ticketNumber: string, subject: string):
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:40px 20px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:30px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">PARWA</h1>
+        <tr><td style="background:linear-gradient(135deg,#A1A1AA,#52525B);padding:30px 40px;">
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">SHOBH</h1>
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">AI-Powered Support</p>
         </td></tr>
         <tr><td style="padding:30px 40px;">
           <p style="margin:0 0 16px;color:#374151;font-size:16px;">Hi ${name},</p>
-          <p style="margin:0 0 16px;color:#4b5563;font-size:14px;line-height:1.6;">We've received your support request and created ticket <strong style="color:#f97316;">${ticketNumber}</strong>.</p>
+          <p style="margin:0 0 16px;color:#4b5563;font-size:14px;line-height:1.6;">We've received your support request and created ticket <strong style="color:#A1A1AA;">${ticketNumber}</strong>.</p>
           <table width="100%" cellpadding="12" cellspacing="0" style="background:#f3f4f6;border-radius:8px;margin:16px 0;">
             <tr><td>
               <p style="margin:0;color:#6b7280;font-size:12px;">SUBJECT</p>
@@ -138,7 +138,7 @@ function buildCreatedEmail(name: string, ticketNumber: string, subject: string):
           <p style="margin:0 0 16px;color:#4b5563;font-size:14px;line-height:1.6;">Our AI support team is reviewing your request and will respond shortly. You can track your ticket status in your dashboard.</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
-          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from PARWA AI Workforce Platform.</p>
+          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from SHOBH AI Workforce Platform.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -148,9 +148,9 @@ function buildCreatedEmail(name: string, ticketNumber: string, subject: string):
 
 function buildInProgressEmail(name: string, ticketNumber: string, aiResponse?: string): string {
   const responseBlock = aiResponse
-    ? `<table width="100%" cellpadding="16" cellspacing="0" style="background:#fff7ed;border-left:4px solid #f97316;border-radius:8px;margin:16px 0;">
+    ? `<table width="100%" cellpadding="16" cellspacing="0" style="background:#FAFAFA;border-left:4px solid #A1A1AA;border-radius:8px;margin:16px 0;">
         <tr><td>
-          <p style="margin:0 0 8px;color:#9a3412;font-size:11px;font-weight:600;">AI RESPONSE</p>
+          <p style="margin:0 0 8px;color:#3A3A40;font-size:11px;font-weight:600;">AI RESPONSE</p>
           <p style="margin:0;color:#1c1917;font-size:14px;line-height:1.6;">${aiResponse}</p>
         </td></tr>
       </table>`
@@ -162,17 +162,17 @@ function buildInProgressEmail(name: string, ticketNumber: string, aiResponse?: s
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:40px 20px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:30px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">PARWA</h1>
+        <tr><td style="background:linear-gradient(135deg,#A1A1AA,#52525B);padding:30px 40px;">
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">SHOBH</h1>
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">AI-Powered Support</p>
         </td></tr>
         <tr><td style="padding:30px 40px;">
           <p style="margin:0 0 16px;color:#374151;font-size:16px;">Hi ${name},</p>
-          <p style="margin:0 0 8px;color:#4b5563;font-size:14px;line-height:1.6;">Your ticket <strong style="color:#f97316;">${ticketNumber}</strong> is being handled by our AI support agent.</p>
+          <p style="margin:0 0 8px;color:#4b5563;font-size:14px;line-height:1.6;">Your ticket <strong style="color:#A1A1AA;">${ticketNumber}</strong> is being handled by our AI support agent.</p>
           ${responseBlock}
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
-          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from PARWA AI Workforce Platform.</p>
+          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from SHOBH AI Workforce Platform.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -197,7 +197,7 @@ function buildResolvedEmail(name: string, ticketNumber: string, resolution?: str
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <tr><td style="background:linear-gradient(135deg,#22c55e,#16a34a);padding:30px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">PARWA</h1>
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">SHOBH</h1>
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Ticket Resolved</p>
         </td></tr>
         <tr><td style="padding:30px 40px;">
@@ -207,7 +207,7 @@ function buildResolvedEmail(name: string, ticketNumber: string, resolution?: str
           <p style="margin:16px 0 0;color:#4b5563;font-size:14px;">If you need further assistance, please reply to this email or open a new ticket.</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
-          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from PARWA AI Workforce Platform.</p>
+          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from SHOBH AI Workforce Platform.</p>
         </td></tr>
       </table>
     </td></tr>
@@ -222,17 +222,17 @@ function buildEscalatedEmail(name: string, ticketNumber: string): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:40px 20px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="background:linear-gradient(135deg,#f97316,#ea580c);padding:30px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">PARWA</h1>
+        <tr><td style="background:linear-gradient(135deg,#A1A1AA,#52525B);padding:30px 40px;">
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">SHOBH</h1>
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Ticket Escalated</p>
         </td></tr>
         <tr><td style="padding:30px 40px;">
           <p style="margin:0 0 16px;color:#374151;font-size:16px;">Hi ${name},</p>
-          <p style="margin:0 0 8px;color:#4b5563;font-size:14px;line-height:1.6;">Your ticket <strong style="color:#f97316;">${ticketNumber}</strong> requires specialized attention and has been escalated to our expert support team.</p>
+          <p style="margin:0 0 8px;color:#4b5563;font-size:14px;line-height:1.6;">Your ticket <strong style="color:#A1A1AA;">${ticketNumber}</strong> requires specialized attention and has been escalated to our expert support team.</p>
           <p style="margin:0;color:#4b5563;font-size:14px;line-height:1.6;">A human specialist will review your case and contact you within the next few hours. We appreciate your patience.</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
-          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from PARWA AI Workforce Platform.</p>
+          <p style="margin:0;color:#9ca3af;font-size:12px;">This is an automated message from SHOBH AI Workforce Platform.</p>
         </td></tr>
       </table>
     </td></tr>

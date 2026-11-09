@@ -1,7 +1,7 @@
 /**
- * PARWA — Local Auth Fallback (sandbox / dev resilience)
+ * SHOBH — Local Auth Fallback (sandbox / dev resilience)
  *
- * When the PARWA backend (the sole production token issuer) is unreachable
+ * When the SHOBH backend (the sole production token issuer) is unreachable
  * or not configured for the current Google OAuth client, these helpers let
  * the Next.js layer authenticate users directly:
  *

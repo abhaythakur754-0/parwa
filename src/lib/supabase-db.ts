@@ -1,5 +1,5 @@
 /**
- * PARWA Database Utility - Supabase Direct
+ * SHOBH Database Utility - Supabase Direct
  *
  * Uses Supabase REST API directly (no Prisma dependency)
  * All data persists to PostgreSQL in Supabase cloud

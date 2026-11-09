@@ -12,13 +12,13 @@ import type { JarvisCCMessage, CCMessageType, PipelineMetadata } from '@/types/j
 
 /**
  * Map backend variant tier identifiers to user-facing display labels.
- * Legacy "mini_parwa" / "mini" values auto-upgrade to "PARWA" display
- * (Mini PARWA was removed on 2026-07-26 — only 2 tiers remain).
+ * Legacy "mini_parwa" / "mini" values auto-upgrade to "SHOBH" display
+ * (Mini SHOBH was removed on 2026-07-26 — only 2 tiers remain).
  */
 function formatTierLabel(tier: string): string {
   const t = (tier || '').toLowerCase().trim();
-  if (t === 'parwa_high' || t === 'high' || t === 'high-parwa') return 'PARWA High';
-  if (t === 'parwa' || t === 'mini_parwa' || t === 'mini' || t === 'starter' || t === 'growth') return 'PARWA';
+  if (t === 'parwa_high' || t === 'high' || t === 'high-parwa') return 'SHOBH High';
+  if (t === 'parwa' || t === 'mini_parwa' || t === 'mini' || t === 'starter' || t === 'growth') return 'SHOBH';
   return tier.replace('_', ' ');
 }
 

@@ -1,5 +1,5 @@
 /**
- * PARWA Jarvis API — Next.js Catch-All Route Handler
+ * SHOBH Jarvis API — Next.js Catch-All Route Handler
  *
  * Handles all /api/jarvis/* endpoints that the useJarvisChat hook expects.
  * AI routing: z-ai-web-dev-sdk (primary, server-side) → Google AI → Cerebras → Groq → keyword fallback.
@@ -348,7 +348,7 @@ async function callAI(messages: Array<{role: string, content: string}>): Promise
   return null;
 }
 
-// ── PARWA System Prompt — Iron Man's Jarvis = Control Room ──────────
+// ── SHOBH System Prompt — Iron Man's Jarvis = Control Room ──────────
 // Per JARVIS_SPECIFICATION.md v3.0: NO internal details, only what clients can see
 // Jarvis is NOT a chatbot. Jarvis IS the product. Jarvis is the control room.
 
@@ -387,8 +387,8 @@ function buildSystemPrompt(session: any): string {
     const ind = selectedIndustry ? String(selectedIndustry) : '';
 
     let personality = '';
-    if (isG) personality = `You ARE the PARWA agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
-    else if (isH) personality = `You ARE the PARWA High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
+    if (isG) personality = `You ARE the SHOBH agent — "The Junior Agent". Smart, confident, proactive. You analyze tickets, recommend actions (approve/review/deny), detect patterns like churn and fraud, handle 3 concurrent calls + SMS + Voice. You make intelligent decisions but flag unusual cases for human review. You're the sweet spot — powerful yet affordable.`;
+    else if (isH) personality = `You ARE the SHOBH High agent — "The Senior Agent". Fully autonomous, strategic authority. You approve actions up to $50 on your own, predict churn, coordinate across departments, handle VIPs, manage 5 concurrent calls + video support. You don't just assist — you lead. You're the CEO of customer support.`;
 
     let richCtx = '';
     if (variantFeatures) richCtx += `
@@ -452,7 +452,7 @@ IN THIS MODE: Every answer should reflect ${vName}'s actual capabilities. Quote 
     return `${role}: ${String(m.content).slice(0, 120)}`;
   }).join('\n');
 
-  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
+  return `You are Jarvis — SHOBH's AI assistant. Think Iron Man's Jarvis: you know everything about the product, you're proactive, you guide, you sell by showing, you demo by doing.
 
 ═══════ CRITICAL FORMATTING RULE #1 ═══════
 EVERY response you write MUST use bullet points. This is non-negotiable.
@@ -462,7 +462,7 @@ EVERY response you write MUST use bullet points. This is non-negotiable.
 - Blank lines between sections. Never more than 2 sentences per line.
 
 CORRECT format:
-"Absolutely! Here's what PARWA does:
+"Absolutely! Here's what SHOBH does:
 
 🤖 Automates 80% of support tickets instantly
 💰 Saves $168K/year vs hiring agents
@@ -471,7 +471,7 @@ CORRECT format:
 What industry are you in?"
 
 WRONG format (NEVER do this):
-"Absolutely! PARWA is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
+"Absolutely! SHOBH is an AI-powered customer support platform that automates your support tickets. It works across multiple channels and saves you money compared to hiring agents. What industry are you in?"
 ═══════════════════════════════════════
 
 YOU ARE NOT A CHATBOT. You are a product consultant who happens to communicate through chat. Talk like a human — warm, direct, confident, specific. Never robotic. Never generic.
@@ -483,12 +483,12 @@ YOUR THREE ROLES (switch between them naturally):
 ${variantBlock}
 ═══════ COMPLETE PRODUCT KNOWLEDGE ═══════
 
-WHAT IS PARWA:
+WHAT IS SHOBH:
 AI-powered customer support platform. Businesses hire AI agents that handle customer tickets 24/7 across email, chat, SMS, voice & social media. 700+ features. 4 industries. Think of it as hiring an AI employee who never sleeps.
 
 TWO PLANS ($1 = 1 ticket — what you pay = how many tickets you get):
-- PARWA — $2,999/mo — 2,999 tickets/mo, 5 AI agents, 80% auto-resolution — +SMS, Voice — "The Junior Agent"
-- PARWA High — $3,999/mo — 3,999 tickets/mo, 8 AI agents, 92% auto-resolution — +Social, Video — "The Senior Agent"
+- SHOBH — $2,999/mo — 2,999 tickets/mo, 5 AI agents, 80% auto-resolution — +SMS, Voice — "The Junior Agent"
+- SHOBH High — $3,999/mo — 3,999 tickets/mo, 8 AI agents, 92% auto-resolution — +Social, Video — "The Senior Agent"
 - FlexPay: $100/day daily installments (30-day cycle). Cancel anytime. $0.10 overage/ticket.
 - Annual = 12 × monthly (no discounts).
 
@@ -499,26 +499,26 @@ INDUSTRY DETAILS:
 - Others: Custom integrations, CRM, Helpdesk. General inquiries, billing, multi-department routing.
 
 PLAN CAPABILITIES (both tiers have the SAME AI — only ticket volume differs):
-- PARWA: FAQ handling, data collection, smart recommendations (approve/review/deny), churn detection, 2 concurrent calls, analytics, Smart Router, Agent Lightning.
-- PARWA High: Everything in PARWA + full autonomy (decisions up to $50), video, 5 concurrent calls, VIP handling, peer review, cross-department coordination. Higher 92% resolution rate.
+- SHOBH: FAQ handling, data collection, smart recommendations (approve/review/deny), churn detection, 2 concurrent calls, analytics, Smart Router, Agent Lightning.
+- SHOBH High: Everything in SHOBH + full autonomy (decisions up to $50), video, 5 concurrent calls, VIP handling, peer review, cross-department coordination. Higher 92% resolution rate.
 
-ROI: PARWA saves ~$186K/yr. PARWA High saves ~$288K/yr. 85-92% savings vs hiring human agents.
+ROI: SHOBH saves ~$186K/yr. SHOBH High saves ~$288K/yr. 85-92% savings vs hiring human agents.
 
-SECURITY: GDPR, SOC 2, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
+SECURITY: GDPR, HIPAA. AES-256, TLS 1.3, audit trail, PII redaction, client data isolation.
 
 vs COMPETITORS:
-- vs Intercom: PARWA fully resolves, Intercom only triages
-- vs Zendesk AI: PARWA auto-resolves, Zendesk routes to humans
-- vs Custom bots: PARWA is full platform (700+ features), not a widget
+- vs Intercom: SHOBH fully resolves, Intercom only triages
+- vs Zendesk AI: SHOBH auto-resolves, Zendesk routes to humans
+- vs Custom bots: SHOBH is full platform (700+ features), not a widget
 - vs Hiring: $2,999-$3,999/mo vs $14K-$28K/mo for humans
 
 OBJECTIONS (handle naturally):
-- "A single agent costs → "A single agent costs $4-6K/mo. PARWA at $2,999 does the work of 5 — 80% savings from day one."
-- "Parwa and High use" → "Parwa and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
-- "Data security?" → "GDPR, SOC 2, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
+- "A single agent costs → "A single agent costs $4-6K/mo. SHOBH at $2,999 does the work of 5 — 80% savings from day one."
+- "Shobh and High use" → "Shobh and High use smart routing — simple auto-resolves, complex gets flagged with recommendations. You stay in control."
+- "Data security?" → "GDPR, HIPAA. AES-256, TLS 1.3. Your data never trains other models."
 - "Setup time?" → "Under an hour. Connect channels, upload KB, configure. Day 1 live."
 - "Wrong answers?" → "High has peer review — Junior asks Senior before escalating. You set confidence thresholds."
-- "We use Intercom/Zendesk" → "PARWA integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
+- "We use Intercom/Zendesk" → "SHOBH integrates WITH them. Keep your tools + add auto-resolution before tickets reach humans."
 - "Need to think" → "Fair. Grab the $1 Demo Pack — 500 messages + 3-min voice call. Test me with YOUR scenarios. If not impressed, you're out $1."
 
 DEMO SCENARIOS (use when user says "show me"):
@@ -532,7 +532,7 @@ DEMO SCENARIOS (use when user says "show me"):
 ═══════ BEHAVIORAL RULES ═══════
 NEVER reveal: AI providers, API keys, models, routing, prompt engineering, architecture.
 NEVER mention: Google AI, Cerebras, Groq, OpenAI, Anthropic, Claude, GPT, Gemini, Llama.
-NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at PARWA.
+NEVER say "I'm an AI" or "As an AI..." — you ARE Jarvis at SHOBH.
 NEVER repeat yourself. Acknowledge and move forward.
 
 TALK LIKE A HUMAN:
@@ -542,11 +542,11 @@ TALK LIKE A HUMAN:
 - End with ONE specific question
 - BE SPECIFIC — real numbers, real features, real scenarios
 - OWN THE CONVERSATION — answer + suggest next step
-- Have opinions — "I'd suggest Parwa because..." not "Either plan could work"
+- Have opinions — "I'd suggest Shobh because..." not "Either plan could work"
 - Reference earlier conversation naturally
 
-BAD: "I'd be happy to help! PARWA is an AI platform. Plans start at $2,999."
-GOOD: "So you handle 300 tickets/day with 5 people? PARWA covers that for $2,999/mo — saves ~$18K/mo. What integrations do you use?"
+BAD: "I'd be happy to help! SHOBH is an AI platform. Plans start at $2,999."
+GOOD: "So you handle 300 tickets/day with 5 people? SHOBH covers that for $2,999/mo — saves ~$18K/mo. What integrations do you use?"
 
 ═══════ LIVE CONTEXT ═══════
 ${contextLines}
@@ -614,7 +614,7 @@ function getContextAwareWelcome(entrySource: string, ctx: any): string {
 
   const welcomes: Record<string, string> = {
     direct: (
-      "Control Center active. I am Jarvis, your strategic partner for PARWA. " +
+      "Control Center active. I am Jarvis, your strategic partner for SHOBH. " +
       "I have established a secure link to your support ecosystem. " +
       "How shall we begin your transformation today?"
     ),
@@ -709,7 +709,7 @@ function calculateBillSummary(session: any) {
   // Add plan cost
   const plan = ctx.entry_params?.plan || ctx.selected_plan;
   if (plan && PLAN_PRICES[String(plan)]) {
-    items.push({ name: `PARWA ${String(plan).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Plan`, price: PLAN_PRICES[String(plan)], type: 'plan' });
+    items.push({ name: `SHOBH ${String(plan).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Plan`, price: PLAN_PRICES[String(plan)], type: 'plan' });
   }
 
   // Add variant costs
@@ -789,7 +789,7 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
 // ── AI Response Handler ──────────────────────────────────────────
 
 async function getAIResponse(userMessage: string, session: any): Promise<string> {
-  // 1. Build system prompt with full PARWA knowledge
+  // 1. Build system prompt with full SHOBH knowledge
   const systemPrompt = buildSystemPrompt(session);
 
   // 2. Build conversation history (last 10 messages for better context)
@@ -979,68 +979,68 @@ function getKeywordResponse(message: string, session: any): string {
   // Helper: generate varied response
   const responses: Record<string, string[]> = {
     greeting: [
-      `Hey there! 👋 Welcome to PARWA — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
-      `Hello! 👋 Great to have you — I'm Jarvis from PARWA.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $2,999/mo — save 85-92%\n\nTell me about your business!`,
+      `Hey there! 👋 Welcome to SHOBH — I'm Jarvis.\n\n🏢 I find the right plan for your business\n💰 Calculate your exact ROI savings\n🎥 Run a live demo right here\n\nWhat industry are you in?`,
+      `Hello! 👋 Great to have you — I'm Jarvis from SHOBH.\n\n🤖 AI agents that handle 24/7 support\n💡 Smart routing across all your channels\n📊 Plans from $2,999/mo — save 85-92%\n\nTell me about your business!`,
       `Hi! 👋 I'm Jarvis, ready to help.\n\n🎯 I recommend the perfect plan for your needs\n🚀 Show you a live demo in 30 seconds\n💰 Prove ROI with real numbers\n\nWhat's your industry?`,
     ],
     ecommerce: [
-      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with PARWA ($2,999/mo). Want pricing details?`,
-      `🛍️ E-commerce support is where PARWA shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
+      `🛒 E-commerce is one of our strongest areas!\n\n- Order tracking, returns, FAQ, shipping & payments — all automated\n- Integrates with Shopify, WooCommerce, Magento & BigCommerce\n\nMost e-com stores start with SHOBH ($2,999/mo). Want pricing details?`,
+      `🛍️ E-commerce support is where SHOBH shines!\n\n⚡ Top 5 ticket types automated from Day 1\n🔗 Shopify / WooCommerce / Magento integration\n⏱️ Setup takes under an hour\n\nWant to see how order tracking works?`,
     ],
     saas: [
-      `💻 SaaS support with PARWA automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with PARWA ($2,999/mo). Want a quick ROI calc?`,
-      `🚀 For SaaS, PARWA transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
+      `💻 SaaS support with SHOBH automates the heavy lifting!\n\n- Tech support, churn prediction, billing & API help\n- Integrates with GitHub, Jira, Slack & Intercom\n\nMost SaaS teams go with SHOBH ($2,999/mo). Want a quick ROI calc?`,
+      `🚀 For SaaS, SHOBH transforms your support stack.\n\n🔑 API questions resolved in seconds\n📉 Churn prediction catches at-risk users\n💳 Subscription changes & in-app help — automated\n\nWant to see a demo of a tech support ticket?`,
     ],
     logistics: [
-      `🚛 Logistics is a perfect fit for PARWA!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go PARWA High ($3,999/mo) for voice support. Want the cost breakdown?`,
-      `📦 PARWA is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
+      `🚛 Logistics is a perfect fit for SHOBH!\n\n- Shipment tracking, driver coordination, delivery updates & customs\n- Integrates with TMS, WMS & GPS systems\n\nCompanies usually go SHOBH High ($3,999/mo) for voice support. Want the cost breakdown?`,
+      `📦 SHOBH is built for logistics complexity.\n\n⚡ Real-time tracking across all carriers\n📡 Automated updates to customers\n🚚 Fleet coordination connected to your systems\n\nWant to see a delivery delay scenario?`,
     ],
     healthcare: [
-      `🏥 Healthcare support with PARWA is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with PARWA ($2,999/mo). Want to discuss compliance?`,
-      `✅ PARWA meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
+      `🏥 Healthcare support with SHOBH is HIPAA-compliant by design.\n\n- Appointments, insurance verification, records & clinical escalation\n- Integrates with Epic EHR & FHIR\n\nMost healthcare orgs start with SHOBH ($2,999/mo). Want to discuss compliance?`,
+      `✅ SHOBH meets healthcare's strictest requirements.\n\n🛡️ HIPAA compliant with full audit trails\n🔐 AES-256 encryption at rest & in transit\n🩺 Smart clinical escalation built in\n\nWant to see a patient scheduling scenario?`,
     ],
     pricing: [
-      `💰 Here's the lineup ($1 = 1 ticket):\n\n• 🟠 PARWA — $2,999/mo — 5 AI agents, 2,999 tickets/mo, 80% auto-resolution\n• 🟠 PARWA High — $3,999/mo — 8 AI agents, 3,999 tickets/mo, 92% auto-resolution\n\nFlexPay available ($100/day). Cancel anytime. Which one fits your needs?`,
+      `💰 Here's the lineup ($1 = 1 ticket):\n\n• 🟠 SHOBH — $2,999/mo — 5 AI agents, 2,999 tickets/mo, 80% auto-resolution\n• 🟠 SHOBH High — $3,999/mo — 8 AI agents, 3,999 tickets/mo, 92% auto-resolution\n\nFlexPay available ($100/day). Cancel anytime. Which one fits your needs?`,
     ],
     roi: [
-      `📊 Here's the math:\n\n• PARWA → saves ~$186K/yr (vs 4 juniors)\n• PARWA High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
-      `💡 Bottom line — PARWA saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
+      `📊 Here's the math:\n\n• SHOBH → saves ~$186K/yr (vs 4 juniors)\n• SHOBH High → saves ~$288K/yr (vs 5 seniors)\n\nThat's 85-92% savings with 24/7 coverage. Want me to calculate yours?`,
+      `💡 Bottom line — SHOBH saves 85-92% vs hiring agents.\n\n⏰ 24/7 coverage from Day 1\n📈 Zero training time needed\n⚡ Instant scaling during peak periods\n\nWant the exact number for your business?`,
     ],
     demo: [
       `🎉 You're in luck — this chat IS the demo!\n\n💬 Ask me anything your customers would ask\n💰 Grab the $1 Demo Pack for 500 messages + AI voice call\n🚀 See real responses, not sales talk\n\nWant me to set up the Demo Pack?`,
       `✨ Try me right now — I AM the demo!\n\n📦 Try: "Where's my order?"\n🔑 Try: "My API key isn't working"\n💳 Try: "I need a refund"\n\nOr get the $1 Demo Pack for the full experience!`,
     ],
     how_works: [
-      `🤖 PARWA uses cutting-edge AI fine-tuned for customer support.\n\n- Bring your own AI keys — zero markup on AI costs\n- Smart routing picks the best model for each conversation\n- Works across email, chat, phone, SMS & voice\n\nWant to know about setup?`,
-      `⚙️ PARWA connects to your tools and starts on Day 1.\n\n🔗 Connect your channels in under an hour\n🔑 Bring your own AI keys — zero markup\n🚀 Configure and go live immediately\n\nWant to hear about the setup process?`,
+      `🤖 SHOBH uses cutting-edge AI fine-tuned for customer support.\n\n- Bring your own AI keys — zero markup on AI costs\n- Smart routing picks the best model for each conversation\n- Works across email, chat, phone, SMS & voice\n\nWant to know about setup?`,
+      `⚙️ SHOBH connects to your tools and starts on Day 1.\n\n🔗 Connect your channels in under an hour\n🔑 Bring your own AI keys — zero markup\n🚀 Configure and go live immediately\n\nWant to hear about the setup process?`,
     ],
     features: [
-      `🎯 PARWA covers your entire support stack:\n\n- 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n- 🧠 Smart routing, sentiment analysis, churn prediction\n- 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
-      `✅ PARWA's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
+      `🎯 SHOBH covers your entire support stack:\n\n- 📬 6 channels — Email, Chat, Phone, SMS, Voice, Social\n- 🧠 Smart routing, sentiment analysis, churn prediction\n- 🔗 20+ integrations out of the box\n\nWhat area interests you most?`,
+      `✅ SHOBH's got 700+ features across 4 industries.\n\n⚡ Automation of the full ticket lifecycle\n📊 Analytics & quality coaching built in\n🔄 Escalation workflows that learn & improve\n\nWhat are you most curious about?`,
     ],
     buy: [
-      `🚀 Getting started is easy:\n\n1. Pick your plan (PARWA or PARWA High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — PARWA starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
+      `🚀 Getting started is easy:\n\n1. Pick your plan (SHOBH or SHOBH High)\n2. Connect your AI keys\n3. Configure your channels\n4. Go live — SHOBH starts immediately\n\nNo contracts, cancel anytime. Want to pick a plan?`,
       `✨ Ready to get started?\n\n🎯 Choose your plan\n🔑 Connect your AI keys\n⏱️ Go live in under an hour\n\nWhich plan are you leaning toward?`,
     ],
     thanks: [
-      `You're welcome! 🙌 Quick recap:\n\n• 2 plans: PARWA ($2,999), PARWA High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
+      `You're welcome! 🙌 Quick recap:\n\n• 2 plans: SHOBH ($2,999), SHOBH High ($3,999)\n• Zero AI markup, 24/7 from Day 1\n• 85-92% cost savings\n\nCome back anytime! Have a great day! 😊`,
       `Anytime! 😊 When you're ready, I'm here to help.\n\n🏢 Come back and we'll pick up where we left off\n📊 Your session context is saved\n🎉 Have an awesome day!`,
     ],
     competitors: [
-      `🥊 PARWA vs the rest:\n\n- vs Intercom: fully resolves tickets, not just triage\n- vs Zendesk AI: auto-resolves before reaching your team\n- vs Custom bots: full platform, not a widget\n\nBest part? You can keep your existing tools and add PARWA on top. Want more details?`,
-      `💪 PARWA works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
+      `🥊 SHOBH vs the rest:\n\n- vs Intercom: fully resolves tickets, not just triage\n- vs Zendesk AI: auto-resolves before reaching your team\n- vs Custom bots: full platform, not a widget\n\nBest part? You can keep your existing tools and add SHOBH on top. Want more details?`,
+      `💪 SHOBH works WITH your tools, not against them.\n\n🔗 Integrates with Zendesk, Intercom, Freshdesk & more\n⚡ Auto-resolves tickets before humans see them\n💰 Cuts your support costs by 85-92%\n\nWant to hear about specific integrations?`,
     ],
     security: [
-      `🔒 Security is baked in:\n\n- GDPR, SOC 2, HIPAA compliant\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
-      `🛡️ Your data is safe with PARWA.\n\n📜 GDPR + SOC 2 + HIPAA certified\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
+      `🔒 Security is baked in:\n\n- GDPR, HIPAA ready\n- AES-256 encryption, TLS 1.3\n- Full audit trail & PII redaction\n- Your data never trains other clients' models\n\nWant more details on any area?`,
+      `🛡️ Your data is safe with SHOBH.\n\n📜 GDPR + HIPAA ready\n🔐 Encrypted at rest & in transit\n🏢 Full isolation between clients\n\nAny specific compliance question?`,
     ],
     integrations: [
-      `🔗 PARWA plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
+      `🔗 SHOBH plugs into your existing stack:\n\n- E-commerce: Shopify, WooCommerce, Magento\n- Support: Zendesk, Intercom, Freshdesk\n- Comms: Slack, WhatsApp, Email\n- CRM: Salesforce, HubSpot\n\n~5 minutes per integration. Which tools are you using?`,
       `✅ We integrate with 20+ tools out of the box.\n\n⚙️ OAuth or API key setup\n⏱️ Usually under 5 minutes each\n🔌 Custom APIs & webhooks also supported\n\nWhich integrations matter most to you?`,
     ],
     models_variants: [
-      `🤖 PARWA offers 2 plans tailored to different needs:\n\n• 🟠 PARWA — $2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution (growth teams, "The Junior Agent")\n• 🟠 PARWA High — $3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution (enterprise, "The Senior Agent")\n\nBoth have the same AI — only ticket volume differs. Which sounds like the right fit?`,
-      `✨ PARWA comes in 2 tiers — PARWA & PARWA High.\n\n🤖 Same AI capabilities, different ticket volumes\n📈 $1 = 1 ticket — what you pay is what you get\n💰 Cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
+      `🤖 SHOBH offers 2 plans tailored to different needs:\n\n• 🟠 SHOBH — $2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution (growth teams, "The Junior Agent")\n• 🟠 SHOBH High — $3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution (enterprise, "The Senior Agent")\n\nBoth have the same AI — only ticket volume differs. Which sounds like the right fit?`,
+      `✨ SHOBH comes in 2 tiers — SHOBH & SHOBH High.\n\n🤖 Same AI capabilities, different ticket volumes\n📈 $1 = 1 ticket — what you pay is what you get\n💰 Cutting-edge AI with zero markup\n\nWant me to recommend one based on your business?`,
     ],
   };
 
@@ -1128,8 +1128,8 @@ function getKeywordResponse(message: string, session: any): string {
   if (industry) {
     const indName = String(industry || '').charAt(0).toUpperCase() + String(industry || '').slice(1);
     const industryResponses = [
-      `Great choice — ${indName} is one of our specialties! 🎯\n\n⚡ PARWA automates up to 80% of support\n🧠 AI trained for ${indName} workflows\n💰 Save 85-92% vs hiring\n\nHow many tickets do you handle daily?`,
-      `Nice! ${indName} is a great fit for PARWA. 🚀\n\n📊 Industry-specific workflows built in\n🔗 Integrations for ${indName} tools\n🤖 24/7 coverage from Day 1\n\nWhat's your daily ticket volume?`,
+      `Great choice — ${indName} is one of our specialties! 🎯\n\n⚡ SHOBH automates up to 80% of support\n🧠 AI trained for ${indName} workflows\n💰 Save 85-92% vs hiring\n\nHow many tickets do you handle daily?`,
+      `Nice! ${indName} is a great fit for SHOBH. 🚀\n\n📊 Industry-specific workflows built in\n🔗 Integrations for ${indName} tools\n🤖 24/7 coverage from Day 1\n\nWhat's your daily ticket volume?`,
     ];
     for (const r of industryResponses) {
       if (!wouldRepeat(r)) return r;
@@ -1479,7 +1479,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const variants = body.variants || [];
       for (const v of variants) {
         const price = Number(v.price_per_month || v.price || 999);
-        const name = v.name || v.variant || 'PARWA Plan';
+        const name = v.name || v.variant || 'SHOBH Plan';
         items.push({ name, quantity: 1, unit_price: price, total: price });
       }
       const subtotal = items.reduce((sum, i) => sum + i.total, 0);
@@ -1660,7 +1660,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           id: `payment_success_${Date.now()}`,
           session_id: session.id,
           role: 'jarvis',
-          content: `Payment of $${amount.toFixed(2)} completed successfully! Welcome to PARWA. Setting up your account...`,
+          content: `Payment of $${amount.toFixed(2)} completed successfully! Welcome to SHOBH. Setting up your account...`,
           message_type: 'payment_confirmation',
           metadata: {
             transaction_id: transaction_id || session.context.payment_data?.transaction_id,

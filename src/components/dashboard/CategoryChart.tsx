@@ -17,10 +17,10 @@ interface CategoryChartProps {
   className?: string;
 }
 
-/** PARWA brand-inspired color palette for categories. */
+/** SHOBH brand-inspired color palette for categories. */
 const COLORS = [
-  '#f97316', // orange-500
-  '#fbbf24', // amber-400
+  '#A1A1AA', // orange-500
+  '#A1A1AA', // amber-400
   '#38bdf8', // sky-500
   '#34d399', // emerald-500
   '#a78bfa', // violet-500
@@ -122,7 +122,7 @@ export default function CategoryChart({ data, className }: CategoryChartProps) {
   return (
     <div
       className={cn(
-        'rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6',
+        'rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6',
         className
       )}
     >

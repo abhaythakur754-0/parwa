@@ -1,5 +1,5 @@
 /**
- * PARWA LimitReachedCard (Week 6 — Day 4 Phase 6)
+ * SHOBH LimitReachedCard (Week 6 — Day 4 Phase 6)
  *
  * "Daily limit reached. Come back tomorrow or upgrade."
  * Replaces the old inline limit_reached banner with a richer card.

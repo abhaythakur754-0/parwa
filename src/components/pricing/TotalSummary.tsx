@@ -39,7 +39,7 @@ export default function TotalSummary({
         'relative rounded-2xl overflow-hidden transition-all duration-300',
         hasSelection
           ? 'bg-[#0A1F18] border-emerald-500/30 shadow-2xl shadow-emerald-500/10'
-          : 'bg-[#111111] border-white/[0.06]'
+          : 'bg-[#232327] border-white/[0.06]'
       )}
     >
       {/* Top gradient accent */}

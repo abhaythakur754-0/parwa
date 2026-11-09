@@ -23,9 +23,9 @@ interface ResponseTimeChartProps {
 const BUCKET_COLORS: Record<string, string> = {
   '< 5 min': '#34d399',
   '5 - 15 min': '#6ee7b7',
-  '15 - 30 min': '#fbbf24',
-  '30 - 60 min': '#f59e0b',
-  '1 - 2 hrs': '#f97316',
+  '15 - 30 min': '#A1A1AA',
+  '30 - 60 min': '#A1A1AA',
+  '1 - 2 hrs': '#A1A1AA',
   '2 - 4 hrs': '#ef4444',
   '> 4 hrs': '#dc2626',
 };
@@ -61,7 +61,7 @@ export default function ResponseTimeChart({ dateRange, className }: ResponseTime
 
   if (status === 'loading') {
     return (
-      <div className={cn('rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6', className)}>
+      <div className={cn('rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6', className)}>
         <div className="animate-pulse space-y-4">
           <div className="h-4 w-40 bg-white/[0.06] rounded" />
           <div className="h-4 w-56 bg-white/[0.04] rounded" />
@@ -73,7 +73,7 @@ export default function ResponseTimeChart({ dateRange, className }: ResponseTime
 
   if (status === 'error' || !data) {
     return (
-      <div className={cn('rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6', className)}>
+      <div className={cn('rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6', className)}>
         <h3 className="text-sm font-semibold text-zinc-300">Response Time Distribution</h3>
         <p className="text-xs text-zinc-500 mt-0.5">How quickly tickets get responded to</p>
         <div className="flex items-center justify-center h-48 text-xs text-zinc-600">
@@ -86,7 +86,7 @@ export default function ResponseTimeChart({ dateRange, className }: ResponseTime
   const hasData = data.buckets && data.buckets.length > 0 && data.buckets.some((b) => b.count > 0);
 
   return (
-    <div className={cn('rounded-xl bg-[#1A1A1A]/50 border border-white/[0.06] p-6', className)}>
+    <div className={cn('rounded-xl bg-[#2C2C31]/50 border border-white/[0.06] p-6', className)}>
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-zinc-300">Response Time Distribution</h3>
         <p className="text-xs text-zinc-500 mt-0.5">How quickly tickets get responded to</p>
@@ -109,7 +109,7 @@ export default function ResponseTimeChart({ dateRange, className }: ResponseTime
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#27272a',
+                backgroundColor: '#3A3A40',
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: '8px',
                 fontSize: '12px',

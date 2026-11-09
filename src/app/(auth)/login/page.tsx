@@ -14,7 +14,7 @@ import { getSafeRedirect } from '@/lib/auth-cookies';
 
 function LoginPageLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
       <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
     </div>
   );
@@ -217,7 +217,7 @@ function LoginContent() {
   // If authenticated and about to redirect, show loading (but only once)
   if (isAuthenticated && !authLoading && !loopDetected.current) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-orange-400 mx-auto mb-4" />
           <p className="text-orange-200/60 text-sm">Redirecting&hellip;</p>
@@ -229,17 +229,17 @@ function LoginContent() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-      style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 40%, #3D2A10 70%, #4A3520 100%)' }}
+      style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 40%, #3A3A40 70%, #45454B 100%)' }}
     >
       {/* Background effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute w-[400px] h-[400px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,127,17,0.15) 0%, rgba(255,127,17,0.02) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(161,161,170,0.15) 0%, rgba(161,161,170,0.02) 60%, transparent 80%)',
           top: '15%', left: '10%',
           animation: 'orbFloat1 10s ease-in-out infinite',
         }} />
         <div className="absolute w-[300px] h-[300px] rounded-full" style={{
-          background: 'radial-gradient(circle, rgba(255,215,0,0.06) 0%, rgba(255,215,0,0.01) 60%, transparent 80%)',
+          background: 'radial-gradient(circle, rgba(212,212,216,0.06) 0%, rgba(212,212,216,0.01) 60%, transparent 80%)',
           bottom: '10%', right: '10%',
           animation: 'orbFloat2 12s ease-in-out infinite',
         }} />
@@ -254,14 +254,11 @@ function LoginContent() {
 
         {/* Header */}
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <svg className="w-7 h-7" viewBox="0 0 40 40" fill="none">
-                <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
-                <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
-              </svg>
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-11 h-11 flex items-center justify-center">
+              <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
             </div>
-            <span className="text-2xl font-bold text-white">PARWA</span>
+            <span className="text-3xl font-anton text-white tracking-wide">SHOBH</span>
           </Link>
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
           <p className="mt-2 text-sm text-orange-200/50">Sign in to your account to continue</p>
@@ -272,12 +269,12 @@ function LoginContent() {
           className="rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-            border: '1px solid rgba(255,127,17,0.2)',
+            border: '1px solid rgba(161,161,170,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.06)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.06)',
           }}
         >
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.1)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.1)' }} />
           <SocialLogin onGoogleLogin={handleGoogleLogin} isLoading={isSubmitting} error={googleError} showDividerAfter={true} />
           <div className="mt-6">
             <LoginForm onSubmit={handleLogin} isLoading={isSubmitting} error={error} />

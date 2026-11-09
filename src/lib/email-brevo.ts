@@ -1,5 +1,5 @@
 /**
- * PARWA Email Service - Brevo (SendinBlue) Integration
+ * SHOBH Email Service - Brevo (SendinBlue) Integration
  * 
  * Sends transactional emails via Brevo REST API
  * Used for:
@@ -15,7 +15,7 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_API_URL = 'https://api.brevo.com/v3';
 const FROM_EMAIL = process.env.EMAIL_FROM_EMAIL || 'thakurabhaychowhan@parwa.buzz';
-const FROM_NAME = process.env.EMAIL_FROM_NAME || 'PARWA';
+const FROM_NAME = process.env.EMAIL_FROM_NAME || 'SHOBH';
 
 interface EmailPayload {
   to: string | string[];
@@ -103,7 +103,7 @@ interface OtpEmailOptions {
 export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult> {
   const { to, otpCode, userName, expiryMinutes = 10 } = options;
 
-  const subject = `Your PARWA Verification Code: ${otpCode}`;
+  const subject = `Your SHOBH Verification Code: ${otpCode}`;
   
   const htmlContent = `
 <!DOCTYPE html>
@@ -118,8 +118,8 @@ export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult
     
     <!-- Header -->
     <tr>
-      <td style="background:linear-gradient(135deg,#f97316,#f59e0b); padding:30px; border-radius:16px 16px 0 0; text-align:center;">
-        <h1 style="margin:0; color:white; font-size:28px;">🚀 PARWA</h1>
+      <td style="background:linear-gradient(135deg,#A1A1AA,#A1A1AA); padding:30px; border-radius:16px 16px 0 0; text-align:center;">
+        <h1 style="margin:0; color:white; font-size:28px;">🚀 SHOBH</h1>
         <p style="margin:8px 0 0; color:rgba(255,255,255,0.9);">Verify your business email</p>
       </td>
     </tr>
@@ -137,9 +137,9 @@ export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult
         </p>
         
         <!-- OTP Code -->
-        <div style="background:#fafafa; border:2px dashed #f97316; border-radius:12px; padding:24px; margin:24px 0; text-align:center;">
+        <div style="background:#fafafa; border:2px dashed #A1A1AA; border-radius:12px; padding:24px; margin:24px 0; text-align:center;">
           <p style="margin:0 0 8px; color:#71717a; font-size:13px; text-transform:uppercase; letter-spacing:1px;">Your Verification Code</p>
-          <p style="margin:0; font-size:36px; font-weight:700; letter-spacing:8px; color:#f97316; font-family:'Courier New',monospace;">
+          <p style="margin:0; font-size:36px; font-weight:700; letter-spacing:8px; color:#A1A1AA; font-family:'Courier New',monospace;">
             ${otpCode}
           </p>
         </div>
@@ -154,9 +154,9 @@ export async function sendOtpEmail(options: OtpEmailOptions): Promise<SendResult
     
     <!-- Footer -->
     <tr>
-      <td style="background:#18181b; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
+      <td style="background:#2A2A2F; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
         <p style="margin:0 0 8px; color:#a1a1aa; font-size:13px;">
-          Need help? <a href="mailto:support@flexpay.com" style="color:#f97316;text-decoration:none;">Contact Support</a>
+          Need help? <a href="mailto:support@flexpay.com" style="color:#A1A1AA;text-decoration:none;">Contact Support</a>
         </p>
         <p style="margin:0; color:#71717a; font-size:12px;">
           © 2026 FlexPay. All rights reserved.
@@ -202,7 +202,7 @@ export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<Se
     
     <!-- Celebration Header -->
     <tr>
-      <td style="background:linear-gradient(135deg,#f97316,#eab308); padding:40px 30px; border-radius:16px 16px 0 0; text-align:center;">
+      <td style="background:linear-gradient(135deg,#A1A1AA,#eab308); padding:40px 30px; border-radius:16px 16px 0 0; text-align:center;">
         <h1 style="margin:0; color:white; font-size:32px;">🎉 You're In!</h1>
         <p style="margin:12px 0 0; color:rgba(255,255,255,0.95); font-size:18px;">
           Welcome${userName ? `, ${userName}` : ''} to FlexPay!
@@ -219,14 +219,14 @@ export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<Se
         </p>
         
         ${companyName ? `
-        <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:16px; margin:20px 0; border-radius:0 8px 8px 0;">
-          <p style="margin:0; color:#92400e; font-size:14px;">
+        <div style="background:#F4F4F5; border-left:4px solid #A1A1AA; padding:16px; margin:20px 0; border-radius:0 8px 8px 0;">
+          <p style="margin:0; color:#3A3A40; font-size:14px;">
             🏢 <strong>${companyName}</strong> is now connected to FlexPay
           </p>
         </div>
         ` : ''}
         
-        <h3 style="margin:28px 0 12px; color:#18181b; font-size:17px;">What's Next?</h3>
+        <h3 style="margin:28px 0 12px; color:#2A2A2F; font-size:17px;">What's Next?</h3>
         
         <ul style="margin:0; padding-left:20px; color:#52525b; line-height:2;">
           <li><strong>Explore Dashboard</strong> — Check your analytics & settings</li>
@@ -236,7 +236,7 @@ export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<Se
         
         <div style="text-align:center; margin:32px 0 0;">
           <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.flexpay.com'}/dashboard" 
-             style="display:inline-block; background:linear-gradient(135deg,#f97316,#f59e0b); color:white; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:600; font-size:15px;">
+             style="display:inline-block; background:linear-gradient(135deg,#A1A1AA,#A1A1AA); color:white; padding:14px 32px; border-radius:8px; text-decoration:none; font-weight:600; font-size:15px;">
             Go to Dashboard →
           </a>
         </div>
@@ -246,7 +246,7 @@ export async function sendWelcomeEmail(options: WelcomeEmailOptions): Promise<Se
     
     <!-- Footer -->
     <tr>
-      <td style="background:#18181b; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
+      <td style="background:#2A2A2F; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
         <p style="margin:0; color:#71717a; font-size:12px;">
           © 2026 FlexPay • Built with ❤️ for amazing customer support
         </p>
@@ -285,7 +285,7 @@ export async function sendPaymentReceipt(options: PaymentReceiptOptions): Promis
     ? `Payment Confirmed ✅ ₹${amount} for ${planName}`
     : `Payment Update: ${planName}`;
 
-  const statusColor = isSuccess ? '#10b981' : '#f59e0b';
+  const statusColor = isSuccess ? '#10b981' : '#A1A1AA';
   const statusIcon = isSuccess ? '✅' : '⏳';
 
   const htmlContent = `
@@ -320,15 +320,15 @@ export async function sendPaymentReceipt(options: PaymentReceiptOptions): Promis
           <table style="width:100%; border-collapse:collapse;">
             <tr>
               <td style="padding:12px 0; color:#71717a; font-size:14px;">Plan</td>
-              <td style="padding:12px 0; text-align:right; color:#18181b; font-weight:600;">${planName}</td>
+              <td style="padding:12px 0; text-align:right; color:#2A2A2F; font-weight:600;">${planName}</td>
             </tr>
             <tr>
               <td style="padding:12px 0; border-top:1px solid #e4e4e7; color:#71717a; font-size:14px;">Amount</td>
-              <td style="padding:12px 0; border-top:1px solid #e4e4e7; text-align:right; color:#18181b; font-weight:700; font-size:18px;">₹${amount.toLocaleString()}</td>
+              <td style="padding:12px 0; border-top:1px solid #e4e4e7; text-align:right; color:#2A2A2F; font-weight:700; font-size:18px;">₹${amount.toLocaleString()}</td>
             </tr>
             <tr>
               <td style="padding:12px 0; border-top:1px solid #e4e4e7; color:#71717a; font-size:14px;">Order ID</td>
-              <td style="padding:12px 0; border-top:1px solid #e4e4e7; text-align:right; color:#18181b; font-family:monospace; font-size:13px;">${orderId}</td>
+              <td style="padding:12px 0; border-top:1px solid #e4e4e7; text-align:right; color:#2A2A2F; font-family:monospace; font-size:13px;">${orderId}</td>
             </tr>
             <tr>
               <td style="padding:12px 0; border-top:1px solid #e4e4e7; color:#71717a; font-size:14px;">Status</td>
@@ -352,9 +352,9 @@ export async function sendPaymentReceipt(options: PaymentReceiptOptions): Promis
     </tr>
     
     <tr>
-      <td style="background:#18181b; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
+      <td style="background:#2A2A2F; padding:24px; border-radius:0 0 16px 16px; text-align:center;">
         <p style="margin:0; color:#71717a; font-size:12px;">
-          Questions? <a href="mailto:billing@flexpay.com" style="color:#f97316;text-decoration:none;">Contact Billing</a>
+          Questions? <a href="mailto:billing@flexpay.com" style="color:#A1A1AA;text-decoration:none;">Contact Billing</a>
         </p>
       </td>
     </tr>

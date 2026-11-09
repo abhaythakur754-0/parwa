@@ -1,5 +1,5 @@
 /**
- * PARWA useKeyboardShortcut Hook
+ * SHOBH useKeyboardShortcut Hook
  *
  * Registers global keyboard shortcuts with proper modifier key handling.
  * Supports Ctrl/Cmd + key combos, single keys, and custom predicates.

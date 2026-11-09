@@ -12,8 +12,8 @@ import { Loader2, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import type { OnboardingState } from '@/types/onboarding';
-import type { ParwaVariant } from './IndustryVariantStep';
-import { mapIndustryToParwaIndustry, type ParwaIndustry } from '@/lib/integration-catalog';
+import type { ShobhVariant } from './IndustryVariantStep';
+import { mapIndustryToShobhIndustry, type ShobhIndustry } from '@/lib/integration-catalog';
 
 const TOTAL_STEPS = 3; // Step 1 = Details, Step 2 = CRM+KB+Recommendations, Step 3 = Build & Launch
 
@@ -30,8 +30,8 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const [aiGreeting, setAiGreeting] = useState<string | null>(null);
 
   // Phase 4: industry + variant from Step 1
-  const [selectedIndustry, setSelectedIndustry] = useState<ParwaIndustry | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<ParwaVariant | null>(null);
+  const [selectedIndustry, setSelectedIndustry] = useState<ShobhIndustry | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ShobhVariant | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,7 +66,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
     try {
       const stored = localStorage.getItem('parwa_pricing_context');
       if (stored) {
-        const ctx = JSON.parse(stored) as { industry?: ParwaIndustry; variant?: ParwaVariant };
+        const ctx = JSON.parse(stored) as { industry?: ShobhIndustry; variant?: ShobhVariant };
         if (ctx.industry) setSelectedIndustry(ctx.industry);
         if (ctx.variant) setSelectedVariant(ctx.variant);
       }
@@ -143,12 +143,12 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   const variantIdParam = searchParams.get('variant_id');
   const cameFromPricing = source === 'pricing';
 
-  // Map variant_id from URL to ParwaVariant type
+  // Map variant_id from URL to ShobhVariant type
   // Models page sends: 'parwa' | 'high'
-  // ParwaVariant type is: 'parwa' | 'high'
+  // ShobhVariant type is: 'parwa' | 'high'
   React.useEffect(() => {
     if (variantIdParam && !selectedVariant) {
-      const variantMap: Record<string, ParwaVariant> = {
+      const variantMap: Record<string, ShobhVariant> = {
         'parwa': 'parwa',
         'high': 'high',
         // Legacy 'mini' auto-upgrades to 'parwa'
@@ -162,7 +162,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
         const ctx = existing ? JSON.parse(existing) : {};
         ctx.variant = mapped;
         if (industryParam) {
-          const mapped_industry = mapIndustryToParwaIndustry(industryParam);
+          const mapped_industry = mapIndustryToShobhIndustry(industryParam);
           if (mapped_industry) {
             ctx.industry = mapped_industry;
             setSelectedIndustry(mapped_industry);
@@ -185,7 +185,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 animate-spin text-orange-400" />
           <p className="text-orange-200/50 text-sm">Loading onboarding...</p>
@@ -202,7 +202,7 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   // Show dashboard redirect if first victory is done
   if (onboardingState?.first_victory_completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #4A3520 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #45454B 100%)' }}>
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-orange-400" />
           <p className="text-orange-200/50 text-sm">Redirecting to dashboard...</p>
@@ -212,9 +212,9 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(165deg, #1A1A1A 0%, #2A1A0A 50%, #1A1A1A 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(165deg, #2C2C31 0%, #303036 50%, #2C2C31 100%)' }}>
       {/* ── Top Header Bar ─────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06]" style={{ background: 'rgba(26,26,26,0.9)', backdropFilter: 'blur(20px)' }}>
+      <header className="sticky top-0 z-50 border-b border-white/[0.06]" style={{ background: 'rgba(44,44,49,0.9)', backdropFilter: 'blur(20px)' }}>
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Left: Back to pricing or logo */}
           <div className="flex items-center gap-3">
@@ -227,14 +227,11 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
                 <span>Back to Pricing</span>
               </button>
             ) : (
-              <Link href="/" className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                  <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none">
-                    <path d="M6 7h24a4 4 0 014 4v13a4 4 0 01-4 4h-8l-3 6-2-6H6a4 4 0 01-4-4V11a4 4 0 014-4z" stroke="white" strokeWidth="2.8" strokeLinejoin="round" />
-                    <path d="M22 11l-6 8h4.5L17 28l8-10h-4.5l3.5-7z" fill="white" />
-                  </svg>
+              <Link href="/" className="flex items-center gap-1.5">
+                <div className="w-9 h-9 flex items-center justify-center">
+                  <img src="/shobh-logo.png" alt="SHOBH logo" className="w-full h-full object-cover" />
                 </div>
-                <span className="text-white font-semibold text-sm tracking-tight">PARWA</span>
+                <span className="text-white font-anton text-lg tracking-wide">SHOBH</span>
               </Link>
             )}
           </div>
@@ -291,12 +288,12 @@ export function OnboardingWizard({ initialState }: OnboardingWizardProps) {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="rounded-2xl p-6 sm:p-8 relative overflow-hidden" style={{
           background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-          border: '1px solid rgba(255,127,17,0.15)',
+          border: '1px solid rgba(161,161,170,0.15)',
           backdropFilter: 'blur(20px)',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(255,127,17,0.04)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.3), 0 0 60px rgba(161,161,170,0.04)',
         }}>
           {/* Decorative glow */}
-          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(255,127,17,0.08)' }} />
+          <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-[60px] pointer-events-none" style={{ background: 'rgba(161,161,170,0.08)' }} />
 
           {/* Step 1: Details + Verification (name, URL, email OTP, legal) */}
           {currentStep === 1 && (
