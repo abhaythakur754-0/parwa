@@ -29,16 +29,54 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
+from app.api.deps import get_current_user
+from database.models.core import User
 from database.base import get_db
 
 logger = get_logger("jarvis_onboarding_api")
 
-router = APIRouter(prefix="/api/jarvis/onboarding", tags=["jarvis-onboarding"])
+
+async def enforce_onboarding_identity(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> User:
+    """Bind every onboarding operation to the JWT user's tenant and identity.
+
+    These endpoints sit under a public middleware prefix for legacy routing;
+    this dependency is therefore the mandatory authentication boundary.
+    """
+    company_id = request.query_params.get("company_id")
+    payload: Dict[str, Any] = {}
+    if request.method not in {"GET", "HEAD"}:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="Invalid request body")
+        company_id = company_id or payload.get("company_id")
+
+    authenticated_company_id = str(user.company_id) if user.company_id else None
+    if not authenticated_company_id or str(company_id or "") != authenticated_company_id:
+        raise HTTPException(status_code=403, detail="Tenant access denied")
+
+    requested_user_id = payload.get("user_id")
+    if requested_user_id and str(requested_user_id) != str(user.id):
+        raise HTTPException(status_code=403, detail="User access denied")
+
+    return user
+
+
+router = APIRouter(
+    prefix="/api/jarvis/onboarding",
+    tags=["jarvis-onboarding"],
+    dependencies=[Depends(enforce_onboarding_identity)],
+)
 
 
 # ══════════════════════════════════════════════════════════════════
