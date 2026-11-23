@@ -31,8 +31,7 @@ import {
   createFlexPayPlan, 
   validateTransactionAmount,
   TIER_PRICES,
-  type VariantTier,
-  type FlexPayPlan 
+  type VariantTier
 } from '@/lib/flexpay/core';
 import { registerPlan } from '@/lib/flexpay/scheduler';
 import { randomUUID } from 'crypto';
@@ -184,7 +183,7 @@ export async function GET(req: NextRequest) {
     const user = await verifyAuth(req);
     if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
-    const { getRegisteredPlans, getSchedulerStats } = await import('@/lib/flexpay/scheduler');
+    const { getRegisteredPlans } = await import('@/lib/flexpay/scheduler');
     
     const plans = getRegisteredPlans().filter(p => p.companyId === user.company_id);
     const stats = { totalPlans: plans.length };
