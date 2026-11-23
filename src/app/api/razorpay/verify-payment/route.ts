@@ -6,30 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { updatePaymentStatus, createSubscription, getUserDetails } from '@/lib/supabase-db';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
+import { updatePaymentStatus, createSubscription, getUserDetails, db } from '@/lib/supabase-db';
 import crypto from 'crypto';
 
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('user_id');
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,10 +26,6 @@ export async function POST(request: NextRequest) {
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
-      user_id: bodyUserId,
-      plan_id,
-      plan_name,
-      amount,
     } = body;
 
     // Validate required fields
@@ -59,8 +36,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user ID from auth or body
-    let userId = getUserId(request) || bodyUserId;
+    // Identity must come from the verified access token, never the request body.
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) return NextResponse.json({ error: 'unauthorized', message: 'Authentication required' }, { status: 401 });
+
+    const paymentRecord = await db.from('payments').select('*', {
+      filter: { razorpay_order_id, user_id: userId }, single: true,
+    });
+    if (!paymentRecord) return NextResponse.json({ error: 'payment_not_found' }, { status: 404 });
+    if (paymentRecord.status === 'completed') return NextResponse.json({ success: true, verified: true, payment_id: paymentRecord.razorpay_payment_id, order_id: razorpay_order_id, message: 'Payment already verified' });
 
     console.log(`[Razorpay] Verifying payment: ${razorpay_payment_id}`);
 
@@ -70,11 +54,13 @@ export async function POST(request: NextRequest) {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
-    if (generatedSignature !== razorpay_signature) {
+    const expected = Buffer.from(generatedSignature, 'hex');
+    const received = typeof razorpay_signature === 'string' && /^[a-f0-9]{64}$/i.test(razorpay_signature) ? Buffer.from(razorpay_signature, 'hex') : Buffer.alloc(0);
+    if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
       console.error('[Razorpay] ❌ Signature mismatch!');
       
       // Update payment status to failed
-      if (userId) {
+      if (userId && paymentRecord.status === 'pending') {
         try {
           await updatePaymentStatus(razorpay_order_id, 'failed', {
             error_message: 'Signature verification failed',
@@ -103,14 +89,14 @@ export async function POST(request: NextRequest) {
         });
 
         // Create or update subscription if plan info provided
-        if (plan_id && amount) {
+        if (paymentRecord.plan_id && paymentRecord.amount) {
           await createSubscription({
             user_id: userId,
-            plan_id,
-            plan_name: plan_name || plan_id.toUpperCase(),
+            plan_id: paymentRecord.plan_id,
+            plan_name: paymentRecord.plan_name || paymentRecord.plan_id.toUpperCase(),
             billing_cycle: 'monthly',
-            amount: Math.round(amount),
-            currency: 'USD',
+            amount: Math.round(paymentRecord.amount),
+            currency: paymentRecord.currency || 'INR',
           });
           
           console.log(`[Razorpay] 📋 Subscription created: ${plan_id}`);
@@ -118,8 +104,8 @@ export async function POST(request: NextRequest) {
 
         // Send payment receipt email (async - don't block response)
         sendReceiptEmail(userId, {
-          amount: Math.round((amount || 0) / 100), // Convert back to dollars
-          plan_name: plan_name || 'Subscription',
+          amount: Math.round((paymentRecord.amount || 0) / 100),
+          plan_name: paymentRecord.plan_name || 'Subscription',
           order_id: razorpay_order_id,
           status: 'completed',
         }).catch(err => console.warn('[Email] Receipt failed:', err));
