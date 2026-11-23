@@ -15,7 +15,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { 
-  getPlan, 
   pausePlan, 
   resumePlan, 
   cancelPlan,
@@ -26,7 +25,6 @@ import {
 import { 
   getPlan as getSchedulerPlan,
   getInstallmentStatus,
-  getSchedulerStats 
 } from '@/lib/flexpay/scheduler';
 
 interface RouteContext {
@@ -48,13 +46,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
     }
     
-    if (!plan) {
-      return NextResponse.json(
-        { success: false, error: 'Plan not found' },
-        { status: 404 }
-      );
-    }
-
     // Calculate current progress
     const completedDays = getCompletedDayNumbers(planId);
     const progress = calculatePlanProgress(plan, completedDays.size);
