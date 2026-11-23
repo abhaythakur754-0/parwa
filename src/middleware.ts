@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/static/") ||
-    pathname.includes(".")
+    (pathname.includes(".") && !pathname.startsWith("/api/"))
   ) {
     return NextResponse.next();
   }
