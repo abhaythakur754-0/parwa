@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.core.integration_catalog import get_catalog, get_catalog_for_industry, get_integration_by_key, ParwaIndustry
 from app.services.audit_service import log_audit, AuditAction, ActorType
 from app.services.integration_service import IntegrationService
@@ -979,7 +979,7 @@ class OutboundWebhookResponse(BaseModel):
     response_model=List[OutboundWebhookResponse],
 )
 def api_list_outbound_webhooks(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> List[OutboundWebhookResponse]:
     """List all outbound webhooks for the authenticated user's company.
@@ -1018,7 +1018,7 @@ def api_list_outbound_webhooks(
 )
 def api_create_outbound_webhook(
     body: CreateOutboundWebhookRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> OutboundWebhookResponse:
     """Register a new outbound webhook endpoint.
@@ -1078,7 +1078,7 @@ def api_create_outbound_webhook(
 )
 def api_delete_outbound_webhook(
     webhook_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Delete an outbound webhook.
@@ -1111,7 +1111,7 @@ def api_delete_outbound_webhook(
 )
 def api_test_outbound_webhook(
     webhook_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Send a test event to an outbound webhook endpoint.
@@ -1302,7 +1302,7 @@ class AnalyzeIntegrationsResponse(BaseModel):
     response_model=AnalyzeIntegrationsResponse,
 )
 async def api_analyze_integrations(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> AnalyzeIntegrationsResponse:
     """Analyze connected CRM data and recommend missing integrations.
@@ -1439,7 +1439,7 @@ async def api_analyze_integrations(
     "/analyze/stored",
 )
 async def api_get_stored_analysis(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Retrieve most recent stored CRM analysis for dashboard display.
