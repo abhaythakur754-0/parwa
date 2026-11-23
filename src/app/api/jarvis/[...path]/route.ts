@@ -1906,11 +1906,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid context payload', details: null } }, { status: 400 });
+      }
       const session = sessions.get(sessionId)!;
-      session.context = { ...session.context, ...body };
+      const allowedContextKeys = new Set([
+        'industry', 'referral_source', 'utm_medium', 'referrer',
+        'entry_source', 'entry_params', 'selected_variants',
+        'selected_plan', 'roi_result', 'pages_visited',
+      ]);
+      for (const [key, value] of Object.entries(body)) {
+        if (allowedContextKeys.has(key) && value !== undefined) session.context[key] = value;
+      }
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json(session);
+      return NextResponse.json(session, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // ── PATCH /tickets/:id/status — Update Ticket Status ────────
