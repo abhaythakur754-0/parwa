@@ -859,7 +859,8 @@ async def voice_inbound_webhook(request: Request):
         )
         return RawResponse(content=twiml, media_type="application/xml")
 
-    # BYO signature verification with the tenant's own credentials
+    # BYO signature verification is mandatory. Never process a webhook
+    # when provider credentials are missing or signature verification errors.
     try:
         from app.core.providers.voice.base_voice_provider import get_voice_provider
         from app.services.voice_channel_service import VoiceChannelService
@@ -869,24 +870,25 @@ async def voice_inbound_webhook(request: Request):
         tenant_token = service_tmp._decrypt_credential_or_empty(
             config.twilio_auth_token_encrypted,
         )
-        if not provider.verify_signature(
+        if not tenant_token or not provider.verify_signature(
             str(request.url),
             payload,
             dict(request.headers),
-            tenant_token or "",
+            tenant_token,
         ):
             logger.warning(
                 "voice_webhook_invalid_signature from=%s provider=%s",
                 from_number, config.provider,
             )
-            from app.config import get_settings as _gs
-            if _gs().is_production:
-                return _error_response(
-                    "AUTHENTICATION_ERROR", "Invalid provider signature", 401,
-                )
+            return _error_response(
+                "AUTHENTICATION_ERROR", "Invalid provider signature", 401,
+            )
     except Exception as exc:
         logger.warning(
-            "voice_webhook_signature_check_skipped error=%s", str(exc)[:200],
+            "voice_webhook_signature_check_failed error=%s", str(exc)[:200],
+        )
+        return _error_response(
+            "AUTHENTICATION_ERROR", "Unable to verify provider signature", 401,
         )
 
     # Process the inbound call (creates records + opens the AI conversation)
