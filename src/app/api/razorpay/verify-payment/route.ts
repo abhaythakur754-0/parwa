@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     try {
       if (paymentRecord.plan_id && paymentRecord.amount) {
         const existingSubscription = await db.from('subscriptions').select('*', {
-          filter: { user_id: userId, plan_id: paymentRecord.plan_id, status: 'active' }, single: true,
+          filter: { user_id: userId, plan_id: paymentRecord.plan_id }, single: true,
         });
         if (!existingSubscription) {
           await createSubscription({
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       payment_id: razorpay_payment_id,
       order_id: razorpay_order_id,
       message: 'Payment verified and recorded successfully',
-      ...(updatedPayment && { subscription_created: true }),
+      subscription_created: Boolean(paymentRecord.plan_id),
     });
   } catch (error) {
     console.error('[Razorpay Verify Error]:', error);
