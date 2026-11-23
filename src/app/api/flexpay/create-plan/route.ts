@@ -26,6 +26,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth';
 import { 
   createFlexPayPlan, 
   validateTransactionAmount,
@@ -78,6 +79,10 @@ function validateCreatePlanRequest(body: Partial<CreatePlanRequest>): { valid: b
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
+
     // Parse request body
     let body: CreatePlanRequest;
     try {
@@ -87,6 +92,11 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Invalid JSON in request body' },
         { status: 400 }
       );
+    }
+
+    // Bind this local legacy plan to the verified tenant, never a caller-selected one.
+    if (body.companyId !== user.company_id) {
+      return NextResponse.json({ success: false, error: 'Company access denied' }, { status: 403 });
     }
 
     // Validate request
@@ -99,7 +109,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Determine amount (use provided or default from tier)
-    const totalAmount = body.totalAmount ?? TIER_PRICES[body.tier as VariantTier];
+    const totalAmount = TIER_PRICES[body.tier as VariantTier];
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      return NextResponse.json({ success: false, error: 'Invalid server pricing configuration' }, { status: 500 });
+    }
 
     // Validate transaction amounts are safe for Razorpay
     const baseValidation = validateTransactionAmount(100); // Base daily amount
@@ -166,12 +179,15 @@ export async function POST(req: NextRequest) {
 
 // ── Optional: GET to list plans (for admin) ───────────────────────
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
     const { getRegisteredPlans, getSchedulerStats } = await import('@/lib/flexpay/scheduler');
     
-    const plans = getRegisteredPlans();
-    const stats = getSchedulerStats();
+    const plans = getRegisteredPlans().filter(p => p.companyId === user.company_id);
+    const stats = { totalPlans: plans.length };
 
     return NextResponse.json({
       success: true,
