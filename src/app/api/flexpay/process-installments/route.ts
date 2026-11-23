@@ -94,12 +94,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, plans: data });
     }
 
-    return NextResponse.json({
-      success: true,
-      plans: [],
-      timestamp: new Date().toISOString(),
-      message: 'FlexPay plan data unavailable (backend not reachable)',
-    });
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(
+      { success: false, error: data.detail || data.error || 'FlexPay plan query failed' },
+      { status: response.status }
+    );
   } catch (error) {
     console.error('[FlexPay/API] Error getting scheduler status:', error);
     return NextResponse.json(
