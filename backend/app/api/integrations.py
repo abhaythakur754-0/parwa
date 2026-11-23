@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
@@ -966,7 +966,7 @@ class OutboundWebhookResponse(BaseModel):
     id: str
     url: str
     events: List[str]
-    secret: str
+    secret: str | None = None
     active: bool
     last_triggered_at: str | None = None
     failure_count: int = 0
@@ -1000,7 +1000,7 @@ def api_list_outbound_webhooks(
             id=wh.id,
             url=wh.url,
             events=wh.events or [],
-            secret=wh.secret,
+            secret=None,
             active=wh.active,
             last_triggered_at=wh.last_triggered_at.isoformat() if wh.last_triggered_at else None,
             failure_count=wh.failure_count,
@@ -1029,6 +1029,12 @@ def api_create_outbound_webhook(
     BC-003: HMAC signing secret auto-generated.
     """
     from database.models.outbound_webhook import OutboundWebhook
+    from app.security.outbound_url import validate_public_https_url
+
+    try:
+        safe_url = validate_public_https_url(body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     # Validate event types
     valid_events = set(OutboundWebhook.VALID_EVENTS)
@@ -1042,7 +1048,7 @@ def api_create_outbound_webhook(
 
     webhook = OutboundWebhook(
         company_id=user.company_id,
-        url=body.url,
+        url=safe_url,
         events=body.events,
         description=body.description,
     )
@@ -1080,6 +1086,7 @@ def api_delete_outbound_webhook(
     BC-001: Scoped to user's company_id.
     """
     from database.models.outbound_webhook import OutboundWebhook
+    from app.security.outbound_url import validate_public_https_url
 
     webhook = (
         db.query(OutboundWebhook)
@@ -1132,6 +1139,11 @@ def api_test_outbound_webhook(
         from app.exceptions import NotFoundError
         raise NotFoundError(message="Webhook not found")
 
+    try:
+        safe_url = validate_public_https_url(webhook.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
     # Build test payload
     test_payload = {
         "event": "webhook.test",
@@ -1158,8 +1170,8 @@ def api_test_outbound_webhook(
     }
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.post(webhook.url, content=payload_str, headers=headers)
+        with httpx.Client(timeout=10.0, follow_redirects=False, trust_env=False) as client:
+            resp = client.post(safe_url, content=payload_str, headers=headers)
         success = 200 <= resp.status_code < 300
         result = {
             "success": success,
