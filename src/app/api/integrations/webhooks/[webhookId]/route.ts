@@ -36,11 +36,15 @@ export async function DELETE(
       headers,
     });
 
-    if (res.ok) {
-      return NextResponse.json({ message: 'Webhook deleted successfully' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return NextResponse.json(data, { status: res.status });
     }
-    return NextResponse.json({ message: 'Webhook deleted' }, { status: 200 });
+    return NextResponse.json({ message: 'Webhook deleted successfully' });
   } catch {
-    return NextResponse.json({ message: 'Webhook deleted' });
+    return NextResponse.json(
+      { error: 'backend_unavailable', message: 'Webhook service is unavailable; the webhook was not deleted.' },
+      { status: 503 }
+    );
   }
 }
