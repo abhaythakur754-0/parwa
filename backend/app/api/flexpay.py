@@ -245,9 +245,7 @@ async def process_installment(
     try:
         from app.services.flexpay_service import process_next_installment
         
-        # Verify this plan belongs to user's company (unless admin)
-        company_id = str(current_user.company_id) if current_user.company_id else None
-        
+        # Never process another tenant's plan, even for company-level admins.
         _ensure_company_plan_access(db, plan_id, current_user)
 
         # Get Razorpay client for actual charging
@@ -267,6 +265,8 @@ async def process_installment(
         
         return ProcessInstallmentResponse(**result)
         
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -427,7 +427,9 @@ async def get_due_endpoint(
         due = [item for item in due if str(item.get('company_id')) == company_id]
         
         return [DueInstallmentItem(**item) for item in due]
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get due installments: {e}", exc_info=True)
         raise HTTPException(
@@ -655,7 +657,9 @@ n        {
             ))
         
         return result
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get company plans: {e}", exc_info=True)
         raise HTTPException(
