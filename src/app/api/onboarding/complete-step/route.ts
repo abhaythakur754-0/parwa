@@ -6,31 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { completeOnboardingStep, getOnboardingSession } from '@/lib/supabase-db';
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('user_id');
-}
+import { getAuthenticatedUserId } from '@/lib/api-auth';
+import { completeOnboardingStep, getOnboardingSession, getUserDetails, getIntegrations, getKnowledgeBases } from '@/lib/supabase-db';
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
@@ -59,7 +40,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Complete the step in Supabase
+    // A client cannot self-certify a step without the corresponding saved data.
+    if (step === 4) {
+      return NextResponse.json({ error: 'forbidden', message: 'This step is completed by the first-victory workflow' }, { status: 403 });
+    }
+    const evidence = step === 1
+      ? await getUserDetails(userId)
+      : step === 2
+        ? await getIntegrations(userId)
+        : await getKnowledgeBases(userId);
+    if (!evidence || (Array.isArray(evidence) && evidence.length === 0)) {
+      return NextResponse.json({ error: 'step_incomplete', message: 'Complete and save this step before marking it complete' }, { status: 409 });
+    }
     const session = await completeOnboardingStep(userId, step);
 
     console.log(`[Onboarding] ✅ Step ${step} completed for user ${userId}`);
