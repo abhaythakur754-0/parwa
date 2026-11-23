@@ -12,6 +12,33 @@ class UserStub:
     company_id = "company-456"
 
 
+class FakeQuery:
+    def __init__(self, result=None):
+        self.result = result
+
+    def filter(self, *criteria):
+        self.criteria = criteria
+        return self
+
+    def first(self):
+        return self.result
+
+
+class FakeDB:
+    def __init__(self, result=None):
+        self.result = result
+
+    def query(self, _model):
+        return FakeQuery(self.result)
+
+
+class SessionStub:
+    id = "session-789"
+    company_id = "company-456"
+    user_id = "user-123"
+    session_type = "onboarding"
+
+
 def make_request(method: str, body=None, query_string: bytes = b"") -> Request:
     payload = json.dumps(body or {}).encode()
 
@@ -42,7 +69,7 @@ async def test_onboarding_identity_accepts_matching_tenant_and_user():
         "POST",
         {"company_id": "company-456", "user_id": "user-123"},
     )
-    user = await enforce_onboarding_identity(request, UserStub())
+    user = await enforce_onboarding_identity(request, FakeDB(), UserStub())
     assert user.id == "user-123"
 
 
@@ -71,3 +98,27 @@ async def test_onboarding_identity_rejects_cross_tenant_query():
     with pytest.raises(HTTPException) as exc:
         await enforce_onboarding_identity(request, UserStub())
     assert exc.value.status_code == 403
+
+
+
+@pytest.mark.asyncio
+async def test_onboarding_identity_accepts_session_owned_by_authenticated_user():
+    request = make_request(
+        "POST",
+        {"company_id": "company-456", "user_id": "user-123", "session_id": "session-789"},
+    )
+    user = await enforce_onboarding_identity(request, FakeDB(SessionStub()), UserStub())
+    assert user.id == "user-123"
+
+
+@pytest.mark.asyncio
+async def test_onboarding_identity_rejects_session_owned_by_another_user():
+    foreign_session = SessionStub()
+    foreign_session.user_id = "another-user"
+    request = make_request(
+        "POST",
+        {"company_id": "company-456", "session_id": "session-789"},
+    )
+    with pytest.raises(HTTPException) as exc:
+        await enforce_onboarding_identity(request, FakeDB(foreign_session), UserStub())
+    assert exc.value.status_code == 404
