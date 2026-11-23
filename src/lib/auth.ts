@@ -135,7 +135,12 @@ export async function verifyAuth(
   const token = extractToken(request);
   if (!token) return null;
 
-  const verificationKey = await getVerificationKey();
+  let verificationKey: CryptoKey | Uint8Array;
+  try {
+    verificationKey = await getVerificationKey();
+  } catch {
+    return null;
+  }
 
   // Strategy 1: Verify with strict issuer/audience (frontend-issued tokens)
   try {
