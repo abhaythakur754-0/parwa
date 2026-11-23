@@ -961,7 +961,6 @@ async def voice_gather_webhook(request: Request):
     tenant's company_id as a query param.
     """
     from fastapi.responses import Response as RawResponse
-    from app.config import get_settings
     from app.core.providers.voice.base_voice_provider import get_voice_provider
 
     try:
@@ -1020,10 +1019,9 @@ async def voice_gather_webhook(request: Request):
                 "voice_gather_invalid_signature company=%s provider=%s",
                 company_id, config.provider,
             )
-            if get_settings().is_production:
-                return _error_response(
-                    "AUTHENTICATION_ERROR", "Invalid provider signature", 401,
-                )
+            return _error_response(
+                "AUTHENTICATION_ERROR", "Invalid provider signature", 401,
+            )
 
         gather_url = request.url.__str__()
         # Rebuild the gather URL WITHOUT volatile query pollution: keep
