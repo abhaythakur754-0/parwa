@@ -352,7 +352,11 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/verify-email")
-def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db)):
+def verify_email(
+    request: EmailVerificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Record email verification during onboarding."""
     try:
         from app.services.jarvis_onboarding_service import record_email_verification
@@ -364,6 +368,7 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
             db=db,
             email=request.email,
             company_id=request.company_id,
+            user_id=str(current_user.id),
         )
         if request.verified and not verified:
             raise HTTPException(status_code=403, detail="Email OTP has not been verified")
