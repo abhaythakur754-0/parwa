@@ -1210,6 +1210,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const endpoint = path.join('/');
 
   try {
+    // The old local onboarding/payment endpoints are demonstrations only.
+    // They are not connected to an email provider or a payment processor.
+    // Fail closed rather than expose OTPs or manufacture successful payments.
+    const disabledDemoEndpoints = new Set([
+      'verify/send-otp',
+      'verify/verify-otp',
+      'demo-pack/purchase',
+      'payment/create',
+      'payment/webhook',
+      'demo-call/initiate',
+    ]);
+    if (disabledDemoEndpoints.has(endpoint)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'disabled_legacy_demo_endpoint',
+            message: 'This legacy demo endpoint is disabled. Use the authenticated verification or billing integration.',
+            details: null,
+          },
+        },
+        { status: 410, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     // ── PROXY FIRST: any /cc/* path goes to backend jarvis_cc router ──
     // The backend has /api/jarvis/cc/* mounted (jarvis_cc.py). The local
     // in-memory handlers below were built for the older /api/jarvis/session
@@ -1265,6 +1289,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const { content, session_id, context: incomingContext } = body;
 
       let session = session_id ? sessions.get(session_id) : undefined;
+      if (session_id && !session) {
+        return NextResponse.json(
+          { error: { code: 'not_found', message: 'Session not found', details: null } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
       if (!session) {
         session = createDefaultSession('direct');
         sessions.set(session.id, session);
@@ -1272,9 +1302,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
       // This is how Jarvis "knows" what the user did on other pages (ROI, models, etc.)
-      if (incomingContext && typeof incomingContext === 'object') {
+      if (incomingContext && typeof incomingContext === 'object' && !Array.isArray(incomingContext)) {
+        const allowedContextKeys = new Set([
+          'industry', 'referral_source', 'utm_medium', 'referrer',
+          'entry_source', 'entry_params', 'selected_variants',
+          'selected_plan', 'roi_result', 'pages_visited',
+        ]);
         for (const [key, value] of Object.entries(incomingContext)) {
-          if (value !== null && value !== undefined) {
+          if (allowedContextKeys.has(key) && value !== null && value !== undefined) {
             session.context[key] = value;
           }
         }
@@ -1369,7 +1404,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const body = await request.json();
       const session = sessions.get(sessionId);
-      session.context = { ...session.context, ...body };
+      const allowedContextKeys = new Set([
+        'industry', 'referral_source', 'utm_medium', 'referrer',
+        'entry_source', 'entry_params', 'selected_variants',
+        'selected_plan', 'roi_result', 'pages_visited',
+      ]);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid context payload', details: null } }, { status: 400 });
+      }
+      for (const [key, value] of Object.entries(body)) {
+        if (allowedContextKeys.has(key) && value !== undefined) session.context[key] = value;
+      }
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
       return NextResponse.json(session);
@@ -1877,6 +1922,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
+      if (!body || !['pending', 'in_progress'].includes(body.status)) {
+        return NextResponse.json(
+          { error: { code: 'invalid_status', message: 'Clients may only set tickets to pending or in_progress', details: null } },
+          { status: 400 }
+        );
+      }
       const session = sessions.get(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {
