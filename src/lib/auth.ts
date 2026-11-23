@@ -107,7 +107,7 @@ function extractToken(request: NextRequest): string | null {
 /**
  * Get the verification key based on algorithm configuration.
  * For RS256, loads the RSA public key; for HS256, uses the shared secret.
- * Falls back to HS256 if RS256 is configured but keys are unavailable.
+ * Fails closed when the configured verification key is unavailable.
  */
 async function getVerificationKey(): Promise<CryptoKey | Uint8Array> {
   if (JWT_ALGORITHM === "RS256") {
@@ -153,7 +153,7 @@ export async function verifyAuth(
 
   // Strategy 2: Verify signature only (backend-issued tokens)
   // Backend tokens don't set issuer/audience but have type: "access"
-  // Also try with HS256 fallback key in case backend uses different algorithm
+  // Backend tokens omit issuer/audience; the signature and expiry remain mandatory.
   try {
     const { payload } = await jwtVerify(token, verificationKey);
     const p = payload as unknown as VerifiedUser;
@@ -161,20 +161,6 @@ export async function verifyAuth(
     if (p.type === "refresh") return null;
     return p;
   } catch {
-    // RS256 failed — try HS256 with secret key as last resort
-    // This handles the case where backend is still using HS256 during migration
-  }
-
-  // Strategy 3: Fallback HS256 verification (migration period support)
-  if (JWT_ALGORITHM === "RS256") {
-    try {
-      const { payload } = await jwtVerify(token, getSecret());
-      const p = payload as unknown as VerifiedUser;
-      if (p.type === "refresh") return null;
-      return p;
-    } catch {
-      return null;
-    }
   }
 
   return null;
