@@ -59,21 +59,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[KB Connect Error]:', error);
-    
-    // Return mock success for demo mode (userId/body may be undefined in catch scope)
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: `demo-kb-${Date.now()}`,
-        user_id: userId ?? 'unknown',
-        name: body?.name || 'Connected KB',
-        type: 'connected',
-        crm_type: body?.crm_type,
-        status: 'active',
-        created_at: new Date().toISOString(),
-      },
-      message: 'Connected in demo mode',
-      warning: 'Database unavailable, using demo data',
-    });
+    return NextResponse.json(
+      { error: 'internal_error', message: 'Unable to connect knowledge base' },
+      { status: 500 }
+    );
   }
 }
