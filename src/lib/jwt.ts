@@ -16,8 +16,7 @@ import { jwtVerify, importSPKI } from "jose";
 import type { CryptoKey } from "jose";
 import type { NextRequest } from "next/server";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+const JWT_SECRET = process.env.JWT_SECRET_KEY;
 
 /** JWT algorithm from env — defaults to HS256 for backward compatibility */
 const JWT_ALGORITHM = (process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
@@ -25,6 +24,7 @@ const JWT_ALGORITHM = (process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
   | "RS256";
 
 function getSecret(): Uint8Array {
+  if (!JWT_SECRET) throw new Error("JWT_SECRET_KEY is not configured");
   return new TextEncoder().encode(JWT_SECRET);
 }
 
@@ -75,9 +75,7 @@ async function getVerificationKey(): Promise<CryptoKey | Uint8Array> {
   if (JWT_ALGORITHM === "RS256") {
     const rsaKey = await loadRSAPublicKey();
     if (rsaKey) return rsaKey;
-    // Fallback to HS256 if RSA key not available
-    console.warn("RS256 configured but no public key found — falling back to HS256 for verification");
-    return getSecret();
+    throw new Error("RS256 is configured but JWT_PUBLIC_KEY is not configured");
   }
   return getSecret();
 }
@@ -109,7 +107,19 @@ export async function verifyToken(
     const verificationKey = await getVerificationKey();
     // No issuer/audience check — backend tokens don't carry these claims.
     // Signature + expiry verification is sufficient for frontend route protection.
-    const { payload } = await jwtVerify(token, verificationKey);
+    const { payload } = await jwtVerify(token, verificationKey, {
+      algorithms: [JWT_ALGORITHM],
+    });
+    // A valid signature is not sufficient if this is a refresh token or
+    // a token without an identity/expiry claim.
+    if (
+      typeof payload.sub !== "string" ||
+      !payload.sub ||
+      typeof payload.exp !== "number" ||
+      payload.type === "refresh"
+    ) {
+      return null;
+    }
     return { payload: payload as unknown as VerifiedToken["payload"] };
   } catch {
     return null;
