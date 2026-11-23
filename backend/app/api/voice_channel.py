@@ -673,16 +673,7 @@ async def test_call(
 
 @router.post("/webhook/status")
 async def voice_status_callback(request: Request):
-    """Receive call status callback from the tenant's voice provider (BYO).
-
-    Updates call status; on completion triggers the post-call pipeline
-    (transcript summary + ticket creation) as a background task.
-
-    R-01 NOTE: No JWT auth — providers authenticate via their own HMAC
-    signature, verified with the TENANT's stored credentials (BYO).
-    """
-    from app.config import get_settings
-
+    """Process Twilio status callbacks only after strict tenant signature checks."""
     try:
         form_data = await request.form()
         payload = dict(form_data)
@@ -692,88 +683,53 @@ async def voice_status_callback(request: Request):
         except Exception:
             payload = {}
 
-    call_sid = payload.get("CallSid", "")
-    call_status = payload.get("CallStatus", "")
+    call_sid = str(payload.get("CallSid", "")).strip()
+    call_status = str(payload.get("CallStatus", "")).strip()
     duration = payload.get("CallDuration")
     recording_url = payload.get("RecordingUrl")
     recording_sid = payload.get("RecordingSid")
-    company_id = payload.get("company_id", "")
-
     if not call_sid or not call_status:
-        return _error_response(
-            "VALIDATION_ERROR", "CallSid and CallStatus are required",
-        )
+        return _error_response("VALIDATION_ERROR", "CallSid and CallStatus are required", 400)
 
-    # Look up company from the call record if not in query params
-    call_row = None
-    if not company_id:
-        try:
-            db = _get_db(request)
-            from database.models.voice_channel import VoiceCall
-            call_row = (
-                db.query(VoiceCall)
-                .filter(VoiceCall.twilio_call_sid == call_sid)
-                .first()
-            )
-            if call_row:
-                company_id = call_row.company_id
-        except Exception:
-            pass
-
-    if not company_id:
-        return {"status": "no_company_id"}
-
-    # BYO signature verification: use the TENANT's provider credentials,
-    # not any global Parwa telecom account.
     try:
         db = _get_db(request)
-        from database.models.voice_channel import (
-            VoiceCall as VoiceCallModel,
-            VoiceChannelConfig,
-        )
+        from database.models.voice_channel import VoiceCall, VoiceChannelConfig
         from app.core.providers.voice.base_voice_provider import get_voice_provider
-
-        if call_row is None:
-            call_row = (
-                db.query(VoiceCallModel)
-                .filter(VoiceCallModel.twilio_call_sid == call_sid)
-                .first()
-            )
-
-        config = (
-            db.query(VoiceChannelConfig)
-            .filter(VoiceChannelConfig.company_id == company_id)
-            .first()
-        )
-        if config and call_row:
-            from app.services.voice_channel_service import VoiceChannelService
-            provider = get_voice_provider(config.provider)
-            service_tmp = VoiceChannelService(db)
-            tenant_token = service_tmp._decrypt_credential_or_empty(
-                config.twilio_auth_token_encrypted,
-            )
-            if not provider.verify_signature(
-                str(request.url),
-                payload,
-                dict(request.headers),
-                tenant_token or "",
-            ):
-                logger.warning(
-                    "voice_status_callback_invalid_signature sid=%s provider=%s",
-                    call_sid, config.provider,
-                )
-                return _error_response(
-                    "AUTHENTICATION_ERROR", "Invalid provider signature", 401,
-                )
-    except Exception as exc:
-        logger.warning(
-            "voice_status_signature_check_skipped error=%s", str(exc)[:200],
-        )
-
-    try:
-        db = _get_db(request)
         from app.services.voice_channel_service import VoiceChannelService
+
+        # Never trust company_id supplied in the webhook body. Resolve tenant
+        # ownership only from the pre-existing call record.
+        call_row = db.query(VoiceCall).filter(
+            VoiceCall.twilio_call_sid == call_sid,
+        ).first()
+        if not call_row:
+            return _error_response("NOT_FOUND", "Voice call not found", 404)
+
+        company_id = str(call_row.company_id)
+        config = db.query(VoiceChannelConfig).filter(
+            VoiceChannelConfig.company_id == company_id,
+        ).first()
+        if not config:
+            return _error_response("AUTHENTICATION_ERROR", "Voice provider configuration not found", 401)
+
         service = VoiceChannelService(db)
+        tenant_token = service._decrypt_credential_or_empty(config.twilio_auth_token_encrypted)
+        if not tenant_token:
+            return _error_response("AUTHENTICATION_ERROR", "Voice provider credentials unavailable", 401)
+
+        provider = get_voice_provider(config.provider)
+        if not provider.verify_signature(
+            str(request.url),
+            payload,
+            dict(request.headers),
+            tenant_token,
+        ):
+            logger.warning(
+                "voice_status_callback_invalid_signature sid=%s provider=%s",
+                call_sid, config.provider,
+            )
+            return _error_response("AUTHENTICATION_ERROR", "Invalid provider signature", 401)
+
         result = service.update_call_status(
             company_id=company_id,
             call_sid=call_sid,
@@ -783,7 +739,6 @@ async def voice_status_callback(request: Request):
             recording_sid=recording_sid,
         )
 
-        # Emit Socket.io call:status event to the tenant room
         try:
             from app.core.socketio import emit_to_tenant
             event_type = (
@@ -805,18 +760,17 @@ async def voice_status_callback(request: Request):
         except Exception as sio_exc:
             logger.warning("voice_status_socket_emit_failed error=%s", str(sio_exc)[:200])
 
-        # Call finished → run the post-call pipeline (summary + ticket)
-        # in the background so the provider callback returns instantly.
         if call_status == "completed":
-            asyncio.create_task(_finish_call_background(company_id, call_sid, int(duration) if duration else 0))
-
+            asyncio.create_task(_finish_call_background(
+                company_id, call_sid, int(duration) if duration else 0,
+            ))
         return result
     except Exception as exc:
         logger.error(
-            "voice_status_callback_error sid=%s error=%s",
+            "voice_status_callback_rejected sid=%s error=%s",
             call_sid, str(exc)[:200],
         )
-        return _error_response("INTERNAL_ERROR", "Failed to process status callback", 500)
+        return _error_response("AUTHENTICATION_ERROR", "Unable to verify provider callback", 401)
 
 
 async def _finish_call_background(
