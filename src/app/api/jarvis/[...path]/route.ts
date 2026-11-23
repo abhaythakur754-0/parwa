@@ -27,6 +27,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 
 // ── Vercel function duration ─────────────────────────────────────────
 // The AI pipeline (LangGraph 13-stage + RAG + LLM) can take 30–60s on a
@@ -563,7 +564,9 @@ ${getStageInstructions(session.detected_stage || session.context?.detected_stage
 const sessions = new Map();
 
 function generateId(): string {
-  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  // Session IDs are bearer capabilities for the legacy guest flow; use
+  // cryptographically secure 122-bit UUIDs, never timestamps/Math.random.
+  return randomUUID();
 }
 
 function generateTicketId(): string {
