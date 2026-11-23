@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 
   const cookie = request.headers.get('cookie') || '';
-  const accessToken = request.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') || getAccessTokenFromCookie(cookie);
+  const accessToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || getAccessTokenFromCookie(cookie);
 
   // Try backend first
   try {
