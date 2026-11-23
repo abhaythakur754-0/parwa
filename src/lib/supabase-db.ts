@@ -467,7 +467,7 @@ export async function updatePaymentStatus(
       ...extraData,
       updated_at: new Date().toISOString() 
     } as unknown as Record<string, unknown>,
-    { id: paymentId }
+    { razorpay_order_id: paymentId }
   );
 }
 
