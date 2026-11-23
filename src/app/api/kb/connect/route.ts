@@ -9,32 +9,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 import { connectExistingKB, createKnowledgeBase } from '@/lib/supabase-db';
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   let userId: string | null = null;
   let body: any = {};
   try {
-    userId = getUserId(request);
+    userId = await getAuthenticatedUserId(request);
 
     if (!userId) {
       return NextResponse.json(
