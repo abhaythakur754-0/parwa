@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 from app.logger import get_logger
 from app.api.deps import get_current_user
 from database.models.core import User
+from database.models.jarvis import JarvisSession
 from database.base import get_db
 
 logger = get_logger("jarvis_onboarding_api")
@@ -43,6 +44,7 @@ logger = get_logger("jarvis_onboarding_api")
 
 async def enforce_onboarding_identity(
     request: Request,
+    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> User:
     """Bind every onboarding operation to the JWT user's tenant and identity.
@@ -68,6 +70,22 @@ async def enforce_onboarding_identity(
     requested_user_id = payload.get("user_id")
     if requested_user_id and str(requested_user_id) != str(user.id):
         raise HTTPException(status_code=403, detail="User access denied")
+
+    # Tenant ownership alone is not enough: onboarding conversations contain
+    # personal business details and must remain private to their creator.
+    session_id = (
+        payload.get("session_id")
+        or request.query_params.get("session_id")
+        or request.path_params.get("session_id")
+    )
+    if session_id:
+        session = db.query(JarvisSession).filter(
+            JarvisSession.id == str(session_id),
+            JarvisSession.company_id == authenticated_company_id,
+            JarvisSession.session_type == "onboarding",
+        ).first()
+        if not session or str(session.user_id or "") != str(user.id):
+            raise HTTPException(status_code=404, detail="Onboarding session not found")
 
     return user
 
@@ -156,7 +174,11 @@ class DeactivateRequest(BaseModel):
 
 
 @router.post("/session")
-def create_session(request: CreateSessionRequest, db: Session = Depends(get_db)):
+def create_session(
+    request: CreateSessionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Create a new onboarding session.
 
     Called when a user lands on /jarvis for the first time.
@@ -168,7 +190,7 @@ def create_session(request: CreateSessionRequest, db: Session = Depends(get_db))
         session = create_onboarding_session(
             db=db,
             company_id=request.company_id,
-            user_id=request.user_id,
+            user_id=str(current_user.id),
             entry_source=request.entry_source,
             entry_params=request.entry_params,
             referral_source=request.referral_source,
