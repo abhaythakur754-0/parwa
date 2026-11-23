@@ -26,15 +26,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { amount, currency = 'USD', receipt, plan_id, plan_name } = body;
     
-    // Get user ID
-    let userId = await getAuthenticatedUserId(request);
-    
-    // Fallback: check body for user_id (for testing)
-    if (!userId && body.user_id) {
-      userId = body.user_id;
-    }
+    // User identity must come from a verified access token.
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) return NextResponse.json({ error: 'unauthorized', message: 'Authentication required' }, { status: 401 });
 
-    if (!amount || amount <= 0) {
+    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0 || amount > 100000000) {
       return NextResponse.json(
         { error: 'Invalid amount' },
         { status: 400 }
@@ -84,8 +80,7 @@ export async function POST(request: NextRequest) {
     const orderData = await razorpayResponse.json();
 
     // Save payment record to Supabase (status: pending)
-    if (userId) {
-      try {
+    try {
         await createPayment({
           user_id: userId,
           amount: amountInSmallestUnit,
@@ -98,10 +93,9 @@ export async function POST(request: NextRequest) {
         
         console.log(`[Razorpay] ✅ Order created & saved to DB: ${orderData.id}`);
       } catch (dbError) {
-        console.warn('[Razorpay] Could not save to DB:', dbError);
-        // Continue even if DB save fails - payment can be reconciled later
+        console.error('[Razorpay] Could not save payment record:', dbError);
+        return NextResponse.json({ error: 'payment_record_failed', message: 'Unable to initialize payment record' }, { status: 503 });
       }
-    }
 
     return NextResponse.json({
       success: true,
