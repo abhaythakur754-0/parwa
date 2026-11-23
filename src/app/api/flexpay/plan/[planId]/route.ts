@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth';
 import { 
   getPlan, 
   pausePlan, 
@@ -37,9 +38,15 @@ interface RouteContext {
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { planId } = await context.params;
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
 
-    // Get plan from scheduler store
+    // Plan IDs are not authorization: always enforce tenant ownership.
     const plan = getSchedulerPlan(planId);
+    if (!plan || plan.companyId !== user.company_id) {
+      return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
+    }
     
     if (!plan) {
       return NextResponse.json(
@@ -109,6 +116,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { planId } = await context.params;
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
+    if (!['owner', 'admin'].includes(user.role || '')) {
+      return NextResponse.json({ success: false, error: 'Owner or admin role required' }, { status: 403 });
+    }
+    const ownedPlan = getSchedulerPlan(planId);
+    if (!ownedPlan || ownedPlan.companyId !== user.company_id) {
+      return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
+    }
     
     // Parse action from body
     let body: { action?: string };
@@ -163,9 +180,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
 // ── DELETE: Cancel Plan ────────────────────────────────────────────
 
-export async function DELETE(_req: NextRequest, context: RouteContext) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const { planId } = await context.params;
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
+    if (!['owner', 'admin'].includes(user.role || '')) {
+      return NextResponse.json({ success: false, error: 'Owner or admin role required' }, { status: 403 });
+    }
+    const ownedPlan = getSchedulerPlan(planId);
+    if (!ownedPlan || ownedPlan.companyId !== user.company_id) {
+      return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
+    }
 
     const result = cancelPlan(planId);
 
