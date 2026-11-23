@@ -40,12 +40,28 @@ from sqlalchemy.orm import Session
 # Production imports - wired to real infrastructure
 from database.base import get_db
 from database.models.core import User, Company
+from database.models.flexpay import FlexPayPlan
 from app.api.deps import get_current_user, require_roles
 from app.clients.razorpay_client import get_razorpay_client, RazorpayError
 
 logger = logging.getLogger("parwa.api.flexpay")
 
 router = APIRouter(prefix="/api/flexpay", tags=["flexpay"])
+
+
+def _ensure_company_plan_access(db: Session, plan_id: str, user: User) -> FlexPayPlan:
+    """Return a plan only when it belongs to the authenticated user's company."""
+    company_id = str(user.company_id) if user.company_id else None
+    if not company_id:
+        raise HTTPException(status_code=403, detail="User is not associated with a company")
+    plan = db.query(FlexPayPlan).filter(
+        FlexPayPlan.id == plan_id,
+        FlexPayPlan.company_id == company_id,
+    ).first()
+    if not plan:
+        # Do not reveal whether a foreign tenant's plan ID exists.
+        raise HTTPException(status_code=404, detail="FlexPay plan not found")
+    return plan
 
 
 # ─── Request/Response Schemas ──────────────────────────────────────
@@ -232,6 +248,8 @@ async def process_installment(
         # Verify this plan belongs to user's company (unless admin)
         company_id = str(current_user.company_id) if current_user.company_id else None
         
+        _ensure_company_plan_access(db, plan_id, current_user)
+
         # Get Razorpay client for actual charging
         razorpay_client = get_razorpay_client()
         
@@ -289,6 +307,8 @@ async def get_status(
     try:
         from app.services.flexpay_service import get_plan_status
         
+        _ensure_company_plan_access(db, plan_id, current_user)
+
         # Get real status from database
         result = await get_plan_status(db=db, plan_id=plan_id)
         
@@ -337,6 +357,8 @@ async def cancel_plan(
     try:
         from app.services.flexpay_service import cancel_flexpay_plan
         
+        _ensure_company_plan_access(db, plan_id, current_user)
+
         # Cancel with real DB integration
         result = await cancel_flexpay_plan(
             db=db,
@@ -397,8 +419,12 @@ async def get_due_endpoint(
     try:
         from app.services.flexpay_service import get_due_installments
         
-        # Get real due installments from database
+        # Tenant admins may only see installments for their own company.
+        company_id = str(current_user.company_id) if current_user.company_id else None
+        if not company_id:
+            raise HTTPException(status_code=403, detail="User is not associated with a company")
         due = await get_due_installments(db=db, hours_ahead=hours_ahead)
+        due = [item for item in due if str(item.get('company_id')) == company_id]
         
         return [DueInstallmentItem(**item) for item in due]
         
@@ -445,6 +471,7 @@ async def pause_plan(
     try:
         from app.services.flexpay_service import pause_flexpay_plan
         
+        _ensure_company_plan_access(db, plan_id, current_user)
         reason = request.reason if request else "Plan paused by user"
         
         result = await pause_flexpay_plan(
@@ -502,6 +529,7 @@ async def resume_plan(
     try:
         from app.services.flexpay_service import resume_flexpay_plan
         
+        _ensure_company_plan_access(db, plan_id, current_user)
         notes = request.notes if request else "Plan resumed by user"
         
         result = await resume_flexpay_plan(
