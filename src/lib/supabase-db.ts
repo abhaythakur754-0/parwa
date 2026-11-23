@@ -10,7 +10,44 @@
  * and never import this module from client components.
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://fmpibdauppnzfisodkhp.supabase.co';
+/**
+ * Resolve the Supabase project URL at request time. Prefer the server-only
+ * variable; retain the public variable as a compatibility fallback for
+ * existing deployments. Never silently send production traffic to a
+ * hardcoded project.
+ */
+function getSupabaseRestUrl(): string {
+  const configuredUrl =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!configuredUrl) {
+    throw new Error(
+      '[supabase-db] SUPABASE_URL is not set. Configure SUPABASE_URL ' +
+        '(recommended) or NEXT_PUBLIC_SUPABASE_URL in the server environment.'
+    );
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(configuredUrl);
+  } catch {
+    throw new Error('[supabase-db] Supabase URL must be a valid absolute URL.');
+  }
+
+  if (
+    (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error(
+      '[supabase-db] Supabase URL must use HTTP(S) and must not contain credentials, query parameters, or a fragment.'
+    );
+  }
+
+  return `${parsed.origin}${parsed.pathname.replace(/\\/+$/, '')}/rest/v1`;
+}
 
 /**
  * Resolve the service role key at call time (NOT import time) so a missing
@@ -48,10 +85,10 @@ interface QueryOptions {
  * Base database client for Supabase REST API
  */
 export class SupabaseClient {
-  private baseUrl: string;
+  private get baseUrl(): string {\n    return getSupabaseRestUrl();\n  }
 
   constructor() {
-    this.baseUrl = `${SUPABASE_URL}/rest/v1`;
+    // Resolve lazily so importing this module does not break builds without env vars.\n    this.baseUrl = '';
   }
 
   /**
@@ -173,7 +210,7 @@ export class SupabaseClient {
    * Execute raw SQL (requires rpc function)
    */
   async rpc(functionName: string, params?: Record<string, unknown>) {
-    const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`;
+    const url = `${this.baseUrl}/rpc/${functionName}`;
     
     const response = await fetch(url, {
       method: 'POST',
