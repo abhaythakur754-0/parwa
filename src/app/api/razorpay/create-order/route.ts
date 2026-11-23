@@ -7,8 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUserId } from '@/lib/api-auth';
-import { createPayment, getUserDetails } from '@/lib/supabase-db';
-import crypto from 'crypto';
+import { createPayment } from '@/lib/supabase-db';
 
 // Razorpay credentials from env
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
@@ -24,13 +23,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { amount, currency = 'USD', receipt, plan_id, plan_name } = body;
+    const { plan_id, receipt } = body;
+    const planPricing: Record<string, { amount: number; name: string }> = {
+      parwa: { amount: 299900, name: 'PARWA Monthly' },
+      high: { amount: 399900, name: 'PARWA High Monthly' },
+    };
+    const selectedPlan = typeof plan_id === 'string' ? planPricing[plan_id] : undefined;
+    if (!selectedPlan) return NextResponse.json({ error: 'invalid_plan', message: 'Select a valid subscription plan' }, { status: 400 });
+    const currency = 'USD';
     
     // User identity must come from a verified access token.
     const userId = await getAuthenticatedUserId(request);
     if (!userId) return NextResponse.json({ error: 'unauthorized', message: 'Authentication required' }, { status: 401 });
 
-    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0 || amount > 100000000) {
+    if (!selectedPlan.amount) {
       return NextResponse.json(
         { error: 'Invalid amount' },
         { status: 400 }
@@ -38,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Amount should be in smallest currency unit (cents for USD, paise for INR)
-    const amountInSmallestUnit = Math.round(amount);
+    const amountInSmallestUnit = selectedPlan.amount;
 
     // Generate receipt if not provided
     const orderReceipt = receipt || `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -57,9 +63,9 @@ export async function POST(request: NextRequest) {
         currency,
         receipt: orderReceipt,
         notes: {
-          ...(userId && { user_id: userId }),
+          user_id: userId,
           ...(plan_id && { plan_id }),
-          ...(plan_name && { plan_name }),
+          plan_name: selectedPlan.name,
         },
       }),
     });
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
           status: 'pending',
           razorpay_order_id: orderData.id,
           plan_id: plan_id,
-          plan_name: plan_name || 'Subscription',
+          plan_name: selectedPlan.name,
         });
         
         console.log(`[Razorpay] ✅ Order created & saved to DB: ${orderData.id}`);
