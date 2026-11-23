@@ -85,10 +85,12 @@ interface QueryOptions {
  * Base database client for Supabase REST API
  */
 export class SupabaseClient {
-  private get baseUrl(): string {\n    return getSupabaseRestUrl();\n  }
+  private get baseUrl(): string {
+    return getSupabaseRestUrl();
+  }
 
   constructor() {
-    // Resolve lazily so importing this module does not break builds without env vars.\n    this.baseUrl = '';
+    // URL configuration is resolved lazily when a request is made.
   }
 
   /**
