@@ -6,31 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrUpdateOnboardingSession } from '@/lib/supabase-db';
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('user_id');
-}
+import { getAuthenticatedUserId } from '@/lib/api-auth';
+import { createOrUpdateOnboardingSession, getOnboardingSession } from '@/lib/supabase-db';
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
@@ -42,12 +23,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { variant, industry } = body;
 
-    // Update session with final data and mark as ready for FirstVictory
+    const existing = await getOnboardingSession(userId);
+    if (!existing || !existing.details_completed || !existing.integration_completed || !existing.kb_completed) {
+      return NextResponse.json({ error: 'onboarding_incomplete', message: 'Complete the required onboarding steps first' }, { status: 409 });
+    }
+
+    // Preserve verified progress; do not manufacture completed steps.
     const session = await createOrUpdateOnboardingSession({
       user_id: userId,
       status: 'completed',
       current_step: 4,
-      completed_steps: [1, 2, 3],
+      completed_steps: existing.completed_steps || [],
       details_completed: true,
       integration_completed: true,
       kb_completed: true,
