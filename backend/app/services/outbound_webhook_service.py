@@ -115,8 +115,12 @@ def dispatch_outbound_webhook(
                 "X-Parwa-Delivery": str(uuid.uuid4()),
             }
 
-            with httpx.Client(timeout=10.0) as client:
-                resp = client.post(webhook.url, content=payload_str, headers=headers)
+            # Re-resolve and validate immediately before every delivery. Do not
+            # follow redirects: a public URL must not redirect to a private host.
+            from app.security.outbound_url import validate_public_https_url
+            safe_url = validate_public_https_url(webhook.url)
+            with httpx.Client(timeout=10.0, follow_redirects=False, trust_env=False) as client:
+                resp = client.post(safe_url, content=payload_str, headers=headers)
 
             if 200 <= resp.status_code < 300:
                 dispatched.append({"webhook_id": webhook.id, "status_code": resp.status_code})
