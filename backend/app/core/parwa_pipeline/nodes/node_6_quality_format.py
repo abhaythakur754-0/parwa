@@ -45,7 +45,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from app.core.parwa_pipeline.llm_client import llm_call
 from app.core.parwa_pipeline.pipeline_config import (
