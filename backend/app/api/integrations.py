@@ -1086,7 +1086,6 @@ def api_delete_outbound_webhook(
     BC-001: Scoped to user's company_id.
     """
     from database.models.outbound_webhook import OutboundWebhook
-    from app.security.outbound_url import validate_public_https_url
 
     webhook = (
         db.query(OutboundWebhook)
@@ -1126,6 +1125,7 @@ def api_test_outbound_webhook(
     import httpx
 
     from database.models.outbound_webhook import OutboundWebhook
+    from app.security.outbound_url import validate_public_https_url
 
     webhook = (
         db.query(OutboundWebhook)
