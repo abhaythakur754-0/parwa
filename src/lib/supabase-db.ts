@@ -46,7 +46,7 @@ function getSupabaseRestUrl(): string {
     );
   }
 
-  return `${parsed.origin}${parsed.pathname.replace(/\\/+$/, '')}/rest/v1`;
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}/rest/v1`;
 }
 
 /**
