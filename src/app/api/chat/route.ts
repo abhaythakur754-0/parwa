@@ -20,8 +20,7 @@ let ZAI: any = null;
 // works from Vercel (same lane the self-extension loop uses).
 const SUPERGLUE_LLM_URL = process.env.SUPERGLUE_LLM_URL
   || 'https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions';
-const SUPERGLUE_LLM_KEY = process.env.SUPERGLUE_LLM_API_KEY
-  || 'sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f';
+const SUPERGLUE_LLM_KEY = process.env.SUPERGLUE_LLM_API_KEY || '';
 const SUPERGLUE_LLM_MODEL = process.env.SUPERGLUE_LLM_MODEL || 'open-mistral-7b';
 
 async function callSuperglueLLM(messages: ChatMessage[]): Promise<string | null> {
