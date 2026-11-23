@@ -290,6 +290,7 @@ def check_business_email_verified(
     db: Session,
     email: str,
     company_id: str,
+    user_id: Optional[str] = None,
 ) -> bool:
     """Check if a business email has been verified.
     
@@ -307,6 +308,7 @@ def check_business_email_verified(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
         BusinessEmailOTP.verified == True,  # noqa: E712
+        *([BusinessEmailOTP.user_id == user_id] if user_id else []),
     ).first()
     
     return verified_otp is not None
