@@ -13,11 +13,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessTokenFromCookies } from '@/lib/auth-cookies';
 import { getBackendUrl } from '@/lib/backend-url';
+import { verifyAuth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
     const body = await req.json();
-    const token = getAccessTokenFromCookies(req as unknown as Request);
+    const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || getAccessTokenFromCookies(req as unknown as Request);
     const backendUrl = getBackendUrl();
 
     console.log('[FlexPay/API] Forwarding charge request to backend...');
@@ -70,24 +74,31 @@ export async function POST(req: NextRequest) {
 }
 
 // GET endpoint for checking scheduler status
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const user = await verifyAuth(req);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
+    const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || getAccessTokenFromCookies(req as unknown as Request);
     const backendUrl = getBackendUrl();
-    const response = await fetch(`${backendUrl}/api/flexpay/scheduler-status`, {
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch(`${backendUrl}/api/flexpay/company-plans`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       signal: AbortSignal.timeout(10000),
     });
 
     if (response.ok) {
       const data = await response.json();
-      return NextResponse.json({ success: true, ...data });
+      return NextResponse.json({ success: true, plans: data });
     }
 
     return NextResponse.json({
       success: true,
-      stats: { totalProcessed: 0, successfulCharges: 0, failedCharges: 0 },
+      plans: [],
       timestamp: new Date().toISOString(),
-      message: 'Scheduler status unavailable (backend not reachable)',
+      message: 'FlexPay plan data unavailable (backend not reachable)',
     });
   } catch (error) {
     console.error('[FlexPay/API] Error getting scheduler status:', error);
