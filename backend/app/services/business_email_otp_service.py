@@ -189,6 +189,7 @@ def verify_business_email_otp(
     email: str,
     otp_code: str,
     company_id: str,
+    user_id: Optional[str] = None,
 ) -> dict:
     """Verify the OTP code for a business email.
     
@@ -232,6 +233,7 @@ def verify_business_email_otp(
                 BusinessEmailOTP.company_id == company_id,
                 BusinessEmailOTP.verified == False,  # noqa: E712
                 BusinessEmailOTP.expires_at > now,
+                *([BusinessEmailOTP.user_id == user_id] if user_id else []),
             )
         )
         .order_by(BusinessEmailOTP.created_at.desc())
