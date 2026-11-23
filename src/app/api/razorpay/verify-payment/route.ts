@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
             currency: paymentRecord.currency || 'INR',
           });
           
-          console.log(`[Razorpay] 📋 Subscription created: ${plan_id}`);
+          console.log(`[Razorpay] 📋 Subscription created: ${paymentRecord.plan_id}`);
         }
 
         // Send payment receipt email (async - don't block response)
