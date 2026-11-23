@@ -63,8 +63,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const allowedFields = [
-      'current_step', 'completed_steps', 'details_completed',
-      'integration_completed', 'kb_completed', 'first_victory_completed',
       'ai_name', 'selected_variant', 'selected_industry',
     ] as const;
     const safeUpdates: Record<string, unknown> = {};
