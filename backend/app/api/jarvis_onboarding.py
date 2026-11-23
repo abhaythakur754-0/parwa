@@ -357,12 +357,23 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
     try:
         from app.services.jarvis_onboarding_service import record_email_verification
 
+        # The request's boolean is not proof. Trust only the OTP service's
+        # persisted verification record for this tenant and email.
+        from app.services.business_email_otp_service import check_business_email_verified
+        verified = check_business_email_verified(
+            db=db,
+            email=request.email,
+            company_id=request.company_id,
+        )
+        if request.verified and not verified:
+            raise HTTPException(status_code=403, detail="Email OTP has not been verified")
+
         success = record_email_verification(
             db=db,
             session_id=request.session_id,
             company_id=request.company_id,
             email=request.email,
-            verified=request.verified,
+            verified=verified,
             otp_method=request.otp_method,
         )
 
@@ -371,8 +382,8 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
 
         return {
             "success": True,
-            "verified": request.verified,
-            "stage": "verification" if request.verified else None,
+            "verified": verified,
+            "stage": "verification" if verified else None,
         }
 
     except HTTPException:
@@ -385,30 +396,13 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
 @router.post("/payment")
 def record_payment(request: RecordPaymentRequest, db: Session = Depends(get_db)):
     """Record a completed payment during onboarding."""
-    try:
-        from app.services.jarvis_onboarding_service import record_payment
-
-        success = record_payment(
-            db=db,
-            session_id=request.session_id,
-            company_id=request.company_id,
-            payment_data=request.payment_data,
-        )
-
-        if not success:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        return {
-            "success": True,
-            "payment_status": "completed",
-            "stage": "bill_review",
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("record_payment_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+    # A browser request must never be able to mark a payment complete.
+    # Payment completion is recorded only by the signed Razorpay webhook
+    # handled by /api/billing/razorpay/webhook.
+    raise HTTPException(
+        status_code=410,
+        detail="Client-side payment recording is disabled; payment status is confirmed by the verified provider webhook.",
+    )
 
 
 @router.post("/demo-call")
