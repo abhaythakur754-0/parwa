@@ -10,11 +10,12 @@ import { getAuthenticatedUserId } from '@/lib/api-auth';
 import { updatePaymentStatus, createSubscription, getUserDetails, db } from '@/lib/supabase-db';
 import crypto from 'crypto';
 
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
 export async function POST(request: NextRequest) {
   try {
-    if (!RAZORPAY_KEY_SECRET) {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
       return NextResponse.json(
         { error: 'Razorpay not configured' },
         { status: 500 }
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
     });
     if (!paymentRecord) return NextResponse.json({ error: 'payment_not_found' }, { status: 404 });
     if (paymentRecord.status === 'completed') return NextResponse.json({ success: true, verified: true, payment_id: paymentRecord.razorpay_payment_id, order_id: razorpay_order_id, message: 'Payment already verified' });
+    if (paymentRecord.status !== 'pending') return NextResponse.json({ error: 'payment_not_pending' }, { status: 409 });
 
     console.log(`[Razorpay] Verifying payment: ${razorpay_payment_id}`);
 
@@ -59,14 +61,7 @@ export async function POST(request: NextRequest) {
     if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
       console.error('[Razorpay] ❌ Signature mismatch!');
       
-      // Update payment status to failed
-      if (userId && paymentRecord.status === 'pending') {
-        try {
-          await updatePaymentStatus(razorpay_order_id, 'failed', {
-            error_message: 'Signature verification failed',
-          });
-        } catch (e) { /* ignore */ }
-      }
+      // Do not mutate a payment record on an untrusted failed verification attempt.
 
       return NextResponse.json(
         { error: 'signature_verification_failed', message: 'Payment signature is invalid' },
@@ -74,46 +69,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Signature valid - payment verified!
-    console.log(`[Razorpay] ✅ Payment verified successfully!`);
+    // Confirm the payment directly with Razorpay; a valid HMAC alone is not
+    // enough to prove the payment was captured for this exact order/amount.
+    const providerResponse = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpay_payment_id)}`, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`,
+      },
+      cache: 'no-store',
+    });
+    if (!providerResponse.ok) {
+      return NextResponse.json({ error: 'payment_status_unavailable' }, { status: 502 });
+    }
+    const providerPayment = await providerResponse.json();
+    if (
+      providerPayment.order_id !== razorpay_order_id ||
+      providerPayment.status !== 'captured' ||
+      providerPayment.amount !== paymentRecord.amount ||
+      providerPayment.currency !== paymentRecord.currency
+    ) {
+      return NextResponse.json({ error: 'payment_not_captured_or_mismatched' }, { status: 409 });
+    }
 
-    // Update payment record in Supabase
-    let updatedPayment;
-    if (userId && razorpay_order_id) {
-      try {
-        updatedPayment = await updatePaymentStatus(razorpay_order_id, 'completed', {
-          razorpay_payment_id,
-          razorpay_signature,
-          payment_method: 'razorpay',
-          updated_at: new Date().toISOString(),
+    try {
+      if (paymentRecord.plan_id && paymentRecord.amount) {
+        const existingSubscription = await db.from('subscriptions').select('*', {
+          filter: { user_id: userId, plan_id: paymentRecord.plan_id, status: 'active' }, single: true,
         });
-
-        // Create or update subscription if plan info provided
-        if (paymentRecord.plan_id && paymentRecord.amount) {
+        if (!existingSubscription) {
           await createSubscription({
             user_id: userId,
             plan_id: paymentRecord.plan_id,
             plan_name: paymentRecord.plan_name || paymentRecord.plan_id.toUpperCase(),
             billing_cycle: 'monthly',
             amount: Math.round(paymentRecord.amount),
-            currency: paymentRecord.currency || 'INR',
+            currency: paymentRecord.currency || 'USD',
           });
-          
-          console.log(`[Razorpay] 📋 Subscription created: ${paymentRecord.plan_id}`);
         }
-
-        // Send payment receipt email (async - don't block response)
-        sendReceiptEmail(userId, {
-          amount: Math.round((paymentRecord.amount || 0) / 100),
-          plan_name: paymentRecord.plan_name || 'Subscription',
-          order_id: razorpay_order_id,
-          status: 'completed',
-        }).catch(err => console.warn('[Email] Receipt failed:', err));
-
-      } catch (dbError) {
-        console.error('[Razorpay] DB update failed:', dbError);
-        // Don't fail the verification - payment was successful
       }
+
+      await updatePaymentStatus(razorpay_order_id, 'completed', {
+        razorpay_payment_id,
+        razorpay_signature,
+        payment_method: 'razorpay',
+        updated_at: new Date().toISOString(),
+      });
+
+      sendReceiptEmail(userId, {
+        amount: Math.round((paymentRecord.amount || 0) / 100),
+        plan_name: paymentRecord.plan_name || 'Subscription',
+        order_id: razorpay_order_id,
+        status: 'completed',
+      }).catch(err => console.warn('[Email] Receipt failed:', err));
+    } catch (dbError) {
+      console.error('[Razorpay] Payment persistence failed:', dbError);
+      return NextResponse.json({ error: 'payment_persistence_failed' }, { status: 503 });
     }
 
     return NextResponse.json({
