@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(`${BACKEND_URL}/api/integrations/webhooks`, { headers });
 
     if (res.status === 401 || res.status === 403) {
-      return NextResponse.json([]);
+      return NextResponse.json({ error: 'Authentication required' }, { status: res.status });
     }
 
     const data = await res.json();
@@ -48,8 +48,10 @@ export async function GET(req: NextRequest) {
     })) : [];
     return NextResponse.json(mapped, { status: res.status });
   } catch {
-    // Backend unreachable — return empty list
-    return NextResponse.json([]);
+    return NextResponse.json(
+      { error: 'backend_unavailable', message: 'Webhook service is unavailable.' },
+      { status: 503 }
+    );
   }
 }
 
@@ -83,18 +85,9 @@ export async function POST(req: NextRequest) {
     const errorData = await res.json().catch(() => ({ message: 'Failed to create webhook' }));
     return NextResponse.json(errorData, { status: res.status });
   } catch {
-    // Backend unreachable — return mock success
-    const body = await req.json().catch(() => ({}));
-    return NextResponse.json({
-      id: `wh-${Date.now()}`,
-      url: body.url || '',
-      events: body.events || [],
-      secret: `whsec_${Math.random().toString(36).slice(2, 10)}`,
-      active: true,
-      lastTriggeredAt: null,
-      failureCount: 0,
-      description: body.description || '',
-      createdAt: new Date().toISOString(),
-    }, { status: 201 });
+    return NextResponse.json(
+      { error: 'backend_unavailable', message: 'Webhook service is unavailable; no webhook was created.' },
+      { status: 503 }
+    );
   }
 }
