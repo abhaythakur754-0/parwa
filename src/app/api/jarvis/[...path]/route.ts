@@ -135,7 +135,11 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
     // For /cc/* paths (handled by my proxy-first check), return the actual
     // error response instead of falling back to local handlers. The backend
     // 401/403/500 should be visible to the client.
-    if (pathSegments[0] === 'cc') {
+    if (
+      pathSegments[0] === 'cc' ||
+      pathSegments.join('/') === 'handoff' ||
+      pathSegments.join('/') === 'handoff/status'
+    ) {
       const text = await response.text();
       try {
         const data = JSON.parse(text);
@@ -1277,6 +1281,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
+    // Handoff must be completed by the authenticated persistent backend.
+    if (endpoint === 'handoff') {
+      const { response: proxyResponse } = await proxyToBackend(request, path);
+      if (proxyResponse) return proxyResponse;
+      return NextResponse.json(
+        { error: { code: 'backend_unavailable', message: 'Handoff could not be completed. Please retry.', details: null } },
+        { status: 502 }
+      );
+    }
+
     // ── POST /session — Create Session ──────────────────────────
     if (endpoint === 'session') {
       const body = await request.json();
@@ -1809,6 +1823,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (proxyResponse) return proxyResponse;
       return NextResponse.json(
         { error: { code: 'backend_unavailable', message: 'Jarvis CC backend is unavailable. Please retry.', details: null } },
+        { status: 502 }
+      );
+    }
+
+    // Handoff changes customer-care state and must never use a local fake fallback.
+    if (endpoint === 'handoff/status') {
+      const { response: proxyResponse } = await proxyToBackend(request, path);
+      if (proxyResponse) return proxyResponse;
+      return NextResponse.json(
+        { error: { code: 'backend_unavailable', message: 'Handoff status is unavailable. Please retry.', details: null } },
         { status: 502 }
       );
     }
