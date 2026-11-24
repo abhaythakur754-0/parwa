@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * SHOBH — Local Auth Fallback (sandbox / dev resilience)
  *
