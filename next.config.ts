@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    '/api/chat': ['./backend/app/data/jarvis_knowledge/*.json'],
+  },
   // FIX (live UI test 2026-10-29): stale links/bookmarks to bare paths
   // landed on 404 — the real pages live under /dashboard/*.
   async redirects() {
