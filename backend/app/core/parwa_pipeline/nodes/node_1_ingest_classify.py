@@ -2004,7 +2004,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
         has_kb = False
         _quota: Dict[str, int] = {"used": 0, "max": 0, "remaining": 0}
         _limit_svc = None
-        _tier_allows_agents = True  # False for Mini (max_agents=0)
+        _tier_allows_agents = False  # Fail closed until quota is confirmed
 
         # ── Quota awareness: surface current usage even when no creation is needed ──
         # Node 1 uses this to DECIDE the routing path, not just emit an event.
@@ -2020,8 +2020,8 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             # Tier-aware decision: Mini (max_agents=0) cannot create agents
             # at all. Skip the entire agent-creation flow and let the ticket
             # proceed with generic AI (TIER_2_AGENT_BUILDER_ROADMAP §3).
-            if _quota["max"] == 0:
-                _tier_allows_agents = False
+            # Only create agents when quota was successfully read and allowance is positive.
+            _tier_allows_agents = _quota["max"] > 0
             try:
                 await emit_ticket_event(
                     company_id=tenant_id,
@@ -2071,7 +2071,11 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             if _limit_svc is None:
                 _limit_svc = get_variant_limit_service()
             if _tier_allows_agents:
-                _limit_svc.enforce_limit(company_id=tenant_id, limit_type="ai_agents")
+                _limit_svc.enforce_limit(
+                    company_id=tenant_id,
+                    limit_type="ai_agents",
+                    current_count=_quota["used"],
+                )
                 # Limit OK — pause for human approval before creating the agent.
                 # Route through the escalation vault so the existing guidance
                 # ticket flow can resume creation once a human approves.
@@ -2184,7 +2188,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 ),
             })
 
-        if not _agent_limit_exceeded and required_action != "pause_for_agent_approval":
+        if _tier_allows_agents and not _agent_limit_exceeded and required_action != "pause_for_agent_approval":
             # ── BUILDER AGENT: Create a properly designed agent ──────────
             # No agent claims this capability. Instead of creating a minimal
             # agent, run the full Builder Agent pipeline (4 stages, 34 LLM
