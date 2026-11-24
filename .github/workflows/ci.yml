@@ -201,7 +201,8 @@ jobs:
             docker logs "$container"
             exit 1
           fi
-          docker exec "$container" sh -c "grep -Eq '^requirepass [A-Za-z0-9_-]+
+          docker exec "$container" sh -c 'grep -Eq "^requirepass [A-Za-z0-9_-]+$" /tmp/redis-runtime.conf'
+          if docker exec -e REDISCLI_AUTH= -e REDIS_PASSWORD= "$container" redis-cli ping >/dev/null 2>&1; then
             echo "Redis accepted an unauthenticated command"
             exit 1
           fi
