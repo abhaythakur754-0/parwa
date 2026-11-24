@@ -25,6 +25,8 @@ const config = {
   },
   transformIgnorePatterns: ['/node_modules/(?!jose/)'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // This regression is authored with Vitest APIs and is executed by the dedicated Vitest step.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/src/app/api/chat/__tests__/jarvis-fallback.test.ts'],
   testTimeout: 10000,
   verbose: true,
   collectCoverageFrom: [
