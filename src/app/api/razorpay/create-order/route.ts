@@ -47,12 +47,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const receipt = \`parwa_\${crypto.randomUUID()}\`;
+    const receipt = `parwa_${crypto.randomUUID()}`;
     const providerResponse = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: \`Basic \${Buffer.from(\`\${RAZORPAY_KEY_ID}:\${RAZORPAY_KEY_SECRET}\`).toString('base64')}\`,
+        Authorization: `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`,
       },
       body: JSON.stringify({
         amount,
