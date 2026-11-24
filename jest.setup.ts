@@ -20,7 +20,12 @@ if (typeof globalThis.fetch !== 'function') {
   Object.defineProperty(globalThis, 'fetch', {
     configurable: true,
     writable: true,
-    value: jest.fn(),
+    value: jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+      text: async () => 'Test fetch not configured',
+    }),
   });
 }
 
@@ -37,3 +42,10 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
 }));
+
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', {
+    configurable: true,
+    value: jest.fn(),
+  });
+}
