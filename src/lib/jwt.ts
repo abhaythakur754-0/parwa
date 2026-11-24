@@ -23,6 +23,17 @@ const JWT_ALGORITHM = (process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
   | "HS256"
   | "RS256";
 
+function hasAllowedOptionalIssuerAudience(payload: Record<string, unknown>): boolean {
+  const hasIssuer = payload.iss !== undefined;
+  const hasAudience = payload.aud !== undefined;
+  if (!hasIssuer && !hasAudience) return true; // Backend tokens omit both.
+  const audience = payload.aud;
+  const audienceMatches =
+    audience === "parwa:app" ||
+    (Array.isArray(audience) && audience.includes("parwa:app"));
+  return payload.iss === "parwa:frontend" && audienceMatches;
+}
+
 function getSecret(): Uint8Array {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_KEY is not configured");
   return new TextEncoder().encode(JWT_SECRET);
@@ -85,8 +96,8 @@ export interface VerifiedToken {
     jti: string;
     iat: number;
     exp: number;
-    iss: string;
-    aud: string;
+    iss?: string;
+    aud?: string;
     type?: string;
   };
 }
@@ -120,6 +131,9 @@ export async function verifyToken(
       !payload.jti.trim() ||
       payload.type !== "access"
     ) {
+      return null;
+    }
+    if (!hasAllowedOptionalIssuerAudience(payload as Record<string, unknown>)) {
       return null;
     }
     return { payload: payload as unknown as VerifiedToken["payload"] };
