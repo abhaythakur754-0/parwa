@@ -257,6 +257,8 @@ def verify_access_token(token: str) -> dict:
         raise AuthenticationError(message="Invalid token identity")
     if not isinstance(payload.get("exp"), (int, float)):
         raise AuthenticationError(message="Token expiry is required")
+    if not isinstance(payload.get("jti"), str) or not payload["jti"].strip():
+        raise AuthenticationError(message="Token identifier is required")
     return payload
 
 # ── CROSS-6: Token Blacklist (Redis-backed) ──────────────────────
