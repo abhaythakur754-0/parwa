@@ -36,7 +36,7 @@ class SessionStub:
     id = "session-789"
     company_id = "company-456"
     user_id = "user-123"
-    session_type = "onboarding"
+    type = "onboarding"
 
 
 def make_request(method: str, body=None, query_string: bytes = b"") -> Request:
