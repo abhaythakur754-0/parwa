@@ -346,7 +346,7 @@ def send_otp(
     context["email_verified"] = False
     session.context_json = json.dumps(context)
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(result["expires_in"]))
     return {
@@ -390,7 +390,7 @@ def verify_otp(
     context["email_verified"] = True
     session.context_json = json.dumps(context)
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     return JarvisOtpResponse(
         message=result["message"],
