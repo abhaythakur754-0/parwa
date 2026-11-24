@@ -77,7 +77,7 @@ async def test_onboarding_identity_accepts_matching_tenant_and_user():
 async def test_onboarding_identity_rejects_cross_tenant_body():
     request = make_request("POST", {"company_id": "another-company"})
     with pytest.raises(HTTPException) as exc:
-        await enforce_onboarding_identity(request, UserStub())
+        await enforce_onboarding_identity(request, FakeDB(), UserStub())
     assert exc.value.status_code == 403
 
 
