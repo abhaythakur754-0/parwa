@@ -237,7 +237,7 @@ describe('UI Components Integration', () => {
 
     render(
       // @ts-expect-error — ErrorBoundary class component props typing is overly strict in React 19
-      React.createElement(ErrorBoundary as any, { children: React.createElement(BrokenComponent) })
+      React.createElement(ErrorBoundary as any, null, React.createElement(BrokenComponent))
     );
 
     expect(screen.getByTestId('error-boundary')).toBeInTheDocument();
