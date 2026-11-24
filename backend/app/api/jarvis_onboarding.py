@@ -33,12 +33,25 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.logger import get_logger
+from database.models.core import User
 from database.base import get_db
 
 logger = get_logger("jarvis_onboarding_api")
 
-router = APIRouter(prefix="/api/jarvis/onboarding", tags=["jarvis-onboarding"])
+router = APIRouter(
+    prefix="/api/jarvis/onboarding",
+    tags=["jarvis-onboarding"],
+    dependencies=[Depends(get_current_user)],
+)
+
+
+def _require_company_id(user: User) -> str:
+    """Use the authenticated tenant, never the request-supplied company ID."""
+    if not user.company_id:
+        raise HTTPException(status_code=403, detail="A company account is required")
+    return str(user.company_id)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -118,7 +131,7 @@ class DeactivateRequest(BaseModel):
 
 
 @router.post("/session")
-def create_session(request: CreateSessionRequest, db: Session = Depends(get_db)):
+def create_session(request: CreateSessionRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Create a new onboarding session.
 
     Called when a user lands on /jarvis for the first time.
@@ -129,8 +142,8 @@ def create_session(request: CreateSessionRequest, db: Session = Depends(get_db))
 
         session = create_onboarding_session(
             db=db,
-            company_id=request.company_id,
-            user_id=request.user_id,
+            company_id=_require_company_id(current_user),
+            user_id=str(current_user.id),
             entry_source=request.entry_source,
             entry_params=request.entry_params,
             referral_source=request.referral_source,
@@ -159,14 +172,15 @@ def create_session(request: CreateSessionRequest, db: Session = Depends(get_db))
 @router.get("/session/{session_id}")
 def get_session(
     session_id: str,
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get an onboarding session by ID."""
     try:
         from app.services.jarvis_onboarding_service import get_onboarding_session
 
-        session = get_onboarding_session(db, session_id, company_id)
+        session = get_onboarding_session(db, session_id, _require_company_id(current_user))
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
@@ -199,7 +213,7 @@ def resume_session(
     try:
         from app.services.jarvis_onboarding_service import resume_onboarding_session
 
-        result = resume_onboarding_session(db, session_id, company_id)
+        result = resume_onboarding_session(db, session_id, _require_company_id(current_user))
         if not result:
             raise HTTPException(status_code=404, detail="Session not found or inactive")
 
@@ -213,7 +227,7 @@ def resume_session(
 
 
 @router.patch("/context")
-def update_context(request: UpdateContextRequest, db: Session = Depends(get_db)):
+def update_context(request: UpdateContextRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Update the onboarding session context.
 
     Called whenever the frontend detects a context change —
@@ -225,7 +239,7 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
         updated_ctx = update_onboarding_context(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             updates=request.updates,
         )
 
@@ -246,7 +260,7 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
 
 
 @router.post("/stage/advance")
-def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
+def advance_stage(request: AdvanceStageRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Advance the onboarding session to a new stage."""
     try:
         from app.services.jarvis_onboarding_service import advance_stage
@@ -254,7 +268,7 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
         new_stage = advance_stage(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             new_stage=request.new_stage,
             reason=request.reason,
         )
@@ -272,7 +286,7 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/message")
-def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
+def log_message(request: LogMessageRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Log a chat message to the onboarding session.
 
     Persists messages to DB and logs user messages to Activity Store.
@@ -286,7 +300,7 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
         msg = log_onboarding_message(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             role=request.role,
             content=request.content,
             message_type=request.message_type,
@@ -314,15 +328,24 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/verify-email")
-def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db)):
+def verify_email(request: EmailVerificationRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Record email verification during onboarding."""
     try:
         from app.services.jarvis_onboarding_service import record_email_verification
+        from app.services.business_email_otp_service import check_business_email_verified
+
+        company_id = _require_company_id(current_user)
+        if not request.verified or not check_business_email_verified(
+            db=db,
+            email=request.email,
+            company_id=company_id,
+        ):
+            raise HTTPException(status_code=403, detail="Email OTP verification is required")
 
         success = record_email_verification(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             email=request.email,
             verified=request.verified,
             otp_method=request.otp_method,
@@ -345,36 +368,17 @@ def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db
 
 
 @router.post("/payment")
-def record_payment(request: RecordPaymentRequest, db: Session = Depends(get_db)):
-    """Record a completed payment during onboarding."""
-    try:
-        from app.services.jarvis_onboarding_service import record_payment
-
-        success = record_payment(
-            db=db,
-            session_id=request.session_id,
-            company_id=request.company_id,
-            payment_data=request.payment_data,
-        )
-
-        if not success:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        return {
-            "success": True,
-            "payment_status": "completed",
-            "stage": "bill_review",
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("record_payment_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+def record_payment(request: RecordPaymentRequest, current_user: User = Depends(get_current_user)):
+    """Reject client-reported payment state; only a verified provider webhook may activate it."""
+    _require_company_id(current_user)
+    raise HTTPException(
+        status_code=410,
+        detail="Direct onboarding payment recording is disabled. Complete payment through verified billing checkout.",
+    )
 
 
 @router.post("/demo-call")
-def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
+def initiate_demo_call(request: DemoCallRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Record a demo call initiation during onboarding."""
     try:
         from app.services.jarvis_onboarding_service import record_demo_call
@@ -382,7 +386,7 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
         success = record_demo_call(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             call_data=request.call_data,
         )
 
@@ -399,7 +403,7 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/handoff")
-def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
+def execute_handoff(request: HandoffRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Execute the handoff from onboarding to CC Jarvis.
 
     This is the final step — creates a CC session with full onboarding context.
@@ -410,8 +414,8 @@ def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
         result = execute_handoff(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
-            user_id=request.user_id,
+            company_id=_require_company_id(current_user),
+            user_id=str(current_user.id),
             handoff_data=request.handoff_data,
         )
 
@@ -428,7 +432,7 @@ def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/deactivate")
-def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)):
+def deactivate_session(request: DeactivateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Deactivate an onboarding session (user left/dropped off)."""
     try:
         from app.services.jarvis_onboarding_service import deactivate_session
@@ -436,7 +440,7 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
         success = deactivate_session(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             reason=request.reason,
         )
 
@@ -454,8 +458,9 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
 
 @router.get("/funnel-metrics")
 def get_funnel_metrics(
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
     hours: int = Query(24, description="Hours of history to analyze"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get onboarding funnel metrics for a tenant.
@@ -467,7 +472,7 @@ def get_funnel_metrics(
 
         metrics = get_onboarding_funnel_metrics(
             db=db,
-            company_id=company_id,
+            company_id=_require_company_id(current_user),
             hours=hours,
         )
 
@@ -480,8 +485,9 @@ def get_funnel_metrics(
 
 @router.get("/awareness")
 def get_onboarding_awareness(
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
     hours: int = Query(1, description="Hours of history"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get onboarding-specific awareness data.
