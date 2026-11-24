@@ -21,6 +21,7 @@ def _token(secret, token_type="access"):
     return jwt.encode(
         {
             "sub": "user-123",
+            "jti": "test-token-id",
             "type": token_type,
             "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
         },
