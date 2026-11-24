@@ -216,7 +216,7 @@ async def create_plan(
 async def process_installment(
     plan_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """
     Process the next pending installment for a plan.
