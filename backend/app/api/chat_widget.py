@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # H-18: Auth dependency for admin-only chat endpoints
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, optional_user
 from database.models.core import User
 from app.schemas.chat_widget import (
     ChatSessionCreateResponse,
@@ -360,7 +360,12 @@ async def close_session(request: Request, session_id: str, current_user: User = 
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ChatMessageSendResponse)
-async def send_chat_message(body: SendMessageRequest, request: Request, session_id: str):
+async def send_chat_message(
+    body: SendMessageRequest,
+    request: Request,
+    session_id: str,
+    current_user: Optional[User] = Depends(optional_user),
+):
     """Send a message in a chat session.
 
     Visitors can send messages using their HMAC visitor_token.
@@ -370,7 +375,7 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
     # an authenticated staff token. Never let an invalid visitor token fall
     # through to the staff tenant context.
     visitor_token = body.visitor_token
-    company_id = getattr(request.state, "company_id", None)
+    company_id = None
     if visitor_token:
         try:
             if not body.company_id:
@@ -393,13 +398,38 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
                 },
             )
 
+    else:
+        if not current_user:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authenticated staff identity required",
+                        "details": None,
+                    }
+                },
+            )
+        if current_user.role not in ("owner", "admin", "agent"):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "AUTHORIZATION_ERROR",
+                        "message": "Insufficient permissions",
+                        "details": None,
+                    }
+                },
+            )
+        company_id = current_user.company_id
+
     if not company_id:
         return JSONResponse(
             status_code=403,
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Authentication required (JWT or visitor token)",
+                    "message": "Tenant identification required",
                     "details": None,
                 }
             },
@@ -414,21 +444,9 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
         sender_id = None
         sender_name = None
     else:
-        authenticated_user_id = getattr(request.state, "user_id", None)
-        if not authenticated_user_id:
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "error": {
-                        "code": "AUTHENTICATION_ERROR",
-                        "message": "Authenticated staff identity required",
-                        "details": None,
-                    }
-                },
-            )
         role = "agent"
-        sender_id = str(authenticated_user_id)
-        sender_name = None
+        sender_id = str(current_user.id)
+        sender_name = current_user.full_name
     message_type = body.message_type
 
     try:
@@ -536,10 +554,15 @@ async def get_chat_messages(
 
 
 @router.post("/sessions/{session_id}/typing", response_model=ChatTypingResponse)
-async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, session_id: str):
+async def send_typing_indicator(
+    body: TypingIndicatorRequest,
+    request: Request,
+    session_id: str,
+    current_user: Optional[User] = Depends(optional_user),
+):
     """Emit a typing indicator via Socket.io (BC-005, BC-011)."""
     # Visitor tokens are always verified and cannot supply agent identity.
-    company_id = getattr(request.state, "company_id", None)
+    company_id = None
     visitor_token = body.visitor_token
     if visitor_token:
         try:
@@ -564,8 +587,7 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
         typing_role = "visitor"
         typing_user_id = None
     else:
-        typing_user_id = getattr(request.state, "user_id", None)
-        if not typing_user_id:
+        if not current_user:
             return JSONResponse(
                 status_code=401,
                 content={
@@ -576,6 +598,19 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
                     }
                 },
             )
+        if current_user.role not in ("owner", "admin", "agent"):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "AUTHORIZATION_ERROR",
+                        "message": "Insufficient permissions",
+                        "details": None,
+                    }
+                },
+            )
+        company_id = current_user.company_id
+        typing_user_id = str(current_user.id)
         typing_role = "agent"
 
     if not company_id:
