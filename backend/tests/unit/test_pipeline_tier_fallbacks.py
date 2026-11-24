@@ -1,5 +1,8 @@
 """Ensure removed Mini tiers never become the default for new tenants."""
 
+import pytest
+pytest.importorskip("langgraph")
+
 from app.core.parwa_pipeline.nodes.node_2_smart_route import (
     _load_tenant_variants,
     clear_test_registry,
