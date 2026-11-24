@@ -42,8 +42,10 @@ describe('NotFoundPage', () => {
     expect(dashboardLink.closest('a')).toHaveAttribute('href', '/dashboard');
   });
 
-  it('has a Go Back button', () => {
+  it('has a link back to the home page', () => {
     render(React.createElement(NotFoundPage));
-    expect(screen.getByText('Go Back')).toBeInTheDocument();
+    const homeLink = screen.getByText('Go to Home');
+    expect(homeLink).toBeInTheDocument();
+    expect(homeLink.closest('a')).toHaveAttribute('href', '/');
   });
 });
