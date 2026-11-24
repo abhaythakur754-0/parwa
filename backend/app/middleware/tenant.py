@@ -157,9 +157,13 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Skip tenant check for public/health/auth endpoints
         if path in self.PUBLIC_PATHS:
             return await call_next(request)
-        for prefix in self.PUBLIC_PREFIXES:
-            if path.startswith(prefix):
-                return await call_next(request)
+        # The DB-backed onboarding router handles sensitive session, email,
+        # and payment state, so it must pass tenant middleware even though the
+        # legacy /api/jarvis sales endpoints remain public.
+        if not path.startswith("/api/jarvis/onboarding"):
+            for prefix in self.PUBLIC_PREFIXES:
+                if path.startswith(prefix):
+                    return await call_next(request)
 
         # Extract company_id from request state.
         # APIKeyAuthMiddleware may have already set this.
