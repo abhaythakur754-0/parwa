@@ -54,8 +54,8 @@ export const VARIANT_DISPLAY_NAMES: Record<VariantTier, string> = {
 };
 
 export const VARIANT_TAGLINES: Record<VariantTier, string> = {
-  parwa: 'The Junior Agent',
-  high: 'The Senior Agent',
+  parwa: 'PARWA Growth',
+  high: 'PARWA High',
 };
 
 // ── Variant Limits — $1 = 1 ticket ────────────────────────────────
@@ -106,7 +106,7 @@ export const VARIANT_AI_INFO: Record<VariantTier, {
     concurrentCalls: 5,
   },
   high: {
-    pipelineSteps: 9,
+    pipelineSteps: 8,
     aiResolution: 0.88,
     techniques: 'All 14 techniques (Tier 1+2+3)',
     concurrentCalls: 5,
@@ -122,8 +122,8 @@ export const VARIANT_TIER_ORDER: Record<VariantTier, number> = {
 
 /**
  * Normalize any variant string (including legacy names) to a canonical VariantTier.
- * Mini SHOBH was removed 2026-07-26 — legacy 'mini'/'starter'/'mini_parwa' are
- * auto-upgraded to 'parwa' (existing Mini customers get Shobh features for free).
+ * Mini PARWA was removed 2026-07-26 — legacy 'mini'/'starter'/'mini_parwa' are
+ * auto-upgraded to 'parwa' (existing Mini customers are normalized to PARWA Growth features).
  */
 const LEGACY_TIER_MAP: Record<string, VariantTier> = {
   parwa: 'parwa',
