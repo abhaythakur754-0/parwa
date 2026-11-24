@@ -43,7 +43,7 @@ describe('getTierLabel', () => {
 
 describe('getTierPrice', () => {
   it('returns correct price strings for each tier', () => {
-    expect(getTierPrice('parwa')).toBe('$2,499/mo');
+    expect(getTierPrice('parwa')).toBe('$2,999/mo');
     expect(getTierPrice('high')).toBe('$3,999/mo');
   });
 });
