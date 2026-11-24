@@ -65,7 +65,7 @@ describe('SupabaseClient URL configuration', () => {
   it('rejects malformed Supabase URLs', async () => {
     process.env.SUPABASE_URL = 'not-a-url';
 
-    await expect(new SupabaseClient().from('users').select()).rejects.toThrow(
+    expect(() => new SupabaseClient().from('users')).toThrow(
       'Supabase URL must be a valid absolute URL'
     );
     expect(global.fetch).not.toHaveBeenCalled();
