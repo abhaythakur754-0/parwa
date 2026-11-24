@@ -261,6 +261,9 @@ jobs:
       - name: Run Jarvis production-guard regression test (required)
         run: npx jest src/lib/jarvis/__tests__/legacy-guest-guard.test.ts --runInBand
 
+      - name: Run Vitest chat API regression
+        run: bunx vitest run src/app/api/chat/__tests__/jarvis-fallback.test.ts
+
       - name: Run Existing Frontend Unit Suite (known failures tracked separately)
         # Existing suite currently has unrelated ESM, jsdom and store-test failures.
         # Keep this visible but non-blocking while those suites are repaired.
