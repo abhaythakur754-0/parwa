@@ -480,10 +480,21 @@ describe('useTicketStore', () => {
 
   describe('Query methods', () => {
     beforeEach(() => {
-      // Add diverse tickets for querying
+      // Query tests use local fixtures; do not start the async backend create flow.
+      useTicketStore.setState({ createTicket: jest.fn().mockResolvedValue(null) });
       useTicketStore.getState().addTicket({ subject: 'Billing 1', description: 'B1', category: 'billing_payments', priority: 'high', channel: 'email', customer_name: 'A', customer_email: 'a@b.com' });
       useTicketStore.getState().addTicket({ subject: 'Tech 1', description: 'T1', category: 'technical_support', priority: 'critical', channel: 'chat', customer_name: 'B', customer_email: 'b@b.com' });
       useTicketStore.getState().addTicket({ subject: 'Billing 2', description: 'B2', category: 'billing_payments', priority: 'low', channel: 'sms', customer_name: 'C', customer_email: 'c@b.com' });
+
+      // Variant is supplied by the backend pipeline; represent those persisted values.
+      useTicketStore.setState({
+        tickets: useTicketStore.getState().tickets.map((ticket) => ({
+          ...ticket,
+          assigned_variant:
+            ticket.subject === 'Billing 1' ? 'medium' :
+            ticket.subject === 'Tech 1' ? 'heavy' : 'light',
+        })),
+      });
     });
 
     it('getTicketsByStatus returns correct tickets', () => {
