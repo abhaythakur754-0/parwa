@@ -206,7 +206,8 @@ def get_session(
 @router.post("/session/resume")
 def resume_session(
     session_id: str = Query(..., description="Session ID to resume"),
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Resume an existing onboarding session."""
