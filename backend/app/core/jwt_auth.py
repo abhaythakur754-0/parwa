@@ -85,7 +85,7 @@ if _raw_previous:
 # attacks even if the DB is leaked.
 # SHOULD be set via the REFRESH_TOKEN_PEPPER env-var.
 # Warns if not set but does not crash (fail-open for deployability).
-_REFRESH_TOKEN_PEPPER = os.environ.get("REFRESH_TOKEN_PEPPER", "")
+_REFRESH_TOKEN_PEPPER = get_settings().REFRESH_TOKEN_PEPPER
 if not _REFRESH_TOKEN_PEPPER:
     logger.warning(
         "REFRESH_TOKEN_PEPPER is not set — refresh tokens will lack pepper "
