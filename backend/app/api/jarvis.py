@@ -285,16 +285,12 @@ def purchase_demo_pack(
     db: Session = Depends(get_db),
     session_id: str = Query(..., description="Session ID"),
 ):
-    """Purchase the $1 Demo Pack (500 messages + 3-min AI call, 24h).
-
-    In production, creates a Paddle checkout for $1.
-    """
-    result = jarvis_service.purchase_demo_pack(
-        db=db,
-        session_id=session_id,
-        user_id=user.id,
+    """Legacy demo-pack checkout is disabled until payment activation is persisted."""
+    jarvis_service.get_session(db, session_id, str(user.id))
+    raise HTTPException(
+        status_code=410,
+        detail="Demo Pack checkout is temporarily unavailable. No payment has been taken.",
     )
-    return result
 
 
 @router.get("/demo-pack/status", response_model=JarvisDemoPackStatusResponse)
@@ -414,69 +410,21 @@ def create_payment(
     db: Session = Depends(get_db),
     session_id: str = Query(..., description="Session ID"),
 ):
-    """Create Paddle checkout session for variant purchase.
-
-    Returns checkout URL for redirect.
-    """
-    result = jarvis_service.create_payment_session(
-        db=db,
-        session_id=session_id,
-        user_id=user.id,
-        variants=body.variants,
-        industry=body.industry,
+    """Disable the legacy client-priced payment flow."""
+    jarvis_service.get_session(db, session_id, str(user.id))
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy Jarvis checkout is disabled. Use the authenticated Razorpay subscription checkout with server-owned pricing.",
     )
-    return result
 
 
 @router.post("/payment/webhook")
-async def payment_webhook(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    """Handle Paddle webhook (NO auth — uses Paddle signature).
-
-    Processes payment.success and payment.failed events.
-    """
-    # Read raw body bytes first (needed for HMAC signature verification)
-    raw_body = await request.body()
-
-    try:
-        body = json.loads(raw_body)
-        event_type = body.get("event_type", "")
-        event_data = body.get("data", {})
-    except Exception:
-        return {"error": {"code": "INVALID_PAYLOAD", "message": "Invalid webhook payload", "details": None}}
-
-    # Pass request headers for Paddle signature verification in the service layer
-    webhook_headers = dict(request.headers)
-
-    try:
-        result = jarvis_service.handle_payment_webhook(
-            db=db,
-            event_type=event_type,
-            event_data=event_data,
-            headers=webhook_headers,
-            raw_payload=raw_body,
-        )
-        return result
-    except ParwaBaseError as exc:
-        return exc.to_dict()
-    except Exception as exc:
-        # R-04 FIX: Do NOT leak internal exception details to the client.
-        # str(exc) can contain DB connection strings, SQL queries, stack
-        # traces, and other sensitive internals. Log the full error server-
-        # side but return a generic message to the client.
-        logger.error(
-            "payment_webhook_error",
-            extra={"error": str(exc)[:500]},
-        )
-        return {
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "Webhook processing failed",
-                "details": None,
-            }
-        }
+async def payment_webhook(request: Request):
+    """Reject the legacy unsigned webhook; use the signed Razorpay webhook route."""
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy Jarvis payment webhook is disabled. Use /api/billing/razorpay/webhook.",
+    )
 
 
 @router.get("/payment/status", response_model=JarvisPaymentStatusResponse)
