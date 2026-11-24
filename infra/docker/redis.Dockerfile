@@ -25,4 +25,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 6379
 
 # Run with custom config
-CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]
+CMD ["sh", "-c", "if [ -z \\"$REDIS_PASSWORD\\" ]; then echo \\"REDIS_PASSWORD is required\\" >&2; exit 1; fi; exec redis-server /usr/local/etc/redis/redis.conf --requirepass \\"$REDIS_PASSWORD\\""]
