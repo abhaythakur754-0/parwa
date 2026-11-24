@@ -23,13 +23,14 @@ import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 
 const LOCAL_JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+  process.env.JWT_SECRET_KEY ||
+  (process.env.NODE_ENV !== "production" ? "dev-jwt-secret-key-change-in-prod-32c" : "");
 
 const ACCESS_TTL_S = 15 * 60; // 15 minutes
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // 7 days
 
 export function isLocalAuthEnabled(): boolean {
-  return process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1";
+  return process.env.NODE_ENV !== "production" && process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1";
 }
 
 function getSecretKey(): Uint8Array {
@@ -70,6 +71,7 @@ export interface LocalGoogleClaims {
 export async function verifyGoogleIdTokenLocally(
   idToken: string,
 ): Promise<LocalGoogleClaims | null> {
+  if (!isLocalAuthEnabled()) return null;
   const clientId =
     process.env.GOOGLE_CLIENT_ID ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -115,6 +117,7 @@ export async function verifyGoogleIdTokenLocally(
 export async function upsertLocalGoogleUser(
   claims: LocalGoogleClaims,
 ): Promise<LocalMeUser | null> {
+  if (!isLocalAuthEnabled()) return null;
   const email = String(claims.email || "")
     .trim()
     .toLowerCase();
@@ -181,6 +184,7 @@ async function mintLocalToken(
   email: string,
   type: "access" | "refresh",
 ): Promise<string> {
+  if (!isLocalAuthEnabled()) throw new Error("Local authentication is disabled outside development");
   const now = Math.floor(Date.now() / 1000);
   const ttl = type === "access" ? ACCESS_TTL_S : REFRESH_TTL_S;
 
