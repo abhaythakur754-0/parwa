@@ -3,7 +3,7 @@ PARWA Application Configuration
 
 Loads all configuration from environment variables using pydantic-settings.
 Sensible dev defaults are provided so the app starts without a .env file.
-Validators warn (not crash) if dev defaults are used in production.
+Production validators fail closed when critical secrets are missing or weak.
 """
 
 import logging
