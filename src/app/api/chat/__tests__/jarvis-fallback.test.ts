@@ -45,7 +45,7 @@ global.fetch = vi.fn().mockImplementation(async () => ({
 // Mock the JarvisAIEngine so we can assert it gets called.
 const { generateResponseMock, ensureLoadedMock } = vi.hoisted(() => ({
   generateResponseMock: vi.fn().mockResolvedValue(
-    'Thanks for your question! SHOBH handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini SHOBH.'
+    'Thanks for your question! PARWA handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini PARWA.'
   ),
   ensureLoadedMock: vi.fn().mockResolvedValue(undefined),
 }));
@@ -80,7 +80,7 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
     // Restore default return values.
     authenticatedUserIdMock.mockResolvedValue('user-1');
     generateResponseMock.mockResolvedValue(
-      'Thanks for your question! SHOBH handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini SHOBH.'
+      'Thanks for your question! PARWA handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini PARWA.'
     );
     ensureLoadedMock.mockResolvedValue(undefined);
   });
@@ -93,7 +93,7 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
         'Authorization': 'Bearer fake-token',
       },
       body: JSON.stringify({
-        message: 'What does SHOBH cost?',
+        message: 'What does PARWA cost?',
         industry: 'ecommerce',
       }),
     });
@@ -108,11 +108,11 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
     // The response should be successful with the fallback text.
     expect(response.status).toBe(200);
     expect(data.status).toBe('success');
-    expect(data.reply).toContain('SHOBH');
+    expect(data.reply).toContain('PARWA');
     expect(data.reply.length).toBeGreaterThan(10);
   });
 
-  it('returns the fallback text containing SHOBH pricing keywords', async () => {
+  it('returns the fallback text containing PARWA pricing keywords', async () => {
     const req = new Request('http://localhost:3000/api/chat', {
       method: 'POST',
       headers: {
@@ -129,7 +129,7 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('success');
-    // The mocked JarvisAIEngine response mentions SHOBH + pricing.
+    // The mocked JarvisAIEngine response mentions PARWA + pricing.
     expect(data.reply.toLowerCase()).toMatch(/parwa|\$|price|plan/);
   });
 
