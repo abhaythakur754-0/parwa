@@ -240,7 +240,7 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      - name: Run Linter (temporarily non-blocking: brace-expansion/minimatch compatibility)
+      - name: "Run Linter (temporarily non-blocking: brace-expansion/minimatch compatibility)"
         run: npx eslint . --max-warnings=0
         continue-on-error: true
 
