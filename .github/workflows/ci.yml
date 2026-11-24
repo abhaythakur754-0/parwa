@@ -188,8 +188,6 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-frontend:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout Code
@@ -201,18 +199,7 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install
-
-      - name: Commit refreshed Bun lockfile
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          if ! git diff --quiet -- bun.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bun.lock
-            git commit -m "build: refresh Bun lockfile"
-            git push origin HEAD:main
-          fi
+        run: bun install --frozen-lockfile
 
 
       - name: Run Linter (FAILS on errors)
