@@ -219,10 +219,14 @@ jobs:
           NEXT_PUBLIC_API_URL: https://fake
           DATABASE_URL: file:./test.db
 
-      - name: Run Unit Tests (FAILS on failures)
-        # Run only Jest tests (not Playwright e2e — those need a running server)
-        run: npx jest --testPathIgnorePatterns="tests/e2e/" --passWithNoTests
-        continue-on-error: true  # TODO: enforce once Mini/Onboarding-Jarvis cleanup lands
+      - name: Run Jest Unit Tests
+        # Native ESM support is required by the jose dependency.
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js --passWithNoTests
+        continue-on-error: true  # Keep non-blocking until legacy suites are reconciled.
+
+      - name: Run Vitest API Tests
+        run: bun run vitest run src/app/api/chat/__tests__/jarvis-fallback.test.ts
+        continue-on-error: true  # Keep non-blocking until legacy suites are reconciled.
 
       - name: Frontend Test Summary
         if: always()
