@@ -1,5 +1,5 @@
 /**
- * SHOBH Variant Store
+ * PARWA Variant Store
  *
  * Zustand store for multi-tenant variant (tier) management.
  * Tracks the company's current subscription tier, feature availability,
@@ -8,7 +8,7 @@
  * Tiers: parwa ($2,999/mo) | high ($3,999/mo)
  * Pricing model: $1 = 1 ticket
  * All variants have the SAME AI capabilities — only ticket volume differs.
- * Mini SHOBH was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.
+ * Mini PARWA was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.
  * Prices sourced from: /src/lib/pricing-config.ts (matches backend SSOT)
  */
 
@@ -136,10 +136,7 @@ export function isTierAtLeast(current: VariantTier, required: VariantTier): bool
 
 export function getTierLabel(tier: VariantTier): string {
   const labels: Record<VariantTier, string> = {
-    parwa: 'SHOBH',
-    high: 'SHOBH High',
-  };
-  return labels[tier];
+  return VARIANT_DISPLAY_NAMES[tier];
 }
 
 export function getTierPrice(tier: VariantTier): string {
