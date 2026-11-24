@@ -19,6 +19,7 @@ Features:
 """
 
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -27,6 +28,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
+from app.config import get_settings
 from app.exceptions import ValidationError, RateLimitError
 from app.services.email_service import send_email
 from app.core.email_renderer import render_email_template
@@ -43,8 +45,15 @@ OTP_LENGTH = 6  # 6-digit OTP
 
 
 def _hash_otp(otp: str) -> str:
-    """Hash an OTP code using SHA-256."""
-    return hashlib.sha256(otp.encode("utf-8")).hexdigest()
+    """Keyed-hash an OTP so a database leak cannot cheaply brute-force six digits."""
+    pepper = get_settings().DATA_ENCRYPTION_KEY
+    if not pepper:
+        raise RuntimeError("DATA_ENCRYPTION_KEY is required to hash verification codes.")
+    return hmac.new(
+        pepper.encode("utf-8"),
+        otp.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _generate_otp() -> str:
