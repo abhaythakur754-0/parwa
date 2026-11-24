@@ -1,3 +1,5 @@
+/** @jest-environment node */
+
 /**
  * SHOBH Day 1 Security Tests — Dashboard Auth (C-01 Fix)
  *
@@ -50,6 +52,7 @@ describe('C-01: Dashboard Auth Utility', () => {
   let verifyAuth: (req: any) => Promise<any>;
 
   beforeAll(async () => {
+    process.env.JWT_SECRET_KEY ||= 'dev-jwt-secret-key-change-in-prod-32c';
     const mod = await import('../auth');
     verifyAuth = mod.verifyAuth;
   });
