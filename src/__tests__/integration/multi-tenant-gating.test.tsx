@@ -74,7 +74,8 @@ describe('Integration: current Parwa tier model', () => {
 
     expect(screen.getByText('High capacity')).toBeInTheDocument();
     expect(screen.getByText('Upgrade Now')).toBeInTheDocument();
-    expect(screen.queryByTestId('high-capacity')).not.toBeInTheDocument();
+    expect(screen.getByTestId('high-capacity')).toBeInTheDocument();
+    expect(screen.getByTestId('high-capacity').parentElement).toHaveClass('blur-[6px]');
 
     act(() => useVariantStore.getState().setTier('high'));
     rerender(
@@ -146,7 +147,8 @@ describe('Integration: current Parwa tier model', () => {
       </LockedFeature>
     );
     expect(screen.getByText('Upgrade Now')).toBeInTheDocument();
-    expect(screen.queryByTestId('high-capacity')).not.toBeInTheDocument();
+    expect(screen.getByTestId('high-capacity')).toBeInTheDocument();
+    expect(screen.getByTestId('high-capacity').parentElement).toHaveClass('blur-[6px]');
     expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
   });
 });
