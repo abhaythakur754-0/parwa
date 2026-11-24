@@ -57,3 +57,21 @@ def test_development_allows_missing_pricing_key_with_warning(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "development")
     with pytest.warns(UserWarning, match="pricing token signing is disabled"):
         assert Settings.validate_pricing_signing_key(None) is None
+
+
+def test_production_requires_application_secret(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        Settings.validate_secret_key(None)
+
+
+def test_production_rejects_short_application_secret(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="at least 32"):
+        Settings.validate_secret_key("short")
+
+
+def test_production_requires_refresh_token_pepper(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="REFRESH_TOKEN_PEPPER"):
+        Settings.validate_refresh_token_pepper("")
