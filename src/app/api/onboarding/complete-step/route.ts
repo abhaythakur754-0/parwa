@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
     if (step === 1 && evidence.work_email_verified !== true) {
       const token =
-        request.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ||
+        request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
         request.cookies.get('parwa_at')?.value;
       const workEmail = String(evidence.work_email || '').trim().toLowerCase();
       if (!token || !workEmail) {
