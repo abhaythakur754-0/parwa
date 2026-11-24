@@ -10,17 +10,30 @@ provider and reports whether it succeeded or failed.
 from __future__ import annotations
 
 import os
+import hmac
 import logging
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from app.api.deps import require_roles
+from app.config import get_settings
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("parwa.api.debug")
 
-router = APIRouter(prefix="/debug", tags=["debug"])
+def require_debug_not_production() -> None:
+    """Debug routes are not part of the production API surface."""
+    if get_settings().ENVIRONMENT.lower() == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+router = APIRouter(
+    prefix="/debug",
+    tags=["debug"],
+    dependencies=[Depends(require_debug_not_production)],
+)
 
 
 @router.get("/llm-test")
-async def llm_test() -> Dict[str, Any]:
+async def llm_test(_admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Test LLM connectivity to all configured providers."""
     results: Dict[str, Any] = {}
     # Test messages
@@ -205,7 +218,7 @@ async def llm_test() -> Dict[str, Any]:
 
 
 @router.post("/test-user-keys")
-async def test_user_keys(request: Request) -> Dict[str, Any]:
+async def test_user_keys(request: Request, _admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Test user-provided Groq + Mistral + NVIDIA API keys from Render's server.
 
     This lets users verify their keys work BEFORE updating Render env vars.
@@ -292,7 +305,7 @@ async def test_user_keys(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/test-google-models")
-async def test_google_models(request: Request) -> Dict[str, Any]:
+async def test_google_models(request: Request, _admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Test multiple Google AI models to see which share quota.
 
     Tests gemma-3-27b-it, gemini-2.5-flash, gemini-2.5-flash-lite,
@@ -359,7 +372,7 @@ async def test_google_models(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/test-google-quota-isolation")
-async def test_google_quota_isolation(request: Request) -> Dict[str, Any]:
+async def test_google_quota_isolation(request: Request, _admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Exhaust one Google model's quota, then test if other models still work.
 
     This answers: "If I use up all 20 RPD of gemini-2.5-flash, can I still
@@ -471,105 +484,10 @@ async def test_connector_fetch(
     action: str = "get_invoice",
     invoice_id: str = "INV-2026-001",
 ) -> Dict[str, Any]:
-    """Test if Node 3's connector fetch actually works.
+    """Legacy connector diagnostic exposed connector auth headers; disabled."""
+    raise HTTPException(status_code=410, detail="Connector debug endpoint is disabled.")
 
-    This simulates exactly what Node 3 does: call_custom_action with
-    the tenant's company_id and the action name.
-    """
-    from app.api.deps import get_current_user
-    from app.core.react_tools.custom_connector_client import (
-        call_custom_action,
-        has_action,
-        has_any_connector,
-        _list_connectors,
-        _find_action,
-    )
 
-    # Get company_id from JWT
-    from fastapi import Request as _Req
-    # We need the user's company_id — use the settings approach
-    from app.config import get_settings
-    settings = get_settings()
-
-    # Use the test tenant's company_id directly (hardcoded for testing)
-    company_id = "6dc85e4f-ce81-45c0-a995-12b410cee2c7"
-
-    results: Dict[str, Any] = {}
-
-    # Step 1: List connectors
-    connectors = _list_connectors(company_id)
-    results["connectors_found"] = len(connectors)
-    for c in connectors:
-        results[f"connector_{c.get('name','?')}"] = {
-            "base_url": c.get("base_url", ""),
-            "auth_type": c.get("auth_type", ""),
-            "actions": [a.get("name") for a in c.get("actions", [])],
-        }
-
-    # Step 2: Check if action exists
-    results["has_get_invoice"] = await has_action(company_id, "get_invoice")
-    results["has_any_connector"] = await has_any_connector(company_id)
-
-    # Step 3: Actually call the connector — with detailed error capture
-    params = {"id": invoice_id, "invoice_id": invoice_id}
-
-    # Manual call to see exactly what happens
-    connectors = _list_connectors(company_id)
-    found = _find_action(connectors, action)
-    if found:
-        connector, act = found
-        base_url = connector["base_url"].rstrip("/")
-        path_template = act.get("path", "")
-        # Substitute path params
-        import re as _re2
-        path = path_template
-        for k, v in params.items():
-            path = path.replace(f"{{{k}}}", str(v))
-        url = f"{base_url}{path}"
-        method = act.get("method", "GET").upper()
-        auth_type = connector["auth_type"]
-        auth_config = connector["auth_config"]
-
-        results["debug_url"] = url
-        results["debug_method"] = method
-        results["debug_auth_type"] = auth_type
-        results["debug_auth_config"] = auth_config
-        results["debug_path_template"] = path_template
-        results["debug_path_resolved"] = path
-
-        # Build headers
-        from app.core.react_tools.custom_connector_client import _build_auth_headers
-        headers = _build_auth_headers(auth_type, auth_config)
-        headers["Origin"] = "https://parwa.buzz"
-        results["debug_headers"] = headers
-
-        # Make the call
-        import httpx
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                if method == "GET":
-                    resp = await client.get(url, headers=headers)
-                else:
-                    resp = await client.post(url, headers=headers)
-            results["debug_response_status"] = resp.status_code
-            results["debug_response_body"] = resp.text[:500]
-            if 200 <= resp.status_code < 300:
-                results["call_result"] = resp.json()
-                results["call_success"] = True
-            else:
-                results["call_result"] = None
-                results["call_success"] = False
-                results["debug_error"] = f"HTTP {resp.status_code}: {resp.text[:300]}"
-        except Exception as exc:
-            results["call_result"] = None
-            results["call_success"] = False
-            results["debug_error"] = str(exc)[:300]
-    else:
-        results["call_result"] = None
-        results["call_success"] = False
-        results["debug_error"] = "Action not found in any connector"
-
-    return results
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -590,11 +508,16 @@ _SUPABASE_API_KEY = _os.environ.get("SUPABASE_DEBUG_API_KEY", "")
 
 
 def _verify_supabase_key(authorization: Optional[str]) -> None:
-    """Verify the Supabase CRM API key."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = authorization.replace("Bearer ", "").strip()
-    if token != _SUPABASE_API_KEY:
+    """Verify the dedicated debug API key; an unset key always denies access."""
+    if not _SUPABASE_API_KEY or not authorization:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    scheme, separator, token = authorization.partition(" ")
+    if (
+        not separator
+        or scheme.lower() != "bearer"
+        or not token.strip()
+        or not hmac.compare_digest(token.strip(), _SUPABASE_API_KEY)
+    ):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -704,7 +627,7 @@ async def supabase_process_refund(request: Request, authorization: Optional[str]
 
 
 @router.post("/test-groq-quota")
-async def test_groq_quota(request: Request) -> Dict[str, Any]:
+async def test_groq_quota(request: Request, _admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Fire 50 rapid calls to Groq llama-3.1-8b-instant to find the real RPM limit.
 
     Groq doesn't show rate limit headers, so we have to test by brute force.
@@ -801,7 +724,7 @@ async def test_groq_quota(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/provider-pool")
-async def provider_pool_status() -> Dict[str, Any]:
+async def provider_pool_status(_admin: Any = Depends(require_roles("owner", "admin"))) -> Dict[str, Any]:
     """Get the current LLM provider pool status — shows which providers are
     available, which are cooling down (rate limited), and call statistics.
 
@@ -823,68 +746,6 @@ async def provider_pool_status() -> Dict[str, Any]:
 
 @router.get("/celery-config")
 async def celery_config_debug() -> Dict[str, Any]:
-    """Debug endpoint to inspect actual Celery broker configuration.
+    """Raw broker URLs may contain credentials; never expose them over HTTP."""
+    raise HTTPException(status_code=410, detail="Celery configuration debug endpoint is disabled.")
 
-    Shows:
-      - The broker_url + result_backend the celery app is ACTUALLY using
-      - Whether the DB 0 force-fix ran
-      - Raw env vars (CELERY_BROKER_URL, REDIS_URL) before validation
-      - Test connection attempt to the broker
-
-    Use this to diagnose 'Only 0th database is supported' errors.
-    """
-    import os
-    result: Dict[str, Any] = {}
-
-    # 1. Raw env vars (unvalidated)
-    result["env"] = {
-        "CELERY_BROKER_URL_raw": os.environ.get("CELERY_BROKER_URL", "(not set)")[:120],
-        "CELERY_RESULT_BACKEND_raw": os.environ.get("CELERY_RESULT_BACKEND", "(not set)")[:120],
-        "REDIS_URL_raw": os.environ.get("REDIS_URL", "(not set)")[:120],
-    }
-
-    # 2. Validated settings (after pydantic validator)
-    try:
-        from app.config import get_settings
-        s = get_settings()
-        result["validated_settings"] = {
-            "CELERY_BROKER_URL": s.CELERY_BROKER_URL[:120],
-            "CELERY_RESULT_BACKEND": s.CELERY_RESULT_BACKEND[:120],
-            "REDIS_URL": s.REDIS_URL[:120],
-        }
-    except Exception as exc:
-        result["validated_settings_error"] = str(exc)[:300]
-
-    # 3. What the celery app is actually using
-    try:
-        from app.tasks.celery_app import app
-        result["celery_app_conf"] = {
-            "broker_url": (app.conf.broker_url or "")[:120],
-            "result_backend": (app.conf.result_backend or "")[:120],
-        }
-    except Exception as exc:
-        result["celery_app_error"] = str(exc)[:300]
-
-    # 4. Test direct Redis connection (bypass Celery)
-    try:
-        import redis
-        url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-        r = redis.from_url(url, socket_connect_timeout=5, socket_timeout=5)
-        r.ping()
-        result["redis_direct_test"] = {"ok": True, "url": url[:80]}
-        # Try SELECT 0
-        r.select(0)
-        result["redis_direct_test"]["select_0"] = "ok"
-    except Exception as exc:
-        result["redis_direct_test"] = {"ok": False, "error": str(exc)[:200]}
-
-    # 5. Test Celery broker connection (the actual failing path)
-    try:
-        from app.tasks.celery_app import app
-        with app.connection_or_acquire() as conn:
-            conn.ensure_connection(max_retries=1, timeout=3)
-            result["celery_connection_test"] = {"ok": True}
-    except Exception as exc:
-        result["celery_connection_test"] = {"ok": False, "error": str(exc)[:300]}
-
-    return result
