@@ -562,6 +562,34 @@ ${getStageInstructions(session.detected_stage || session.context?.detected_stage
 // ── In-Memory Stores ──────────────────────────────────────────────
 
 const sessions = new Map();
+const MAX_GUEST_SESSIONS = 1000;
+const GUEST_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * The legacy guest assistant is intentionally ephemeral. Bound its
+ * process-local store so anonymous traffic cannot grow memory forever.
+ * Persistent customer-care sessions live in the authenticated backend.
+ */
+function pruneGuestSessions(): void {
+  const now = Date.now();
+  for (const [id, session] of sessions.entries()) {
+    const lastActivity = Date.parse(session.updated_at || session.created_at || '');
+    if (!Number.isFinite(lastActivity) || now - lastActivity > GUEST_SESSION_TTL_MS) {
+      sessions.delete(id);
+    }
+  }
+
+  if (sessions.size > MAX_GUEST_SESSIONS) {
+    const oldestFirst = Array.from(sessions.entries()).sort((a, b) => {
+      const aTime = Date.parse(a[1].updated_at || a[1].created_at || '') || 0;
+      const bTime = Date.parse(b[1].updated_at || b[1].created_at || '') || 0;
+      return aTime - bTime;
+    });
+    for (const [id] of oldestFirst.slice(0, sessions.size - MAX_GUEST_SESSIONS)) {
+      sessions.delete(id);
+    }
+  }
+}
 
 function generateId(): string {
   // Session IDs are bearer capabilities for the legacy guest flow; use
@@ -1206,6 +1234,7 @@ function detectStage(message: string, session: any): string {
 // ── Route Handler ─────────────────────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
 
@@ -1768,6 +1797,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
   const url = new URL(request.url);
@@ -1884,6 +1914,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
   const url = new URL(request.url);
