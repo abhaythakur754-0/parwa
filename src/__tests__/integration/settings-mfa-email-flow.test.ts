@@ -219,7 +219,7 @@ describe('Email Verification Integration', () => {
 
 describe('UI Components Integration', () => {
   it('keeps the retired demo-mode banner disabled', () => {
-    const { DemoBanner } = require('@/components/DemoBanner');
+    const DemoBanner = require('@/components/DemoBanner').default;
     render(React.createElement(DemoBanner));
 
     expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument();
