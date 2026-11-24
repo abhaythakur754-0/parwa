@@ -38,7 +38,9 @@ def _resolve_public_destination(value: str):
         raise ValueError("Webhook URL host is not publicly routable")
 
     try:
-        port = parsed.port or 443
+        port = parsed.port if parsed.port is not None else 443
+        if not 1 <= port <= 65535:
+            raise ValueError("Webhook URL has an invalid port")
     except ValueError as exc:
         raise ValueError("Webhook URL has an invalid port") from exc
 
