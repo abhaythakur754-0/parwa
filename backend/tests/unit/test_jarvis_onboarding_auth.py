@@ -96,7 +96,7 @@ async def test_onboarding_identity_rejects_spoofed_user_id():
 async def test_onboarding_identity_rejects_cross_tenant_query():
     request = make_request("GET", query_string=b"company_id=another-company")
     with pytest.raises(HTTPException) as exc:
-        await enforce_onboarding_identity(request, UserStub())
+        await enforce_onboarding_identity(request, FakeDB(), UserStub())
     assert exc.value.status_code == 403
 
 
