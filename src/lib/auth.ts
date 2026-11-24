@@ -156,6 +156,8 @@ export async function verifyAuth(
       typeof p.sub !== "string" ||
       !p.sub.trim() ||
       typeof p.exp !== "number" ||
+      typeof p.jti !== "string" ||
+      !p.jti.trim() ||
       p.type !== "access"
     ) return null;
     return p;
@@ -175,6 +177,8 @@ export async function verifyAuth(
       typeof p.sub !== "string" ||
       !p.sub.trim() ||
       typeof p.exp !== "number" ||
+      typeof p.jti !== "string" ||
+      !p.jti.trim() ||
       p.type !== "access"
     ) return null;
     return p;
