@@ -48,3 +48,93 @@ def test_accepts_public_https_destination(monkeypatch):
         ],
     )
     assert validate_public_https_url("https://customer.example/hook") == "https://customer.example/hook"
+
+
+def test_pinned_https_connection_uses_vetted_ip_and_original_tls_hostname(monkeypatch):
+    import socket
+    from app.security import outbound_url
+
+    seen = {}
+
+    class FakeSocket:
+        def close(self):
+            pass
+
+    class FakeTLSContext:
+        def wrap_socket(self, raw_socket, server_hostname):
+            seen["server_hostname"] = server_hostname
+            return raw_socket
+
+    fake_socket = FakeSocket()
+    monkeypatch.setattr(
+        outbound_url.ssl,
+        "create_default_context",
+        lambda: FakeTLSContext(),
+    )
+    monkeypatch.setattr(
+        socket,
+        "create_connection",
+        lambda address, timeout: seen.update(address=address, timeout=timeout) or fake_socket,
+    )
+
+    connection = outbound_url._PinnedHTTPSConnection(
+        host="customer.example",
+        port=443,
+        address="93.184.216.34",
+        timeout=3.0,
+    )
+    connection.connect()
+
+    assert seen["address"] == ("93.184.216.34", 443)
+    assert seen["server_hostname"] == "customer.example"
+    connection.close()
+
+
+def test_post_public_https_url_connects_to_resolved_ip(monkeypatch):
+    import socket
+    from app.security import outbound_url
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ],
+    )
+
+    captured = {}
+
+    class FakeResponse:
+        status = 204
+
+        def read(self, _limit):
+            return b"accepted"
+
+    class FakeConnection:
+        def __init__(self, host, port, address, timeout):
+            captured.update(host=host, port=port, address=address, timeout=timeout)
+
+        def request(self, method, path, body, headers):
+            captured.update(method=method, path=path, body=body, headers=headers)
+
+        def getresponse(self):
+            return FakeResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(outbound_url, "_PinnedHTTPSConnection", FakeConnection)
+
+    status, body = outbound_url.post_public_https_url(
+        "https://customer.example/hooks?source=parwa",
+        '{"event":"test"}',
+        {"Content-Type": "application/json"},
+    )
+
+    assert status == 204
+    assert body == "accepted"
+    assert captured["address"] == "93.184.216.34"
+    assert captured["host"] == "customer.example"
+    assert captured["path"] == "/hooks?source=parwa"
+    assert captured["method"] == "POST"
+    assert captured["headers"]["Host"] == "customer.example"
