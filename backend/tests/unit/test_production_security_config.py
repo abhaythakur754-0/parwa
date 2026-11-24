@@ -100,3 +100,10 @@ def test_production_rejects_sample_pricing_key(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     with pytest.raises(ValueError, match="PRICING_SIGNING_KEY"):
         Settings.validate_pricing_signing_key("change-this-to-a-random-64-char-string")
+
+
+def test_production_rejects_repository_default_redis_password(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="REDIS_URL"):
+        Settings.validate_production_redis_auth("redis://:parwa_redis@localhost:6379/0")
