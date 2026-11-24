@@ -25,14 +25,15 @@ export async function POST(req: NextRequest) {
   const auth = await getVerifiedRequest(req);
   if ('response' in auth) return auth.response;
 
-  let body: { variant_tier?: string };
+  let body: { variant_tier?: string; tier?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ success: false, error: 'Invalid JSON in request body' }, { status: 400 });
   }
 
-  if (!body.variant_tier || !['mini', 'parwa', 'high'].includes(body.variant_tier.toLowerCase())) {
+  const variantTier = body.variant_tier || body.tier;
+  if (!variantTier || !['mini', 'parwa', 'high'].includes(variantTier.toLowerCase())) {
     return NextResponse.json({ success: false, error: 'Invalid variant_tier' }, { status: 400 });
   }
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({ variant_tier: body.variant_tier.toLowerCase() }),
+      body: JSON.stringify({ variant_tier: variantTier.toLowerCase() }),
       cache: 'no-store',
       signal: AbortSignal.timeout(20000),
     });
