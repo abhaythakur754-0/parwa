@@ -76,78 +76,7 @@ export function RazorpayCheckout({
         // For FlexPay, get the key from the create-order endpoint
         // (which already returns key_id alongside the order)
         if (!keyId) {
-          // Create an order first (this also returns key_id)
-          const orderRes = await fetch('/api/razorpay/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              amount: Math.round(amount * 100), // $100 → 10000 cents
-              currency,
-              receipt: `flexpay_${Date.now()}`,
-              plan_id: planId,
-              plan_name: `${name} — FlexPay Day 1`,
-            }),
-          });
-          if (orderRes.ok) {
-            const orderData = await orderRes.json();
-            keyId = orderData.key_id;
-            if (!keyId) throw new Error('Razorpay key not returned by server');
-            // Open checkout with the created order
-            await loadRazorpayScript();
-            const options = {
-              key: keyId,
-              amount: orderData.amount,
-              currency: orderData.currency,
-              order_id: orderData.order_id,
-              name,
-              description,
-              method: {
-                card: true,        // Credit/Debit cards only
-                upi: false,        // No UPI (US customers)
-                wallet: false,     // No wallets
-                netbanking: false,  // No netbanking
-                bank_transfer: false,
-              },
-              prefill: {
-                email: customerEmail,
-                name: customerName,
-              },
-              theme: { color: '#10b981' },
-              handler: async (response: any) => {
-                // Verify the payment
-                const verifyRes = await fetch('/api/razorpay/verify-payment', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                    plan_id: planId,
-                    plan_name: name,
-                    amount: orderData.amount,
-                  }),
-                });
-                if (verifyRes.ok) {
-                  toast.success('Payment successful! FlexPay activated.');
-                  onSuccess?.(response.razorpay_payment_id, response.razorpay_order_id);
-                } else {
-                  toast.error('Payment verification failed');
-                }
-              },
-              modal: {
-                ondismiss: () => {
-                  setLoading(false);
-                },
-              },
-            };
-            const rzp = new window.Razorpay(options);
-            rzp.open();
-            return;
-          } else {
-            throw new Error('Failed to create order for FlexPay');
-          }
+          throw new Error('Razorpay public key is not configured. FlexPay tokenization is unavailable.');
         }
         if (!keyId) throw new Error('Razorpay not configured');
         await handleFlexPayTokenization(keyId);
