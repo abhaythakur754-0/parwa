@@ -100,11 +100,6 @@ export function LockedFeature({
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
 
-          {tier === 'parwa' && requiredTier === 'high' && (
-            <p className="text-xs text-zinc-500 mt-3">
-              Upgrade for 5 AI agents and 2,999 tickets/month
-            </p>
-          )}
           {requiredTier === 'high' && (
             <p className="text-xs text-zinc-500 mt-3">
               Upgrade for 8 AI agents (+$3/each extra) and 3,999 tickets/month
