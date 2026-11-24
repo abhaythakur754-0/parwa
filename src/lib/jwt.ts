@@ -116,6 +116,8 @@ export async function verifyToken(
       typeof payload.sub !== "string" ||
       !payload.sub ||
       typeof payload.exp !== "number" ||
+      typeof payload.jti !== "string" ||
+      !payload.jti.trim() ||
       payload.type !== "access"
     ) {
       return null;
