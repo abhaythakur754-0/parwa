@@ -808,6 +808,7 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
     },
     messages: [],
     message_count_today: 0,
+    message_count_date: new Date().toISOString().slice(0, 10),
     total_message_count: 0,
     remaining_today: 20,
     pack_type: 'free',
@@ -1360,12 +1361,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         sessions.set(session.id, session);
       }
 
-      if (!content || typeof content !== 'string') {
+      if (typeof content !== 'string' || !content.trim()) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
       }
+      if (content.length > 4000) {
+        return NextResponse.json({ error: { code: 'message_too_large', message: 'Messages must be 4,000 characters or fewer.', details: null } }, { status: 413 });
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (session.message_count_date !== today) {
+        session.message_count_date = today;
+        session.message_count_today = 0;
+        session.remaining_today = 20;
+      }
+      if (session.message_count_today >= 20) {
+        return NextResponse.json(
+          { error: { code: 'daily_message_limit', message: 'The guest session has reached its 20-message daily limit.', details: null } },
+          { status: 429, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      const normalizedContent = content.trim();
 
       // Auto-extract demo_topics and concerns from user message
-      const lower = content.toLowerCase();
+      const lower = normalizedContent.toLowerCase();
       const topicKeywords = { pricing: ['price', 'pricing', 'plan', 'cost', 'how much'], features: ['feature', 'capability', 'what can'], demo: ['demo', 'try', 'show me', 'test'], roi: ['roi', 'savings', 'save', 'return'], integrations: ['integration', 'connect', 'shopify', 'slack'] };
       for (const [topic, keywords] of Object.entries(topicKeywords)) {
         if (keywords.some(kw => lower.includes(kw)) && !(session.context.demo_topics || []).includes(topic)) {
@@ -1385,7 +1404,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         id: `user_${Date.now()}`,
         session_id: session.id,
         role: 'user',
-        content: content.trim(),
+        content: normalizedContent,
         message_type: 'text',
         metadata: {},
         timestamp: new Date().toISOString(),
@@ -1394,7 +1413,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.message_count_today++;
       session.total_message_count++;
       session.remaining_today = Math.max(0, 20 - session.message_count_today);
-      const newStage = detectStage(content, session);
+      const newStage = detectStage(normalizedContent, session);
       session.detected_stage = newStage;
       session.context.detected_stage = newStage;
 
@@ -1403,7 +1422,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.stage_history.push(newStage);
       }
 
-      const aiContent = await getAIResponse(content, session);
+      const aiContent = await getAIResponse(normalizedContent, session);
 
       const aiMsg = {
         id: `jarvis_${Date.now()}`,
@@ -1434,8 +1453,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
+      // Bound per-session history so a long-running guest chat cannot
+      // grow process memory without limit.
+      if (session.messages.length > 100) {
+        session.messages.splice(0, session.messages.length - 100);
+      }
+      if (session.stage_history?.length > 50) {
+        session.stage_history.splice(0, session.stage_history.length - 50);
+      }
       sessions.set(session.id, session);
-      return NextResponse.json(aiMsg);
+      return NextResponse.json(aiMsg, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // ── POST /context — Update Context ─────────────────────────
