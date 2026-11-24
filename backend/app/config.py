@@ -15,10 +15,20 @@ from functools import lru_cache
 from typing import Literal, Optional
 from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+def _configured_environment(info: Optional[ValidationInfo] = None) -> str:
+    """Read ENVIRONMENT from validated settings data, then process environment."""
+    if info is not None:
+        configured = info.data.get("ENVIRONMENT")
+        if configured:
+            return str(configured).lower()
+    return os.environ.get("ENVIRONMENT", "development").lower()
+
+
 
 
 class Environment(str, Enum):
@@ -181,8 +191,8 @@ class Settings(BaseSettings):
 
     @field_validator("REFRESH_TOKEN_PEPPER")
     @classmethod
-    def validate_refresh_token_pepper(cls, v: str) -> str:
-        env = os.environ.get("ENVIRONMENT", "development").lower()
+    def validate_refresh_token_pepper(cls, v: str, info: ValidationInfo = None) -> str:
+        env = _configured_environment(info)
         if env == "production" and len(v) < 32:
             raise ValueError(
                 "SECURITY CRITICAL: REFRESH_TOKEN_PEPPER must be configured "
@@ -283,9 +293,9 @@ class Settings(BaseSettings):
 
     @field_validator("DATA_ENCRYPTION_KEY")
     @classmethod
-    def validate_encryption_key(cls, v) -> str:
+    def validate_encryption_key(cls, v, info: ValidationInfo = None) -> str:
         """Require stable encryption material in production; generate only for development."""
-        env = os.environ.get("ENVIRONMENT", "development").lower()
+        env = _configured_environment(info)
         if v is None or v == "":
             if env == "production":
                 raise ValueError(
@@ -308,9 +318,9 @@ class Settings(BaseSettings):
 
     @field_validator("SECRET_KEY")
     @classmethod
-    def validate_secret_key(cls, v) -> str:
+    def validate_secret_key(cls, v, info: ValidationInfo = None) -> str:
         """Require a persistent, non-default application secret in production."""
-        env = os.environ.get("ENVIRONMENT", "development").lower()
+        env = _configured_environment(info)
         if v is None or v == "":
             if env == "production":
                 raise ValueError(
@@ -332,7 +342,7 @@ class Settings(BaseSettings):
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod
-    def validate_jwt_key(cls, v) -> str:
+    def validate_jwt_key(cls, v, info: ValidationInfo = None) -> str:
         """BC-011: JWT_SECRET_KEY must be set and strong in production.
 
         In production:
@@ -343,7 +353,7 @@ class Settings(BaseSettings):
           - RAISES if the value is shorter than 16 chars
         In development: auto-generates a 32-char key if not set.
         """
-        env = os.environ.get("ENVIRONMENT", "development")
+        env = _configured_environment(info)
         if v is None or v == "":
             if env == "production":
                 # CRITICAL: an auto-generated JWT secret in production means
@@ -398,9 +408,9 @@ class Settings(BaseSettings):
 
     @field_validator("REDIS_URL")
     @classmethod
-    def validate_production_redis_auth(cls, v: str) -> str:
+    def validate_production_redis_auth(cls, v: str, info: ValidationInfo = None) -> str:
         """Require credentials on the URL actually used by the Redis client."""
-        if os.environ.get("ENVIRONMENT", "development").lower() == "production":
+        if _configured_environment(info) == "production":
             parsed = urlsplit(v)
             if not parsed.password and not os.environ.get("REDIS_PASSWORD"):
                 raise ValueError(
@@ -480,8 +490,8 @@ class Settings(BaseSettings):
 
     @field_validator("PRICING_SIGNING_KEY")
     @classmethod
-    def validate_pricing_signing_key(cls, v) -> str:
-        env = os.environ.get("ENVIRONMENT", "development").lower()
+    def validate_pricing_signing_key(cls, v, info: ValidationInfo = None) -> str:
+        env = _configured_environment(info)
         if v is None or v == "":
             if env == "production":
                 raise ValueError(
