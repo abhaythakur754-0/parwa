@@ -118,3 +118,12 @@ def test_production_rejects_jwt_secret_shorter_than_32_characters(monkeypatch):
 def test_production_accepts_32_character_jwt_secret(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     assert Settings.validate_jwt_key("a" * 32) == "a" * 32
+
+
+def test_production_rejects_placeholder_separate_redis_password_even_if_url_has_one(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("REDIS_PASSWORD", "parwa_redis")
+    with pytest.raises(ValueError, match="Redis credentials"):
+        Settings.validate_production_redis_auth(
+            "redis://default:real-url-password@redis.example:6379/0"
+        )
