@@ -112,8 +112,8 @@ describe('LockedFeature', () => {
           <div>Content</div>
         </LockedFeature>
       );
-
-      expect(screen.getByText(/Upgrade for 5 AI agents and 2,499 tickets\/month/)).toBeInTheDocument();
+      expect(screen.getByText(/Upgrade for 8 AI agents/)).toBeInTheDocument();
+      expect(screen.queryByText(/Upgrade for 5 AI agents/)).not.toBeInTheDocument();
     });
 
     it('links upgrade button to /dashboard/billing', () => {
