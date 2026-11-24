@@ -19,7 +19,7 @@ import type { NextRequest } from "next/server";
 const LOCAL_DEV_SECRET = "dev-jwt-secret-key-change-in-prod-32c";
 const JWT_SECRET =
   process.env.JWT_SECRET_KEY ||
-  (process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1" ? LOCAL_DEV_SECRET : null);
+  (process.env.NODE_ENV !== "production" && process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1" ? LOCAL_DEV_SECRET : null);
 
 /** Keep verification aligned with the backend's configured signing algorithm. */
 const JWT_ALGORITHM = (process.env.JWT_ALGORITHM || process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
