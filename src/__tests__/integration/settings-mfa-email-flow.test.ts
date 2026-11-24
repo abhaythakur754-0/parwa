@@ -218,14 +218,10 @@ describe('Email Verification Integration', () => {
 // ── Error Boundary + Demo Banner Integration ─────────────────────────
 
 describe('UI Components Integration', () => {
-  it('DemoBanner renders and is dismissable', () => {
+  it('keeps the retired demo-mode banner disabled', () => {
     const { DemoBanner } = require('@/components/DemoBanner');
     render(React.createElement(DemoBanner));
 
-    expect(screen.getByTestId('demo-banner')).toBeInTheDocument();
-    expect(screen.getByText(/Demo Mode/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText('Dismiss demo banner'));
     expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument();
   });
 
