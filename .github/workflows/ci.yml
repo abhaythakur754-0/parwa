@@ -202,10 +202,15 @@ jobs:
             exit 1
           fi
           docker exec "$container" sh -c 'grep -Eq "^requirepass [A-Za-z0-9_-]+$" /tmp/redis-runtime.conf'
-          if docker exec -e REDISCLI_AUTH= -e REDIS_PASSWORD= "$container" redis-cli ping >/dev/null 2>&1; then
+          unauthenticated_response="$(docker exec -e REDISCLI_AUTH= -e REDIS_PASSWORD= "$container" redis-cli ping 2>&1 || true)"
+          if [ "$unauthenticated_response" = "PONG" ]; then
             echo "Redis accepted an unauthenticated command"
             exit 1
           fi
+          case "$unauthenticated_response" in
+            *NOAUTH*) echo "Unauthenticated Redis access correctly rejected" ;;
+            *) echo "Unexpected unauthenticated Redis response: $unauthenticated_response"; exit 1 ;;
+          esac
           redis_uid="$(docker exec "$container" id -u)"
           if [ "$redis_uid" = "0" ]; then
             echo "Redis is running as root"
