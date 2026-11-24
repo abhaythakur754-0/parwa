@@ -4,7 +4,7 @@ import { verifyToken, type VerifiedToken } from "@/lib/jwt";
 /** Read an access token from the standard bearer header or httpOnly cookie. */
 export function getRequestAccessToken(request: NextRequest): string | null {
   const authorization = request.headers.get("authorization");
-  const bearer = authorization?.match(/^Bearer\\s+(.+)$/i)?.[1]?.trim();
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   return bearer || request.cookies.get("parwa_at")?.value || null;
 }
 
