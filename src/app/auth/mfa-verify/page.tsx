@@ -32,6 +32,22 @@ export default function MFAVerifyPage() {
     }
   }, []);
 
+  const handleVerify = useCallback(async () => {
+    setLocalError(null);
+    resetError();
+    if (useBackup) {
+      const ok = await verifyLogin(backupCode.trim(), true);
+      if (ok) router.push('/dashboard');
+    } else {
+      if (code.length !== OTP_LENGTH) {
+        setLocalError('Please enter all 6 digits');
+        return;
+      }
+      const ok = await verifyLogin(code);
+      if (ok) router.push('/dashboard');
+    }
+  }, [backupCode, code, resetError, router, useBackup, verifyLogin]);
+
   const handleKeyDown = useCallback(
     (index: number, e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Backspace' && !digits[index] && index > 0) {
@@ -46,7 +62,7 @@ export default function MFAVerifyPage() {
         handleVerify();
       }
     },
-    [digits, code]
+    [digits, code, handleVerify]
   );
 
   const handlePaste = useCallback((e: ClipboardEvent<HTMLInputElement>) => {
@@ -59,22 +75,6 @@ export default function MFAVerifyPage() {
       inputRefs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
     }
   }, []);
-
-  const handleVerify = async () => {
-    setLocalError(null);
-    resetError();
-    if (useBackup) {
-      const ok = await verifyLogin(backupCode.trim(), true);
-      if (ok) router.push('/dashboard');
-    } else {
-      if (code.length !== OTP_LENGTH) {
-        setLocalError('Please enter all 6 digits');
-        return;
-      }
-      const ok = await verifyLogin(code);
-      if (ok) router.push('/dashboard');
-    }
-  };
 
   const displayError = localError || error;
 
