@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * SHOBH — HTTP-only Cookie Helpers
  *
