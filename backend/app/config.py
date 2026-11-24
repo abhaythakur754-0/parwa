@@ -412,7 +412,11 @@ class Settings(BaseSettings):
         """Require credentials on the URL actually used by the Redis client."""
         if _configured_environment(info) == "production":
             parsed = urlsplit(v)
-            if not parsed.password and not os.environ.get("REDIS_PASSWORD"):
+            configured_password = (
+                (info.data.get("REDIS_PASSWORD") if info is not None else None)
+                or os.environ.get("REDIS_PASSWORD")
+            )
+            if not parsed.password and not configured_password:
                 raise ValueError(
                     "SECURITY CRITICAL: production REDIS_URL must contain a password "
                     "or REDIS_PASSWORD must be configured."
