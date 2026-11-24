@@ -47,7 +47,7 @@ class Invoice(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    paddle_invoice_id = Column(String(255))
+    paddle_invoice_id = Column(String(255), unique=True)
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
     status = Column(String(50), nullable=False, default="pending")
@@ -83,7 +83,7 @@ class Transaction(Base):
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    paddle_transaction_id = Column(String(255))
+    paddle_transaction_id = Column(String(255), unique=True)
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
     status = Column(String(50), nullable=False)
