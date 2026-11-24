@@ -39,7 +39,7 @@ function MFASetupContent() {
   // Initiate setup on mount
   useEffect(() => {
     if (!setupData) initiateSetup();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const setDigit = useCallback((index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
