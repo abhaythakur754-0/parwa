@@ -13,104 +13,34 @@ def send_business_otp(
     user_id: str,
     email: str,
 ) -> Dict[str, Any]:
-    """Generate 6-digit OTP and store in session context.
+    """Send an OTP through the hashed, user-scoped verification store."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.business_email_otp_service import send_business_email_otp
 
-    In production, this sends an email via the email service.
-    Returns OTP metadata for the caller to construct the response.
-    """
     session = get_session(db, session_id, user_id)
+    if session.type != "onboarding" or not session.company_id:
+        raise AuthorizationError(message="Onboarding session not found")
+
+    result = send_business_email_otp(
+        db=db,
+        email=email,
+        user_id=str(user_id),
+        company_id=str(session.company_id),
+    )
     ctx = _parse_context(session.context_json)
-
-    # Rate limit OTP attempts
-    otp_data = ctx.get("otp", {})
-    if otp_data.get("attempts", 0) >= MAX_OTP_ATTEMPTS:
-        raise RateLimitError(
-            message="Too many OTP attempts. Please try again later.",
-            details={"attempts": otp_data.get("attempts", 0)},
-        )
-
-    # Generate OTP
-    otp_code = secrets.token_hex(OTP_LENGTH // 2)[:OTP_LENGTH].upper()
-    if len(otp_code) < OTP_LENGTH:
-        otp_code = otp_code.zfill(OTP_LENGTH)
-
-    expires_at = (
-        datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
-    ).isoformat()
-
-    # Store in context
-    otp_data = {
-        "code": otp_code,
-        "email": email,
-        "attempts": 0,
-        "expires_at": expires_at,
-        "status": "sent",
-    }
-    ctx["otp"] = otp_data
-    ctx["business_email"] = email
+    ctx.pop("otp", None)
+    ctx["business_email"] = email.strip().lower()
+    ctx["email_verified"] = False
     session.context_json = json.dumps(ctx)
     session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
-    # Create action ticket (non-critical — don't fail OTP if table missing)
-    try:
-        _create_ticket(db, session_id, "otp_verification", {"email": email})
-    except Exception as ticket_exc:
-        logger.warning("otp_action_ticket_failed: %s", str(ticket_exc)[:200])
-
-    # Send OTP via Brevo email
-    try:
-        from app.services.email_service import send_email
-        otp_html = render_email_template(
-            "business_email_otp.html",
-            {"otp_code": otp_code, "expires_minutes": OTP_EXPIRY_MINUTES, "user_name": "there"},
-        )
-        email_result = send_email(
-            to=email,
-            subject=f"PARWA Verification Code: {otp_code}",
-            html_content=otp_html,
-        )
-        # send_email returns dict {success: bool} or bool — handle both
-        if isinstance(email_result, dict):
-            email_ok = email_result.get("success", False)
-        elif isinstance(email_result, bool):
-            email_ok = email_result
-        else:
-            email_ok = False
-
-        if not email_ok:
-            logger.error(
-                "business_otp_email_failed session_id=%s — email_result=%s",
-                session_id, str(email_result)[:100],
-            )
-            # Update OTP status to 'email_failed'
-            otp_data["status"] = "email_failed"
-            ctx["otp"] = otp_data
-            session.context_json = json.dumps(ctx)
-            db.flush()
-            return {
-                "message": "OTP generated but email failed to send. Please check your email service configuration or contact support.",
-                "status": "email_failed",
-                "attempts_remaining": MAX_OTP_ATTEMPTS,
-                "expires_at": expires_at,
-            }
-    except Exception as e:
-        logger.error(
-            "business_otp_email_failed session_id=%s error=%s",
-            session_id, str(e))
-        return {
-            "message": f"OTP generated but email failed: {str(e)[:100]}",
-            "status": "email_failed",
-            "attempts_remaining": MAX_OTP_ATTEMPTS,
-            "expires_at": expires_at,
-        }
-
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(result["expires_in"]))
     return {
-        "message": f"OTP sent to {email}",
+        "message": result["message"],
         "status": "sent",
         "attempts_remaining": MAX_OTP_ATTEMPTS,
-        "expires_at": expires_at,
-        # OTP code stored in context only — never returned to client
+        "expires_at": expires_at.isoformat(),
     }
 
 
@@ -121,79 +51,38 @@ def verify_business_otp(
     code: str,
     email: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Verify OTP code from session context."""
+    """Verify a persisted OTP; never compare or store plaintext OTP in session JSON."""
+    from datetime import datetime, timezone
+    from app.services.business_email_otp_service import verify_business_email_otp
+
     session = get_session(db, session_id, user_id)
+    if session.type != "onboarding" or not session.company_id:
+        raise AuthorizationError(message="Onboarding session not found")
+
     ctx = _parse_context(session.context_json)
-    otp_data = ctx.get("otp", {})
+    target_email = (email or ctx.get("business_email") or "").strip().lower()
+    if not target_email:
+        raise ValidationError(message="Request a verification code first.")
 
-    # Check OTP status
-    if otp_data.get("status") == "verified":
-        return {
-            "message": "Email already verified",
-            "status": "verified",
-            "attempts_remaining": otp_data.get("attempts_remaining", MAX_OTP_ATTEMPTS),
-        }
+    result = verify_business_email_otp(
+        db=db,
+        email=target_email,
+        otp_code=code,
+        company_id=str(session.company_id),
+        user_id=str(user_id),
+    )
 
-    # Check expiry
-    if otp_data.get("expires_at"):
-        expires = datetime.fromisoformat(otp_data["expires_at"])
-        if datetime.now(timezone.utc) > expires:
-            return {
-                "message": "OTP has expired. Please request a new one.",
-                "status": "expired",
-                "attempts_remaining": 0,
-            }
-
-    # Check email match if provided
-    if email and otp_data.get("email") and email != otp_data["email"]:
-        return {
-            "message": "Email does not match the one OTP was sent to",
-            "status": "error",
-            "attempts_remaining": MAX_OTP_ATTEMPTS - otp_data.get("attempts", 0),
-        }
-
-    # Verify code
-    attempts = otp_data.get("attempts", 0) + 1
-    stored_code = otp_data.get("code", "")
-
-    if code.upper().strip() == stored_code:
-        otp_data["status"] = "verified"
-        otp_data["verified_at"] = datetime.now(timezone.utc).isoformat()
-        otp_data["attempts_remaining"] = MAX_OTP_ATTEMPTS - attempts
-        ctx["otp"] = otp_data
-        ctx["email_verified"] = True
-        session.context_json = json.dumps(ctx)
-        session.updated_at = datetime.now(timezone.utc)
-        db.flush()
-
-        # Update ticket status
-        _complete_latest_ticket(
-            db, session_id, "otp_verification",
-            {"email": email or otp_data.get("email"), "verified": True},
-        )
-        # Create verified ticket
-        _create_ticket(
-            db, session_id, "otp_verified",
-            {"email": email or otp_data.get("email")},
-        )
-
-        return {
-            "message": "Email verified successfully!",
-            "status": "verified",
-            "attempts_remaining": MAX_OTP_ATTEMPTS - attempts,
-        }
-
-    # Wrong code
-    otp_data["attempts"] = attempts
-    otp_data["attempts_remaining"] = max(0, MAX_OTP_ATTEMPTS - attempts)
-    ctx["otp"] = otp_data
+    ctx.pop("otp", None)
+    ctx["business_email"] = target_email
+    ctx["email_verified"] = True
     session.context_json = json.dumps(ctx)
+    session.updated_at = datetime.now(timezone.utc)
     db.flush()
 
     return {
-        "message": f"Invalid OTP. {MAX_OTP_ATTEMPTS - attempts} attempts remaining.",
-        "status": "invalid",
-        "attempts_remaining": MAX_OTP_ATTEMPTS - attempts,
+        "message": result["message"],
+        "status": result["status"],
+        "attempts_remaining": result.get("attempts_remaining"),
     }
 
 
