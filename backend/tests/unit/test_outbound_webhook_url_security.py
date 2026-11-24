@@ -162,3 +162,9 @@ def test_post_rejects_dns_rebinding_to_private_address_before_connect(monkeypatc
             "{}",
             {"Content-Type": "application/json"},
         )
+
+
+@pytest.mark.parametrize("url", ["https://customer.example:0/hook", "https://customer.example:65536/hook"])
+def test_rejects_invalid_destination_ports(url):
+    with pytest.raises(ValueError, match="port"):
+        validate_public_https_url(url)
