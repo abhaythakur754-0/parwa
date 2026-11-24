@@ -434,7 +434,7 @@ async def get_due_endpoint(
         logger.error(f"Failed to get due installments: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Query failed: {str(e)}"
+            detail="Unable to retrieve company plans"
         )
 
 
@@ -664,7 +664,7 @@ n        {
         logger.error(f"Failed to get company plans: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Query failed: {str(e)}"
+            detail="Unable to retrieve company plans"
         )
 
 
