@@ -34,6 +34,18 @@ def _is_placeholder_secret(value: Optional[str]) -> bool:
     if not value:
         return True
     normalized = value.strip().lower()
+    if normalized in {
+        "parwa_redis",
+        "parwa_dev_redis",
+        "parwa_dev",
+        "parwa",
+        "password",
+        "changeme",
+        "secret",
+        "test",
+        "fake",
+    }:
+        return True
     return normalized.startswith((
         "your_",
         "your-",
