@@ -222,7 +222,7 @@ def _load_tenant_variants(tenant_id: str) -> Dict[str, Any]:
                     # DB had instances but none mapped to known tiers
                     raise ValueError("no_mappable_tiers")
 
-                # Sort by priority (mini first)
+                # Sort by priority (Parwa first)
                 owned_short = [t for t in TIER_ORDER if t in owned_short]
                 highest_short = owned_short[-1]  # last = highest
 
@@ -545,9 +545,9 @@ def _route_decision(
         if available_tiers:
             selected_tier = available_tiers[-1]  # highest
         else:
-            selected_tier = "mini"
+            selected_tier = "parwa"
 
-    # If mini can't handle the action, try to find a higher tier
+    # If the selected tier cannot handle the action, try the next owned tier
     # that can, even if quota is exhausted (better to handle than to fail)
     if not _check_capability(selected_tier, ticket_type, complexity, action, action_details):
         for tier in reversed(TIER_ORDER):
@@ -603,7 +603,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         return {
             "route_decision": "simple_path",
             "current_path": "simple_path",
-            "variant_tier": "mini_parwa",
+            "variant_tier": "parwa",
             "quota_remaining": {},
             "variant_capabilities": [],
             "status": "paused",
@@ -713,7 +713,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
 
     # SafetyNet: check if route would bypass safety
     n2_sn1 = "safe"
-    if action == "refund" and selected_tier_short in ("mini", "free"):
+    if action == "refund" and selected_tier_short == "free":
         n2_sn1 = "BLOCK: refund on low tier"
     logs.append({"node": 2, "technique": "SafetyNet", "duration_ms": 0, "result_summary": n2_sn1})
 
@@ -762,8 +762,8 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
 
     # ZeroShotValidator.depth2: cross-check tier vs ticket type
     n2_zsv2 = "ok"
-    if ticket_type == "legal_review" and selected_tier_short not in ("full", "flagship"):
-        n2_zsv2 = "REVIEW: legal_review on non-flagship tier"
+    if ticket_type == "legal_review" and selected_tier_short != "high":
+        n2_zsv2 = "REVIEW: legal_review requires the High tier"
     elif ticket_type == "fraud_security" and selected_tier_short in ("mini", "free"):
         n2_zsv2 = "REVIEW: fraud on low tier"
     logs.append({"node": 2, "technique": "ZeroShotValidator.depth2", "duration_ms": 0, "result_summary": n2_zsv2})
@@ -804,8 +804,8 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     n2_rba2 = "ok"
     # Would check customer tier from state
     n2_customer_tier = (state.get("customer_context") or {}).get("tier", "standard")
-    if n2_customer_tier in ("vip", "enterprise") and selected_tier_short in ("mini", "free"):
-        n2_rba2 = "VIOLATION: VIP customer on low tier"
+    if n2_customer_tier in ("vip", "enterprise") and selected_tier_short == "free":
+        n2_rba2 = "VIOLATION: VIP customer on free tier"
     logs.append({"node": 2, "technique": "RuleBasedAction.depth2", "duration_ms": 0, "result_summary": n2_rba2})
 
     # SafetyNet.depth2: high-stakes action guard
