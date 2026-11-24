@@ -62,18 +62,12 @@ export async function POST(
     });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
-  } catch {
-    const body = await req.json().catch(() => ({}));
-    return NextResponse.json({
-      id: `mock-connector-${Date.now()}`,
-      name: body.name || 'Custom Connector',
-      type: 'custom_connector',
-      status: 'pending',
-      config: {},
-      settings: body.actions ? { actions: body.actions, base_url: body.base_url } : {},
-      error_message: null,
-      created_at: new Date().toISOString(),
-    });
+  } catch (error) {
+    console.error('[custom-connector] Backend unavailable during create:', error);
+    return NextResponse.json(
+      { error: 'backend_unavailable', message: 'Custom connector was not created. Please retry when the backend is available.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }
 
@@ -90,8 +84,12 @@ export async function GET(
     const res = await fetch(endpoint, { headers });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
-  } catch {
-    return NextResponse.json([]);
+  } catch (error) {
+    console.error('[custom-connector] Backend unavailable during list:', error);
+    return NextResponse.json(
+      { error: 'backend_unavailable', message: 'Custom connectors could not be loaded.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
   }
 }
 
