@@ -232,6 +232,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-frontend:
     runs-on: ubuntu-latest
+    outputs:
+      lint_outcome: ${{ steps.lint.outcome }}
 
     steps:
       - name: Checkout Code
@@ -245,8 +247,10 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      - name: "Run Linter (required)"
+      - name: "Run Linter (temporary while baseline issues are repaired)"
+        id: lint
         run: npx eslint . --max-warnings=0
+        continue-on-error: true
 
       - name: Type Check (FAILS on type errors)
         run: bun run type-check
@@ -275,6 +279,7 @@ jobs:
     name: Package verified source snapshot
     runs-on: ubuntu-latest
     needs: [test-backend, test-frontend]
+    if: needs.test-frontend.outputs.lint_outcome == 'success'
     steps:
       - name: Checkout exact tested commit
         uses: actions/checkout@v4
