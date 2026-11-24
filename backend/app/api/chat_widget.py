@@ -366,27 +366,20 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
     Visitors can send messages using their HMAC visitor_token.
     Agents use JWT authentication.
     """
-    # BC-011: Determine company_id from JWT auth or verify visitor token
-    company_id = getattr(request.state, "company_id", None)
+    # Visitor tokens are always verified, even if the request also carries
+    # an authenticated staff token. Never let an invalid visitor token fall
+    # through to the staff tenant context.
     visitor_token = body.visitor_token
-
-    if not company_id and visitor_token:
-        # Verify HMAC visitor token (BC-011)
+    company_id = getattr(request.state, "company_id", None)
+    if visitor_token:
         try:
+            if not body.company_id:
+                raise ValueError("company_id is required with visitor_token")
             db_tmp = _get_db(request)
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(db_tmp)
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(
-                    status_code=401,
-                    content={
-                        "error": {
-                            "code": "AUTHENTICATION_ERROR",
-                            "message": "Invalid visitor token",
-                            "details": None,
-                        }
-                    },
-                )
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id, visitor_token):
+                raise ValueError("invalid visitor token")
             company_id = body.company_id
         except Exception:
             return JSONResponse(
@@ -394,7 +387,7 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
                 content={
                     "error": {
                         "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
+                        "message": "Invalid visitor token",
                         "details": None,
                     }
                 },
@@ -545,11 +538,29 @@ async def get_chat_messages(
 @router.post("/sessions/{session_id}/typing", response_model=ChatTypingResponse)
 async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, session_id: str):
     """Emit a typing indicator via Socket.io (BC-005, BC-011)."""
-    # BC-011: Verify visitor token if no JWT auth
+    # Visitor tokens are always verified and cannot supply agent identity.
     company_id = getattr(request.state, "company_id", None)
     visitor_token = body.visitor_token
     if visitor_token:
-        # Visitor-supplied role and user IDs must never impersonate an agent.
+        try:
+            if not body.company_id:
+                raise ValueError("company_id is required with visitor_token")
+            from app.services.chat_widget_service import ChatWidgetService
+            tmp_svc = ChatWidgetService(_get_db(request))
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id, visitor_token):
+                raise ValueError("invalid visitor token")
+            company_id = body.company_id
+        except Exception:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Invalid visitor token",
+                        "details": None,
+                    }
+                },
+            )
         typing_role = "visitor"
         typing_user_id = None
     else:
@@ -566,24 +577,6 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
                 },
             )
         typing_role = "agent"
-    if not company_id and visitor_token:
-        try:
-            from app.services.chat_widget_service import ChatWidgetService
-            tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
-            company_id = body.company_id
-        except Exception:
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "error": {
-                        "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
-                        "details": None,
-                    }
-                },
-            )
 
     if not company_id:
         return JSONResponse(
@@ -778,7 +771,18 @@ async def get_widget_config(request: Request):
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
-        config = service.get_or_create_widget_config(company_id)
+        config = service.get_widget_config(company_id)
+        if not config:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Chat widget is not configured",
+                        "details": None,
+                    }
+                },
+            )
         return config.to_dict()
     except Exception as exc:
         logger.error(
