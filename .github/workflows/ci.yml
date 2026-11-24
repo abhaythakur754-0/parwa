@@ -70,7 +70,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -eu
-          docker build -f infra/docker/redis.Dockerfile -t parwa-redis-ci .
+          docker build -f ../infra/docker/redis.Dockerfile -t parwa-redis-ci ..
           container="parwa-redis-ci-${GITHUB_RUN_ID}"
           password="$(openssl rand -hex 32)"
           trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
