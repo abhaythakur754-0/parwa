@@ -29,7 +29,10 @@ const ACCESS_TTL_S = 15 * 60; // 15 minutes
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // 7 days
 
 export function isLocalAuthEnabled(): boolean {
-  return process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1";
+  // Local Prisma-backed auth is a development escape hatch only. Never allow
+  // an accidental production env flag to mint or refresh local JWTs.
+  return process.env.NODE_ENV !== "production" &&
+    process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1";
 }
 
 function getSecretKey(): Uint8Array {
