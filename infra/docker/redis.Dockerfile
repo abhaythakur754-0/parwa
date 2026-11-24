@@ -27,7 +27,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose Redis port
 EXPOSE 6379
 
-# Keep the password out of the Redis process command line. Redis reads it
-# from a root-readable config file created at container startup. Generate
-# passwords with URL-safe characters (e.g. openssl rand -hex 32).
-CMD ["sh", "-c", "set -eu; if [ -z \"$REDIS_PASSWORD\" ]; then echo \"REDIS_PASSWORD is required\" >&2; exit 1; fi; case \"$REDIS_PASSWORD\" in *[!A-Za-z0-9_-]*) echo \"REDIS_PASSWORD must use URL-safe characters\" >&2; exit 1;; esac; umask 077; cat /usr/local/etc/redis/redis.conf > /tmp/redis-runtime.conf; printf 'requirepass %s\\n' "$REDIS_PASSWORD" >> /tmp/redis-runtime.conf; exec redis-server /tmp/redis-runtime.conf"]
+# The startup script writes the password to a mode-0600 config file so it
+# never appears in the Redis process arguments.
+COPY infra/docker/redis-entrypoint.sh /usr/local/bin/redis-entrypoint.sh
+RUN chmod 755 /usr/local/bin/redis-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/redis-entrypoint.sh"]
