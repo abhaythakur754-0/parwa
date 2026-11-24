@@ -17,6 +17,9 @@ COPY infra/docker/redis.conf /usr/local/etc/redis/redis.conf
 # Create data directory with proper permissions
 RUN mkdir -p /data && chown redis:redis /data
 
+# The custom shell entrypoint must not bypass the official image's privilege drop.
+USER redis
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD REDISCLI_AUTH="${REDIS_PASSWORD:-}" redis-cli ping 2>/dev/null | grep -q PONG || exit 1
