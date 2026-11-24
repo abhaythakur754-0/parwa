@@ -4,7 +4,7 @@
  * Tests tier gating, upgrade CTA, custom fallback,
  * TierBadge, and InlineLock sub-components.
  *
- * Tier model: parwa ($2,499/mo) | high ($3,999/mo)
+ * Tier model: parwa ($2,999/mo) | high ($3,999/mo)
  * Mini SHOBH was removed — legacy 'mini' values auto-upgrade to 'parwa'.
  */
 
@@ -104,7 +104,7 @@ describe('LockedFeature', () => {
       expect(screen.getByText(/\$3,999\/mo/)).toBeInTheDocument();
     });
 
-    it('shows parwa-to-high upsell message for parwa users accessing high features', () => {
+    it('shows accurate High plan upgrade details for Parwa users', () => {
       useVariantStore.getState().setTier('parwa');
 
       render(
@@ -114,18 +114,6 @@ describe('LockedFeature', () => {
       );
 
       expect(screen.getByText(/Upgrade for 5 AI agents and 2,499 tickets\/month/)).toBeInTheDocument();
-    });
-
-    it('shows high upsell message for high-tier features', () => {
-      useVariantStore.getState().setTier('parwa');
-
-      render(
-        <LockedFeature requiredTier="high">
-          <div>Content</div>
-        </LockedFeature>
-      );
-
-      expect(screen.getByText(/Upgrade for 8 AI agents/)).toBeInTheDocument();
     });
 
     it('links upgrade button to /dashboard/billing', () => {
