@@ -582,8 +582,21 @@ describe('useTicketStore', () => {
         priority: 'critical', channel: 'email', customer_name: 'B', customer_email: 'b@b.com',
       });
 
+      // Simulate persisted backend pipeline results; the client does not guess these.
+      useTicketStore.setState({
+        tickets: useTicketStore.getState().tickets.map((ticket) => {
+          const variant = ticket.subject === 'Low cost' ? 'light' : 'heavy';
+          const cost = VARIANT_COST[variant];
+          return {
+            ...ticket,
+            assigned_variant: variant,
+            cost_per_ticket: cost,
+            savings_per_ticket: 12.5 - cost,
+          };
+        }),
+      });
+
       const stats = useTicketStore.getState().ticketStats();
-      // light cost + heavy cost
       expect(stats.totalCost).toBeCloseTo(VARIANT_COST.light + VARIANT_COST.heavy, 4);
       expect(stats.totalSavings).toBeCloseTo(
         (12.5 - VARIANT_COST.light) + (12.5 - VARIANT_COST.heavy), 2
