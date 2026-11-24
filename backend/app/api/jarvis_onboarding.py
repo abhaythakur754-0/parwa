@@ -82,7 +82,7 @@ async def enforce_onboarding_identity(
         session = db.query(JarvisSession).filter(
             JarvisSession.id == str(session_id),
             JarvisSession.company_id == authenticated_company_id,
-            JarvisSession.session_type == "onboarding",
+            JarvisSession.type == "onboarding",
         ).first()
         if not session or str(session.user_id or "") != str(user.id):
             raise HTTPException(status_code=404, detail="Onboarding session not found")
