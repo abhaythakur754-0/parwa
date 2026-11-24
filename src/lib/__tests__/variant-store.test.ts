@@ -36,8 +36,8 @@ describe('isTierAtLeast', () => {
 
 describe('getTierLabel', () => {
   it('returns correct labels for each tier', () => {
-    expect(getTierLabel('parwa')).toBe('SHOBH');
-    expect(getTierLabel('high')).toBe('SHOBH High');
+    expect(getTierLabel('parwa')).toBe('PARWA Growth');
+    expect(getTierLabel('high')).toBe('PARWA High');
   });
 });
 
