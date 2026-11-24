@@ -99,7 +99,7 @@ export function RazorpayCheckout({
               key: keyId,
               amount: orderData.amount,
               currency: orderData.currency,
-              order_id: orderData.id,
+              order_id: orderData.order_id,
               name,
               description,
               method: {
@@ -131,7 +131,7 @@ export function RazorpayCheckout({
                 });
                 if (verifyRes.ok) {
                   toast.success('Payment successful! FlexPay activated.');
-                  onSuccess?.();
+                  onSuccess?.(response.razorpay_payment_id, response.razorpay_order_id);
                 } else {
                   toast.error('Payment verification failed');
                 }
