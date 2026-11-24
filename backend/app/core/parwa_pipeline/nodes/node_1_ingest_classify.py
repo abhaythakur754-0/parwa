@@ -2049,8 +2049,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             logger.warning("quota_status_check_failed: %s", str(exc)[:200])
 
         # ── Unavailable agent quota: skip agent creation entirely ──
-        # Use generic AI and allow normal quality checks to decide escalation. # Don't escalate — Mini is supposed to handle
-        # tickets with generic AI and only escalate if quality fails later.
+        # Use generic AI and let normal quality checks decide escalation.
         if not _tier_allows_agents:
             logs.append({
                 "node": 1, "technique": "CapabilityRouter.GenericAIQuotaFallback",
