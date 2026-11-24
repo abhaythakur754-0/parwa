@@ -1,5 +1,11 @@
-import pytest
+import sys
+from pathlib import Path
+
 from starlette.requests import Request
+
+_BACKEND = Path(__file__).resolve().parents[2] / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
 
 from app.core import jwt_auth
 from app.middleware.tenant import _extract_company_id_from_jwt
