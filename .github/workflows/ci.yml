@@ -188,6 +188,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-frontend:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -208,6 +210,18 @@ jobs:
           name: refreshed-bun-lock
           path: bun.lock
           retention-days: 1
+
+      - name: Commit refreshed Bun lockfile
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          if ! git diff --quiet -- bun.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add bun.lock
+            git commit -m "build: refresh Bun lockfile for scoped dependency overrides"
+            git push origin HEAD:main
+          fi
+
 
       - name: Run Linter (FAILS on errors)
         run: npx eslint . --max-warnings=0
