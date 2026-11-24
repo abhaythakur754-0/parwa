@@ -696,36 +696,14 @@ async def mark_messages_read(request: Request, session_id: str, current_user: Us
 
 @router.post("/sessions/{session_id}/rate", response_model=ChatCSATResponse)
 async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_id: str):
-    """Submit a CSAT rating for a chat session (BC-011)."""
-    # BC-011: Verify visitor token if no JWT auth
-    company_id = getattr(request.state, "company_id", None)
-    visitor_token = body.visitor_token
-    if not company_id and visitor_token:
-        try:
-            from app.services.chat_widget_service import ChatWidgetService
-            tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
-            company_id = body.company_id
-        except Exception:
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "error": {
-                        "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
-                        "details": None,
-                    }
-                },
-            )
-
-    if not company_id:
+    """Submit a visitor CSAT rating using the session-bound visitor token."""
+    if not body.visitor_token or not body.company_id:
         return JSONResponse(
-            status_code=403,
+            status_code=401,
             content={
                 "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Authentication required (JWT or visitor token)",
+                    "code": "AUTHENTICATION_ERROR",
+                    "message": "A valid visitor token is required",
                     "details": None,
                 }
             },
@@ -734,10 +712,23 @@ async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
-        service = ChatWidgetService(db, company_id)
+        service = ChatWidgetService(db, body.company_id)
+        if not service.verify_visitor_token(
+            session_id, body.company_id, body.visitor_token
+        ):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Invalid visitor token",
+                        "details": None,
+                    }
+                },
+            )
         result = service.submit_csat_rating(
             session_id=session_id,
-            company_id=company_id,
+            company_id=body.company_id,
             rating=body.rating,
             comment=body.comment,
         )
@@ -757,7 +748,7 @@ async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_
         logger.error(
             "chat_csat_error",
             extra={
-                "company_id": company_id,
+                "company_id": body.company_id,
                 "session_id": session_id,
                 "error": str(exc)[:200],
             },
