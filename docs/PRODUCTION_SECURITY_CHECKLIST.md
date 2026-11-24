@@ -44,11 +44,18 @@ The old committed Superglue credential was removed from application code. Removi
 
 Review provider keys and webhook secrets (Razorpay, Twilio, email, CRM, LLM providers) and rotate any value that has ever been committed or shared outside the secret store.
 
+## Known production blocker: legacy guest Jarvis sessions
+
+The legacy Next.js `/api/jarvis/session` and `/history` flow still stores anonymous guest sessions in a process-local Map. It has TTL and capacity bounds, but state is lost on restart and is not shared across server instances. The persistent authenticated Customer Care Jarvis flow is separate.
+
+Before production launch, either migrate the legacy guest flow to durable, tenant-safe storage and test it across multiple instances, or explicitly disable that legacy guest flow in production. Do not treat its current in-memory behavior as production-grade persistence.
+
 ## Required live smoke tests
 
 Run these against staging with real test credentials before production:
 
 - Sign up, login, refresh, logout, password reset, and MFA.
+- Verify onboarding cannot complete or activate until the backend confirms the exact saved work email through OTP.
 - Verify cross-user and cross-company access is rejected for onboarding, tickets, knowledge base, integrations, and billing.
 - Complete a Razorpay test payment; confirm amount/currency/order ownership and captured status; replay verification concurrently and confirm exactly one subscription is created.
 - Send a Razorpay webhook with a valid signature and confirm invalid signatures are rejected.
@@ -67,5 +74,6 @@ Do not mark production-ready until:
 3. Required secrets are configured consistently on Render.
 4. The leaked credential is rotated.
 5. The live smoke tests above pass.
+6. The legacy guest Jarvis session limitation is resolved or that flow is disabled in production.
 
 A static code review and GitHub Actions run alone cannot verify these external systems.
