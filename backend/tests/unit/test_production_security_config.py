@@ -25,7 +25,7 @@ def test_production_requires_authenticated_redis_url(monkeypatch):
 @pytest.mark.parametrize(
     "url",
     [
-        "redis://default:secret@redis.example:6379/0",
+        "redis://default:random-long-test-password@redis.example:6379/0",
         "redis://localhost:6379/0",
     ],
 )
