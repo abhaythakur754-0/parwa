@@ -440,8 +440,8 @@ class Settings(BaseSettings):
             redis_password = parsed.password or configured_password
             if not redis_password or _is_placeholder_secret(redis_password):
                 raise ValueError(
-                    "SECURITY CRITICAL: REDIS_URL must contain credentials or "
-                    "REDIS_PASSWORD must be configured, and credentials must not be sample/template values."
+                    "SECURITY CRITICAL: REDIS_URL Redis credentials must be configured "
+                    "in the URL or via REDIS_PASSWORD, and must not be sample/template values."
                 )
         return v
 
