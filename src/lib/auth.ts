@@ -156,7 +156,7 @@ export async function verifyAuth(
       typeof p.sub !== "string" ||
       !p.sub.trim() ||
       typeof p.exp !== "number" ||
-      p.type === "refresh"
+      p.type !== "access"
     ) return null;
     return p;
   } catch {
@@ -175,7 +175,7 @@ export async function verifyAuth(
       typeof p.sub !== "string" ||
       !p.sub.trim() ||
       typeof p.exp !== "number" ||
-      p.type === "refresh"
+      p.type !== "access"
     ) return null;
     return p;
   } catch {
