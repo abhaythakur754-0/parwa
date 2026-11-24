@@ -222,6 +222,9 @@ jobs:
       - name: Run Jest Unit Tests
         # Native ESM support is required by the jose dependency.
         run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js --passWithNoTests
+        env:
+          JWT_SECRET_KEY: fake_jwt_secret_for_ci
+          NEXT_PUBLIC_JWT_ALGORITHM: HS256
         continue-on-error: true  # Keep non-blocking until legacy suites are reconciled.
 
       - name: Run Vitest API Tests
