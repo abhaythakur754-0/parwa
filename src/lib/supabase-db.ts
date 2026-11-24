@@ -457,17 +457,17 @@ export async function createPayment(data: PaymentData) {
 }
 
 export async function updatePaymentStatus(
-  paymentId: string,
+  razorpayOrderId: string,
   status: string,
   extraData?: Record<string, unknown>
 ) {
   return db.from('payments').update(
-    { 
-      status, 
+    {
+      status,
       ...extraData,
-      updated_at: new Date().toISOString() 
+      updated_at: new Date().toISOString(),
     } as unknown as Record<string, unknown>,
-    { id: paymentId }
+    { razorpay_order_id: razorpayOrderId },
   );
 }
 
