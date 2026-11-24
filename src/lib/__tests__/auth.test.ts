@@ -19,12 +19,13 @@ const JWT_SECRET = new TextEncoder().encode(
 async function createTestToken(overrides: Record<string, unknown> = {}, isRefresh = false) {
   const payload = {
     sub: 'user-123',
+    jti: 'test-jti-123',
     email: 'test@example.com',
     role: 'owner',
     company_id: 'company-123',
     ...overrides,
   };
-  return new SignJWT({ ...payload, type: isRefresh ? 'refresh' : undefined })
+  return new SignJWT({ ...payload, type: isRefresh ? 'refresh' : 'access' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setIssuer('parwa:frontend')
