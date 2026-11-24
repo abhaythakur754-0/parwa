@@ -28,6 +28,18 @@ Set the **same strong random `REDIS_PASSWORD`** on all three Render services:
 
 The backend Redis client and Celery broker/result-backend URLs apply this password at connection time. The Redis password is separate from the application signing/encryption keys.
 
+## Required Vercel environment
+
+Configure these as server-side environment variables in the Vercel project:
+
+- `BACKEND_URL` pointing to the production Render API.
+- `JWT_SECRET_KEY` matching the backend when HS256 is used. If RS256 is selected, configure the matching public-key variables and `NEXT_PUBLIC_JWT_ALGORITHM=RS256` instead; never expose a private signing key.
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for server-side database routes. The service-role key must never use a `NEXT_PUBLIC_` prefix.
+- `FRONTEND_URL` set to the canonical production origin.
+- `SUPERGLUE_LLM_API_KEY` only if the Superglue-backed chat integration is enabled.
+
+Do not copy secrets into build arguments, source files, client-side variables, or logs. Keep the Vercel and Render token-verification configuration aligned.
+
 ## Required database migration
 
 Before enabling the updated Razorpay verification flow, apply:
