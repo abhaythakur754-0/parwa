@@ -116,7 +116,7 @@ export async function verifyToken(
       typeof payload.sub !== "string" ||
       !payload.sub ||
       typeof payload.exp !== "number" ||
-      payload.type === "refresh"
+      payload.type !== "access"
     ) {
       return null;
     }
