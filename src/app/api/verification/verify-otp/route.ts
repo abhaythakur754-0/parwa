@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { backendProxy } from "@/lib/backend-proxy";
+import { getAuthenticatedUserId } from "@/lib/api-auth";
+import { db } from "@/lib/supabase-db";
 
 function getAuthToken(req: NextRequest): string | null {
   const authHeader = req.headers.get("authorization");
@@ -19,7 +21,8 @@ function getAuthToken(req: NextRequest): string | null {
 
 export async function POST(request: NextRequest) {
   const token = getAuthToken(request);
-  if (!token) {
+  const userId = await getAuthenticatedUserId(request);
+  if (!token || !userId) {
     return NextResponse.json(
       { error: "unauthorized", message: "Please sign in to verify your email." },
       { status: 401 },
@@ -47,6 +50,40 @@ export async function POST(request: NextRequest) {
     const data = await response.json().catch(() => ({}));
 
     if (response.ok) {
+      if (data.status !== "verified") {
+        return NextResponse.json(
+          { error: "verification_unconfirmed", message: "The verification service did not confirm this email." },
+          { status: 502 },
+        );
+      }
+
+      // The backend OTP service is authoritative. Mirror its successful
+      // result only onto this authenticated user's matching work-email row.
+      const details = await db.from("user_details").select("*", {
+        filter: { user_id: userId },
+        single: true,
+      });
+      if (!details || String(details.work_email || "").toLowerCase() !== email) {
+        return NextResponse.json(
+          { error: "work_email_mismatch", message: "The verified email does not match your saved work email." },
+          { status: 409 },
+        );
+      }
+
+      const updated = await db.from("user_details").update(
+        {
+          work_email_verified: true,
+          updated_at: new Date().toISOString(),
+        },
+        { user_id: userId, work_email: email },
+      );
+      if (!Array.isArray(updated) || updated.length === 0) {
+        return NextResponse.json(
+          { error: "verification_persistence_failed", message: "Email verification could not be saved. Please retry." },
+          { status: 503 },
+        );
+      }
+
       return NextResponse.json({
         success: true,
         verified: true,
