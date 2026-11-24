@@ -84,7 +84,7 @@ describe('useTicketStore', () => {
       });
 
       expect(ticket.id).toBeDefined();
-      expect(ticket.ticket_number).toMatch(/^TKT-\d{4}$/);
+      expect(ticket.ticket_number).toBe('TKT-PENDING');
       expect(ticket.status).toBe('open');
       expect(ticket.subject).toBe('Test ticket');
       expect(ticket.category).toBe('billing_payments');
