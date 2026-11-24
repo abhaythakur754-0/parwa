@@ -67,43 +67,6 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics \
             --exclude=venv,.venv,__pycache__,dist,build,graphify-out,.git,node_modules,parwa_core
 
-      - name: Build and smoke-test production Redis image
-        timeout-minutes: 5
-        run: |
-          set -eu
-          docker build -f ../infra/docker/redis.Dockerfile -t parwa-redis-ci ..
-          container="parwa-redis-ci-${GITHUB_RUN_ID}"
-          password="$(openssl rand -hex 32)"
-          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
-          docker run -d --name "$container" -e REDIS_PASSWORD="$password" parwa-redis-ci
-          ready=0
-          for attempt in $(seq 1 20); do
-            if docker exec -e REDISCLI_AUTH="$password" "$container" redis-cli ping 2>/dev/null | grep -q PONG; then
-              ready=1
-              break
-            fi
-            sleep 1
-          done
-          if [ "$ready" != "1" ]; then
-            docker logs "$container"
-            exit 1
-          fi
-          docker exec "$container" sh -c "grep -Eq '^requirepass [A-Za-z0-9_-]+
-            echo "Redis accepted an unauthenticated command"
-            exit 1
-          fi
-          redis_uid="$(docker exec "$container" id -u)"
-          if [ "$redis_uid" = "0" ]; then
-            echo "Redis is running as root"
-            exit 1
-          fi
-          redis_args="$(docker exec "$container" sh -c "ps w | grep '[r]edis-server'")"
-          if printf '%s' "$redis_args" | grep -F "$password"; then
-            echo "Redis password leaked in process arguments"
-            exit 1
-          fi
-          echo "Redis image authentication, non-root execution, and argv secrecy verified"
-
       - name: Run Unit Tests (no DB required — FAILS on real failures)
         env:
           ENVIRONMENT: test
@@ -216,6 +179,43 @@ jobs:
           python ../scripts/test_local_human_replacement.py
 
           kill $SERVER_PID 2>/dev/null || true
+
+      - name: Build and smoke-test production Redis image
+        timeout-minutes: 5
+        run: |
+          set -eu
+          docker build -f ../infra/docker/redis.Dockerfile -t parwa-redis-ci ..
+          container="parwa-redis-ci-${GITHUB_RUN_ID}"
+          password="$(openssl rand -hex 32)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container" -e REDIS_PASSWORD="$password" parwa-redis-ci
+          ready=0
+          for attempt in $(seq 1 20); do
+            if docker exec -e REDISCLI_AUTH="$password" "$container" redis-cli ping 2>/dev/null | grep -q PONG; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            docker logs "$container"
+            exit 1
+          fi
+          docker exec "$container" sh -c "grep -Eq '^requirepass [A-Za-z0-9_-]+
+            echo "Redis accepted an unauthenticated command"
+            exit 1
+          fi
+          redis_uid="$(docker exec "$container" id -u)"
+          if [ "$redis_uid" = "0" ]; then
+            echo "Redis is running as root"
+            exit 1
+          fi
+          redis_args="$(docker exec "$container" sh -c "ps w | grep '[r]edis-server'")"
+          if printf '%s' "$redis_args" | grep -F "$password"; then
+            echo "Redis password leaked in process arguments"
+            exit 1
+          fi
+          echo "Redis image authentication, non-root execution, and argv secrecy verified"
 
       - name: Test Summary
         if: always()
