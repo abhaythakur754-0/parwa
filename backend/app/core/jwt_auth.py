@@ -138,15 +138,11 @@ def _load_rs256_keys():
 
 
 def _get_jwt_algorithm():
-    """Get the current JWT algorithm from settings.
+    """Return the explicitly configured JWT algorithm.
 
-    Falls back to HS256 if settings cannot be loaded.
+    Configuration failures must never silently downgrade verification to HS256.
     """
-    try:
-        settings = get_settings()
-        return settings.JWT_ALGORITHM
-    except Exception:
-        return "HS256"  # Safe fallback
+    return get_settings().JWT_ALGORITHM
 
 
 def create_access_token(
@@ -199,14 +195,13 @@ def create_access_token(
     if algorithm == "RS256":
         private_key, _ = _load_rs256_keys()
         if not private_key:
-            logger.warning(
-                "RS256 configured but no private key found — falling back to HS256 for signing"
+            raise RuntimeError(
+                "RS256 is configured but JWT_PRIVATE_KEY is unavailable; refusing to sign with HS256."
             )
-            algorithm = "HS256"
-            signing_key = settings.JWT_SECRET_KEY
-        else:
-            signing_key = private_key
+        signing_key = private_key
     else:
+        if not settings.JWT_SECRET_KEY:
+            raise RuntimeError("JWT_SECRET_KEY is not configured.")
         signing_key = settings.JWT_SECRET_KEY
 
     # Build headers — include kid for key identification
@@ -218,81 +213,51 @@ def create_access_token(
 
 
 def verify_access_token(token: str) -> dict:
-    """Verify and decode a JWT access token (JWT verification only).
+    """Verify an access token using only the configured JWT algorithm.
 
-    BC-011: Rejects expired tokens, wrong type, invalid signatures.
-    L-02: Also tries JWT_PREVIOUS_KEYS for rotated key support.
-    CROSS-6: Note — this function verifies the JWT signature and
-    payload only.  Callers that need revocation checking should
-    call ``is_token_revoked()`` with the payload's ``jti`` *after*
-    this function succeeds (see deps.get_current_user).
-
-    Week 6: Supports dual-algorithm verification (RS256 + HS256).
-    Tries RS256 first if configured, then falls back to HS256 with
-    all previous keys.
-
-    Args:
-        token: The JWT string from Authorization header.
-
-    Returns:
-        Decoded token payload dict.
-
-    Raises:
-        AuthenticationError: If token is invalid or expired.
+    HS256 key rotation is supported only when HS256 is explicitly configured.
+    RS256 configuration never falls back to a symmetric secret.
     """
     settings = get_settings()
-    last_error = None
+    algorithm = settings.JWT_ALGORITHM
 
-    # ── Strategy 1: RS256 verification (if configured) ──────────
-    algorithm = _get_jwt_algorithm()
     if algorithm == "RS256":
         _, public_key = _load_rs256_keys()
-        if public_key:
-            try:
-                payload = jwt.decode(
-                    token,
-                    public_key,
-                    algorithms=["RS256"],
-                )
-                if payload.get("type") != "access":
-                    raise AuthenticationError(
-                        message="Invalid token type",
-                        details={"expected": "access"},
-                    )
-                return payload
-            except AuthenticationError:
-                raise
-            except JWTError as exc:
-                last_error = exc
-                logger.debug("RS256 verification failed, trying HS256: %s", exc)
-        else:
-            logger.warning("RS256 configured but no public key found for verification")
-
-    # ── Strategy 2: HS256 verification with key rotation ────────
-    candidate_keys = [settings.JWT_SECRET_KEY] + _JWT_PREVIOUS_KEYS
-    for key in candidate_keys:
-        try:
-            payload = jwt.decode(
-                token,
-                key,
-                algorithms=["HS256"],
+        if not public_key:
+            raise AuthenticationError(
+                message="RS256 is configured but JWT_PUBLIC_KEY is unavailable",
             )
-            if payload.get("type") != "access":
-                raise AuthenticationError(
-                    message="Invalid token type",
-                    details={"expected": "access"},
-                )
-            return payload
-        except AuthenticationError:
-            raise
+        try:
+            payload = jwt.decode(token, public_key, algorithms=["RS256"])
         except JWTError as exc:
-            last_error = exc
-            continue
+            logger.debug("RS256 token verification failed: %s", exc)
+            raise AuthenticationError(message="Invalid or expired token") from exc
+    elif algorithm == "HS256":
+        if not settings.JWT_SECRET_KEY:
+            raise AuthenticationError(message="JWT_SECRET_KEY is not configured")
+        candidate_keys = [settings.JWT_SECRET_KEY] + _JWT_PREVIOUS_KEYS
+        payload = None
+        for key in candidate_keys:
+            try:
+                payload = jwt.decode(token, key, algorithms=["HS256"])
+                break
+            except JWTError:
+                continue
+        if payload is None:
+            raise AuthenticationError(message="Invalid or expired token")
+    else:
+        raise AuthenticationError(message="Unsupported JWT algorithm")
 
-    raise AuthenticationError(
-        message="Invalid or expired token",
-    )
-
+    if payload.get("type") != "access":
+        raise AuthenticationError(
+            message="Invalid token type",
+            details={"expected": "access"},
+        )
+    if not isinstance(payload.get("sub"), str) or not payload["sub"].strip():
+        raise AuthenticationError(message="Invalid token identity")
+    if not isinstance(payload.get("exp"), (int, float)):
+        raise AuthenticationError(message="Token expiry is required")
+    return payload
 
 # ── CROSS-6: Token Blacklist (Redis-backed) ──────────────────────
 # Token blacklisting uses Redis SET entries with TTL matching
