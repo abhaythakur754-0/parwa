@@ -56,7 +56,7 @@ describe('SupabaseClient URL configuration', () => {
     delete process.env.SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    await expect(new SupabaseClient().from('users').select()).rejects.toThrow(
+    expect(() => new SupabaseClient().from('users').select()).toThrow(
       'SUPABASE_URL is not set'
     );
     expect(global.fetch).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe('SupabaseClient URL configuration', () => {
   it('rejects malformed Supabase URLs', async () => {
     process.env.SUPABASE_URL = 'not-a-url';
 
-    await expect(new SupabaseClient().from('users').select()).rejects.toThrow(
+    expect(() => new SupabaseClient().from('users').select()).toThrow(
       'Supabase URL must be a valid absolute URL'
     );
     expect(global.fetch).not.toHaveBeenCalled();
