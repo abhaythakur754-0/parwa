@@ -54,7 +54,7 @@ describe('Integration: current Parwa tier model', () => {
 
     expect(result.current.tier).toBe('high');
     expect(result.current.features.maxAgents).toBe(8);
-    expect(result.current.features.maxKnowledgeDocs).toBe(-1);
+    expect(result.current.features.maxKnowledgeDocs).toBe(2000);
   });
 
   it('normalizes retired tier aliases to Parwa', () => {
