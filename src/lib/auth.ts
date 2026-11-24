@@ -1,5 +1,3 @@
-import 'server-only';
-
 /**
  * SHOBH Dashboard — JWT Auth Verification (C-01 Fix + Week 6 RS256)
  *
