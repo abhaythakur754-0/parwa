@@ -87,7 +87,7 @@ jobs:
             docker logs "$container"
             exit 1
           fi
-          if docker exec "$container" redis-cli ping >/dev/null 2>&1; then
+          if docker exec -e REDISCLI_AUTH= "$container" redis-cli ping >/dev/null 2>&1; then
             echo "Redis accepted an unauthenticated command"
             exit 1
           fi
