@@ -56,7 +56,7 @@ describe('SupabaseClient URL configuration', () => {
     delete process.env.SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    await expect(new SupabaseClient().from('users').select()).rejects.toThrow(
+    expect(() => new SupabaseClient().from('users')).toThrow(
       'SUPABASE_URL is not set'
     );
     expect(global.fetch).not.toHaveBeenCalled();
