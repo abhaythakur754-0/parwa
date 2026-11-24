@@ -242,11 +242,9 @@ jobs:
 
       - name: Run Linter (FAILS on errors)
         run: npx eslint . --max-warnings=0
-        continue-on-error: true  # TODO: enforce once all existing warnings are fixed
 
       - name: Type Check (FAILS on type errors)
         run: bun run type-check
-        continue-on-error: true  # TODO: enforce once tsconfig strict is cleaned up
 
       - name: Build Frontend (FAILS on build errors)
         run: bun run build
@@ -257,7 +255,6 @@ jobs:
       - name: Run Unit Tests (FAILS on failures)
         # Run only Jest tests (not Playwright e2e — those need a running server)
         run: npx jest --testPathIgnorePatterns="tests/e2e/" --passWithNoTests
-        continue-on-error: true  # TODO: enforce once Mini/Onboarding-Jarvis cleanup lands
 
       - name: Frontend Test Summary
         if: always()
