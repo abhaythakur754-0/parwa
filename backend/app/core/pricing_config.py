@@ -19,7 +19,7 @@ Correct prices (as of this writing):
   ┌──────────┬──────────────────┬───────────────────┬──────────────┐
   │ Variant  │ Monthly (USD)    │ Annual (USD)      │ Tickets/mo   │
   ├──────────┼──────────────────┼───────────────────┼──────────────┤
-  │ Parwa    │ $2,499.00        │ $29,988.00        │ 2,499        │
+  │ PARWA Growth │ $2,999.00   │ $35,988.00        │ 2,999        │
   │ High     │ $3,999.00        │ $47,988.00        │ 3,999        │
   └──────────┴──────────────────┴───────────────────┴──────────────┘
 
@@ -107,7 +107,7 @@ Annual = 12 × monthly.  NO discounts.  NO free months.
 # ══════════════════════════════════════════════════════════════════════════
 
 VARIANT_DISPLAY_NAMES: Dict[VariantType, str] = {
-    VariantType.PARWA: "PARWA",
+    VariantType.PARWA: "PARWA Growth",
     VariantType.HIGH:  "PARWA High",
 }
 
@@ -182,9 +182,9 @@ def get_variant_price(
 
     Examples:
         >>> get_variant_price("parwa")
-        Decimal('2499.00')
+        Decimal('2999.00')
         >>> get_variant_price(VariantType.PARWA, "annual")
-        Decimal('29988.00')
+        Decimal('35988.00')
         >>> get_variant_price("mini")            # legacy → auto-upgraded to parwa
         Decimal('2499.00')
         >>> get_variant_price("parwa_high", "annual")
@@ -271,7 +271,7 @@ def get_variant_limits(variant: VariantType | str) -> Dict[str, Any]:
 
     Examples:
         >>> get_variant_limits("parwa")
-        {'monthly_tickets': 2499, 'ai_agents': 5, 'team_members': 10, 'voice_slots': 2, 'kb_docs': 500}
+        {'monthly_tickets': 2999, 'ai_agents': 5, 'team_members': 10, 'voice_slots': 2, 'kb_docs': 500}
         >>> get_variant_limits("parwa_high")["voice_slots"]
         5
     """
