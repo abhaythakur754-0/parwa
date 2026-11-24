@@ -57,6 +57,9 @@ def _resolve_public_destination(value: str):
     if not addresses or any(not address.is_global for address in addresses):
         raise ValueError("Webhook URL must resolve only to public IP addresses")
 
+    # Bound connection attempts even if a hostname publishes many A/AAAA
+    # records. Every returned address was checked before this cap is applied.
+    addresses = list(dict.fromkeys(addresses))[:8]
     return parsed, host, port, addresses
 
 
