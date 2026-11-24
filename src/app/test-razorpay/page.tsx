@@ -85,6 +85,7 @@ export default function TestRazorpayPage() {
 
           <RazorpayCheckout
             amount={amount}
+            currency="INR"
             name="SHOBH Test"
             description="Manual test payment"
             buttonText={`Pay ₹${amount}`}
