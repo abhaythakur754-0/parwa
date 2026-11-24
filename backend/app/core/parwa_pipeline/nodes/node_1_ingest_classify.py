@@ -22,6 +22,7 @@ from typing import Any, Dict, Optional
 
 from app.core.parwa_pipeline.llm_client import llm_call, parse_confidence
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
+from app.core.pricing_config import normalize_variant_name
 
 logger = logging.getLogger("parwa.pipeline.node_1")
 
@@ -590,10 +591,12 @@ def _enhance_agent_with_non_llm_techniques(
         db = SessionLocal()
         try:
             company = db.query(Company).filter(Company.id == tenant_id).first()
-            tier = getattr(company, "plan", "mini") if company else "mini"
-            if tier == "mini":
-                enhanced_restrictions += " Max refund $0 (recommend only). Max credit $0."
-            elif tier == "parwa":
+            raw_tier = getattr(company, "plan", None) if company else None
+            try:
+                tier = normalize_variant_name(raw_tier or "parwa")
+            except ValueError:
+                tier = "parwa"
+            if tier == "parwa":
                 enhanced_restrictions += " Max refund $500 without guidance. Max credit $200."
             elif tier == "high":
                 enhanced_restrictions += " Max refund unlimited (with verification). Max credit unlimited."
@@ -2017,7 +2020,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                 "max": int(_ai_check.get("limit", 0) or 0),
                 "remaining": int(_ai_check.get("remaining", 0) or 0),
             }
-            # Tier-aware decision: Mini (max_agents=0) cannot create agents
+            # Tier-aware decision: an unconfirmed or exhausted agent quota cannot create agents
             # at all. Skip the entire agent-creation flow and let the ticket
             # proceed with generic AI (TIER_2_AGENT_BUILDER_ROADMAP §3).
             # Only create agents when quota was successfully read and allowance is positive.
@@ -2036,7 +2039,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
                         "message": (
                             f"Agent quota: {_quota['used']}/{_quota['max']} used, "
                             f"{_quota['remaining']} free. "
-                            + ("" if _tier_allows_agents else "Mini tier — generic AI only.")
+                            + ("" if _tier_allows_agents else "Agent quota unavailable — generic AI only.")
                         ),
                     },
                 )
@@ -2045,22 +2048,22 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
         except Exception as exc:
             logger.warning("quota_status_check_failed: %s", str(exc)[:200])
 
-        # ── Mini tier (max_agents=0): skip agent creation entirely ──
-        # Use generic AI. Don't escalate — Mini is supposed to handle
+        # ── Unavailable agent quota: skip agent creation entirely ──
+        # Use generic AI and allow normal quality checks to decide escalation. # Don't escalate — Mini is supposed to handle
         # tickets with generic AI and only escalate if quality fails later.
         if not _tier_allows_agents:
             logs.append({
-                "node": 1, "technique": "CapabilityRouter.MiniTierGenericAI",
+                "node": 1, "technique": "CapabilityRouter.GenericAIQuotaFallback",
                 "duration_ms": 0,
                 "result_summary": (
                     f"capability={detected_capability} NOT claimed, "
-                    f"Mini tier (max_agents=0) → generic AI, no agent creation"
+                    f"agent quota unavailable → generic AI, no agent creation"
                 ),
             })
             # Proceed with the ticket — Node 2+ will use generic AI
             required_action = "process"
             action_details = {
-                "reason": "mini_tier_generic_ai",
+                "reason": "agent_quota_unavailable",
                 "capability": detected_capability,
                 "used": _quota["used"],
                 "max": _quota["max"],
@@ -2296,7 +2299,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             # agent_limit_reached reason. Don't override to no_agent_claims_capability.
             pass
         elif not _tier_allows_agents:
-            # Mini tier (max_agents=0) — already set required_action='process'
+            # Agent quota was unavailable — keep generic processing
             # above for generic AI. Don't override to escalate_human just
             # because there's no KB; Mini is supposed to use generic AI.
             pass
