@@ -6,31 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUserId, getRequestAccessToken } from '@/lib/authenticated-user';
+import { backendProxy } from '@/lib/backend-proxy';
 import { saveUserDetails, saveLegalConsent, completeOnboardingStep } from '@/lib/supabase-db';
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('user_id');
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
@@ -57,13 +39,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save user details to Supabase
+    // Confirm OTP state with the backend; never trust a client-side flag.
+    const authToken = getRequestAccessToken(request);
+    if (!authToken) {
+      return NextResponse.json(
+        { error: 'unauthorized', message: 'User not authenticated' },
+        { status: 401 },
+      );
+    }
+
+    const { response: verificationResponse } = await backendProxy(
+      `/api/verification/status/${encodeURIComponent(work_email.toLowerCase())}`,
+      { method: 'GET', authToken },
+    );
+    const verification = await verificationResponse.json().catch(() => ({}));
+    if (!verificationResponse.ok || verification?.verified !== true) {
+      return NextResponse.json(
+        { error: 'email_not_verified', message: 'Verify your work email before saving onboarding details.' },
+        { status: 403 },
+      );
+    }
+
+    // Persist as verified only after the backend confirms the OTP.
     const userDetails = await saveUserDetails({
       user_id: userId,
       full_name,
       company_url,
       work_email: work_email.toLowerCase(),
-      work_email_verified: true, // Assume verified after OTP step
+      work_email_verified: true,
     });
 
     // Save legal consents if accepted
