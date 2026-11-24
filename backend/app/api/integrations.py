@@ -1122,10 +1122,11 @@ def api_test_outbound_webhook(
     import hmac
     import hashlib
     import json as json_lib
-    import httpx
-
     from database.models.outbound_webhook import OutboundWebhook
-    from app.security.outbound_url import validate_public_https_url
+    from app.security.outbound_url import (
+        post_public_https_url,
+        validate_public_https_url,
+    )
 
     webhook = (
         db.query(OutboundWebhook)
@@ -1170,13 +1171,17 @@ def api_test_outbound_webhook(
     }
 
     try:
-        with httpx.Client(timeout=10.0, follow_redirects=False, trust_env=False) as client:
-            resp = client.post(safe_url, content=payload_str, headers=headers)
-        success = 200 <= resp.status_code < 300
+        status_code, _response_body = post_public_https_url(
+            safe_url,
+            payload_str,
+            headers,
+            timeout=10.0,
+        )
+        success = 200 <= status_code < 300
         result = {
             "success": success,
-            "status_code": resp.status_code,
-            "message": "Test event delivered successfully" if success else f"Endpoint returned {resp.status_code}",
+            "status_code": status_code,
+            "message": "Test event delivered successfully" if success else f"Endpoint returned {status_code}",
             "webhook_id": webhook.id,
         }
     except Exception as e:
