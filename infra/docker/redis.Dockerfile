@@ -19,10 +19,12 @@ RUN mkdir -p /data && chown redis:redis /data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD redis-cli -a "${REDIS_PASSWORD:-}" ping 2>/dev/null | grep -q PONG || exit 1
+    CMD REDISCLI_AUTH="${REDIS_PASSWORD:-}" redis-cli ping 2>/dev/null | grep -q PONG || exit 1
 
 # Expose Redis port
 EXPOSE 6379
 
-# Run with custom config
-CMD ["sh", "-c", "if [ -z \\"$REDIS_PASSWORD\\" ]; then echo \\"REDIS_PASSWORD is required\\" >&2; exit 1; fi; exec redis-server /usr/local/etc/redis/redis.conf --requirepass \\"$REDIS_PASSWORD\\""]
+# Keep the password out of the Redis process command line. Redis reads it
+# from a root-readable config file created at container startup. Generate
+# passwords with URL-safe characters (e.g. openssl rand -hex 32).
+CMD ["sh", "-c", "set -eu; if [ -z \"$REDIS_PASSWORD\" ]; then echo \"REDIS_PASSWORD is required\" >&2; exit 1; fi; case \"$REDIS_PASSWORD\" in *[!A-Za-z0-9_-]*) echo \"REDIS_PASSWORD must use URL-safe characters\" >&2; exit 1;; esac; umask 077; printf 'requirepass \"%s\"\\n' \"$REDIS_PASSWORD\" > /tmp/redis-auth.conf; exec redis-server /usr/local/etc/redis/redis.conf /tmp/redis-auth.conf"]
