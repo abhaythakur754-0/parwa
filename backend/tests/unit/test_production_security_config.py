@@ -107,3 +107,14 @@ def test_production_rejects_repository_default_redis_password(monkeypatch):
     monkeypatch.delenv("REDIS_PASSWORD", raising=False)
     with pytest.raises(ValueError, match="REDIS_URL"):
         Settings.validate_production_redis_auth("redis://:parwa_redis@localhost:6379/0")
+
+
+def test_production_rejects_jwt_secret_shorter_than_32_characters(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="at least 32"):
+        Settings.validate_jwt_key("a" * 31)
+
+
+def test_production_accepts_32_character_jwt_secret(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    assert Settings.validate_jwt_key("a" * 32) == "a" * 32
