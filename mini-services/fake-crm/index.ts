@@ -690,7 +690,9 @@ console.log('\n🚀 Starting FakeCRM Server on port', PORT);
 console.log('⚠️  FOR TESTING ONLY - All data is fake!');
 console.log('🌐 DEPLOYED VIA ZAI - Accessible from internet!\n');
 
-export default {
+const fakeCrmServer = {
   port: PORT,
   fetch: app.fetch,
 };
+
+export default fakeCrmServer;
