@@ -15,10 +15,27 @@ def test_production_rejects_short_encryption_key(monkeypatch):
         Settings.validate_encryption_key("too-short")
 
 
-def test_production_requires_redis_password(monkeypatch):
+def test_production_requires_authenticated_redis_url(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
-    with pytest.raises(ValueError, match="REDIS_PASSWORD"):
-        Settings.validate_redis_password("")
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="REDIS_URL"):
+        Settings.validate_production_redis_auth("redis://localhost:6379/0")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "redis://default:secret@redis.example:6379/0",
+        "redis://localhost:6379/0",
+    ],
+)
+def test_production_accepts_redis_url_or_separate_password(monkeypatch, url):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    if "@" not in url:
+        monkeypatch.setenv("REDIS_PASSWORD", "configured-secret")
+    else:
+        monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+    assert Settings.validate_production_redis_auth(url) == url
 
 
 @pytest.mark.parametrize("value", [None, "", "dev-pricing-key", "short"])
