@@ -16,16 +16,18 @@ import { jwtVerify, importSPKI } from "jose";
 import type { CryptoKey } from "jose";
 import type { NextRequest } from "next/server";
 
+const LOCAL_DEV_SECRET = "dev-jwt-secret-key-change-in-prod-32c";
 const JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+  process.env.JWT_SECRET_KEY ||
+  (process.env.ENABLE_LOCAL_GOOGLE_AUTH === "1" ? LOCAL_DEV_SECRET : null);
 
-/** JWT algorithm from env — defaults to HS256 for backward compatibility */
-const JWT_ALGORITHM = (process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
+/** Keep verification aligned with the backend's configured signing algorithm. */
+const JWT_ALGORITHM = (process.env.JWT_ALGORITHM || process.env.NEXT_PUBLIC_JWT_ALGORITHM || "HS256") as
   | "HS256"
   | "RS256";
 
-function getSecret(): Uint8Array {
-  return new TextEncoder().encode(JWT_SECRET);
+function getSecret(): Uint8Array | null {
+  return JWT_SECRET ? new TextEncoder().encode(JWT_SECRET) : null;
 }
 
 /**
@@ -71,13 +73,10 @@ export interface JWTPayload {
  * Get the JWT verification key(s) based on configured algorithm.
  * For RS256, loads the RSA public key; for HS256, uses the shared secret.
  */
-async function getVerificationKey(): Promise<CryptoKey | Uint8Array> {
+async function getVerificationKey(): Promise<CryptoKey | Uint8Array | null> {
   if (JWT_ALGORITHM === "RS256") {
-    const rsaKey = await loadRSAPublicKey();
-    if (rsaKey) return rsaKey;
-    // Fallback to HS256 if RSA key not available
-    console.warn("RS256 configured but no public key found — falling back to HS256 for verification");
-    return getSecret();
+    // Never downgrade an RS256 deployment to shared-secret verification.
+    return loadRSAPublicKey();
   }
   return getSecret();
 }
@@ -103,13 +102,23 @@ export interface VerifiedToken {
  * Returns null if invalid/expired.
  */
 export async function verifyToken(
-  token: string
+  token: string,
+  options: { allowRefresh?: boolean } = {},
 ): Promise<VerifiedToken | null> {
   try {
+    if (!token) return null;
     const verificationKey = await getVerificationKey();
-    // No issuer/audience check — backend tokens don't carry these claims.
-    // Signature + expiry verification is sufficient for frontend route protection.
-    const { payload } = await jwtVerify(token, verificationKey);
+    if (!verificationKey) return null;
+
+    // Enforce the configured algorithm; never accept an algorithm downgrade.
+    // No issuer/audience check — backend-issued access tokens do not carry them.
+    const { payload } = await jwtVerify(token, verificationKey, {
+      algorithms: [JWT_ALGORITHM],
+    });
+
+    if (typeof payload.sub !== "string" || !payload.sub) return null;
+    if (payload.type === "refresh" && !options.allowRefresh) return null;
+
     return { payload: payload as unknown as VerifiedToken["payload"] };
   } catch {
     return null;
