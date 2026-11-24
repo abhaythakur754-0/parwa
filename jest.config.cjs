@@ -5,7 +5,7 @@ const config = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
+    '^.+\\.[tj]sx?$': ['ts-jest', {
       tsconfig: {
         jsx: 'react-jsx',
         allowJs: true,
@@ -20,36 +20,8 @@ const config = {
     }],
   },
   moduleNameMapper: {
-    '^server-only
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testTimeout: 10000,
-  verbose: true,
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.ts',
-    '!src/**/*.spec.ts',
-    '!src/__tests__/**',
-  ],
-};
-
-module.exports = config;
-: '<rootDir>/src/test-mocks/server-only.ts',
-    '^@/(.*)
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testTimeout: 10000,
-  verbose: true,
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.ts',
-    '!src/**/*.spec.ts',
-    '!src/__tests__/**',
-  ],
-};
-
-module.exports = config;
-: '<rootDir>/src/$1',
+    '^server-only$': '<rootDir>/src/test-mocks/server-only.ts',
+    '^@/(.*)$': '<rootDir>/src/$1',
   },
   transformIgnorePatterns: ['/node_modules/(?!jose/)'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
