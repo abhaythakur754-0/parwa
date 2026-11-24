@@ -34,7 +34,7 @@ def send_business_otp(
     ctx["email_verified"] = False
     session.context_json = json.dumps(ctx)
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(result["expires_in"]))
     return {
@@ -78,7 +78,7 @@ def verify_business_otp(
     ctx["email_verified"] = True
     session.context_json = json.dumps(ctx)
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     return {
         "message": result["message"],
@@ -161,7 +161,7 @@ def create_payment_session(
 
     session.payment_status = "pending"
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     return {
         "status": "pending",
@@ -302,7 +302,7 @@ def initiate_demo_call(
     }
     session.context_json = json.dumps(ctx)
     session.updated_at = datetime.now(timezone.utc)
-    db.flush()
+    db.commit()
 
     # Attempt to initiate Twilio call
     call_sid = None
@@ -375,7 +375,7 @@ def initiate_demo_call(
         "phone_number": cleaned_phone,
     })
     ticket.status = call_status
-    db.flush()
+    db.commit()
 
     return {
         "message": "Demo call initiated!" if call_status == "in_progress" else f"Demo call: {call_status}. Configure Twilio credentials for live calls.",
