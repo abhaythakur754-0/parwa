@@ -17,6 +17,7 @@
 import { jwtVerify, importSPKI } from "jose";
 import type { CryptoKey } from "jose";
 import { NextRequest, NextResponse } from "next/server";
+import { backendProxy } from "@/lib/backend-proxy";
 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
 
@@ -214,11 +215,60 @@ export async function requireAuth(
   request: NextRequest
 ): Promise<NextResponse | null> {
   const user = await verifyAuth(request);
-  if (!user) {
+  if (!user || typeof user.sub !== "string" || !user.sub) {
     return NextResponse.json(
       { success: false, error: "Authentication required" },
-      { status: 401 }
+      { status: 401, headers: { "Cache-Control": "no-store" } }
     );
   }
-  return null;
+
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : request.cookies.get("parwa_at")?.value;
+  if (!token) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required" },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  try {
+    // Cryptographic verification does not know whether the jti was revoked
+    // or the account disabled. Confirm both with the backend before a route
+    // performs a privileged operation or spends provider credits.
+    const { response } = await backendProxy("/api/auth/me", {
+      method: "GET",
+      authToken: token,
+    });
+    if (response.status === 401 || response.status === 403) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (!response.ok) {
+      return NextResponse.json(
+        { success: false, error: "Authentication service unavailable" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    const profile = await response.json().catch(() => null);
+    if (
+      !profile ||
+      String(profile.id || "") !== user.sub ||
+      profile.is_active === false
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    return null;
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Authentication service unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+  }
 }
