@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
     if (!evidence || (Array.isArray(evidence) && evidence.length === 0)) {
       return NextResponse.json({ error: 'step_incomplete', message: 'Complete and save this step before marking it complete' }, { status: 409 });
     }
+    if (step === 1 && evidence.work_email_verified !== true) {
+      return NextResponse.json(
+        { error: 'email_not_verified', message: 'Verify the saved work email before completing this step.' },
+        { status: 409 }
+      );
+    }
     const session = await completeOnboardingStep(userId, step);
 
     console.log(`[Onboarding] ✅ Step ${step} completed for user ${userId}`);
