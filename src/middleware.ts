@@ -44,6 +44,7 @@ const PUBLIC_PATHS = [
   "/api/forgot-password",
   "/api/channel-status",
   "/api/voice",
+  "/api/mfa", // MFA login/verification uses a short-lived challenge token before access-token issuance
   // Test page (still requires backend auth via cookie, but page itself is public)
   "/test-razorpay",
   // Static assets
