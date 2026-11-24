@@ -1,139 +1,107 @@
 /**
- * SHOBH Create Razorpay Order API
- * 
- * POST /api/razorpay/create-order
- * Creates a Razorpay order and saves payment record to Supabase
+ * Create a one-time Razorpay order for the authenticated user.
+ * Subscription activation is handled by the canonical billing API/webhook,
+ * never by caller-supplied plan or user IDs in this legacy checkout route.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createPayment, getUserDetails } from '@/lib/supabase-db';
-import crypto from 'crypto';
+import { getAuthenticatedUserId } from '@/lib/authenticated-user';
+import { createPayment } from '@/lib/supabase-db';
 
-// Razorpay credentials from env
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  // For demo/testing, allow user_id in body
-  return null;
-}
+const ALLOWED_CURRENCIES = new Set(['USD', 'INR']);
 
 export async function POST(request: NextRequest) {
+  const userId = await getAuthenticatedUserId(request);
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'unauthorized', message: 'User not authenticated' },
+      { status: 401 },
+    );
+  }
+
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return NextResponse.json(
+      { error: 'payment_provider_unavailable', message: 'Razorpay is not configured' },
+      { status: 503 },
+    );
+  }
+
   try {
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    const body = await request.json().catch(() => null);
+    const amount = body?.amount;
+    const currency = typeof body?.currency === 'string' ? body.currency.toUpperCase() : 'USD';
+
+    // Amount is already in the currency's smallest unit (cents/paise).
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 100_000_000) {
       return NextResponse.json(
-        { error: 'Razorpay not configured' },
-        { status: 500 }
+        { error: 'validation_error', message: 'Amount must be a positive integer in the smallest currency unit' },
+        { status: 400 },
+      );
+    }
+    if (!ALLOWED_CURRENCIES.has(currency)) {
+      return NextResponse.json(
+        { error: 'validation_error', message: 'Unsupported payment currency' },
+        { status: 400 },
       );
     }
 
-    const body = await request.json();
-    const { amount, currency = 'USD', receipt, plan_id, plan_name } = body;
-    
-    // Get user ID
-    let userId = getUserId(request);
-    
-    // Fallback: check body for user_id (for testing)
-    if (!userId && body.user_id) {
-      userId = body.user_id;
-    }
-
-    if (!amount || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      );
-    }
-
-    // Amount should be in smallest currency unit (cents for USD, paise for INR)
-    const amountInSmallestUnit = Math.round(amount);
-
-    // Generate receipt if not provided
-    const orderReceipt = receipt || `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    console.log(`[Razorpay] Creating order for ${amountInSmallestUnit} ${currency}`);
-
-    // Call Razorpay API to create order
-    const razorpayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+    const receipt = \`parwa_\${crypto.randomUUID()}\`;
+    const providerResponse = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`,
+        Authorization: \`Basic \${Buffer.from(\`\${RAZORPAY_KEY_ID}:\${RAZORPAY_KEY_SECRET}\`).toString('base64')}\`,
       },
       body: JSON.stringify({
-        amount: amountInSmallestUnit,
+        amount,
         currency,
-        receipt: orderReceipt,
-        notes: {
-          ...(userId && { user_id: userId }),
-          ...(plan_id && { plan_id }),
-          ...(plan_name && { plan_name }),
-        },
+        receipt,
+        notes: { user_id: userId, purpose: 'one_time_payment' },
       }),
+      signal: AbortSignal.timeout(15_000),
     });
 
-    if (!razorpayResponse.ok) {
-      const errorData = await razorpayResponse.json().catch(() => ({}));
-      console.error('[Razorpay] Order creation failed:', errorData);
-      
+    const order = await providerResponse.json().catch(() => ({}));
+    if (!providerResponse.ok || typeof order.id !== 'string') {
+      console.error('[Razorpay] Order creation failed:', providerResponse.status);
       return NextResponse.json(
-        { 
-          error: 'order_creation_failed', 
-          message: errorData.error?.description || 'Failed to create Razorpay order' 
-        },
-        { status: 500 }
+        { error: 'order_creation_failed', message: 'Razorpay could not create the order' },
+        { status: 502 },
       );
     }
 
-    const orderData = await razorpayResponse.json();
-
-    // Save payment record to Supabase (status: pending)
-    if (userId) {
-      try {
-        await createPayment({
-          user_id: userId,
-          amount: amountInSmallestUnit,
-          currency,
-          status: 'pending',
-          razorpay_order_id: orderData.id,
-          plan_id: plan_id,
-          plan_name: plan_name || 'Subscription',
-        });
-        
-        console.log(`[Razorpay] ✅ Order created & saved to DB: ${orderData.id}`);
-      } catch (dbError) {
-        console.warn('[Razorpay] Could not save to DB:', dbError);
-        // Continue even if DB save fails - payment can be reconciled later
-      }
+    try {
+      const saved = await createPayment({
+        user_id: userId,
+        amount: order.amount,
+        currency: order.currency,
+        status: 'pending',
+        razorpay_order_id: order.id,
+        plan_name: 'One-time payment',
+      });
+      if (saved?.error) throw new Error('Payment record could not be saved');
+    } catch (dbError) {
+      console.error('[Razorpay] Payment record persistence failed:', dbError);
+      return NextResponse.json(
+        { error: 'payment_record_failed', message: 'Could not record the payment order. Please try again.' },
+        { status: 503 },
+      );
     }
 
     return NextResponse.json({
       success: true,
-      order_id: orderData.id,
-      amount: orderData.amount,
-      currency: orderData.currency,
-      key_id: RAZORPAY_KEY_ID, // Return key for frontend
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key_id: RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error('[Razorpay Create Order Error]:', error);
     return NextResponse.json(
-      { error: 'internal_error', message: 'Failed to create order' },
-      { status: 500 }
+      { error: 'internal_error', message: 'Failed to create payment order' },
+      { status: 500 },
     );
   }
 }
