@@ -385,8 +385,8 @@ describe('FlexPay Integration Tests', () => {
     it('should maintain tier-specific pricing throughout lifecycle', () => {
       const tiers: VariantTier[] = ['parwa', 'high'];
       
-      for (const tier of tiers) {
-        const plan = createFullPlan(`tier_validation_${tier}_${Math.random()}`, tier);
+      for (const [index, tier] of tiers.entries()) {
+        const plan = createFullPlan(`tier_validation_${tier}_${index}`, tier);
         
         // Verify creation
         expect(plan.tier).toBe(tier);
