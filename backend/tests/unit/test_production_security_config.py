@@ -18,7 +18,7 @@ def test_production_rejects_short_encryption_key(monkeypatch):
 def test_production_requires_authenticated_redis_url(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("REDIS_PASSWORD", raising=False)
-    with pytest.raises(ValueError, match="Redis credentials"):
+    with pytest.raises(ValueError, match="REDIS_URL"):
         Settings.validate_production_redis_auth("redis://localhost:6379/0")
 
 
