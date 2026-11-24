@@ -638,7 +638,7 @@ describe('useTicketStore', () => {
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(escalated.status).toBe('crm_pending');
-      expect(escalated.assigned_agent).toBe('Human Agent');
+      expect(escalated.assigned_agent).toBe('CRM Team');
       expect(escalated.messages).toHaveLength(2);
     });
   });
