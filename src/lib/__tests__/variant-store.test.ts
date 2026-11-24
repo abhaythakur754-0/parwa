@@ -125,7 +125,7 @@ describe('useVariantStore', () => {
     useVariantStore.getState().reset();
     useBillingStore.setState({
       currentTier: 'parwa',
-      currentPrice: 2499,
+      currentPrice: 2999,
       renewalDate: null,
       invoices: [],
       paymentMethods: [],
