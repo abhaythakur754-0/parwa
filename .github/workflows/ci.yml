@@ -205,9 +205,13 @@ jobs:
         run: npx eslint . --max-warnings=0
         continue-on-error: true  # TODO: enforce once all existing warnings are fixed
 
+      - name: Generate Prisma client
+        run: bun run db:generate
+        env:
+          DATABASE_URL: file:./test.db
+
       - name: Type Check (FAILS on type errors)
         run: bun run type-check
-        continue-on-error: true  # TODO: enforce once tsconfig strict is cleaned up
 
       - name: Build Frontend (FAILS on build errors)
         run: bun run build
