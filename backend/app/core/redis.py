@@ -369,11 +369,22 @@ async def get_redis() -> aioredis.Redis:
                         settings.REDIS_URL.split("@")[-1]
                         if "@" in settings.REDIS_URL else "localhost")
                 except Exception as conn_err:
-                    # BC-012: Fall back to fakeredis for development
+                    # An in-memory fallback silently loses sessions, locks,
+                    # rate limits, and revocation state across processes/restarts.
+                    # It must never be used in production.
                     global _redis_error_logged
+                    if settings.is_production:
+                        logger.error(
+                            "redis_connection_failed_in_production; refusing in-memory fallback error=%s",
+                            str(conn_err)[:200],
+                        )
+                        raise RuntimeError(
+                            "Redis is unavailable in production; refusing to start with an in-memory substitute."
+                        ) from conn_err
+
                     if not _redis_error_logged:
                         logger.warning(
-                            "redis_fallback_to_fakeredis (will not log again) error=%s",
+                            "redis_fallback_to_fakeredis (development only; will not log again) error=%s",
                             str(conn_err)[:200])
                         _redis_error_logged = True
                     try:
@@ -383,9 +394,7 @@ async def get_redis() -> aioredis.Redis:
                         )
                         logger.info("redis_fakeredis_connected")
                     except ImportError:
-                        if not _redis_error_logged:
-                            logger.error("redis_fakeredis_not_available")
-                            _redis_error_logged = True
+                        logger.error("redis_fakeredis_not_available")
                         raise conn_err
     return _redis_client
 
