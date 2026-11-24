@@ -441,7 +441,9 @@ class Settings(BaseSettings):
                 (info.data.get("REDIS_PASSWORD") if info is not None else None)
                 or os.environ.get("REDIS_PASSWORD")
             )
-            redis_password = parsed.password or configured_password
+            # get_redis() passes REDIS_PASSWORD explicitly when configured,
+            # so validate that value first; otherwise validate the URL password.
+            redis_password = configured_password or parsed.password
             if not redis_password or _is_placeholder_secret(redis_password):
                 raise ValueError(
                     "SECURITY CRITICAL: REDIS_URL Redis credentials must be configured "
