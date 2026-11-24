@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * SHOBH Database Utility - Supabase Direct
  *
