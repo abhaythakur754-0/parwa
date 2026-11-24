@@ -131,7 +131,7 @@ export function RazorpayCheckout({
                 });
                 if (verifyRes.ok) {
                   toast.success('Payment successful! FlexPay activated.');
-                  onSuccess?.();
+                  onSuccess?.(response.razorpay_payment_id, response.razorpay_order_id);
                 } else {
                   toast.error('Payment verification failed');
                 }
