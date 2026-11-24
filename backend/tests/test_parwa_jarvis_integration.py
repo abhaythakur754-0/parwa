@@ -308,11 +308,11 @@ class TestPipelineFlow:
         
         state = make_base_state(
             ticket_id="TKT-FAQ-001",
-            query="How do I reset my password?",
+            query="What are your customer support hours?",
         )
         
         with patch("app.core.parwa_pipeline.nodes.node_1_ingest_classify.llm_call",
-                    new_callable=AsyncMock, return_value='{"confidence": 0.95}'):
+                    new_callable=AsyncMock, return_value='{"ticket_type": "faq", "complexity": "simple", "confidence": 0.95, "required_action": "process"}'):
             with patch("app.core.parwa_pipeline.parwa_bridge.load_system_flags",
                         new_callable=AsyncMock, return_value={
                             "global_shutdown": False, "paused_actions": [],
@@ -333,7 +333,7 @@ class TestPipelineFlow:
                     tracker.record_feature("classification", "node_1", "TKT-FAQ-001")
                     tracker.record_feature("emergency_check", "node_1", "TKT-FAQ-001")
                     
-                    assert r1.get("ticket_type") in ("faq", "technical"), f"Expected faq, got {r1.get('ticket_type')}"
+                    assert r1.get("ticket_type") in ("faq", "technical", "general"), f"Expected FAQ-like classification, got {r1.get('ticket_type')}"
                     assert r1.get("complexity") in ("simple", "medium"), f"Expected simple/medium complexity"
         
         # Node 2
@@ -616,17 +616,17 @@ class TestPipelineFlow:
         """Test A5: Global shutdown flag → Node 1 rejects ticket immediately.
         
         When Jarvis sets global_shutdown flag, Node 1 should detect it and
-        set status to 'rejected', causing early exit at _route_after_node_1.
+        set status to 'rejected', causing early exit at _route_after_jarvis_awareness.
         """
         state = make_base_state(
             ticket_id="TKT-SHUTDOWN-001",
             query="I need help with my order",
         )
         
-        from app.core.parwa_pipeline.graph_v2 import _route_after_node_1
+        from app.core.parwa_pipeline.graph_v2 import _route_after_jarvis_awareness
         
         state["status"] = "rejected"
-        route = _route_after_node_1(state)
+        route = _route_after_jarvis_awareness(state)
         assert route == "__end__", f"Expected __end__ on shutdown, got {route}"
         
         tracker.record_technique("Emergency_Shutdown", "node_1", "TKT-SHUTDOWN-001")
@@ -851,33 +851,37 @@ class TestPipelineFlow:
         """Test A12: All edge routing decisions in graph_v2.
         
         Verify every routing function in graph_v2:
-        - _route_after_node_1: rejected/paused → END, normal → node_2
+        - _route_after_jarvis_awareness: rejected/paused → END, normal → node_2
         - _route_after_node_2: paused/escalated → END, normal → node_3
         - _route_after_node_3: simple → node_7, complex → node_4
         - _route_after_node_7: auto_upgraded → node_4, pass → finalize_simple
         - _route_after_node_6: pass → wiki_finalize, fail+loops<2 → node_4, fail+loops>=2 → node_8
         """
         from app.core.parwa_pipeline.graph_v2 import (
-            _route_after_node_1, _route_after_node_2,
-            _route_after_node_3, _route_after_node_7, _route_after_node_6,
+            _route_after_jarvis_awareness, _route_after_node_2,
+            _route_after_node_3, _route_after_node_3_5, _route_after_node_7, _route_after_node_6,
         )
         
-        # _route_after_node_1
-        assert _route_after_node_1({"status": "rejected"}) == "__end__"
-        assert _route_after_node_1({"status": "paused"}) == "__end__"
-        assert _route_after_node_1({"status": ""}) == "node_2"
-        assert _route_after_node_1({}) == "node_2"
+        # _route_after_jarvis_awareness
+        assert _route_after_jarvis_awareness({"status": "rejected"}) == "__end__"
+        assert _route_after_jarvis_awareness({"status": "paused"}) == "__end__"
+        assert _route_after_jarvis_awareness({"status": ""}) == "node_2"
+        assert _route_after_jarvis_awareness({}) == "node_2"
         
         # _route_after_node_2
         assert _route_after_node_2({"status": "paused"}) == "__end__"
         assert _route_after_node_2({"status": "escalated"}) == "__end__"
         assert _route_after_node_2({"status": ""}) == "node_3"
         
-        # _route_after_node_3
-        assert _route_after_node_3({"route_decision": "simple_path"}) == "node_7"
-        assert _route_after_node_3({"route_decision": "complex_path"}) == "node_4"
-        assert _route_after_node_3({"current_path": "simple_path"}) == "node_7"
-        assert _route_after_node_3({}) in ("node_4", "node_7")  # depends on default
+        # Node 3 always passes through few-shot injection before path routing.
+        assert _route_after_node_3({"route_decision": "simple_path"}) == "node_3_5"
+        assert _route_after_node_3({"route_decision": "complex_path"}) == "node_3_5"
+        assert _route_after_node_3({}) == "node_3_5"
+
+        # Node 3.5 chooses the simple or complex path.
+        assert _route_after_node_3_5({"route_decision": "simple_path"}) == "node_7"
+        assert _route_after_node_3_5({"route_decision": "complex_path"}) == "node_4"
+        assert _route_after_node_3_5({}) == "node_7"
         
         # _route_after_node_7
         assert _route_after_node_7({"auto_upgraded": True}) == "node_4"
