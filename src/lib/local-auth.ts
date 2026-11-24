@@ -25,7 +25,8 @@ import { db } from "@/lib/db";
 import { verifyToken } from "@/lib/jwt";
 
 const LOCAL_JWT_SECRET =
-  process.env.JWT_SECRET_KEY || "dev-jwt-secret-key-change-in-prod-32c";
+  process.env.JWT_SECRET_KEY ||
+  (process.env.NODE_ENV !== "production" ? "dev-jwt-secret-key-change-in-prod-32c" : "");
 
 const ACCESS_TTL_S = 15 * 60; // 15 minutes
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // 7 days
@@ -38,6 +39,9 @@ export function isLocalAuthEnabled(): boolean {
 }
 
 function getSecretKey(): Uint8Array {
+  if (!LOCAL_JWT_SECRET) {
+    throw new Error("Local JWT signing secret is not configured.");
+  }
   return new TextEncoder().encode(LOCAL_JWT_SECRET);
 }
 
@@ -186,6 +190,9 @@ async function mintLocalToken(
   email: string,
   type: "access" | "refresh",
 ): Promise<string> {
+  if (!isLocalAuthEnabled()) {
+    throw new Error("Local authentication is disabled outside development.");
+  }
   const now = Math.floor(Date.now() / 1000);
   const ttl = type === "access" ? ACCESS_TTL_S : REFRESH_TTL_S;
 
