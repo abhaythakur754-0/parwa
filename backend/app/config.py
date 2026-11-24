@@ -269,36 +269,25 @@ class Settings(BaseSettings):
     @field_validator("DATA_ENCRYPTION_KEY")
     @classmethod
     def validate_encryption_key(cls, v) -> str:
-        """BC-011: DATA_ENCRYPTION_KEY must be set and at least 32 characters.
-
-        Auto-generates a 32-char key if not set (all environments).
-        In production: logs a loud warning instead of crashing, because
-        a running app with auto-generated keys is better than a dead app.
-        """
+        """Require stable encryption material in production; generate only for development."""
+        env = os.environ.get("ENVIRONMENT", "development").lower()
         if v is None or v == "":
-            import secrets as _secrets
-            v = _secrets.token_urlsafe(24)[:32]  # exactly 32 chars
-            env = os.environ.get("ENVIRONMENT", "development")
             if env == "production":
-                warnings.warn(
-                    "SECURITY: DATA_ENCRYPTION_KEY not set in production — "
-                    "auto-generated! This means encrypted data will be lost on "
-                    "restart. Set a 32-character value via DATA_ENCRYPTION_KEY env var!",
-                    stacklevel=2,
+                raise ValueError(
+                    "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be explicitly "
+                    "configured in production. Auto-generated keys make existing "
+                    "encrypted data unreadable after a restart."
                 )
-            else:
-                warnings.warn(
-                    "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
-                    stacklevel=2,
-                )
-        # AES-256-GCM uses SHA-256 to derive the key, so any length >= 32 is fine.
-        # The old validator required exactly 32 chars, but longer keys are also valid
-        # because derive_key() in security.py uses hashlib.sha256().digest() which
-        # always produces exactly 32 bytes regardless of input length.
-        if len(v) < 32:
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(24)[:32]
             warnings.warn(
-                f"DATA_ENCRYPTION_KEY should be at least 32 characters, got {len(v)}",
+                "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
                 stacklevel=2,
+            )
+        if env == "production" and len(v) < 32:
+            raise ValueError(
+                "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be at least "
+                "32 characters in production."
             )
         return v
 
@@ -432,9 +421,13 @@ class Settings(BaseSettings):
     @classmethod
     def validate_redis_password(cls, v: str) -> str:
         if not v:
+            if os.environ.get("ENVIRONMENT", "development").lower() == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: REDIS_PASSWORD must be configured in production."
+                )
             warnings.warn(
                 "REDIS_PASSWORD is empty — Redis is unauthenticated. "
-                "Set REDIS_PASSWORD in production!",
+                "Set REDIS_PASSWORD before production deployment!",
                 stacklevel=2,
             )
         return v
@@ -511,25 +504,33 @@ class Settings(BaseSettings):
     @field_validator("PRICING_SIGNING_KEY")
     @classmethod
     def validate_pricing_signing_key(cls, v) -> str:
+        env = os.environ.get("ENVIRONMENT", "development").lower()
         if v is None or v == "":
+            if env == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: PRICING_SIGNING_KEY must be configured "
+                    "in production; pricing token signing cannot be disabled."
+                )
             warnings.warn(
                 "PRICING_SIGNING_KEY is not set — pricing token signing is disabled. "
-                "Set a cryptographically random value via the PRICING_SIGNING_KEY env var.",
+                "Set a cryptographically random value before production deployment.",
                 stacklevel=2,
             )
             return v
         if v.startswith("dev-"):
+            if env == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: development PRICING_SIGNING_KEY cannot "
+                    "be used in production."
+                )
             warnings.warn(
-                "Using development PRICING_SIGNING_KEY — change in production!",
+                "Using development PRICING_SIGNING_KEY — change before production!",
                 stacklevel=2,
             )
-        # Enforce minimum key length in production
-        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
-            warnings.warn(
-                f"PRICING_SIGNING_KEY should be at least 32 characters in production, "
-                f"got {len(v)}. Generate one with: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\"",
-                stacklevel=2,
+        if env == "production" and len(v) < 32:
+            raise ValueError(
+                "SECURITY CRITICAL: PRICING_SIGNING_KEY must be at least "
+                "32 characters in production."
             )
         return v
 
