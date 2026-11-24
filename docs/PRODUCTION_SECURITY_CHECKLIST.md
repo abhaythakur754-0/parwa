@@ -64,8 +64,6 @@ Before production launch, either migrate the legacy guest flow to durable, tenan
 
 ## Required live smoke tests
 
-The CI pipeline also runs on `security/**` branches so these changes are checked before they are merged into `main`.
-
 Run these against staging with real test credentials before production:
 
 - Sign up, login, refresh, logout, password reset, and MFA.
