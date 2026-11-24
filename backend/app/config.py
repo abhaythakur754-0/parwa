@@ -13,6 +13,7 @@ import warnings
 from enum import Enum
 from functools import lru_cache
 from typing import Literal, Optional
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -417,19 +418,17 @@ class Settings(BaseSettings):
             )
         return v
 
-    @field_validator("REDIS_PASSWORD")
+    @field_validator("REDIS_URL")
     @classmethod
-    def validate_redis_password(cls, v: str) -> str:
-        if not v:
-            if os.environ.get("ENVIRONMENT", "development").lower() == "production":
+    def validate_production_redis_auth(cls, v: str) -> str:
+        """Require credentials on the URL actually used by the Redis client."""
+        if os.environ.get("ENVIRONMENT", "development").lower() == "production":
+            parsed = urlsplit(v)
+            if not parsed.password and not os.environ.get("REDIS_PASSWORD"):
                 raise ValueError(
-                    "SECURITY CRITICAL: REDIS_PASSWORD must be configured in production."
+                    "SECURITY CRITICAL: production REDIS_URL must contain a password "
+                    "or REDIS_PASSWORD must be configured."
                 )
-            warnings.warn(
-                "REDIS_PASSWORD is empty — Redis is unauthenticated. "
-                "Set REDIS_PASSWORD before production deployment!",
-                stacklevel=2,
-            )
         return v
 
     # ── Feature Flags ────────────────────────────────────────────
