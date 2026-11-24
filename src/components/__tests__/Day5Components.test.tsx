@@ -111,7 +111,7 @@ describe('ErrorBoundary', () => {
   it('detects chunk load errors and shows update message', () => {
     render(
       // @ts-expect-error — ErrorBoundary class component props typing is overly strict in React 19
-      React.createElement(ErrorBoundary as any, { children: React.createElement(ChunkErrorComponent) })
+      React.createElement(ErrorBoundary as any, null, React.createElement(ChunkErrorComponent))
     );
     expect(screen.getByText('Update Available')).toBeInTheDocument();
     expect(screen.getByText(/new version/)).toBeInTheDocument();
