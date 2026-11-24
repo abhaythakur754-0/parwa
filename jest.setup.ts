@@ -23,3 +23,17 @@ if (typeof globalThis.fetch !== 'function') {
     value: jest.fn(),
   });
 }
+
+
+// Components that call App Router hooks can render without a Next.js runtime.
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+    back: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
