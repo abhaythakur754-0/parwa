@@ -66,8 +66,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   // ── Derived State ────────────────────────────────────────────────
 
   const isConnected = connectionState === 'connected';
-  const isReconnecting =
-    connectionState === 'connecting' && prevConnectedRef.current;
+  const isReconnecting = connectionState === 'connecting' && lastConnected !== null;
 
   // ── Connection Management ────────────────────────────────────────
 
@@ -94,6 +93,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
         socketClient.disconnect();
         setConnectionState('disconnected');
         prevConnectedRef.current = false;
+        setLastConnected(null);
       }
     }
 
@@ -116,7 +116,9 @@ export function SocketProvider({ children }: SocketProviderProps) {
   // ── Socket Event Monitoring ──────────────────────────────────────
 
   const connectionStateRef = useRef(connectionState);
-  connectionStateRef.current = connectionState;
+  useEffect(() => {
+    connectionStateRef.current = connectionState;
+  }, [connectionState]);
 
   useEffect(() => {
     const interval = setInterval(() => {
