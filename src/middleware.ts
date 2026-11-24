@@ -34,9 +34,9 @@ const PUBLIC_PATHS = [
   // API routes that must work without auth
   "/api/auth",
   "/api/health",
+  "/api/billing/razorpay/pricing",
+  "/api/billing/razorpay/webhook",
   "/api/demo",
-  "/api/v1",
-  "/api/billing",
   "/api/jarvis",
   "/api/book-demo",
   "/api/public",
