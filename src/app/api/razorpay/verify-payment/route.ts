@@ -47,6 +47,16 @@ export async function POST(request: NextRequest) {
     if (!paymentRecord) return NextResponse.json({ error: 'payment_not_found' }, { status: 404 });
     if (paymentRecord.status === 'completed') return NextResponse.json({ success: true, verified: true, payment_id: paymentRecord.razorpay_payment_id, order_id: razorpay_order_id, message: 'Payment already verified' });
     if (paymentRecord.status !== 'pending') return NextResponse.json({ error: 'payment_not_pending' }, { status: 409 });
+    if (
+      typeof paymentRecord.plan_id !== 'string' ||
+      !paymentRecord.plan_id ||
+      !Number.isSafeInteger(paymentRecord.amount) ||
+      paymentRecord.amount <= 0 ||
+      typeof paymentRecord.currency !== 'string' ||
+      !paymentRecord.currency
+    ) {
+      return NextResponse.json({ error: 'invalid_payment_record' }, { status: 409 });
+    }
 
     console.log(`[Razorpay] Verifying payment: ${razorpay_payment_id}`);
 
@@ -95,7 +105,15 @@ export async function POST(request: NextRequest) {
         const existingSubscription = await db.from('subscriptions').select('*', {
           filter: { user_id: userId, razorpay_order_id }, single: true,
         });
-        if (!existingSubscription) {
+        if (existingSubscription) {
+          if (
+            existingSubscription.plan_id !== paymentRecord.plan_id ||
+            Number(existingSubscription.amount) !== Number(paymentRecord.amount) ||
+            existingSubscription.currency !== paymentRecord.currency
+          ) {
+            throw new Error('Existing subscription does not match verified payment');
+          }
+        } else {
           try {
             await createSubscription({
               user_id: userId,
@@ -103,7 +121,7 @@ export async function POST(request: NextRequest) {
               plan_name: paymentRecord.plan_name || paymentRecord.plan_id.toUpperCase(),
               billing_cycle: 'monthly',
               amount: Math.round(paymentRecord.amount),
-              currency: paymentRecord.currency || 'USD',
+              currency: paymentRecord.currency,
               razorpay_order_id,
             });
           } catch (insertError) {
@@ -111,17 +129,27 @@ export async function POST(request: NextRequest) {
             const racedSubscription = await db.from('subscriptions').select('*', {
               filter: { user_id: userId, razorpay_order_id }, single: true,
             });
-            if (!racedSubscription) throw insertError;
+            if (
+              !racedSubscription ||
+              racedSubscription.plan_id !== paymentRecord.plan_id ||
+              Number(racedSubscription.amount) !== Number(paymentRecord.amount) ||
+              racedSubscription.currency !== paymentRecord.currency
+            ) {
+              throw insertError;
+            }
           }
         }
       }
 
-      await updatePaymentStatus(razorpay_order_id, 'completed', {
+      const updatedPayment = await updatePaymentStatus(razorpay_order_id, 'completed', {
         razorpay_payment_id,
         razorpay_signature,
         payment_method: 'razorpay',
         updated_at: new Date().toISOString(),
       }, userId);
+      if (!Array.isArray(updatedPayment) || updatedPayment.length === 0) {
+        throw new Error('Payment status update did not affect the authenticated payment record');
+      }
 
       sendReceiptEmail(userId, {
         amount: Math.round((paymentRecord.amount || 0) / 100),
