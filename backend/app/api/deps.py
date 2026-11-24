@@ -14,7 +14,7 @@ from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.core.jwt_auth import is_token_revoked
-from app.core.parwa_core_bridge import parwa_verify_access_token as verify_access_token
+from app.core.jwt_auth import verify_access_token
 from app.exceptions import AuthenticationError
 from app.exceptions import AuthorizationError
 from database.base import get_db
@@ -54,19 +54,11 @@ async def get_current_user(
         )
 
     token = parts[1]
-    # parwa_verify_access_token requires the JWT secret as a positional arg.
-    # auth.verify_access_token (the pure-Python version) does not — it reads
-    # from settings. We try the bridge first (Rust-accelerated), and fall
-    # back to the pure-Python verifier if the bridge isn't available.
-    try:
-        from app.config import get_settings
-        settings = get_settings()
-        payload = verify_access_token(token, settings.JWT_SECRET_KEY)
-    except TypeError:
-        # Bridge not available — use pure-Python verifier which reads
-        # the secret from settings internally.
-        from app.core.jwt_auth import verify_access_token as _py_verify
-        payload = _py_verify(token)
+    # Use the configured Python verifier here because it enforces the selected
+    # HS256 or RS256 key type and never falls back across algorithms. The
+    # legacy Rust bridge accepts a shared secret and defaults to HS256, which
+    # is not a safe verifier when RS256 is configured.
+    payload = verify_access_token(token)
 
     # CROSS-6: Check token blacklist via jti.
     # If the token has been explicitly revoked (logout, password
