@@ -8,43 +8,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUserId } from '@/lib/authenticated-user';
 import { getOnboardingSession, createOrUpdateOnboardingSession } from '@/lib/supabase-db';
 
 // Helper to get user ID from auth token/cookie
-function getUserId(req: NextRequest): string | null {
-  // Try Authorization header first
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '');
-    return token;
-  }
-
-  // Try cookie
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-    if (cookies.auth_token) return cookies.auth_token;
-  }
-
-  // Fallback: check query param (for testing)
-  const url = new URL(req.url);
-  const userId = url.searchParams.get('user_id');
-  if (userId) return userId;
-
-  return null;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
@@ -82,7 +52,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
@@ -95,8 +65,8 @@ export async function POST(request: NextRequest) {
     
     // Save to Supabase
     const session = await createOrUpdateOnboardingSession({
-      user_id: userId,
       ...body,
+      user_id: userId,
     });
 
     return NextResponse.json({
