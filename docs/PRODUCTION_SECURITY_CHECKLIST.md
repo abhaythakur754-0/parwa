@@ -56,11 +56,13 @@ The old committed Superglue credential was removed from application code. Removi
 
 Review provider keys and webhook secrets (Razorpay, Twilio, email, CRM, LLM providers) and rotate any value that has ever been committed or shared outside the secret store.
 
-## Known production blocker: legacy guest Jarvis sessions
+## Legacy guest Jarvis sessions
 
-The legacy Next.js `/api/jarvis/session` and `/history` flow still stores anonymous guest sessions in a process-local Map. It has TTL and capacity bounds, but state is lost on restart and is not shared across server instances. The persistent authenticated Customer Care Jarvis flow is separate.
+The legacy Next.js marketing/guest Jarvis flow still uses a process-local Map for local development and tests. It is not durable or shared across instances and must not be treated as production-grade persistence.
 
-Before production launch, either migrate the legacy guest flow to durable, tenant-safe storage and test it across multiple instances, or explicitly disable that legacy guest flow in production. Do not treat its current in-memory behavior as production-grade persistence.
+The production route guard now returns HTTP 410 for the legacy guest session, message, history, context, ticket, and payment-status handlers before they can read or mutate the in-memory store. The persistent authenticated Customer Care Jarvis `/cc/*` routes and backend handoff routes remain available.
+
+Keep this production guard enabled until the guest flow is migrated to durable, tenant-safe storage and verified across multiple instances. Do not add an environment override that re-enables the in-memory implementation in production.
 
 ## Required live smoke tests
 
@@ -86,6 +88,6 @@ Do not mark production-ready until:
 3. Required secrets are configured consistently on Render.
 4. The leaked credential is rotated.
 5. The live smoke tests above pass.
-6. The legacy guest Jarvis session limitation is resolved or that flow is disabled in production.
+6. The legacy guest Jarvis flow remains disabled in production until durable, tenant-safe storage is implemented and tested across multiple instances.
 
 A static code review and GitHub Actions run alone cannot verify these external systems.
