@@ -273,3 +273,33 @@ jobs:
       - name: Frontend Test Summary
         if: always()
         run: echo "Frontend tests completed"
+
+  # Produce a reproducible source snapshot only after both required CI jobs pass.
+  package-source:
+    name: Package verified source snapshot
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+
+      - name: Create source archive and provenance
+        run: |
+          set -eu
+          printf 'commit=%s\\nbranch=%s\\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
+          zip -qr parwa-source.zip . \\
+            -x '.git/*' 'node_modules/*' '**/node_modules/*' \\
+               '.next/*' '**/.next/*' 'backend/.venv/*' \\
+               '**/__pycache__/*' '**/.pytest_cache/*' \\
+               'backend/test.db' 'backend/*.log' 'coverage/*' \\
+               'parwa-source.zip'
+
+      - name: Upload verified source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: parwa-source-${{ github.sha }}
+          path: |
+            parwa-source.zip
+            BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30
