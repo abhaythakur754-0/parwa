@@ -215,7 +215,7 @@ export async function getLocalUserFromToken(
 ): Promise<LocalMeUser | null> {
   if (!token || !isLocalAuthEnabled()) return null;
 
-  const verified = await verifyToken(token);
+  const verified = await verifyToken(token, { allowRefresh: expectedType === "refresh" });
   if (!verified) return null;
   if (verified.payload.type && verified.payload.type !== expectedType) {
     return null;
