@@ -138,3 +138,27 @@ def test_post_public_https_url_connects_to_resolved_ip(monkeypatch):
     assert captured["path"] == "/hooks?source=parwa"
     assert captured["method"] == "POST"
     assert captured["headers"]["Host"] == "customer.example"
+
+
+def test_post_rejects_dns_rebinding_to_private_address_before_connect(monkeypatch):
+    import socket
+    from app.security import outbound_url
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+        ],
+    )
+
+    def unexpected_connection(*_args, **_kwargs):
+        raise AssertionError("private destination must be rejected before connect")
+
+    monkeypatch.setattr(outbound_url, "_PinnedHTTPSConnection", unexpected_connection)
+    with pytest.raises(ValueError, match="public IP"):
+        outbound_url.post_public_https_url(
+            "https://customer.example/hook",
+            "{}",
+            {"Content-Type": "application/json"},
+        )
