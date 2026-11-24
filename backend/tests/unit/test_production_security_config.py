@@ -75,3 +75,28 @@ def test_production_requires_refresh_token_pepper(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     with pytest.raises(ValueError, match="REFRESH_TOKEN_PEPPER"):
         Settings.validate_refresh_token_pepper("")
+
+
+def test_production_rejects_sample_encryption_key(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="DATA_ENCRYPTION_KEY"):
+        Settings.validate_encryption_key("your_32_character_encryption_key_here")
+
+
+def test_production_rejects_sample_jwt_secret(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
+        Settings.validate_jwt_key("your_jwt_secret_key_here")
+
+
+def test_production_rejects_sample_redis_password(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="Redis credentials"):
+        Settings.validate_production_redis_auth("redis://:your_redis_password@localhost:6379/0")
+
+
+def test_production_rejects_sample_pricing_key(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="PRICING_SIGNING_KEY"):
+        Settings.validate_pricing_signing_key("change-this-to-a-random-64-char-string")
