@@ -65,3 +65,19 @@ def test_refresh_token_is_not_accepted_as_access_token(monkeypatch):
 
     with pytest.raises(AuthenticationError, match="token type"):
         jwt_auth.verify_access_token(_token(settings.JWT_SECRET_KEY, "refresh"))
+
+
+def test_access_token_without_jti_is_rejected(monkeypatch):
+    settings = _settings("HS256")
+    monkeypatch.setattr(jwt_auth, "get_settings", lambda: settings)
+    token = jwt.encode(
+        {
+            "sub": "user-123",
+            "type": "access",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        },
+        settings.JWT_SECRET_KEY,
+        algorithm="HS256",
+    )
+    with pytest.raises(AuthenticationError, match="identifier"):
+        jwt_auth.verify_access_token(token)
