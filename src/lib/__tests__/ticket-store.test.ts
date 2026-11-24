@@ -42,105 +42,24 @@ describe('Ticket Store Constants', () => {
 
 // ── Auto Variant Assignment ─────────────────────────────────────────
 
-describe('autoAssignVariant', () => {
-  // Import the function from the module — it's internal but we can test via addTicket
-
-  it('assigns heavy variant for critical priority', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'Critical issue',
-      description: 'Urgent problem',
-      category: 'billing_payments',
-      priority: 'critical',
-      channel: 'email',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('heavy');
+describe('autoAssignVariant (legacy helper)', () => {
+  it('maps critical priority to heavy', () => {
+    expect(autoAssignVariant('critical', 'billing_payments')).toBe('heavy');
   });
 
-  it('assigns medium variant for high priority', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'High priority issue',
-      description: 'Important problem',
-      category: 'billing_payments',
-      priority: 'high',
-      channel: 'email',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('medium');
+  it('maps high priority to medium', () => {
+    expect(autoAssignVariant('high', 'billing_payments')).toBe('medium');
   });
 
-  it('assigns medium variant for fraud_security category even with low priority', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'Suspicious activity',
-      description: 'Fraud alert',
-      category: 'fraud_security',
-      priority: 'low',
-      channel: 'email',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('medium');
+  it('maps risk categories to medium', () => {
+    expect(autoAssignVariant('low', 'fraud_security')).toBe('medium');
+    expect(autoAssignVariant('low', 'vip_enterprise')).toBe('medium');
+    expect(autoAssignVariant('low', 'complaints')).toBe('medium');
   });
 
-  it('assigns medium variant for vip_enterprise category', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'VIP request',
-      description: 'Enterprise client issue',
-      category: 'vip_enterprise',
-      priority: 'low',
-      channel: 'email',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('medium');
-  });
-
-  it('assigns medium variant for complaints category', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'Complaint',
-      description: 'Unhappy customer',
-      category: 'complaints',
-      priority: 'low',
-      channel: 'email',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('medium');
-  });
-
-  it('assigns light variant for standard cases', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'General question',
-      description: 'Simple inquiry',
-      category: 'product_information',
-      priority: 'low',
-      channel: 'chat',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('light');
-  });
-
-  it('assigns light variant for medium priority with standard category', () => {
-    const store = useTicketStore.getState();
-    const ticket = store.addTicket({
-      subject: 'Medium issue',
-      description: 'Standard category',
-      category: 'order_management',
-      priority: 'medium',
-      channel: 'chat',
-      customer_name: 'Test User',
-      customer_email: 'test@example.com',
-    });
-    expect(ticket.assigned_variant).toBe('light');
+  it('maps ordinary requests to light', () => {
+    expect(autoAssignVariant('low', 'product_information')).toBe('light');
+    expect(autoAssignVariant('medium', 'order_management')).toBe('light');
   });
 });
 
@@ -172,7 +91,7 @@ describe('useTicketStore', () => {
       expect(ticket.priority).toBe('medium');
       expect(ticket.channel).toBe('email');
       expect(ticket.customer_name).toBe('John Doe');
-      expect(ticket.assigned_variant).toBeDefined();
+      expect(ticket.assigned_variant).toBeNull();
       expect(ticket.assigned_agent).toBeNull();
       expect(ticket.messages).toEqual([]);
       expect(ticket.tags).toEqual([]);
@@ -208,68 +127,49 @@ describe('useTicketStore', () => {
       expect(tickets[1].subject).toBe('First ticket');
     });
 
-    it('sets AI confidence based on variant', () => {
-      const lightTicket = useTicketStore.getState().addTicket({
-        subject: 'Light ticket',
-        description: 'Low priority',
-        category: 'product_information',
-        priority: 'low',
-        channel: 'chat',
-        customer_name: 'Test',
-        customer_email: 'test@example.com',
-      });
-      expect(lightTicket.ai_confidence).toBe(95.2);
-
-      const heavyTicket = useTicketStore.getState().addTicket({
-        subject: 'Heavy ticket',
-        description: 'Critical priority',
-        category: 'billing_payments',
-        priority: 'critical',
-        channel: 'email',
-        customer_name: 'Test',
-        customer_email: 'test@example.com',
-      });
-      expect(heavyTicket.ai_confidence).toBe(93.1);
-    });
-
-    it('calculates cost and savings per ticket', () => {
+    it('leaves AI confidence unset until the backend pipeline responds', () => {
       const ticket = useTicketStore.getState().addTicket({
-        subject: 'Cost test',
-        description: 'Testing cost',
+        subject: 'Confidence pending',
+        description: 'Backend assigns quality metrics',
         category: 'product_information',
         priority: 'low',
         channel: 'chat',
         customer_name: 'Test',
         customer_email: 'test@example.com',
       });
-
-      expect(ticket.cost_per_ticket).toBe(VARIANT_COST[ticket.assigned_variant!]);
-      expect(ticket.savings_per_ticket).toBeCloseTo(12.5 - VARIANT_COST[ticket.assigned_variant!]);
+      expect(ticket.ai_confidence).toBeNull();
     });
 
-    it('increments ticket numbers', () => {
-      const t1 = useTicketStore.getState().addTicket({
-        subject: 'T1',
-        description: 'T1',
-        category: 'billing_payments',
+    it('leaves cost and savings unset until the backend pipeline responds', () => {
+      const ticket = useTicketStore.getState().addTicket({
+        subject: 'Cost pending',
+        description: 'Backend owns cost calculation',
+        category: 'product_information',
         priority: 'low',
-        channel: 'email',
+        channel: 'chat',
         customer_name: 'Test',
+        customer_email: 'test@example.com',
+      });
+      expect(ticket.cost_per_ticket).toBeNull();
+      expect(ticket.savings_per_ticket).toBeNull();
+    });
+
+    it('uses pending ticket numbers until the backend persists the ticket', () => {
+      const t1 = useTicketStore.getState().addTicket({
+        subject: 'T1', description: 'T1', category: 'billing_payments',
+        priority: 'low', channel: 'email', customer_name: 'Test',
         customer_email: 'test@example.com',
       });
       const t2 = useTicketStore.getState().addTicket({
-        subject: 'T2',
-        description: 'T2',
-        category: 'billing_payments',
-        priority: 'low',
-        channel: 'email',
-        customer_name: 'Test',
+        subject: 'T2', description: 'T2', category: 'billing_payments',
+        priority: 'low', channel: 'email', customer_name: 'Test',
         customer_email: 'test@example.com',
       });
-      const num1 = parseInt(t1.ticket_number.replace('TKT-', ''), 10);
-      const num2 = parseInt(t2.ticket_number.replace('TKT-', ''), 10);
-      expect(num2).toBeGreaterThan(num1);
+      expect(t1.ticket_number).toBe('TKT-PENDING');
+      expect(t2.ticket_number).toBe('TKT-PENDING');
+      expect(t1.id).not.toBe(t2.id);
     });
+
   });
 
   describe('updateTicketStatus', () => {
@@ -322,7 +222,7 @@ describe('useTicketStore', () => {
   });
 
   describe('assignVariant', () => {
-    it('updates variant and recalculates cost', () => {
+    it('updates the requested variant without calculating backend-owned metrics', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Variant test',
         description: 'Testing variant',
@@ -337,9 +237,9 @@ describe('useTicketStore', () => {
 
       const updated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(updated.assigned_variant).toBe('heavy');
-      expect(updated.cost_per_ticket).toBe(VARIANT_COST.heavy);
-      expect(updated.savings_per_ticket).toBeCloseTo(12.5 - VARIANT_COST.heavy);
-      expect(updated.ai_confidence).toBe(93.1);
+      expect(updated.cost_per_ticket).toBeNull();
+      expect(updated.savings_per_ticket).toBeNull();
+      expect(updated.ai_confidence).toBeNull();
     });
   });
 
@@ -423,15 +323,15 @@ describe('useTicketStore', () => {
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(escalated.status).toBe('crm_pending');
-      expect(escalated.assigned_agent).toBe('Human Agent');
+      expect(escalated.assigned_agent).toBe('CRM Team');
       expect(escalated.messages).toHaveLength(1);
-      expect(escalated.messages[0].content).toContain('escalated to a human agent');
+      expect(escalated.messages[0].content).toContain('Request sent to the CRM');
       expect(escalated.messages[0].sender).toBe('system');
     });
   });
 
   describe('updatePriority', () => {
-    it('updates priority and re-assigns variant based on new priority', () => {
+    it('updates priority while leaving variant assignment to the backend', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Priority test',
         description: 'Testing priority update',
@@ -442,14 +342,14 @@ describe('useTicketStore', () => {
         customer_email: 'test@example.com',
       });
 
-      expect(ticket.assigned_variant).toBe('light');
+      expect(ticket.assigned_variant).toBeNull();
 
       useTicketStore.getState().updatePriority(ticket.id, 'critical');
 
       const updated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(updated.priority).toBe('critical');
-      expect(updated.assigned_variant).toBe('heavy');
-      expect(updated.cost_per_ticket).toBe(VARIANT_COST.heavy);
+      expect(updated.assigned_variant).toBeNull();
+      expect(updated.cost_per_ticket).toBeNull();
     });
   });
 
