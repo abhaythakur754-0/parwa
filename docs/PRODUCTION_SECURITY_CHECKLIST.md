@@ -18,7 +18,7 @@ Keep each value private. Do not reuse one key for another purpose. The backend a
 
 ### Redis
 
-The Redis container now refuses to start without `REDIS_PASSWORD` and starts Redis with `requirepass`.
+The Redis container now refuses to start without `REDIS_PASSWORD` and starts Redis with `requirepass`. Generate a URL-safe value with `openssl rand -hex 32`; the container rejects characters outside letters, numbers, `_`, and `-`.
 
 Set the **same strong random `REDIS_PASSWORD`** on all three Render services:
 
