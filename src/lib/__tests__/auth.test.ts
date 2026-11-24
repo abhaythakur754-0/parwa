@@ -9,6 +9,7 @@
 
 import { SignJWT } from 'jose';
 import { getAuthenticatedUserId } from '@/lib/authenticated-user';
+import { isLocalAuthEnabled } from '@/lib/local-auth';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET_KEY || 'dev-jwt-secret-key-change-in-prod-32c'
@@ -109,6 +110,17 @@ describe('C-01: Dashboard Auth Utility', () => {
 
     const spoofedOnly = createMockRequest({}, { user_id: 'victim-id' });
     await expect(getAuthenticatedUserId(spoofedOnly)).resolves.toBeNull();
+  });
+
+  it('keeps the local-auth fallback disabled in production even when its flag is set', () => {
+    const oldNodeEnv = process.env.NODE_ENV;
+    const oldFlag = process.env.ENABLE_LOCAL_GOOGLE_AUTH;
+    process.env.NODE_ENV = 'production';
+    process.env.ENABLE_LOCAL_GOOGLE_AUTH = '1';
+    expect(isLocalAuthEnabled()).toBe(false);
+    process.env.NODE_ENV = oldNodeEnv;
+    if (oldFlag === undefined) delete process.env.ENABLE_LOCAL_GOOGLE_AUTH;
+    else process.env.ENABLE_LOCAL_GOOGLE_AUTH = oldFlag;
   });
 
   it('does not accept refresh tokens as API access tokens', async () => {
