@@ -8,7 +8,6 @@ ALTER TABLE public.subscriptions
     ADD COLUMN IF NOT EXISTS razorpay_order_id text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_razorpay_order_id_unique
-    ON public.subscriptions (razorpay_order_id)
-    WHERE razorpay_order_id IS NOT NULL;
+    ON public.subscriptions (razorpay_order_id);
 
 COMMIT;
