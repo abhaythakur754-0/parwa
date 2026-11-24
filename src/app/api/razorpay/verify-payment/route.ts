@@ -93,17 +93,26 @@ export async function POST(request: NextRequest) {
     try {
       if (paymentRecord.plan_id && paymentRecord.amount) {
         const existingSubscription = await db.from('subscriptions').select('*', {
-          filter: { user_id: userId, plan_id: paymentRecord.plan_id }, single: true,
+          filter: { user_id: userId, razorpay_order_id }, single: true,
         });
         if (!existingSubscription) {
-          await createSubscription({
-            user_id: userId,
-            plan_id: paymentRecord.plan_id,
-            plan_name: paymentRecord.plan_name || paymentRecord.plan_id.toUpperCase(),
-            billing_cycle: 'monthly',
-            amount: Math.round(paymentRecord.amount),
-            currency: paymentRecord.currency || 'USD',
-          });
+          try {
+            await createSubscription({
+              user_id: userId,
+              plan_id: paymentRecord.plan_id,
+              plan_name: paymentRecord.plan_name || paymentRecord.plan_id.toUpperCase(),
+              billing_cycle: 'monthly',
+              amount: Math.round(paymentRecord.amount),
+              currency: paymentRecord.currency || 'USD',
+              razorpay_order_id,
+            });
+          } catch (insertError) {
+            // A unique order-id index makes concurrent verification idempotent.
+            const racedSubscription = await db.from('subscriptions').select('*', {
+              filter: { user_id: userId, razorpay_order_id }, single: true,
+            });
+            if (!racedSubscription) throw insertError;
+          }
         }
       }
 
@@ -112,7 +121,7 @@ export async function POST(request: NextRequest) {
         razorpay_signature,
         payment_method: 'razorpay',
         updated_at: new Date().toISOString(),
-      });
+      }, userId);
 
       sendReceiptEmail(userId, {
         amount: Math.round((paymentRecord.amount || 0) / 100),
