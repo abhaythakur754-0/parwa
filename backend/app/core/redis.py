@@ -352,6 +352,11 @@ async def get_redis() -> aioredis.Redis:
                     )
                     # REDIS_URL is normalized to redis:// (not rediss://) in
                     # config.py, so no SSL handling needed here.
+                    # REDIS_URL may already contain credentials (e.g. Upstash).
+                    # If a separate REDIS_PASSWORD is supplied, pass it to the
+                    # actual connection client rather than merely validating it.
+                    if settings.REDIS_PASSWORD:
+                        conn_kwargs["password"] = settings.REDIS_PASSWORD
                     client = aioredis.from_url(
                         settings.REDIS_URL,
                         **conn_kwargs,
