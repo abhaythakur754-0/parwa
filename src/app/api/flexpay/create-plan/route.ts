@@ -1,212 +1,89 @@
-/**
- * FlexPay Create Plan API Endpoint
- * ═══════════════════════════════════════════════════════════════════
- *
- * POST /api/flexpay/create-plan
- *
- * Creates a new FlexPay installment plan for a subscription.
- * Validates input, generates schedule, and registers with scheduler.
- *
- * Request Body:
- * {
- *   companyId: string,
- *   tier: 'parwa' | 'high',
- *   totalAmount: number, (optional, defaults from tier)
- *   startDate?: string (ISO date, optional, defaults to now)
- *   customerEmail?: string,
- *   customerName?: string
- * }
- *
- * Response:
- * {
- *   success: true,
- *   plan: FlexPayPlan,
- *   scheduleSummary: string
- * }
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
-import { 
-  createFlexPayPlan, 
-  validateTransactionAmount,
-  TIER_PRICES,
-  type VariantTier
-} from '@/lib/flexpay/core';
-import { registerPlan } from '@/lib/flexpay/scheduler';
-import { randomUUID } from 'crypto';
+import { getAccessTokenFromCookies } from '@/lib/auth-cookies';
+import { getBackendUrl } from '@/lib/backend-url';
 
-// ── Types ──────────────────────────────────────────────────────────
+async function getVerifiedRequest(req: NextRequest) {
+  const user = await verifyAuth(req);
+  if (!user) {
+    return { response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }) };
+  }
+  if (!user.company_id) {
+    return { response: NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 }) };
+  }
 
-interface CreatePlanRequest {
-  companyId: string;
-  tier: VariantTier;
-  totalAmount?: number;
-  startDate?: string;
-  customerEmail?: string;
-  customerName?: string;
+  const token =
+    req.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ||
+    getAccessTokenFromCookies(req as unknown as Request);
+  if (!token) {
+    return { response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }) };
+  }
+  return { user, token };
 }
-
-// ── Validation ─────────────────────────────────────────────────────
-
-function validateCreatePlanRequest(body: Partial<CreatePlanRequest>): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!body.companyId || body.companyId.trim().length === 0) {
-    errors.push('companyId is required');
-  }
-
-  if (!body.tier || !['parwa', 'high'].includes(body.tier)) {
-    errors.push('tier must be one of: parwa, high');
-  }
-
-  if (body.totalAmount !== undefined && body.totalAmount <= 0) {
-    errors.push('totalAmount must be greater than zero');
-  }
-
-  if (body.startDate) {
-    const date = new Date(body.startDate);
-    if (isNaN(date.getTime())) {
-      errors.push('startDate must be a valid ISO date string');
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-// ── Handler ────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const auth = await getVerifiedRequest(req);
+  if ('response' in auth) return auth.response;
+
+  let body: { variant_tier?: string };
   try {
-    const user = await verifyAuth(req);
-    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON in request body' }, { status: 400 });
+  }
 
-    // Parse request body
-    let body: CreatePlanRequest;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
-    }
+  if (!body.variant_tier || !['mini', 'parwa', 'high'].includes(body.variant_tier.toLowerCase())) {
+    return NextResponse.json({ success: false, error: 'Invalid variant_tier' }, { status: 400 });
+  }
 
-    // Bind this local legacy plan to the verified tenant, never a caller-selected one.
-    if (body.companyId !== user.company_id) {
-      return NextResponse.json({ success: false, error: 'Company access denied' }, { status: 403 });
-    }
-
-    // Validate request
-    const validation = validateCreatePlanRequest(body);
-    if (!validation.valid) {
-      return NextResponse.json(
-        { success: false, error: 'Validation failed', details: validation.errors },
-        { status: 400 }
-      );
-    }
-
-    // Determine amount (use provided or default from tier)
-    const totalAmount = TIER_PRICES[body.tier as VariantTier];
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      return NextResponse.json({ success: false, error: 'Invalid server pricing configuration' }, { status: 500 });
-    }
-
-    // Validate transaction amounts are safe for Razorpay
-    const baseValidation = validateTransactionAmount(100); // Base daily amount
-    if (!baseValidation.valid) {
-      return NextResponse.json(
-        { success: false, error: 'System configuration error: Base amount exceeds limits' },
-        { status: 500 }
-      );
-    }
-
-    // Generate unique plan ID
-    const planId = `flexpay_${randomUUID().replace(/-/g, '').substring(0, 12)}`;
-
-    // Parse start date or use now
-    const startDate = body.startDate ? new Date(body.startDate) : new Date();
-
-    // Create the plan
-    const plan = createFlexPayPlan({
-      id: planId,
-      companyId: body.companyId,
-      tier: body.tier as VariantTier,
-      totalAmount,
-      startDate,
-    });
-
-    // Register with scheduler for automatic processing
-    registerPlan(plan);
-
-    // Log creation (in production, this would go to your logging system)
-    console.log(`[FlexPay/API] Created plan ${planId} for company ${body.companyId}`, {
-      tier: body.tier,
-      totalAmount,
-      totalDays: plan.totalDays,
-      customerEmail: body.customerEmail,
-    });
-
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      plan: {
-        ...plan,
-        createdAt: plan.createdAt.toISOString(),
-        startDate: plan.startDate.toISOString(),
-        expectedCompletionDate: plan.expectedCompletionDate.toISOString(),
+  try {
+    const response = await fetch(`${getBackendUrl()}/api/flexpay/create-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
       },
-      message: `FlexPay plan created successfully. ${plan.totalDays} installments starting ${startDate.toLocaleDateString()}`,
+      body: JSON.stringify({ variant_tier: body.variant_tier.toLowerCase() }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20000),
     });
-
+    const data = await response.json().catch(() => ({ error: 'Invalid backend response' }));
+    return NextResponse.json(data, { status: response.status, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    console.error('[FlexPay/API] Error creating plan:', error);
-    
-    const message = error instanceof Error ? error.message : 'Unknown error occurred';
-    
+    console.error('[FlexPay/API] Backend plan creation failed:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to create FlexPay plan',
-        details: message 
-      },
-      { status: 500 }
+      { success: false, error: 'FlexPay backend is unavailable; no plan was created.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }
 
-// ── Optional: GET to list plans (for admin) ───────────────────────
-
 export async function GET(req: NextRequest) {
-  try {
-    const user = await verifyAuth(req);
-    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    if (!user.company_id) return NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 });
-    const { getRegisteredPlans } = await import('@/lib/flexpay/scheduler');
-    
-    const plans = getRegisteredPlans().filter(p => p.companyId === user.company_id);
-    const stats = { totalPlans: plans.length };
+  const auth = await getVerifiedRequest(req);
+  if ('response' in auth) return auth.response;
 
-    return NextResponse.json({
-      success: true,
-      stats,
-      plans: plans.map(p => ({
-        id: p.id,
-        companyId: p.companyId,
-        tier: p.tier,
-        status: p.status,
-        totalAmount: p.totalAmount,
-        totalDays: p.totalDays,
-        currentDay: Math.floor((Date.now() - new Date(p.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1,
-        progress: `${Math.min(100, Math.round(((Date.now() - new Date(p.startDate).getTime()) / (1000 * 60 * 60 * 24)) / p.totalDays * 100))}%`,
-      })),
+  try {
+    const response = await fetch(`${getBackendUrl()}/api/flexpay/company-plans`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
     });
-  } catch (error) {
-    console.error('[FlexPay/API] Error listing plans:', error);
+    const data = await response.json().catch(() => ({ error: 'Invalid backend response' }));
+    if (!response.ok) {
+      return NextResponse.json(
+        { success: false, error: data.detail || data.error || 'FlexPay plan query failed' },
+        { status: response.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     return NextResponse.json(
-      { success: false, error: 'Failed to list plans' },
-      { status: 500 }
+      { success: true, plans: data, stats: { totalPlans: Array.isArray(data) ? data.length : 0 } },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
+  } catch (error) {
+    console.error('[FlexPay/API] Backend plan query failed:', error);
+    return NextResponse.json(
+      { success: false, error: 'FlexPay backend is unavailable.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }
