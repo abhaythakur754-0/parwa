@@ -6,7 +6,7 @@
  * including auto-fetch, refetch, and computed properties.
  *
  * Updated 2026-07-26: Mini SHOBH removed — codebase now has 2 tiers
- * (parwa $2,499/mo + high $3,999/mo). All variants share the SAME AI
+ * (parwa $2,999/mo + high $3,999/mo). All variants share the SAME AI
  * capabilities; tiers differ only in ticket volume / numeric limits.
  */
 
@@ -26,7 +26,7 @@ describe('useVariant', () => {
     // Reset billing store too (variant.fetchTier delegates to it)
     useBillingStore.setState({
       currentTier: 'parwa',
-      currentPrice: 2499,
+      currentPrice: 2999,
       renewalDate: null,
       invoices: [],
       paymentMethods: [],
@@ -81,7 +81,7 @@ describe('useVariant', () => {
 
     it('returns tierPrice for parwa', () => {
       const { result } = renderHook(() => useVariant());
-      expect(result.current.tierPrice).toBe('$2,499/mo');
+      expect(result.current.tierPrice).toBe('$2,999/mo');
     });
 
     it('returns tierColor for parwa', () => {
