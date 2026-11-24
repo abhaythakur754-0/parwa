@@ -2,17 +2,16 @@
 Variant Limit Service (F-021, F-024, BC-001, BC-002, BC-007)
 
 Handles subscription variant limit enforcement:
-- Get variant limits (mini / parwa / high)
+- Get variant limits (Parwa / High; legacy Mini aliases upgrade to Parwa)
 - Check ticket, team member, AI agent, voice slot, and KB doc limits
 - Enforce limits by blocking operations when exceeded
 - Provide current usage counts against plan limits
 
 Locked Variant Limits:
-  | Variant | Tickets | AI Agents | Team | Voice | KB Docs | Price    |
-  |---------|---------|-----------|------|-------|---------|----------|
-  | Mini    | 999     | 0         | 3    | 0     | 100     | $999.00  |
-  | Parwa   | 2,499   | 3         | 10   | 2     | 500     | $2,499.00|
-  | High    | 3,999   | ∞         | 25   | 5     | 2,000   | $3,999.00|
+  | Variant | Tickets | AI Agents | Team | Voice | KB Docs | Price     |
+  |---------|---------|-----------|------|-------|---------|-----------|
+  | Parwa   | 2,499   | 3         | 10   | 2     | 500     | $2,499.00 |
+  | High    | 3,999   | ∞         | 25   | 5     | 2,000   | $3,999.00 |
 
 BC-001: All methods validate company_id
 BC-002: All money calculations use Decimal
@@ -219,7 +218,7 @@ class VariantLimitService:
         Fallback: direct query of the ``VariantLimit`` DB table, then
         hardcoded defaults.
         """
-        # Normalize old names (mini_parwa → starter, etc.)
+        # Normalize legacy Mini aliases to the active Parwa tier.
         try:
             variant_key = _normalize_variant(variant.lower().strip())
         except ValueError:
