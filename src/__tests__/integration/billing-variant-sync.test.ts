@@ -102,19 +102,19 @@ describe('Integration: Billing + Variant Sync', () => {
     useVariantStore.getState().setTier('high');
 
     expect(useVariantStore.getState().isAtLimit('agents')).toBe(false);
-    expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
     expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
-    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
   });
 
-  it('treats High knowledge, API-key, and team-member limits as unlimited', () => {
+  it('enforces High knowledge and team-member capacity while allowing its configured API-key allowance', () => {
     useVariantStore.getState().setTier('high');
     useVariantStore.setState({
       usage: {
         agentsUsed: 50,
-        docsUsed: 10000,
+        docsUsed: 2000,
         apiKeysUsed: 500,
-        teamMembersUsed: 200,
+        teamMembersUsed: 25,
         ticketsThisMonth: 0,
         messagesThisMonth: 0,
       },
