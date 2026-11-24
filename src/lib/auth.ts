@@ -24,7 +24,7 @@ export interface VerifiedUser {
 
 function extractToken(request: NextRequest): string | null {
   const authorization = request.headers.get("authorization");
-  const bearer = authorization?.match(/^Bearer\\s+(.+)$/i)?.[1]?.trim();
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   if (bearer) return bearer;
 
   return request.cookies.get("parwa_at")?.value ?? null;
