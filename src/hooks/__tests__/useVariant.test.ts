@@ -76,7 +76,7 @@ describe('useVariant', () => {
   describe('computed properties', () => {
     it('returns tierLabel for parwa', () => {
       const { result } = renderHook(() => useVariant());
-      expect(result.current.tierLabel).toBe('SHOBH');
+      expect(result.current.tierLabel).toBe('PARWA Growth');
     });
 
     it('returns tierPrice for parwa', () => {
@@ -96,7 +96,7 @@ describe('useVariant', () => {
         useVariantStore.getState().setTier('high');
       });
 
-      expect(result.current.tierLabel).toBe('SHOBH High');
+      expect(result.current.tierLabel).toBe('PARWA High');
       expect(result.current.tierPrice).toBe('$3,999/mo');
       expect(result.current.tierColor).toContain('from-orange');
     });
