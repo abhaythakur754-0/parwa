@@ -213,7 +213,7 @@ def create_session(
 
     except Exception as e:
         logger.exception("create_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/session/{session_id}")
@@ -246,7 +246,7 @@ def get_session(
         raise
     except Exception as e:
         logger.exception("get_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/session/resume")
@@ -269,7 +269,7 @@ def resume_session(
         raise
     except Exception as e:
         logger.exception("resume_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.patch("/context")
@@ -302,7 +302,7 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
         raise
     except Exception as e:
         logger.exception("update_context_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/stage/advance")
@@ -328,7 +328,7 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("advance_stage_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/message")
@@ -370,7 +370,7 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("log_message_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/verify-email")
@@ -417,7 +417,7 @@ def verify_email(
         raise
     except Exception as e:
         logger.exception("verify_email_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/payment")
@@ -454,7 +454,7 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("demo_call_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/handoff")
@@ -487,7 +487,7 @@ def execute_handoff(
         raise
     except Exception as e:
         logger.exception("handoff_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/deactivate")
@@ -512,7 +512,7 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
         raise
     except Exception as e:
         logger.exception("deactivate_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/funnel-metrics")
@@ -538,7 +538,7 @@ def get_funnel_metrics(
 
     except Exception as e:
         logger.exception("funnel_metrics_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/awareness")
@@ -564,4 +564,4 @@ def get_onboarding_awareness(
 
     except Exception as e:
         logger.exception("onboarding_awareness_endpoint_failed")
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Internal server error")
