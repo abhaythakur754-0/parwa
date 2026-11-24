@@ -29,6 +29,23 @@ def _configured_environment(info: Optional[ValidationInfo] = None) -> str:
     return os.environ.get("ENVIRONMENT", "development").lower()
 
 
+def _is_placeholder_secret(value: Optional[str]) -> bool:
+    """Reject obvious sample/template values when used as production secrets."""
+    if not value:
+        return True
+    normalized = value.strip().lower()
+    return normalized.startswith((
+        "your_",
+        "your-",
+        "change-me",
+        "change-this",
+        "replace-me",
+        "placeholder",
+        "example-",
+        "dev-",
+    ))
+
+
 
 
 class Environment(str, Enum):
@@ -193,10 +210,10 @@ class Settings(BaseSettings):
     @classmethod
     def validate_refresh_token_pepper(cls, v: str, info: ValidationInfo = None) -> str:
         env = _configured_environment(info)
-        if env == "production" and len(v) < 32:
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
             raise ValueError(
-                "SECURITY CRITICAL: REFRESH_TOKEN_PEPPER must be configured "
-                "with at least 32 characters in production."
+                "SECURITY CRITICAL: REFRESH_TOKEN_PEPPER must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 
@@ -309,10 +326,10 @@ class Settings(BaseSettings):
                 "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
                 stacklevel=2,
             )
-        if env == "production" and len(v) < 32:
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
             raise ValueError(
-                "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be at least "
-                "32 characters in production."
+                "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 
@@ -332,6 +349,8 @@ class Settings(BaseSettings):
                 "SECRET_KEY not set — auto-generated for development.",
                 stacklevel=2,
             )
+        if env == "production" and _is_placeholder_secret(v):
+            raise ValueError("SECURITY CRITICAL: placeholder SECRET_KEY cannot be used in production.")
         if v.startswith("dev-") or v == "change-me":
             if env == "production":
                 raise ValueError("SECURITY CRITICAL: known default SECRET_KEY cannot be used in production.")
@@ -391,6 +410,8 @@ class Settings(BaseSettings):
                 stacklevel=2,
             )
         # CRITICAL: too-short keys are brute-forceable. Refuse to start.
+        if env == "production" and _is_placeholder_secret(v):
+            raise ValueError("SECURITY CRITICAL: placeholder JWT_SECRET_KEY cannot be used in production.")
         if env == "production" and len(v) < 16:
             raise ValueError(
                 f"SECURITY CRITICAL (C-06): JWT_SECRET_KEY is only {len(v)} "
@@ -416,10 +437,11 @@ class Settings(BaseSettings):
                 (info.data.get("REDIS_PASSWORD") if info is not None else None)
                 or os.environ.get("REDIS_PASSWORD")
             )
-            if not parsed.password and not configured_password:
+            redis_password = parsed.password or configured_password
+            if not redis_password or _is_placeholder_secret(redis_password):
                 raise ValueError(
-                    "SECURITY CRITICAL: production REDIS_URL must contain a password "
-                    "or REDIS_PASSWORD must be configured."
+                    "SECURITY CRITICAL: production Redis credentials must be configured "
+                    "and must not be sample/template values."
                 )
         return v
 
@@ -518,10 +540,10 @@ class Settings(BaseSettings):
                 "Using development PRICING_SIGNING_KEY — change before production!",
                 stacklevel=2,
             )
-        if env == "production" and len(v) < 32:
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
             raise ValueError(
-                "SECURITY CRITICAL: PRICING_SIGNING_KEY must be at least "
-                "32 characters in production."
+                "SECURITY CRITICAL: PRICING_SIGNING_KEY must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 
