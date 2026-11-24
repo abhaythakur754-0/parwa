@@ -31,38 +31,16 @@ jest.mock('lucide-react', () => {
 // ── DemoBanner Tests ─────────────────────────────────────────────────
 
 describe('DemoBanner', () => {
-  it('renders the demo mode message', () => {
+  it('does not render the retired demo-mode banner', () => {
     render(React.createElement(DemoBanner));
-    expect(screen.getByTestId('demo-banner')).toBeInTheDocument();
-    expect(screen.getByText(/Demo Mode/)).toBeInTheDocument();
-    expect(screen.getByText(/sample data/)).toBeInTheDocument();
-  });
-
-  it('has role="alert" for accessibility', () => {
-    render(React.createElement(DemoBanner));
-    expect(screen.getByRole('alert')).toBeInTheDocument();
-  });
-
-  it('can be dismissed by clicking the X button', () => {
-    render(React.createElement(DemoBanner));
-    const dismissBtn = screen.getByLabelText('Dismiss demo banner');
-    fireEvent.click(dismissBtn);
     expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument();
   });
 
-  it('calls onDismiss callback when dismissed', () => {
+  it('does not invoke dismiss callbacks while the banner is disabled', () => {
     const onDismiss = jest.fn();
     render(React.createElement(DemoBanner, { onDismiss }));
-    const dismissBtn = screen.getByLabelText('Dismiss demo banner');
-    fireEvent.click(dismissBtn);
-    expect(onDismiss).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not render after being dismissed', () => {
-    render(React.createElement(DemoBanner));
-    expect(screen.getByTestId('demo-banner')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Dismiss demo banner'));
-    expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument();
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Dismiss demo banner')).not.toBeInTheDocument();
   });
 });
 
