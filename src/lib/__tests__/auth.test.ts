@@ -8,6 +8,7 @@
  */
 
 import { SignJWT } from 'jose';
+import { getAuthenticatedUserId } from '@/lib/authenticated-user';
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET_KEY || 'dev-jwt-secret-key-change-in-prod-32c'
@@ -42,6 +43,9 @@ function createMockRequest(headers: Record<string, string> = {}, cookies: Record
         if (name.toLowerCase() === 'cookie') return cookieStr || null;
         return null;
       },
+    },
+    cookies: {
+      get: (name: string) => cookies[name] ? { value: cookies[name] } : undefined,
     },
   } as any;
 }
@@ -95,6 +99,22 @@ describe('C-01: Dashboard Auth Utility', () => {
     const result = await verifyAuth(req);
     expect(result).not.toBeNull();
     expect(result.sub).toBe('user-123');
+  });
+
+
+  it('returns only a verified subject and ignores caller-controlled user_id cookies', async () => {
+    const token = await createTestToken();
+    const req = createMockRequest({}, { parwa_at: token, user_id: 'attacker-id' });
+    await expect(getAuthenticatedUserId(req)).resolves.toBe('user-123');
+
+    const spoofedOnly = createMockRequest({}, { user_id: 'victim-id' });
+    await expect(getAuthenticatedUserId(spoofedOnly)).resolves.toBeNull();
+  });
+
+  it('does not accept refresh tokens as API access tokens', async () => {
+    const refreshToken = await createTestToken({}, true);
+    const req = createMockRequest({}, { parwa_at: refreshToken });
+    await expect(getAuthenticatedUserId(req)).resolves.toBeNull();
   });
 
   it('rejects refresh tokens (type=refresh)', async () => {
