@@ -248,6 +248,7 @@ def verify_business_email_otp(
             )
         )
         .order_by(BusinessEmailOTP.created_at.desc())
+        .with_for_update()
         .first()
     )
     
