@@ -114,6 +114,7 @@ def send_business_email_otp(
     recent_otps = db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
+        BusinessEmailOTP.user_id == user_id,
         BusinessEmailOTP.created_at >= one_hour_ago,
     ).count()
     
@@ -127,6 +128,7 @@ def send_business_email_otp(
     db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
+        BusinessEmailOTP.user_id == user_id,
         BusinessEmailOTP.verified == False,  # noqa: E712
     ).update({"expires_at": datetime.now(timezone.utc)})  # Expire them
     
