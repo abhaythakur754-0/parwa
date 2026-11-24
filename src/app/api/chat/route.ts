@@ -405,6 +405,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // getAuthenticatedUserId has already verified this token (including backend
+  // revocation and active-account checks). Reuse the same bearer/cookie token
+  // when creating an action ticket; do not accept a client-supplied user ID.
+  const authorization = req.headers.get('authorization');
+  const accessToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice(7).trim()
+    : req.cookies.get('parwa_at')?.value || '';
+
   try {
     const body = await req.json();
     const { message, industry, variant } = body;
@@ -463,7 +471,7 @@ export async function POST(req: NextRequest) {
     if (action.isAction) {
       // Customer wants a refund/cancel/etc → create a ticket
       // The 8-node pipeline will process it (calls Superglue tools)
-      const ticketId = await createActionTicket(token || '', userMessage);
+      const ticketId = await createActionTicket(accessToken, userMessage);
 
       if (ticketId) {
         return NextResponse.json({
