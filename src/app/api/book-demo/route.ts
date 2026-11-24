@@ -5,6 +5,38 @@ const prisma = new PrismaClient();
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_REQUESTS_PER_EMAIL_PER_HOUR = 3;
 
+class RequestBodyTooLargeError extends Error {}
+
+async function readBoundedJson(request: NextRequest): Promise<Record<string, unknown>> {
+  if (!request.body) throw new SyntaxError('Request body is required');
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw new RequestBodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const parsed: unknown = JSON.parse(new TextDecoder().decode(body));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new SyntaxError('Request body must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const contentLength = Number(req.headers.get('content-length') || 0);
@@ -15,7 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const body = await readBoundedJson(req);
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
     const company = typeof body?.company === 'string' ? body.company.trim() : '';
@@ -99,6 +131,18 @@ export async function POST(req: NextRequest) {
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { status: 'error', message: 'Request is too large.' },
+        { status: 413, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { status: 'error', message: 'Invalid request body.' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     console.error('Book Demo API error:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json(
       { status: 'error', message: 'Failed to submit demo request. Please try again.' },
