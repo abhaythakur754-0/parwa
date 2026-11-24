@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const expected = createHmac('sha256', RAZORPAY_KEY_SECRET)
-      .update(\`\${orderId}|\${paymentId}\`)
+      .update(`${orderId}|${paymentId}`)
       .digest();
     const received = Buffer.from(signature, 'hex');
     if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
@@ -56,13 +56,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const authorization = \`Basic \${Buffer.from(\`\${RAZORPAY_KEY_ID}:\${RAZORPAY_KEY_SECRET}\`).toString('base64')}\`;
+    const authorization = `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`;
     const [orderResponse, paymentResponse] = await Promise.all([
-      fetch(\`https://api.razorpay.com/v1/orders/\${encodeURIComponent(orderId)}\`, {
+      fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(orderId)}`, {
         headers: { Authorization: authorization },
         signal: AbortSignal.timeout(15_000),
       }),
-      fetch(\`https://api.razorpay.com/v1/payments/\${encodeURIComponent(paymentId)}\`, {
+      fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`, {
         headers: { Authorization: authorization },
         signal: AbortSignal.timeout(15_000),
       }),
