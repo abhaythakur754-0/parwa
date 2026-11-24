@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 
 /**
  * POST /api/chat — Jarvis AI Chat Endpoint
@@ -395,29 +395,13 @@ async function createActionTicket(
 }
 
 export async function POST(req: NextRequest) {
-  // ── H-18 FIX: Verify authentication ──
-  const authHeader = req.headers.get("authorization");
-  let token: string | null = null;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.slice(7);
-  }
-  if (!token) {
-    token = getAccessTokenFromCookies(req);
-  }
-
-  if (!token) {
+  // Verify signature, token revocation, and active account status before
+  // allowing a request to consume provider credits.
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
     return NextResponse.json(
       { status: 'error', message: 'Authentication required.' },
-      { status: 401 }
-    );
-  }
-
-  const verified = await verifyToken(token);
-  if (!verified) {
-    return NextResponse.json(
-      { status: 'error', message: 'Token is invalid or expired.' },
-      { status: 401 }
+      { status: 401, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 
