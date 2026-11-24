@@ -83,7 +83,16 @@ export async function GET(request: NextRequest) {
       // Backend unreachable — fall through to local verification
     }
 
-    // ── Local fallback (dev only) ──────────────────────────────
+    // ── Local fallback (development only) ─────────────────────
+    // In production the backend is the single source of truth for user
+    // identity and tenant membership. Never use a local DB during an outage.
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { status: "error", message: "Authentication service unavailable." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const verified = await verifyToken(token);
     if (!verified) {
       return NextResponse.json(
