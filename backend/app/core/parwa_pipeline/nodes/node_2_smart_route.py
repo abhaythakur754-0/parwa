@@ -38,12 +38,16 @@ logger = logging.getLogger("parwa.pipeline.node_2")
 # and the canonical names in pricing_config (VariantType enum).
 
 TIER_SHORT_TO_DB: Dict[str, str] = {
-    "mini": "mini_parwa",
     "parwa": "parwa",
     "high": "parwa_high",
 }
 
-TIER_DB_TO_SHORT: Dict[str, str] = {v: k for k, v in TIER_SHORT_TO_DB.items()}
+# Legacy Mini database values are normalized to the current entry tier.
+TIER_DB_TO_SHORT: Dict[str, str] = {
+    "mini_parwa": "parwa",
+    "parwa": "parwa",
+    "parwa_high": "high",
+}
 
 # Priority order for routing (lowest first to preserve higher tier quota)
 # NOTE: Mini was removed 2026-07-26. Only 2 tiers remain.
@@ -120,8 +124,11 @@ def set_test_variant(
     name (``mini_parwa``, ``parwa``, ``parwa_high``) or a short
     key (``mini``, ``parwa``, ``high``).
     """
-    db_tier = TIER_SHORT_TO_DB.get(tier, tier)
-    short = TIER_DB_TO_SHORT.get(db_tier, db_tier)
+    try:
+        short = normalize_variant_name(tier)
+    except ValueError:
+        short = "parwa"
+    db_tier = TIER_SHORT_TO_DB.get(short, short)
     remaining = quota_remaining if quota_remaining is not None else quota_total
     _TEST_REGISTRY[tenant_id] = {
         "tier_short": short,
@@ -257,14 +264,13 @@ def _load_tenant_variants(tenant_id: str) -> Dict[str, Any]:
 
             if sub and sub.tier:
                 tier_raw = sub.tier.strip().lower()
-                # sub.tier stores canonical names: starter, growth, high
-                tier_map = {"starter": "mini", "growth": "parwa", "high": "high"}
-                # Also support old DB names
-                tier_map.update(TIER_DB_TO_SHORT)
-
-                short = tier_map.get(tier_raw, "mini")
+                # Normalize legacy subscription names to the two live tiers.
+                try:
+                    short = normalize_variant_name(tier_raw)
+                except ValueError:
+                    short = "parwa"
                 if short not in CAPABILITY_MATRIX:
-                    short = "mini"
+                    short = "parwa"
 
                 # Get usage
                 current_month = datetime.now(timezone.utc).strftime("%Y-%m")
@@ -290,17 +296,17 @@ def _load_tenant_variants(tenant_id: str) -> Dict[str, Any]:
 
     except Exception as exc:
         logger.warning(
-            "Node 2 DB lookup failed for tenant %s: %s — using default mini_parwa",
+            "Node 2 DB lookup failed for tenant %s: %s — using Parwa defaults",
             tenant_id, exc,
         )
 
-    # ── 4. Ultimate default: mini_parwa ──
+    # ── 4. Ultimate default: Parwa (the lowest active tier) ──
     return {
-        "available_tiers": ["mini"],
-        "highest_tier_short": "mini",
-        "highest_tier_db": "mini_parwa",
-        "quota": {"mini": {"total": 2000, "used": 0, "remaining": 2000}},
-        "source": "default_mini_parwa",
+        "available_tiers": ["parwa"],
+        "highest_tier_short": "parwa",
+        "highest_tier_db": "parwa",
+        "quota": _build_quota_from_limits(["parwa"], 0),
+        "source": "default_parwa",
     }
 
 
