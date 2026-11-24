@@ -21,7 +21,7 @@ logger = logging.getLogger("parwa.api.debug")
 
 def require_debug_not_production() -> None:
     """Debug routes are not part of the production API surface."""
-    if get_settings().ENVIRONMENT.lower() == "production":
+    if get_settings().ENVIRONMENT.lower() != "development":
         raise HTTPException(status_code=404, detail="Not found")
 
 
