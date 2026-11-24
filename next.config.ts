@@ -14,10 +14,6 @@ const nextConfig: NextConfig = {
       { source: "/tickets", destination: "/dashboard/tickets", permanent: false },
     ];
   },
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   reactStrictMode: false,
 };
 
