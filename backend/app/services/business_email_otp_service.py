@@ -176,18 +176,23 @@ def send_business_email_otp(
         subject=f"Your PARWA Verification Code: {otp_code}",
         html_content=html_content,
     )
-    
-    if not sent:
+    email_ok = sent.get("success", False) if isinstance(sent, dict) else bool(sent)
+    if not email_ok:
+        otp_record.expires_at = datetime.now(timezone.utc)
+        db.commit()
         logger.warning(
             "business_email_otp_send_failed email=%s user_id=%s",
-            email, user_id)
-        # Still return success - don't reveal email sending status
-        # User will see "check your email" message
-    
+            email, user_id,
+        )
+        raise ValidationError(
+            message="Unable to send the verification code right now. Please try again later."
+        )
+
     logger.info(
         "business_email_otp_sent email=%s user_id=%s company_id=%s",
-        email, user_id, company_id)
-    
+        email, user_id, company_id,
+    )
+
     return {
         "message": f"Verification code sent to {email}",
         "expires_in": OTP_EXPIRY_MINUTES * 60,  # seconds
