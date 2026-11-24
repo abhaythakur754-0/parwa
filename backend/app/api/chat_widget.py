@@ -413,9 +413,29 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
         )
 
     content = body.content
-    role = body.role
-    sender_id = body.sender_id or getattr(request.state, "user_id", None)
-    sender_name = body.sender_name
+    # Never trust role or sender identity supplied by the browser. A valid
+    # visitor token can only create visitor messages; authenticated staff
+    # identity comes from verified request state, not request JSON.
+    if visitor_token:
+        role = "visitor"
+        sender_id = None
+        sender_name = None
+    else:
+        authenticated_user_id = getattr(request.state, "user_id", None)
+        if not authenticated_user_id:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authenticated staff identity required",
+                        "details": None,
+                    }
+                },
+            )
+        role = "agent"
+        sender_id = str(authenticated_user_id)
+        sender_name = None
     message_type = body.message_type
 
     try:
@@ -478,7 +498,7 @@ async def get_chat_messages(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """Get messages for a chat session with pagination."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -528,6 +548,24 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
     # BC-011: Verify visitor token if no JWT auth
     company_id = getattr(request.state, "company_id", None)
     visitor_token = body.visitor_token
+    if visitor_token:
+        # Visitor-supplied role and user IDs must never impersonate an agent.
+        typing_role = "visitor"
+        typing_user_id = None
+    else:
+        typing_user_id = getattr(request.state, "user_id", None)
+        if not typing_user_id:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authenticated staff identity required",
+                        "details": None,
+                    }
+                },
+            )
+        typing_role = "agent"
     if not company_id and visitor_token:
         try:
             from app.services.chat_widget_service import ChatWidgetService
@@ -566,8 +604,8 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
         return service.send_typing_indicator(
             session_id=session_id,
             company_id=company_id,
-            user_id=body.user_id or getattr(request.state, "user_id", None),
-            role=body.role,
+            user_id=typing_user_id,
+            role=typing_role,
             is_typing=body.is_typing,
         )
     except Exception as exc:
