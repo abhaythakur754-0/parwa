@@ -171,8 +171,12 @@ export async function verifyAuth(
       algorithms: [JWT_ALGORITHM],
     });
     const p = payload as unknown as VerifiedUser;
-    // Reject refresh tokens — only access tokens are valid for API calls
-    if (p.type === "refresh") return null;
+    if (
+      typeof p.sub !== "string" ||
+      !p.sub.trim() ||
+      typeof p.exp !== "number" ||
+      p.type === "refresh"
+    ) return null;
     return p;
   } catch {
   }
