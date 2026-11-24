@@ -424,18 +424,10 @@ class Settings(BaseSettings):
         # CRITICAL: too-short keys are brute-forceable. Refuse to start.
         if env == "production" and _is_placeholder_secret(v):
             raise ValueError("SECURITY CRITICAL: placeholder JWT_SECRET_KEY cannot be used in production.")
-        if env == "production" and len(v) < 16:
+        if env == "production" and len(v) < 32:
             raise ValueError(
                 f"SECURITY CRITICAL (C-06): JWT_SECRET_KEY is only {len(v)} "
-                "chars in production — minimum 16 required (32+ recommended). "
-                "Set a strong JWT_SECRET_KEY via the JWT_SECRET_KEY env var."
-            )
-        # Warn (not crash) if shorter than recommended 32 chars
-        if env == "production" and len(v) < 32:
-            warnings.warn(
-                f"SECURITY: JWT_SECRET_KEY is only {len(v)} chars — "
-                f"should be at least 32 for production!",
-                stacklevel=2,
+                "characters; at least 32 are required in production."
             )
         return v
 
