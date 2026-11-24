@@ -43,6 +43,13 @@
     "parwa*",
     "backend",
     "venv",
-    "skills"
+    "skills",
+    "src/__tests__",
+    "src/lib/__tests__",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
   ]
 }
