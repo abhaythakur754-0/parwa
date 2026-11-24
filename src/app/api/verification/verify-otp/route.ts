@@ -70,23 +70,26 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = await db.from("user_details").update(
-        {
-          work_email_verified: true,
-          updated_at: new Date().toISOString(),
-        },
-        { user_id: userId, work_email: email },
-      );
-      if (!Array.isArray(updated) || updated.length === 0) {
-        return NextResponse.json(
-          { error: "verification_persistence_failed", message: "Email verification could not be saved. Please retry." },
-          { status: 503 },
+      let persisted = false;
+      try {
+        const updated = await db.from("user_details").update(
+          {
+            work_email_verified: true,
+            updated_at: new Date().toISOString(),
+          },
+          { user_id: userId, work_email: email },
         );
+        persisted = Array.isArray(updated) && updated.length > 0;
+      } catch (persistenceError) {
+        console.error("[Verification] OTP succeeded but local status mirror failed:", persistenceError);
       }
 
+      // The backend remains authoritative. If the mirror write failed,
+      // complete-step rechecks the backend status and retries persistence.
       return NextResponse.json({
         success: true,
         verified: true,
+        persistence_pending: !persisted,
         message: data.message || "Email verified successfully",
       });
     }
