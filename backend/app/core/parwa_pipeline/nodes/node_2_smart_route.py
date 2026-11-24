@@ -623,7 +623,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
             return {
                 "route_decision": "simple_path",
                 "current_path": "simple_path",
-                "variant_tier": "mini_parwa",
+                "variant_tier": "parwa",
                 "quota_remaining": {},
                 "variant_capabilities": [],
                 "status": "escalated",
@@ -764,7 +764,7 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
     n2_zsv2 = "ok"
     if ticket_type == "legal_review" and selected_tier_short != "high":
         n2_zsv2 = "REVIEW: legal_review requires the High tier"
-    elif ticket_type == "fraud_security" and selected_tier_short in ("mini", "free"):
+    elif ticket_type == "fraud_security" and selected_tier_short == "free":
         n2_zsv2 = "REVIEW: fraud on low tier"
     logs.append({"node": 2, "technique": "ZeroShotValidator.depth2", "duration_ms": 0, "result_summary": n2_zsv2})
 
