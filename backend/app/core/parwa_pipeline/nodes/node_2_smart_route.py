@@ -157,9 +157,9 @@ def _load_tenant_variants(tenant_id: str) -> Dict[str, Any]:
 
     Returns dict with:
       - available_tiers: list of short tier keys the tenant owns
-        e.g. ["mini"] or ["parwa"] or ["mini", "parwa", "high"]
-      - highest_tier_short: "mini" | "parwa" | "high"
-      - highest_tier_db: "mini_parwa" | "parwa" | "parwa_high"
+        e.g. ["parwa"] or ["parwa", "high"]
+      - highest_tier_short: "parwa" | "high"
+      - highest_tier_db: "parwa" | "parwa_high"
       - quota: {tier_short: {total, used, remaining}} for each owned tier
       - source: where the data came from (for logging)
 
