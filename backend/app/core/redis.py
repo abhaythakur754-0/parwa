@@ -6,7 +6,7 @@ Every Redis key MUST include company_id in the namespace: parwa:{company_id}:*
 
 BC-001: No global keys — all keys are tenant-isolated.
 BC-011: Redis URL loaded from environment, never hardcoded.
-BC-012: Redis failure -> fail-open (consistent with rate_limiter design).
+BC-012: Development may use fakeredis; production requires real Redis and fails closed.
 
 Day 20: Added key validation enforcement:
 - validate_tenant_key() checks key follows parwa:{company_id}:* pattern
@@ -316,7 +316,7 @@ async def get_redis() -> aioredis.Redis:
 
     Uses connection pooling for efficient connection reuse.
     Redis URL is loaded from REDIS_URL environment variable (BC-011).
-    Falls back to fakeredis if real Redis is unavailable (BC-012).
+    Uses fakeredis only in non-production environments; production never substitutes in-memory state.
 
     Returns:
         Async Redis client connected to the pool.
