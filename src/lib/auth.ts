@@ -147,10 +147,17 @@ export async function verifyAuth(
     const { payload } = await jwtVerify(token, verificationKey, {
       issuer: "parwa:frontend",
       audience: "parwa:app",
+      algorithms: [JWT_ALGORITHM],
     });
     const p = payload as unknown as VerifiedUser;
-    // Reject refresh tokens — only access tokens are valid for API calls
-    if (p.type === "refresh") return null;
+    // Require an identity and explicit expiry. A correctly signed token
+    // without exp must not become a non-expiring session.
+    if (
+      typeof p.sub !== "string" ||
+      !p.sub.trim() ||
+      typeof p.exp !== "number" ||
+      p.type === "refresh"
+    ) return null;
     return p;
   } catch {
     // Not a frontend token — try relaxed verification
@@ -160,7 +167,9 @@ export async function verifyAuth(
   // Backend tokens don't set issuer/audience but have type: "access"
   // Backend tokens omit issuer/audience; the signature and expiry remain mandatory.
   try {
-    const { payload } = await jwtVerify(token, verificationKey);
+    const { payload } = await jwtVerify(token, verificationKey, {
+      algorithms: [JWT_ALGORITHM],
+    });
     const p = payload as unknown as VerifiedUser;
     // Reject refresh tokens — only access tokens are valid for API calls
     if (p.type === "refresh") return null;
