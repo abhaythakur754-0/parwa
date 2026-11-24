@@ -267,7 +267,7 @@ jobs:
       - name: Run Existing Frontend Unit Suite (known failures tracked separately)
         # Existing suite currently has unrelated ESM, jsdom and store-test failures.
         # Keep this visible but non-blocking while those suites are repaired.
-        run: npx jest --testPathIgnorePatterns="tests/e2e/" --passWithNoTests
+        run: npx jest --passWithNoTests
         continue-on-error: true
 
       - name: Frontend Test Summary
