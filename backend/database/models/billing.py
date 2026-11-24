@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey, UniqueConstraint
 )
 
 from database.base import Base
@@ -41,13 +41,16 @@ class Subscription(Base):
 
 class Invoice(Base):
     __tablename__ = "invoices"
+    __table_args__ = (
+        UniqueConstraint("paddle_invoice_id", name="uq_invoices_provider_invoice_id"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    paddle_invoice_id = Column(String(255), unique=True)
+    paddle_invoice_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
     status = Column(String(50), nullable=False, default="pending")
@@ -77,13 +80,16 @@ class OverageCharge(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("paddle_transaction_id", name="uq_transactions_provider_transaction_id"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
         String(36), ForeignKey("companies.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
-    paddle_transaction_id = Column(String(255), unique=True)
+    paddle_transaction_id = Column(String(255))
     amount = Column(Numeric(10, 2), nullable=False)  # BC-002
     currency = Column(String(3), default="USD")
     status = Column(String(50), nullable=False)
