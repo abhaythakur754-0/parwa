@@ -141,11 +141,33 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ items: data, total: data.length });
       }
     }
+
+    // A backend auth denial is authoritative. Never fall back to cached
+    // company data when the current token is revoked or the account disabled.
+    if (res.status === 401 || res.status === 403) {
+      return NextResponse.json(
+        { error: 'Authentication or authorization failed' },
+        { status: res.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Backend unavailable' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
   } catch (err) {
-    console.warn('[instances-route] Backend failed, using local:', err);
+    console.warn('[instances-route] Backend failed:', err);
   }
 
-  // Fallback: in-memory store
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Backend unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  // Development-only fallback: in-memory store
   if (companyId) {
     const localInstances = readLocalInstances(companyId);
     if (localInstances.length > 0) {
