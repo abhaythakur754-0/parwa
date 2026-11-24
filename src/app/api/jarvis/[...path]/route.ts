@@ -28,6 +28,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
+import { isLegacyJarvisGuestFlowEnabled } from '@/lib/jarvis/legacy-guest-guard';
 
 // ── Vercel function duration ─────────────────────────────────────────
 // The AI pipeline (LangGraph 13-stage + RAG + LLM) can take 30–60s on a
@@ -39,6 +40,19 @@ export const maxDuration = 60;
 // ── Backend Proxy Configuration ─────────────────────────────────
 import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
+
+function legacyGuestFlowDisabledResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'legacy_guest_flow_disabled',
+        message: 'The legacy guest Jarvis flow is disabled in production. Use authenticated Customer Care Jarvis instead.',
+        details: null,
+      },
+    },
+    { status: 410, headers: { 'Cache-Control': 'no-store' } }
+  );
+}
 
 /**
  * Try to proxy a request to the backend FastAPI server.
@@ -1292,6 +1306,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
+    // The legacy guest flow uses process-local memory and is not safe for
+    // multi-instance production. Keep it available for local development
+    // while requiring persistent authenticated Customer Care routes in prod.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
+    }
+
     // ── POST /session — Create Session ──────────────────────────
     if (endpoint === 'session') {
       const body = await request.json();
@@ -1864,6 +1885,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
+    // Do not serve process-local guest sessions from production instances.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
+    }
+
     // ── GET /session ──────────────────────────────────────────
     if (endpoint === 'session') {
       const sessionId = url.searchParams.get('session_id');
@@ -1979,6 +2005,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         { error: { code: 'backend_unavailable', message: 'Jarvis CC backend is unavailable. Please retry.', details: null } },
         { status: 502 }
       );
+    }
+
+    // Do not mutate process-local guest sessions in production.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
     }
 
     // ── PATCH /context ────────────────────────────────────────
