@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUserId } from '@/lib/api-auth';
-import { saveUserDetails, saveLegalConsent, completeOnboardingStep } from '@/lib/supabase-db';
+import { saveUserDetails, saveLegalConsent } from '@/lib/supabase-db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,15 +63,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Mark Step 1 as completed in onboarding session
-    await completeOnboardingStep(userId, 1);
-
     console.log(`[Onboarding] ✅ Step 1 completed for user ${userId}:`, { full_name, company_url });
 
     return NextResponse.json({
       success: true,
       data: userDetails,
-      message: 'Details saved successfully',
+      message: 'Details saved. Verify your work email to complete this step.',
+      step_completed: false,
     });
   } catch (error) {
     console.error('[Onboarding API] Error saving details:', error);
