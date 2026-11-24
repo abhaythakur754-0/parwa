@@ -26,7 +26,7 @@ from typing import Optional
 
 import json
 
-from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -419,7 +419,7 @@ def create_payment(
 
 
 @router.post("/payment/webhook")
-async def payment_webhook(request: Request):
+async def payment_webhook():
     """Reject the legacy unsigned webhook; use the signed Razorpay webhook route."""
     raise HTTPException(
         status_code=410,
