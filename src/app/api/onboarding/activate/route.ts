@@ -6,31 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUserId } from '@/lib/authenticated-user';
 import { createOrUpdateOnboardingSession } from '@/lib/supabase-db';
-
-function getUserId(req: NextRequest): string | null {
-  const authHeader = req.headers.get('authorization');
-  if (authHeader) return authHeader.replace('Bearer ', '');
-
-  const cookieHeader = req.headers.get('cookie');
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(';').map((c) => {
-        const [key, ...val] = c.trim().split('=');
-        return [key, val.join('=')];
-      })
-    );
-    if (cookies.parwa_at) return cookies.parwa_at;
-    if (cookies.user_id) return cookies.user_id;
-  }
-
-  const url = new URL(req.url);
-  return url.searchParams.get('user_id');
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
     
     if (!userId) {
       return NextResponse.json(
