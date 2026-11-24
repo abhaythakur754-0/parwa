@@ -176,6 +176,20 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MAX_SESSIONS_PER_USER: int = 5
 
+    # Used to harden refresh-token hashes against offline guessing.
+    REFRESH_TOKEN_PEPPER: str = ""
+
+    @field_validator("REFRESH_TOKEN_PEPPER")
+    @classmethod
+    def validate_refresh_token_pepper(cls, v: str) -> str:
+        env = os.environ.get("ENVIRONMENT", "development").lower()
+        if env == "production" and len(v) < 32:
+            raise ValueError(
+                "SECURITY CRITICAL: REFRESH_TOKEN_PEPPER must be configured "
+                "with at least 32 characters in production."
+            )
+        return v
+
     # ── JWT RS256 (Week 6) ───────────────────────────────────────
     JWT_ALGORITHM: str = "HS256"  # "HS256" or "RS256"
     JWT_PRIVATE_KEY_PATH: str = ""  # Path to RSA private key PEM file
@@ -295,61 +309,25 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v) -> str:
-        """BC-011: SECRET_KEY must be set and strong in production.
-
-        Auto-generates a 32-char key if not set (development only).
-        In production:
-          - RAISES if the value is a known default ("dev-...", "change-me")
-          - RAISES if the value is shorter than 16 chars
-          - Warns (but still runs) if unset — auto-generated key means
-            sessions invalidate on restart, which is annoying but not
-            a security hole.
-        """
-        env = os.environ.get("ENVIRONMENT", "development")
+        """Require a persistent, non-default application secret in production."""
+        env = os.environ.get("ENVIRONMENT", "development").lower()
         if v is None or v == "":
-            import secrets as _secrets
-            v = _secrets.token_urlsafe(32)
-            if env == "production":
-                warnings.warn(
-                    "SECURITY: SECRET_KEY not set in production — "
-                    "auto-generated! Sessions will be invalidated on restart. "
-                    "Set via SECRET_KEY env var!",
-                    stacklevel=2,
-                )
-            else:
-                warnings.warn(
-                    "SECRET_KEY not set — auto-generated for development.",
-                    stacklevel=2,
-                )
-        # CRITICAL: known default secrets must never run in production.
-        # These values are committed to the public repo — attackers can
-        # forge session tokens if the backend accepts them.
-        if v.startswith("dev-") or v == "change-me":
             if env == "production":
                 raise ValueError(
-                    "SECURITY CRITICAL (C-06): SECRET_KEY is a known default "
-                    f"({v!r}) in production. This value is public in the repo "
-                    "and lets attackers forge session tokens. "
-                    "Set a strong SECRET_KEY via the SECRET_KEY env var."
+                    "SECURITY CRITICAL: SECRET_KEY must be explicitly configured in production."
                 )
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(32)
             warnings.warn(
-                "Using development SECRET_KEY — change in production!",
+                "SECRET_KEY not set — auto-generated for development.",
                 stacklevel=2,
             )
-        # CRITICAL: too-short keys are brute-forceable. Refuse to start.
-        if env == "production" and len(v) < 16:
-            raise ValueError(
-                f"SECURITY CRITICAL (C-06): SECRET_KEY is only {len(v)} chars "
-                "in production — minimum 16 required (32+ recommended). "
-                "Set a strong SECRET_KEY via the SECRET_KEY env var."
-            )
-        # Warn (not crash) if shorter than recommended 32 chars
+        if v.startswith("dev-") or v == "change-me":
+            if env == "production":
+                raise ValueError("SECURITY CRITICAL: known default SECRET_KEY cannot be used in production.")
+            warnings.warn("Using development SECRET_KEY — change before production!", stacklevel=2)
         if env == "production" and len(v) < 32:
-            warnings.warn(
-                f"SECURITY: SECRET_KEY is only {len(v)} chars — "
-                f"should be at least 32 for production!",
-                stacklevel=2,
-            )
+            raise ValueError("SECURITY CRITICAL: SECRET_KEY must be at least 32 characters in production.")
         return v
 
     @field_validator("JWT_SECRET_KEY")
