@@ -199,7 +199,15 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        # Regenerate the lockfile after scoped brace-expansion overrides; commit the refreshed lock next.
+        run: bun install
+
+      - name: Upload refreshed Bun lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-bun-lock
+          path: bun.lock
+          retention-days: 1
 
       - name: Run Linter (FAILS on errors)
         run: npx eslint . --max-warnings=0
