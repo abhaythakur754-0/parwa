@@ -88,7 +88,7 @@ async def test_onboarding_identity_rejects_spoofed_user_id():
         {"company_id": "company-456", "user_id": "another-user"},
     )
     with pytest.raises(HTTPException) as exc:
-        await enforce_onboarding_identity(request, UserStub())
+        await enforce_onboarding_identity(request, FakeDB(), UserStub())
     assert exc.value.status_code == 403
 
 
