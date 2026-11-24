@@ -322,76 +322,43 @@ def send_otp(
     db: Session = Depends(get_db),
     session_id: str = Query(..., description="Session ID"),
 ):
-    """Send OTP to business email for verification.
+    """Send a user-scoped business email OTP without exposing the code."""
+    from datetime import datetime, timedelta, timezone
+    from app.services.business_email_otp_service import send_business_email_otp
+    from app.services.jarvis.chat import _parse_context
 
-    Generates a 6-digit code valid for 10 minutes.
-    Max 3 attempts allowed.
-    """
-    import traceback
-    try:
-        # Debug: test send_email directly
-        from app.services.email_service import send_email
-        from app.core.email_renderer import render_email_template
-        from app.config import get_settings
-        settings = get_settings()
-        
-        # Check if key is set
-        has_key = bool(settings.BREVO_API_KEY)
-        
-        # Try sending a test email — call _do_send_email directly to see error
-        from app.services.email_service import _do_send_email
-        test_html = render_email_template(
-            "business_email_otp.html",
-            {"otp_code": "123456", "expires_minutes": 10, "user_name": "Test"},
-        )
-        email_result = _do_send_email(
-            to=body.email,
-            subject="SHOBH Verification Code: 123456",
-            html_content=test_html,
-        )
-        
-        from app.services.email_service import _BREVO_SDK_AVAILABLE
-        # Raw httpx test — bypass all code, just call Brevo directly
-        import httpx as _httpx
-        raw_key = settings.BREVO_API_KEY.strip()
-        try:
-            raw_resp = _httpx.post(
-                "https://api.brevo.com/v3/smtp/email",
-                json={
-                    "sender": {"name": "PARWA", "email": settings.FROM_EMAIL},
-                    "to": [{"email": body.email}],
-                    "subject": "PARWA Verification Code: 123456",
-                    "htmlContent": "<p>Your code: 123456</p>",
-                },
-                headers={
-                    "api-key": raw_key,
-                    "Content-Type": "application/json",
-                },
-                timeout=15.0,
-            )
-            raw_status = raw_resp.status_code
-            raw_body = raw_resp.text[:200]
-        except Exception as raw_exc:
-            raw_status = f"error: {str(raw_exc)[:100]}"
-            raw_body = ""
-        
-        return {
-            "debug": True,
-            "has_brevo_key": has_key,
-            "brevo_key_len": len(settings.BREVO_API_KEY) if has_key else 0,
-            "from_email": settings.FROM_EMAIL,
-            "email_success": email_result.get("success"),
-            "email_error": email_result.get("error"),
-            "raw_httpx_status": raw_status,
-            "raw_httpx_body": raw_body,
-            "sdk_available": _BREVO_SDK_AVAILABLE,
-        }
-    except Exception as exc:
-        logger.error("send_otp_debug_failed: %s\n%s", str(exc), traceback.format_exc()[:500])
-        raise HTTPException(
-            status_code=500,
-            detail=f"OTP debug failed: {str(exc)[:200]}",
-        )
+    if not user.company_id:
+        raise HTTPException(status_code=403, detail="User is not associated with a company")
+
+    session = jarvis_service.get_session(db, session_id, str(user.id))
+    if session.type != "onboarding" or str(session.company_id or "") != str(user.company_id):
+        raise HTTPException(status_code=404, detail="Onboarding session not found")
+
+    result = send_business_email_otp(
+        db=db,
+        email=body.email,
+        user_id=str(user.id),
+        company_id=str(user.company_id),
+        user_name=user.full_name,
+    )
+
+    # Keep OTP secrets only in the dedicated hashed OTP table, never in
+    # session context returned by the session API.
+    context = _parse_context(session.context_json)
+    context.pop("otp", None)
+    context["business_email"] = body.email.strip().lower()
+    context["email_verified"] = False
+    session.context_json = json.dumps(context)
+    session.updated_at = datetime.now(timezone.utc)
+    db.flush()
+
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(result["expires_in"]))
+    return {
+        "message": result["message"],
+        "status": "sent",
+        "attempts_remaining": 5,
+        "expires_at": expires_at.isoformat(),
+    }
 
 
 @router.post("/verify/verify-otp", response_model=JarvisOtpResponse)
@@ -401,19 +368,39 @@ def verify_otp(
     db: Session = Depends(get_db),
     session_id: str = Query(..., description="Session ID"),
 ):
-    """Verify OTP code sent to business email."""
-    result = jarvis_service.verify_business_otp(
+    """Verify the persisted, user-scoped business email OTP."""
+    from datetime import datetime, timezone
+    from app.services.business_email_otp_service import verify_business_email_otp
+    from app.services.jarvis.chat import _parse_context
+
+    if not user.company_id:
+        raise HTTPException(status_code=403, detail="User is not associated with a company")
+
+    session = jarvis_service.get_session(db, session_id, str(user.id))
+    if session.type != "onboarding" or str(session.company_id or "") != str(user.company_id):
+        raise HTTPException(status_code=404, detail="Onboarding session not found")
+
+    result = verify_business_email_otp(
         db=db,
-        session_id=session_id,
-        user_id=user.id,
-        code=body.code,
         email=body.email,
+        otp_code=body.code,
+        company_id=str(user.company_id),
+        user_id=str(user.id),
     )
+
+    context = _parse_context(session.context_json)
+    context.pop("otp", None)
+    context["business_email"] = body.email.strip().lower()
+    context["email_verified"] = True
+    session.context_json = json.dumps(context)
+    session.updated_at = datetime.now(timezone.utc)
+    db.flush()
+
     return JarvisOtpResponse(
         message=result["message"],
         status=result["status"],
         attempts_remaining=result.get("attempts_remaining"),
-        expires_at=result.get("expires_at"),
+        expires_at=None,
     )
 
 
