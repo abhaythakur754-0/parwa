@@ -458,7 +458,11 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/handoff")
-def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
+def execute_handoff(
+    request: HandoffRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Execute the handoff from onboarding to CC Jarvis.
 
     This is the final step — creates a CC session with full onboarding context.
@@ -470,7 +474,7 @@ def execute_handoff(request: HandoffRequest, db: Session = Depends(get_db)):
             db=db,
             session_id=request.session_id,
             company_id=request.company_id,
-            user_id=request.user_id,
+            user_id=str(current_user.id),
             handoff_data=request.handoff_data,
         )
 
