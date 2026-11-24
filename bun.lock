@@ -115,12 +115,8 @@
     "form-data": "^4.0.6",
     "icu-minify": "^4.13.0",
     "js-yaml": "^4.2.0",
-    "minimatch@3.1.2": {
-      "brace-expansion": "^1.1.18",
-    },
-    "minimatch@9.0.5": {
-      "brace-expansion": "^2.0.3",
-    },
+    "minimatch@^3.1.2>brace-expansion": "^1.1.18",
+    "minimatch@^9.0.5>brace-expansion": "^2.0.3",
     "postcss": "^8.5.10",
     "prismjs": "^1.30.0",
     "uuid": "^11.1.1",
