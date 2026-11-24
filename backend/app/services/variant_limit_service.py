@@ -205,10 +205,10 @@ class VariantLimitService:
             return company.subscription_tier.lower().strip()
 
         logger.info(
-            "variant_limit_default_mini company_id=%s reason=no_subscription",
+            "variant_limit_default_parwa company_id=%s reason=no_subscription",
             company_id,
         )
-        return "mini"
+        return "parwa"
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -271,7 +271,7 @@ class VariantLimitService:
             "variant_limits_fallback variant=%s source=hardcoded",
             variant_key,
         )
-        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["mini"]))
+        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["parwa"]))
 
     def get_company_limits(self, company_id: Any) -> Dict[str, Any]:
         """Get effective limits for a company based on their subscription tier."""
