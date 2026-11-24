@@ -189,7 +189,7 @@ def verify_business_email_otp(
     email: str,
     otp_code: str,
     company_id: str,
-    user_id: Optional[str] = None,
+    user_id: str,
 ) -> dict:
     """Verify the OTP code for a business email.
     
@@ -233,7 +233,7 @@ def verify_business_email_otp(
                 BusinessEmailOTP.company_id == company_id,
                 BusinessEmailOTP.verified == False,  # noqa: E712
                 BusinessEmailOTP.expires_at > now,
-                *([BusinessEmailOTP.user_id == user_id] if user_id else []),
+                BusinessEmailOTP.user_id == user_id,
             )
         )
         .order_by(BusinessEmailOTP.created_at.desc())
@@ -292,7 +292,7 @@ def check_business_email_verified(
     db: Session,
     email: str,
     company_id: str,
-    user_id: Optional[str] = None,
+    user_id: str,
 ) -> bool:
     """Check if a business email has been verified.
     
@@ -310,7 +310,7 @@ def check_business_email_verified(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
         BusinessEmailOTP.verified == True,  # noqa: E712
-        *([BusinessEmailOTP.user_id == user_id] if user_id else []),
+        BusinessEmailOTP.user_id == user_id,
     ).first()
     
     return verified_otp is not None
