@@ -79,7 +79,8 @@ class PipelineV2State(TypedDict, total=False):
     builder_quality_score: float         # 0.0-1.0 from Builder VERIFY/REFINE
 
     # ── NODE 3: KNOWLEDGE FETCH ────────────────────────────────────
-    connected_databases: List[Dict[str, Any]]  # tenant's connected databases from DBConnection table
+    connected_databases: List[Dict[str, Any]]  # tenant databases, including discovered schema
+    tenant_integrations: Dict[str, Dict[str, Any]]  # tenant-scoped, non-secret integration inventory for agents
     knowledge_context: List[Dict[str, Any]]   # retrieved documents
     wiki_section_a: List[Dict[str, Any]]      # ticket patterns
     wiki_section_b: List[Dict[str, Any]]      # admin behavior
