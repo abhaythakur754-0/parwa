@@ -361,6 +361,7 @@ async def create_system(
             server_url=req.url,
             auth_token=(req.credentials.get("api_key") or req.credentials.get("access_token") or req.credentials.get("token")) if req.credentials else None,
             system_id=req.system_id,
+            status="pending_oauth" if auth_type == "oauth" else "connected",
         )
 
     # If this is a database, ALSO save to DBConnection table (read-only enforced)
@@ -609,6 +610,7 @@ def _upsert_mcp_connection(
     server_url: str,
     auth_token: Optional[str],
     system_id: str,
+    status: str = "connected",
 ) -> MCPConnection:
     """Create or update an MCPConnection record for a CRM system.
 
@@ -627,7 +629,7 @@ def _upsert_mcp_connection(
         mcp.server_url = server_url
         if auth_token:
             mcp.auth_token_encrypted = encrypt_token(auth_token)
-        mcp.status = "connected"
+        mcp.status = status
         mcp.capabilities = json.dumps(["crm"])
     else:
         # Create new
@@ -697,7 +699,7 @@ def _upsert_integration(
             company_id=company_id,
             integration_type=integration_type,
             name=name,
-            status="connected",
+            status=status,
             credentials_encrypted=creds_encrypted,
             settings=settings_json,
         )
