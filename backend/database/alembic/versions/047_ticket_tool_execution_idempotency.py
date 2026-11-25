@@ -171,6 +171,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Keep execution history and compatibility columns on rollback. Dropping
+    # this table could permit a repeated refund/reply after an application
+    # rollback, so downgrade only removes the tenant RLS policy layer.
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
         for suffix in ("select", "insert", "update", "delete"):
@@ -179,6 +182,3 @@ def downgrade() -> None:
                 "ON ticket_tool_executions"
             )
         op.execute("ALTER TABLE ticket_tool_executions DISABLE ROW LEVEL SECURITY")
-    op.drop_index("ix_ticket_tool_executions_company_id", table_name="ticket_tool_executions")
-    op.drop_index("ix_ticket_tool_executions_ticket_id", table_name="ticket_tool_executions")
-    op.drop_table("ticket_tool_executions")
