@@ -249,15 +249,24 @@ async def create_system(
 
     # For databases, build the URL + credentials from the DB-specific fields
     if is_database:
-        if not req.db_host or not req.db_name or not req.db_username:
-            raise HTTPException(status_code=400, detail="Database connections require db_host, db_name, db_username")
+        db_type = req.db_type or "postgresql"
+        missing_database_fields = (
+            not req.db_host
+            or not req.db_name
+            or (db_type != "bigquery" and not req.db_username)
+        )
+        if missing_database_fields:
+            raise HTTPException(
+                status_code=400,
+                detail="Database connections require host and database name; username is also required except for BigQuery service accounts.",
+            )
         # Build a connection URL for Superglue (it treats DBs as systems with a URL)
-        db_port = req.db_port or 5432
-        req.url = f"{req.db_type or 'postgresql'}://{req.db_host}:{db_port}/{req.db_name}"
+        db_port = req.db_port or (443 if db_type in {"snowflake", "bigquery"} else 5432)
+        req.url = f"{db_type}://{req.db_host}:{db_port}/{req.db_name}"
         # Store DB credentials in the credentials dict for Superglue
         db_credentials = dict(req.credentials or {})
         db_credentials.update({
-            "db_type": req.db_type,
+            "db_type": db_type,
             "host": req.db_host,
             "port": db_port,
             "database": req.db_name,
@@ -270,7 +279,7 @@ async def create_system(
         if not req.metadata:
             req.metadata = {}
         req.metadata["system_type"] = "database"
-        req.metadata["db_type"] = req.db_type
+        req.metadata["db_type"] = db_type
 
     result = await superglue_client.create_system(
         system_id=req.system_id,
