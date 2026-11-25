@@ -1315,10 +1315,18 @@ async def analyze_db_schema(
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
 
-    cfg_url, token = _get_config()
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {
+            "success": False,
+            "schema": None,
+            "error": "Tenant Superglue credentials are unavailable",
+        }
 
     try:
-        # Call Superglue's auto.read to discover the database schema
+        # Call Superglue's auto.read with the tenant identity. Database
+        # connection secrets must never be sent using the organization key.
         async with httpx.AsyncClient(timeout=60.0) as client:
             res = await client.post(
                 f"{cfg_url}/v1/discover/db-schema",
