@@ -201,6 +201,7 @@ async def test_idempotency_reserves_before_tool_side_effect(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_idempotency_storage_failure_blocks_external_action(monkeypatch):
+    from types import SimpleNamespace
     from database import base
     from app.core import superglue_client
     from app.core.parwa_pipeline.nodes import node_5_act_verify
