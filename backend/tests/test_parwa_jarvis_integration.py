@@ -32,7 +32,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # langgraph may not be installed in the test venv, so we mock the import chain.
 if 'langgraph' not in sys.modules:
     _lg = types.ModuleType('langgraph')
+    _lg.__path__ = []  # allow importing mocked langgraph submodules
     _lg_graph = types.ModuleType('langgraph.graph')
+    _lg_types = types.ModuleType('langgraph.types')
+    # Direct node tests have no graph runtime to suspend; return a neutral
+    # guidance value while preserving the real interrupt call sites.
+    _lg_types.interrupt = lambda payload: None
     class _MockEND: pass
     class _MockStateGraph:
         def __init__(self, *args, **kwargs): pass
@@ -45,6 +50,7 @@ if 'langgraph' not in sys.modules:
     _lg_graph.StateGraph = _MockStateGraph
     sys.modules['langgraph'] = _lg
     sys.modules['langgraph.graph'] = _lg_graph
+    sys.modules['langgraph.types'] = _lg_types
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
