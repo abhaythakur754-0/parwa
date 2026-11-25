@@ -13,6 +13,7 @@ import {
   CHANNEL_LABELS,
   VARIANT_LABELS,
   ALL_STATUSES,
+  EDITABLE_STATUSES,
   ALL_PRIORITIES,
   ALL_CATEGORIES,
   ALL_CHANNELS,
@@ -45,28 +46,38 @@ const STATUS_COLORS: Record<TicketStatus, { dot: string; badge: string }> = {
   crm_pending: { dot: 'bg-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   awaiting_client: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
   review_needed: { dot: 'bg-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+  assigned: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  awaiting_human: { dot: 'bg-orange-400', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+  reopened: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  frozen: { dot: 'bg-zinc-400', badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
+  queued: { dot: 'bg-sky-400', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+  stale: { dot: 'bg-zinc-400', badge: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
+  processing: { dot: 'bg-violet-400', badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
 };
 
 // Simplified status display — 3 options only (per user request):
 //   Solved = resolved + closed
 //   Not Solved = open + in_progress + awaiting_client
 //   Waiting for CRM = crm_pending (HumanReplacement — request is with the CRM)
-function getDisplayStatus(status: TicketStatus): 'solved' | 'not_solved' | 'waiting' {
+function getDisplayStatus(status: TicketStatus): 'solved' | 'not_solved' | 'waiting' | 'processing' {
   if (status === 'resolved' || status === 'closed') return 'solved';
   if (status === 'crm_pending') return 'waiting';
+  if (status === 'assigned' || status === 'in_progress' || status === 'queued' || status === 'processing') return 'processing';
   return 'not_solved';
 }
 
-const DISPLAY_STATUS_LABELS: Record<'solved' | 'not_solved' | 'waiting', string> = {
+const DISPLAY_STATUS_LABELS: Record<'solved' | 'not_solved' | 'waiting' | 'processing', string> = {
   solved: 'Solved',
   not_solved: 'Not Solved',
   waiting: 'Waiting for CRM',
+  processing: 'AI Processing',
 };
 
-const DISPLAY_STATUS_COLORS: Record<'solved' | 'not_solved' | 'waiting', { dot: string; badge: string }> = {
+const DISPLAY_STATUS_COLORS: Record<'solved' | 'not_solved' | 'waiting' | 'processing', { dot: string; badge: string }> = {
   solved: { dot: 'bg-green-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
   not_solved: { dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
   waiting: { dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  processing: { dot: 'bg-violet-400', badge: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
 };
 
 const VARIANT_COLORS: Record<TicketVariant, string> = {
@@ -804,7 +815,7 @@ function TicketDetailPanel({
                 exit={{ opacity: 0, y: -4 }}
                 className="absolute top-full left-0 mt-1 w-48 bg-[#2C2C31] border border-white/[0.06] rounded-lg shadow-xl z-20 py-1 overflow-hidden"
               >
-                {ALL_STATUSES.map((s) => (
+                {EDITABLE_STATUSES.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleStatusChange(s)}
