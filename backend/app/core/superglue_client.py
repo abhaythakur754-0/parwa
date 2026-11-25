@@ -48,7 +48,7 @@ logger = logging.getLogger("parwa.superglue_client")
 HTTP_TIMEOUT = 30.0
 
 
-# ── Hardcoded Superglue config (no env var needed on Render) ──
+# ── Superglue endpoint configuration ──
 # STABLE stack (2026-09-08): platform preview route (system Caddy), NOT a
 # quick tunnel — never rotates, resolves to public Aliyun ALB IPs.
 # Bearer-token only, NO x-session-id required. Independently re-verified
@@ -57,11 +57,9 @@ HTTP_TIMEOUT = 30.0
 # DELETE /v1/tools/{id} 200, /sgq/jobs 202→done<1s, /sgai/v1 Mistral 200.
 # NOTE: PATCH /v1/tools/{id} does NOT exist on this stack — use DELETE.
 DEFAULT_SUPERGLUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi"
-# ── Credentials (code defaults; env vars still win if ever set) ──
-# NOTE: keep the GitHub repo PRIVATE while a real token sits here.
-# Paste the current token from the Superglue instance dashboard below.
-DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
-DEFAULT_SUPERGLUE_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
+# Credentials are environment-only. Never commit service tokens or LLM keys.
+DEFAULT_SUPERGLUE_TOKEN = ""
+DEFAULT_SUPERGLUE_LLM_KEY = ""
 # SECURITY: prefer env vars in shared/public checkouts.
 DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
@@ -92,12 +90,11 @@ def _session_headers() -> dict:
 def _get_config() -> tuple[str, str]:
     """Get Superglue URL + token.
 
-    Resolution order: env var SUPERGLUE_AUTH_TOKEN, then the code default
-    DEFAULT_SUPERGLUE_TOKEN. If both empty, an empty token is returned and
-    every call site skips the request (they all guard on empty token).
+    SUPERGLUE_AUTH_TOKEN is environment-only. If it is absent, calls are
+    disabled (fail-closed).
     """
     url = os.environ.get("SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL).strip().rstrip("/")
-    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN).strip()
+    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", "").strip()
     if not token:
         logger.error(
             "SUPERGLUE_AUTH_TOKEN is not set (env) and DEFAULT_SUPERGLUE_TOKEN "
@@ -173,7 +170,7 @@ def _get_llm_url() -> str:
 
 def _get_llm_key() -> str:
     """Superglue LLM API key (sgai_…). Env var first, then code default."""
-    key = os.environ.get("SUPERGLUE_LLM_API_KEY", DEFAULT_SUPERGLUE_LLM_KEY).strip()
+    key = os.environ.get("SUPERGLUE_LLM_API_KEY", "").strip()
     if not key:
         logger.error(
             "SUPERGLUE_LLM_API_KEY is not set (env) and DEFAULT_SUPERGLUE_LLM_KEY "
