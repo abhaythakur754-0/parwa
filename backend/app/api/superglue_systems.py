@@ -811,6 +811,35 @@ async def test_system(
         Integration.company_id == tenant_id,
         Integration.integration_type == system_id,
     ).first()
+    definition = next((item for item in POPULAR_SYSTEMS if item["id"] == system_id), {})
+    if definition.get("auth_type") == "oauth":
+        oauth_status = await superglue_client.check_oauth_credentials(
+            system_id=system_id,
+            tenant_id=tenant_id,
+        )
+        works = oauth_status.get("success") is True and oauth_status.get("connected") is True
+        if integration:
+            integration.status = "verified" if works else "pending_oauth"
+            integration.error_message = None if works else oauth_status.get("error")
+        if works:
+            mcp_connection = db.query(MCPConnection).filter(
+                MCPConnection.company_id == tenant_id,
+                MCPConnection.name == integration.name,
+            ).first() if integration else None
+            if mcp_connection:
+                mcp_connection.status = "connected"
+        db.commit()
+        return TestResponse(
+            system_id=system_id,
+            works=works,
+            status_code=200 if works else None,
+            tested_at=datetime.now(timezone.utc).isoformat(),
+            message=(
+                "OAuth account authorized and securely connected"
+                if works else oauth_status.get("error") or "Complete provider authorization to verify this integration"
+            ),
+        )
+
     # Prefer the locally encrypted credentials; Superglue may redact secrets
     # when returning a system object.
     from app.services.integration_service import IntegrationService
