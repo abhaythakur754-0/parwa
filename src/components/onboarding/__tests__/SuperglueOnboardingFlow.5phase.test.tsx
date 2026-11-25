@@ -62,6 +62,12 @@ beforeEach(() => {
   global.fetch = fetchMock as unknown as typeof global.fetch;
 
   fetchMock.mockImplementation((url: string, opts?: any) => {
+    if (url.includes('/oauth/start') && opts?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+    }
+    if (url.includes('/oauth/status')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+    }
     if (url === '/api/superglue/systems' && opts?.method === 'POST') {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'x', name: 'x', url: '', icon: '', credentials: {}, metadata: {} }) });
     }
