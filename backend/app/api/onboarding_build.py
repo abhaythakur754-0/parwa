@@ -128,7 +128,7 @@ async def trigger_build(
     from database.models.integration import Integration, DBConnection
     connected_integrations = db.query(Integration).filter(
         Integration.company_id == tenant_id,
-        Integration.status.in_(["connected", "verified", "active"]),
+        Integration.status.in_(["verified", "active"]),
     ).all()
     tenant_integrations_ctx = {
         i.integration_type: {"name": i.name, "status": i.status, "system_id": i.integration_type}
@@ -138,7 +138,7 @@ async def trigger_build(
     # Add verified database schemas without exposing credentials or sample rows.
     connected_databases = db.query(DBConnection).filter(
         DBConnection.company_id == tenant_id,
-        DBConnection.status.in_(["connected", "verified"]),
+        DBConnection.status == "verified",
     ).all()
     for db_conn in connected_databases:
         try:
