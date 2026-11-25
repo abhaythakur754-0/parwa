@@ -281,3 +281,56 @@ def test_refund_execution_is_classified_as_financial_and_requires_approval():
     result = classify_action("tenant__refund-specialist", "Process a refund for the customer")
     assert result.level == ActionSafetyLevel.FINANCIAL
     assert needs_approval(result.level) is True
+
+
+
+@pytest.mark.asyncio
+async def test_completed_idempotent_action_is_reported_as_success_without_reexecution(monkeypatch):
+    from database import base
+    from app.core import superglue_client
+    from app.core.parwa_pipeline.nodes import node_5_act_verify
+
+    class _Result:
+        rowcount = 0
+        def fetchone(self):
+            return ("completed",)
+
+    class _DB:
+        bind = None
+        def execute(self, statement, params=None):
+            return _Result()
+        def commit(self):
+            raise AssertionError("completed action must not be re-reserved")
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+
+    calls = []
+    async def fake_execute_tool(*args, **kwargs):
+        calls.append("executed")
+        return {"success": True}
+
+    monkeypatch.setattr(base, "SessionLocal", lambda: _DB())
+    monkeypatch.setattr(superglue_client, "execute_tool", fake_execute_tool)
+    monkeypatch.setattr(
+        node_5_act_verify,
+        "_run_action_safety_gate",
+        lambda *args, **kwargs: {"blocked": False, "needs_approval": False},
+    )
+
+    result = await _execute_with_idempotency(
+        "tenant_tool",
+        {"ticket_id": "ticket-1"},
+        "ticket-1:action",
+        "ticket-1",
+        "update_ticket",
+        "tenant-1",
+    )
+
+    assert result == {
+        "success": True,
+        "already_executed": True,
+        "execution_status": "completed",
+    }
+    assert calls == []
