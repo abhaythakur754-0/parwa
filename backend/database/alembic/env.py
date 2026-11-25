@@ -10,6 +10,15 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
+# Alembic may be invoked from the repository root, the backend directory, or
+# the container workdir. Ensure backend/ is importable in all three cases.
+import sys
+from pathlib import Path
+
+_backend_root = str(Path(__file__).resolve().parents[2])
+if _backend_root not in sys.path:
+    sys.path.insert(0, _backend_root)
+
 # Import all models for autogenerate
 # NOTE: this list must cover EVERY module in backend/database/models/ —
 # a module missing here is invisible to `alembic revision --autogenerate`.
