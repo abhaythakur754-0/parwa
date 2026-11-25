@@ -79,14 +79,25 @@ def _drop_orphan_fks(conn, tables_to_process=None):
     """
     targets = tables_to_process if tables_to_process is not None else ORPHAN_SESSION_FKS
 
+    from sqlalchemy import inspect
+
+    inspector = inspect(conn)
     for table_name, fk_name in targets:
-        try:
-            with op.batch_alter_table(table_name) as batch_op:
-                batch_op.drop_constraint(fk_name, type_="foreignkey")
-        except Exception:
-            # Constraint may not exist (fresh DB, already dropped, or
-            # the table itself was never created).  Skip silently.
-            pass
+        # Fresh installations no longer create these obsolete references to
+        # the retired sessions table. Inspect first: on PostgreSQL, attempting
+        # to drop a missing constraint aborts the whole migration transaction,
+        # even when the exception is caught in Python.
+        if not inspector.has_table(table_name):
+            continue
+        existing_names = {
+            fk.get("name") for fk in inspector.get_foreign_keys(table_name)
+        }
+        if fk_name not in existing_names:
+            continue
+        with op.batch_alter_table(table_name) as batch_op:
+            batch_op.drop_constraint(fk_name, type_="foreignkey")
+        # Refresh after SQLite batch table recreation / PostgreSQL DDL.
+        inspector = inspect(conn)
 
 
 def _create_session_fks(tables_to_process=None):
