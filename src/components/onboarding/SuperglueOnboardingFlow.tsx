@@ -35,14 +35,13 @@ interface CRMType {
   url_hint: string;
 }
 
-interface VerifyResult {
-  verified: boolean;
-  superglue_ok: boolean;
-  mcp_registered: boolean;
+interface TestResult {
+  works: boolean;
   system_id: string;
-  name: string;
-  url: string;
+  status_code?: number;
+  tested_at: string;
   message: string;
+  sample_data?: Record<string, unknown>;
 }
 
 interface AnalysisRecommendation {
@@ -156,24 +155,24 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setFormOpen(true);
   };
 
-  // ── Phase 1: Verify CRM (Superglue + MCP) ────────────────────────
+  // ── Phase 1: Verify CRM with a real provider/API check ────────────
   const handleVerify = async (systemId: string) => {
     setVerifying(true);
     try {
-      const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/verify`, {
+      const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/test`, {
         method: 'POST',
       });
-      const data: VerifyResult = await res.json();
-      if (data.verified) {
+      const data: TestResult = await res.json();
+      if (res.ok && data.works) {
         setVerified(true);
         toast.success(data.message);
-        // Auto-proceed to Phase 2: Analysis
+        // Auto-proceed only after the external provider actually responds.
         setTimeout(() => runAnalysis(), 500);
       } else {
-        toast.error(data.message || 'Verification failed');
+        toast.error(data.message || 'Connection test failed');
       }
     } catch {
-      toast.error('Network error during verification');
+      toast.error('Network error during connection test');
     } finally {
       setVerifying(false);
     }
@@ -284,14 +283,16 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           }
         }
         if (formApiKey.trim()) {
-          // HubSpot uses access_token, others use api_key
-          if (selectedCRM.id === 'hubspot') {
+          if (crmDef?.auth_type === 'oauth') {
             credentials.access_token = formApiKey.trim();
           } else {
             credentials.api_key = formApiKey.trim();
           }
         }
         payload.url = formUrl.trim();
+        for (const [key, value] of Object.entries(credentials)) {
+          payload.url = payload.url.replaceAll(`{${key}}`, String(value));
+        }
         payload.credentials = credentials;
       }
 
