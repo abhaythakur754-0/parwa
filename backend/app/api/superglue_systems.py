@@ -1215,41 +1215,9 @@ def _upsert_db_connection(
 
 
 def _sanitize_schema_metadata(schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Persist table/column structure only; never cache customer sample rows."""
-    safe: Dict[str, Any] = {}
-    for key in ("summary", "database_type", "analyzed_at", "source"):
-        value = schema.get(key)
-        if isinstance(value, (str, int, float, bool)):
-            safe[key] = str(value)[:500] if isinstance(value, str) else value
-    for collection_key in ("tables", "collections", "schemas"):
-        items = schema.get(collection_key)
-        if not isinstance(items, list):
-            continue
-        safe_items = []
-        for item in items[:200]:
-            if isinstance(item, str):
-                safe_items.append({"name": item[:200]})
-                continue
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name") or item.get("table_name") or item.get("collection_name")
-            entry: Dict[str, Any] = {"name": str(name or "unknown")[:200]}
-            columns = item.get("columns") or item.get("fields")
-            if isinstance(columns, list):
-                entry["columns"] = []
-                for column in columns[:200]:
-                    if isinstance(column, str):
-                        entry["columns"].append({"name": column[:200]})
-                    elif isinstance(column, dict):
-                        col_name = column.get("name") or column.get("column_name") or column.get("field")
-                        col_type = column.get("type") or column.get("data_type")
-                        entry["columns"].append({
-                            "name": str(col_name or "unknown")[:200],
-                            "type": str(col_type or "unknown")[:100],
-                        })
-            safe_items.append(entry)
-        safe[collection_key] = safe_items
-    return safe
+    """Delegate to the shared allowlist sanitizer; sample values are excluded."""
+    from app.core.schema_metadata import sanitize_schema_metadata
+    return sanitize_schema_metadata(schema)
 
 
 async def _discover_db_schema_for_connection(
