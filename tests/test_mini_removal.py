@@ -77,22 +77,30 @@ def test_normalize_parwa_and_high_unchanged():
 
 
 def test_get_variant_price_mini_returns_parwa_price():
-    """Asking for Mini's price returns Parwa's price ($2499, not $999)."""
+    """Legacy Mini resolves to the current PARWA Growth price ($2,999)."""
     from app.core.pricing_config import get_variant_price
 
-    assert get_variant_price("mini") == Decimal("2499.00")
+    assert get_variant_price("mini") == Decimal("2999.00")
     assert get_variant_price("mini_parwa") == Decimal("2499.00")
     assert get_variant_price("starter") == Decimal("2499.00")
 
 
 def test_get_variant_limits_mini_returns_parwa_limits():
-    """Mini gets Parwa's limits (5 AI agents, not 0)."""
+    """Mini gets PARWA Growth limits (5 AI agents, not 0)."""
     from app.core.pricing_config import get_variant_limits
 
     mini_limits = get_variant_limits("mini")
-    assert mini_limits["monthly_tickets"] == 2499  # was 999
-    assert mini_limits["ai_agents"] == 5            # was 0
-    assert mini_limits["voice_slots"] == 2          # was 0
+    assert mini_limits["monthly_tickets"] == 2999
+    assert mini_limits["ai_agents"] == 5
+    assert mini_limits["voice_slots"] == 2
+
+
+def test_variant_limit_service_uses_safe_parwa_default_for_unknown_tier():
+    from app.services.variant_limit_service import VariantLimitService
+
+    limits = VariantLimitService().get_variant_limits("unknown-tier")
+    assert limits["monthly_tickets"] == 2999
+    assert limits["ai_agents"] == 5
 
 
 # ── 4. Upgrade logic ──────────────────────────────────────────────────────
