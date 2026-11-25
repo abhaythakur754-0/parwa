@@ -258,7 +258,7 @@ class VariantLimitService:
                     "team_members": row.team_members,
                     "voice_slots": row.voice_slots,
                     "kb_docs": row.kb_docs,
-                    "price": str(row.price) if row.price else "0",
+                    "price": str(row.price_monthly) if row.price_monthly else "0",
                 }
                 logger.info(
                     "variant_limits_loaded variant=%s source=db_table",
