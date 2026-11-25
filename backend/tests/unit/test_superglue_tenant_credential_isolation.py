@@ -81,3 +81,26 @@ def test_tool_generator_uses_canonical_system_ids_without_credentials():
     })
     assert {item["id"] for item in systems} == {"hubspot", "postgres"}
     assert all(item["credentials"] == {} for item in systems)
+
+
+@pytest.mark.asyncio
+async def test_tool_verification_uses_tenant_key_and_namespaced_tool_id(monkeypatch):
+    calls = []
+
+    class _GetClient(_Client):
+        async def get(self, url, **kwargs):
+            calls.append((url, kwargs))
+            return _Response(200, {"archived": False})
+
+    monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
+    monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "admin-secret"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-key")
+    monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
+    monkeypatch.setattr(superglue_client.httpx, "AsyncClient", lambda **kwargs: _GetClient([]))
+
+    verified = await superglue_client.verify_tool_exists("refund-tool", tenant_id="tenant-123")
+
+    assert verified is True
+    url, request = calls[0]
+    assert url.endswith("/v1/tools/tenant_tenant-123__refund-tool")
+    assert request["headers"]["Authorization"] == "Bearer tenant-key"
