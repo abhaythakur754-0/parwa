@@ -81,8 +81,8 @@ def test_get_variant_price_mini_returns_parwa_price():
     from app.core.pricing_config import get_variant_price
 
     assert get_variant_price("mini") == Decimal("2999.00")
-    assert get_variant_price("mini_parwa") == Decimal("2499.00")
-    assert get_variant_price("starter") == Decimal("2499.00")
+    assert get_variant_price("mini_parwa") == Decimal("2999.00")
+    assert get_variant_price("starter") == Decimal("2999.00")
 
 
 def test_get_variant_limits_mini_returns_parwa_limits():
