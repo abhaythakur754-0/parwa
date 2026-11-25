@@ -146,6 +146,19 @@ def main() -> int:
         print("   body:", json.dumps(t)[:400])
         return 1
 
+    print("── 3b. persist dashboard agent controls ──")
+    s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
+                      {"skipped": True}, token)
+    check("skip control accepted", s == 200 and control.get("skipped") is True,
+          f"http={s} {str(control)[:120]}")
+    _, current = call("GET", f"/api/v1/tickets/{tid}", token=token)
+    check("skip control persisted", (current or {}).get("skipped") is True,
+          f"skipped={(current or {}).get('skipped')}")
+    s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
+                      {"skipped": False}, token)
+    check("unskip control accepted", s == 200 and control.get("skipped") is False,
+          f"http={s} {str(control)[:120]}")
+
     print("── 4. poll status while the dispatcher settles ──")
     seen = []
     for _ in range(6):
