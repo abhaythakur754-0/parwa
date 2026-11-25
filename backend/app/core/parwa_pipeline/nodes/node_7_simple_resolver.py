@@ -586,8 +586,52 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
         kb_block = _build_synthesis_knowledge(knowledge_docs, turbo)
         agent_name = state.get("selected_agent_name", "")
         agent_domain = state.get("selected_agent_domain", "")
-        agent_instructions = str(state.get("agent_instructions", "") or "")[:1600]
-        agent_restrictions = str(state.get("agent_restrictions", "") or "")[:1000]
+        agent_instructions = str(state.get("agent_instructions", "") or "")
+        agent_restrictions = str(state.get("agent_restrictions", "") or "")
+
+        # QUICK-lane tickets can reach Node 7 without passing through Node 2.
+        # Resolve the tenant's capability-matched agent here as well so its
+        # operating rules are not silently skipped on simple requests.
+        if not agent_instructions and tenant_id:
+            try:
+                import json as _agent_json
+                from database.base import SessionLocal as _AgentSession
+                from database.models.variant_engine import AIAgentAssignment as _AgentModel
+                agent_id = state.get("verified_agent_id") or state.get("builder_agent_id")
+                with _AgentSession() as _agent_db:
+                    agents_query = _agent_db.query(_AgentModel).filter(
+                        _AgentModel.company_id == tenant_id,
+                        _AgentModel.status == "active",
+                    )
+                    agents = agents_query.all()
+                    selected = next(
+                        (a for a in agents if agent_id and a.id == agent_id),
+                        None,
+                    )
+                    if selected is None:
+                        try:
+                            from app.core.parwa_pipeline.nodes.node_1_ingest_classify import TICKET_TYPE_TO_CAPABILITY
+                            capability = TICKET_TYPE_TO_CAPABILITY.get(ticket_type, ticket_type)
+                        except Exception:
+                            capability = ticket_type
+                        for candidate in agents:
+                            try:
+                                capabilities = _agent_json.loads(candidate.capabilities or "[]")
+                            except (TypeError, ValueError):
+                                capabilities = []
+                            if capability in capabilities:
+                                selected = candidate
+                                break
+                    if selected:
+                        agent_name = selected.agent_name or agent_name
+                        agent_domain = selected.domain or agent_domain
+                        agent_instructions = (selected.instructions or agent_instructions)
+                        agent_restrictions = (selected.restrictions or agent_restrictions)
+            except Exception as agent_exc:
+                logger.warning("Node 7 tenant agent guidance lookup failed: %s", str(agent_exc)[:160])
+
+        agent_instructions = agent_instructions[:1600]
+        agent_restrictions = agent_restrictions[:1000]
         agent_guidance = ""
         if agent_name or agent_domain:
             agent_guidance += f"Selected tenant agent: {agent_name} ({agent_domain})\n"
