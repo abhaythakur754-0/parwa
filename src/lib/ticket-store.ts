@@ -695,7 +695,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     }));
     for (const id of activeIds) {
       void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: true })
-        .then((ok) => { if (!ok) void syncFromBackend(); });
+        .then(() => { void syncFromBackend(); });
     }
     toast.success(`Stopping AI processing for ${activeIds.length} active tickets`);
   },
@@ -715,7 +715,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     }));
     for (const id of stoppedIds) {
       void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: false })
-        .then((ok) => { if (!ok) void syncFromBackend(); });
+        .then(() => { void syncFromBackend(); });
     }
     toast.success(`Resuming AI processing for ${stoppedIds.length} tickets`);
   },
@@ -922,7 +922,7 @@ export async function syncFromBackend(): Promise<void> {
     const normalized: Ticket[] = items.map(normalizeBackendTicket);
 
     // Update store — sync succeeded, clear any previous error flag
-    useTicketStore.setState({ tickets: normalized, initialized: true, lastSyncError: null });
+    useTicketStore.setState({ tickets: normalized, initialized: true, agentStopped: normalized.some((ticket) => ticket.agent_stopped), lastSyncError: null });
 
     // Persist to localStorage so next page load is instant from cache
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
