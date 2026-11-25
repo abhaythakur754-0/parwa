@@ -177,6 +177,8 @@ def test_node5_has_toolforge_block():
     # Guardrail + approval outcomes must be honoured (never bypass safety)
     assert "guardrail_blocked" in src
     assert "safety_approval_required" in src
+    # The lazy tool-forge lookup must never load another tenant's agent row.
+    assert "_ForgeAgent.company_id == tenant_id" in src
 
 
 def test_node5_toolforge_skips_pure_info_requests():
