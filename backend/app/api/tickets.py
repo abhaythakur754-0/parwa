@@ -760,6 +760,53 @@ async def update_ticket_status(
         )
 
 
+class TicketControlUpdate(BaseModel):
+    """Persist dashboard-only agent controls in existing ticket metadata."""
+    skipped: Optional[bool] = None
+    kb_matched: Optional[bool] = None
+    kb_article_id: Optional[str] = Field(default=None, max_length=255)
+
+
+@router.patch("/{ticket_id}/controls", response_model=dict, summary="Update ticket agent controls")
+async def update_ticket_controls(
+    ticket_id: str,
+    data: TicketControlUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Persist per-ticket controls without inventing ticket lifecycle statuses."""
+    service = TicketService(db, current_user.company_id)
+    try:
+        ticket = service.get_ticket(ticket_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+    metadata: Dict[str, Any] = {}
+    if ticket.metadata_json:
+        try:
+            parsed = json.loads(ticket.metadata_json)
+            if isinstance(parsed, dict):
+                metadata = parsed
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("ticket_controls_invalid_metadata ticket_id=%s", ticket_id)
+
+    for key, value in data.model_dump(exclude_unset=True).items():
+        if key == "kb_article_id" and value is None:
+            metadata.pop(key, None)
+        else:
+            metadata[key] = value
+
+    ticket.metadata_json = json.dumps(metadata)
+    ticket.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {
+        "ticket_id": ticket.id,
+        "skipped": bool(metadata.get("skipped", False)),
+        "kb_matched": bool(metadata.get("kb_matched", False)),
+        "kb_article_id": metadata.get("kb_article_id"),
+    }
+
+
 # ── ASSIGNMENT ──────────────────────────────────────────────────────────────
 
 @router.post(
@@ -1098,6 +1145,9 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         classification_intent=ticket.classification_intent,
         classification_type=ticket.classification_type,
         metadata_json=metadata_json,
+        skipped=bool(metadata_json.get("skipped", False)),
+        kb_matched=bool(metadata_json.get("kb_matched", False)),
+        kb_article_id=metadata_json.get("kb_article_id"),
         reopen_count=ticket.reopen_count or 0,
         frozen=ticket.frozen or False,
         parent_ticket_id=ticket.parent_ticket_id,
