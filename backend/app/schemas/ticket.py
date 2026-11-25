@@ -351,6 +351,12 @@ class TicketResponse(BaseModel):
         description="Additional metadata",
     )
 
+    # Dashboard agent controls are stored in metadata_json so they remain
+    # backwards-compatible with existing databases and free deployments.
+    skipped: bool = Field(default=False, description="Exclude this ticket from automatic processing")
+    kb_matched: bool = Field(default=False, description="Whether a tenant KB article matched")
+    kb_article_id: Optional[str] = Field(default=None, description="Matched tenant KB article ID")
+
     # State tracking
     reopen_count: int = Field(default=0, description="Number of times reopened")
     frozen: bool = Field(default=False, description="Whether ticket is frozen")
