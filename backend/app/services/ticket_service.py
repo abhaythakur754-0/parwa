@@ -523,11 +523,26 @@ class TicketService:
         if status is not None:
             ticket.status = status
 
-            # Handle status-specific logic
-            if status == TicketStatus.closed.value:
+            # Backend-owned lifecycle timestamps must be set here, not
+            # fabricated by the browser. This keeps reports and SLA metrics
+            # consistent across API clients and dashboard refreshes.
+            if status == TicketStatus.resolved.value:
+                resolved_at = datetime.now(timezone.utc)
+                ticket.resolved_at = resolved_at
+                created_at = ticket.created_at
+                if created_at is not None:
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    ticket.resolution_time_hours = round(
+                        max(0.0, (resolved_at - created_at).total_seconds() / 3600),
+                        2,
+                    )
+            elif status == TicketStatus.closed.value:
                 ticket.closed_at = datetime.now(timezone.utc)
             elif status == TicketStatus.reopened.value:
                 ticket.reopen_count = (ticket.reopen_count or 0) + 1
+                ticket.resolved_at = None
+                ticket.resolution_time_hours = None
 
         if assigned_to is not None:
             ticket.assigned_to = assigned_to
