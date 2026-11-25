@@ -1035,27 +1035,29 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
                       />
                     </div>
                   ))}
-                  {/* API Key field — shown for ALL systems. OAuth-type CRMs
-                      accept an API key / access token until the Superglue
-                      OAuth redirect endpoint ships; a real credential here
-                      beats an empty "OAuth" connect that fails on first use. */}
-                  <div>
-                    <label className="block text-xs text-zinc-400 mb-1">
-                      API Key / Token *
-                    </label>
-                    <input
-                      type="password"
-                      value={formApiKey}
-                      onChange={(e) => setFormApiKey(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
-                    />
-                    <p className="text-[10px] text-zinc-600 mt-1">
-                      {((selectedCRM as any)?.auth_type === 'oauth')
-                        ? `Paste an access token from your ${selectedCRM.name} account — stored securely in Superglue.`
-                        : 'Stored securely in Superglue + encrypted in MCP registry.'}
-                    </p>
-                  </div>
+                  {selectedCRM?.auth_type === 'oauth' ? (
+                    <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-3">
+                      <p className="text-xs text-violet-200 font-medium">Secure OAuth authorization</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">
+                        Continue to {selectedCRM.name} in a secure popup and approve the requested access.
+                        Superglue stores and refreshes the OAuth tokens; PARWA never receives the token values.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">API Key / Token *</label>
+                      <input
+                        type="password"
+                        value={formApiKey}
+                        onChange={(e) => setFormApiKey(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-1">
+                        Stored in the tenant's encrypted Superglue credential connection.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1069,7 +1071,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
               </button>
               <button
                 onClick={handleConnect}
-                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() || !formDbName.trim()) : (!formUrl.trim() || !formApiKey.trim()))}
+                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() && formDbType !== 'bigquery') || !formDbName.trim() : (!formUrl.trim() || (selectedCRM?.auth_type !== 'oauth' && !formApiKey.trim())))}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plug className="w-3.5 h-3.5" />}
