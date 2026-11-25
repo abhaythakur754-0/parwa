@@ -703,35 +703,6 @@ Come back anytime — I'll be here!`;
     return "Data security is PARWA's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
   }
 
-  private buildROIResponse(session: SessionLike): string {
-    const ctx = session.context || {};
-    const talkingPoints = this.kb.pricing?.sales_talking_points;
-
-    let response = "Here's the bottom line on PARWA's ROI:\n\n";
-
-    response += "**Cost Comparison:**\n";
-    response += "- Human support agent: **$8-12 per ticket** (salary + benefits + training)\n";
-    response += "- PARWA AI: **under $1 per ticket** (PARWA tier)\n\n";
-
-    response += "**Plan-specific savings:**\n";
-    response += "- **PARWA ($2,999/mo)** vs 4 juniors ($18K/mo) = **$186K/year saved**\n";
-    response += "- **PARWA High ($3,999/mo)** vs 5 seniors ($28K/mo) = **$288K/year saved**\n\n";
-
-    response += "**Key metrics:**\n";
-    response += "- **70% cost reduction** in support operations\n";
-    response += "- **50% faster** average resolution time\n";
-    response += "- **95%+ CSAT** score (AI responses)\n";
-    response += "- ROI typically achieved within **30 days**\n\n";
-
-    if (talkingPoints) {
-      response += "Want me to calculate your specific savings? Just tell me:\n1. How many support agents do you have?\n2. What's your average ticket volume per month?";
-    } else {
-      response += "Want me to run a personalized ROI calculation for your business?";
-    }
-
-    return response;
-  }
-
   private buildDemoResponse(industry: string | null, session: SessionLike): string {
     const scenarios = this.kb.demoScenarios?.scenarios;
     if (!scenarios || scenarios.length === 0) {
