@@ -231,6 +231,13 @@ def main() -> int:
     _, cur = call("GET", f"/api/v1/tickets/{tid}", token=token)
     check("status persisted", (cur or {}).get("status") == "resolved",
           f"status={(cur or {}).get('status')}")
+    check("backend resolution timestamp persisted",
+          bool((cur or {}).get("resolved_at")),
+          f"resolved_at={(cur or {}).get('resolved_at')}")
+    check("backend resolution duration calculated",
+          isinstance((cur or {}).get("resolution_time_hours"), (int, float))
+          and (cur or {}).get("resolution_time_hours") >= 0,
+          f"resolution_time_hours={(cur or {}).get('resolution_time_hours')}")
 
     print("── 9. mock CRM pushes ──")
     hits = mock_crm_hits()
