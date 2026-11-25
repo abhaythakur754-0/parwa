@@ -255,6 +255,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       toast.error('Name is required');
       return;
     }
+
     const missingAuthField = selectedCRM.auth_schema?.find(
       (field) => field.required && !formExtraFields[field.key]?.trim(),
     );
@@ -262,6 +263,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       toast.error(`${missingAuthField.label} is required`);
       return;
     }
+
     const effectiveDbHost = formDbType === 'bigquery'
       ? (formExtraFields.project_id || formDbHost).trim()
       : formDbType === 'snowflake'
@@ -272,18 +274,26 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         toast.error('Host/project, database name, and required username are missing');
         return;
       }
-    } else {
-      if (!formUrl.trim()) {
-        toast.error('URL is required');
+    } else if (!formUrl.trim()) {
+      toast.error('URL is required');
+      return;
+    }
+
+    const isOAuth = selectedCRM.auth_type === 'oauth';
+    let oauthPopup: Window | null = null;
+    if (isOAuth) {
+      // Open synchronously from the user gesture so popup blockers do not
+      // prevent the provider's consent screen from appearing.
+      oauthPopup = window.open('about:blank', 'parwa-provider-oauth', 'width=620,height=760');
+      if (!oauthPopup) {
+        toast.error('Allow popups for PARWA to authorize this provider securely');
         return;
       }
     }
 
     setConnecting(true);
     try {
-      // Detect if this is a CRM connection (Phase 1) vs recommendation (Phase 3)
-      const isCrm = CRM_OPTIONS.some((c) => c.id === selectedCRM.id);
-
+      const isCrm = CRM_OPTIONS.some((item) => item.id === selectedCRM.id);
       const payload: any = {
         system_id: selectedCRM.id,
         name: formName.trim(),
@@ -292,25 +302,20 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       };
 
       if (isDbForm) {
-        // Database connection — send DB-specific fields
         payload.db_type = formDbType;
         payload.db_host = effectiveDbHost;
         payload.db_port = parseInt(formDbPort) || (['snowflake', 'bigquery'].includes(formDbType) ? 443 : 5432);
         payload.db_name = formDbName.trim();
         payload.db_username = formDbUsername.trim();
         payload.db_password = formDbPassword;
-        payload.url = ''; // backend builds it from DB fields
+        payload.url = '';
         payload.credentials = Object.fromEntries(
           Object.entries(formExtraFields).filter(([, value]) => value.trim()),
         );
       } else {
-        // API connection — build credentials from auth_schema fields + API key.
-        // auth_schema fields (Zendesk subdomain/email, Freshdesk domain, etc.)
-        // used to be dropped here — they must reach Superglue or the
-        // connection is broken from birth.
         const credentials: Record<string, string> = {};
-        const crmDef = CRM_OPTIONS.find((c) => c.id === selectedCRM.id) || selectedCRM;
-        if (crmDef?.auth_schema) {
+        const crmDef = CRM_OPTIONS.find((item) => item.id === selectedCRM.id) || selectedCRM;
+        if (crmDef.auth_schema) {
           for (const field of crmDef.auth_schema) {
             if (formExtraFields[field.key]?.trim()) {
               credentials[field.key] = formExtraFields[field.key].trim();
@@ -318,15 +323,11 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           }
         }
         if (formApiKey.trim()) {
-          if (crmDef?.auth_type === 'oauth') {
-            credentials.access_token = formApiKey.trim();
-          } else {
-            credentials.api_key = formApiKey.trim();
-          }
+          credentials.api_key = formApiKey.trim();
         }
         payload.url = formUrl.trim();
         for (const [key, value] of Object.entries(credentials)) {
-          payload.url = payload.url.replaceAll(`{${key}}`, String(value));
+          payload.url = payload.url.replaceAll(`{${key}}`, value);
         }
         payload.credentials = credentials;
       }
@@ -337,49 +338,84 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (res.ok) {
-        toast.success(`${formName} connected`);
-        setFormOpen(false);
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to create integration connection');
+      }
+      setFormOpen(false);
 
-        // If this was a CRM (Phase 1), auto-verify + trigger analysis
-        if (isCrm) {
-          await handleVerify(selectedCRM.id);
-        } else {
-          // A connection is not ready until its provider credentials or
-          // database schema have been tested successfully.
-          const connectedName = formName;
-          setConnectedRecommendations((prev) => new Set(prev).add(connectedName));
-          try {
-            const testRes = await fetch(
-              `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/test`,
-              { method: 'POST' },
-            );
-            const testData = await testRes.json();
-            setTestResults((prev) => ({
-              ...prev,
-              [selectedCRM.id]: {
-                works: testRes.ok && testData.works === true,
-                message: testData.message || 'Connection test failed',
-              },
-            }));
-            if (testRes.ok && testData.works === true) {
-              toast.success(`${connectedName}: connection verified`);
-            } else {
-              toast.error(`${connectedName}: ${testData.message || 'connection test failed'}`);
+      if (isOAuth) {
+        const startRes = await fetch(
+          `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/oauth/start`,
+          { method: 'POST' },
+        );
+        const startData = await startRes.json();
+        if (!startRes.ok || !startData.authorization_url) {
+          throw new Error(startData.detail || 'Could not start provider authorization');
+        }
+        if (oauthPopup) oauthPopup.location.href = startData.authorization_url;
+
+        let authorized = false;
+        for (let attempt = 0; attempt < 90; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          const statusRes = await fetch(
+            `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/oauth/status`,
+          );
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.connected === true) {
+              authorized = true;
+              break;
             }
-          } catch {
-            setTestResults((prev) => ({
-              ...prev,
-              [selectedCRM.id]: { works: false, message: 'Network error during connection test' },
-            }));
-            toast.error(`${connectedName}: could not verify connection`);
+          }
+          if (oauthPopup?.closed) {
+            // Superglue closes the popup after successful consent. Give its
+            // credential write one final poll before treating it as cancelled.
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
+        oauthPopup?.close();
+        if (!authorized) {
+          throw new Error('Provider authorization was not completed. Reconnect and approve access to continue.');
+        }
+        toast.success(`${formName} authorization completed`);
       } else {
-        toast.error(data.detail || 'Failed to connect');
+        toast.success(`${formName} connected`);
       }
-    } catch {
-      toast.error('Network error');
+
+      if (isCrm) {
+        await handleVerify(selectedCRM.id);
+      } else {
+        const connectedName = formName;
+        setConnectedRecommendations((prev) => new Set(prev).add(connectedName));
+        try {
+          const testRes = await fetch(
+            `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/test`,
+            { method: 'POST' },
+          );
+          const testData = await testRes.json();
+          setTestResults((prev) => ({
+            ...prev,
+            [selectedCRM.id]: {
+              works: testRes.ok && testData.works === true,
+              message: testData.message || 'Connection test failed',
+            },
+          }));
+          if (testRes.ok && testData.works === true) {
+            toast.success(`${connectedName}: connection verified`);
+          } else {
+            toast.error(`${connectedName}: ${testData.message || 'connection test failed'}`);
+          }
+        } catch {
+          setTestResults((prev) => ({
+            ...prev,
+            [selectedCRM.id]: { works: false, message: 'Network error during connection test' },
+          }));
+          toast.error(`${connectedName}: could not verify connection`);
+        }
+      }
+    } catch (error) {
+      oauthPopup?.close();
+      toast.error(error instanceof Error ? error.message : 'Network error');
     } finally {
       setConnecting(false);
     }
