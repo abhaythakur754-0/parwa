@@ -1053,11 +1053,13 @@ def _format_integrations(integrations: Dict[str, Any]) -> list:
     pick the right API endpoints when designing the tool.
     """
     systems = []
-    for integ_type, creds in integrations.items():
+    for integ_type, details in integrations.items():
+        details = details if isinstance(details, dict) else {}
+        system_id = details.get("system_id") or integ_type
         systems.append({
-            "id": integ_type,
-            "type": integ_type,
-            "credentials": creds if isinstance(creds, dict) else {},
+            "id": system_id,
+            "type": system_id,
+            "credentials": {},
         })
     return systems
 
