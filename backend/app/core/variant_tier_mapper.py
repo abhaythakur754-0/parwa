@@ -188,10 +188,11 @@ def industry_label_to_enum(industry_label: str) -> str:
 
 
 def variant_instance_name(canonical_variant: str) -> str:
-    """Map a canonical subscription variant to its onboarding display name."""
+    """Map a normalized subscription variant to its onboarding display name.
+
+    Retired Mini/Starter aliases normalize to the standard Parwa subscription.
+    """
     normalized = str(canonical_variant or "").strip().lower()
-    if normalized in {"starter", "mini", "mini_parwa"}:
-        return "Mini Parwa"
     if normalized in {"high", "parwa_high"}:
         return "High Parwa"
     return "Parwa"
