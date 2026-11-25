@@ -2689,7 +2689,7 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
         try:
             connections = db.query(DBConnection).filter(
                 DBConnection.company_id == tenant_id,
-                DBConnection.status.in_(["connected", "verified"]),
+                DBConnection.status == "verified",
             ).all()
 
             import json
@@ -2740,7 +2740,7 @@ def _fetch_connected_integrations(tenant_id: str) -> Dict[str, Dict[str, Any]]:
         try:
             rows = db.query(Integration).filter(
                 Integration.company_id == tenant_id,
-                Integration.status.in_(["active", "connected", "verified"]),
+                Integration.status.in_(["active", "verified"]),
             ).all()
             result: Dict[str, Dict[str, Any]] = {}
             for row in rows:
