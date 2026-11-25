@@ -21,11 +21,11 @@ depends_on = None
 
 def upgrade() -> None:
     # Add unique constraint on customers table
-    op.create_unique_constraint(
-        'uq_customer_company_email',
-        'customers',
-        ['company_id', 'email'],
-    )
+    with op.batch_alter_table('customers') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_customer_company_email',
+            ['company_id', 'email'],
+        )
 
     # Add composite indexes on tickets table
     op.create_index(
