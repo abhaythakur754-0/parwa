@@ -21,8 +21,22 @@ from shared.utils.token_encryption import decrypt_token, encrypt_token
 logger = logging.getLogger("parwa.superglue_tenant_accounts")
 
 
+def _set_tenant_context(db: Session, company_id: str) -> None:
+    """Set the transaction-local tenant context required by PostgreSQL RLS."""
+    try:
+        if db.bind and db.bind.dialect.name == "postgresql":
+            db.execute(
+                text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(company_id)},
+            )
+    except Exception:
+        db.rollback()
+        raise
+
+
 def get_tenant_api_key(db: Session, company_id: str) -> Optional[str]:
     """Return the decrypted service-account API key for exactly one tenant."""
+    _set_tenant_context(db, str(company_id))
     row = db.query(SuperglueTenantAccount).filter(
         SuperglueTenantAccount.company_id == str(company_id),
         SuperglueTenantAccount.status == "active",
@@ -45,6 +59,7 @@ async def get_or_create_tenant_account(
 ) -> Dict[str, Any]:
     """Provision one Superglue service account and persist its key encrypted."""
     tenant_id = str(company_id)
+    _set_tenant_context(db, tenant_id)
     existing_key = get_tenant_api_key(db, tenant_id)
     if existing_key:
         row = db.query(SuperglueTenantAccount).filter(
