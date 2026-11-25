@@ -33,8 +33,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.logger import get_logger
 from app.api.deps import get_current_user
+from app.logger import get_logger
 from database.models.core import User
 from database.models.jarvis import JarvisSession
 from database.base import get_db
@@ -47,12 +47,11 @@ async def enforce_onboarding_identity(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> User:
-    """Bind every onboarding operation to the JWT user's tenant and identity.
+    """Bind onboarding access to the authenticated tenant and session owner."""
+    authenticated_company_id = str(user.company_id) if user.company_id else None
+    if not authenticated_company_id:
+        raise HTTPException(status_code=403, detail="A company account is required")
 
-    These endpoints sit under a public middleware prefix for legacy routing;
-    this dependency is therefore the mandatory authentication boundary.
-    """
-    company_id = request.query_params.get("company_id")
     payload: Dict[str, Any] = {}
     if request.method not in {"GET", "HEAD"}:
         try:
@@ -61,18 +60,17 @@ async def enforce_onboarding_identity(
             payload = {}
         if not isinstance(payload, dict):
             raise HTTPException(status_code=400, detail="Invalid request body")
-        company_id = company_id or payload.get("company_id")
 
-    authenticated_company_id = str(user.company_id) if user.company_id else None
-    if not authenticated_company_id or str(company_id or "") != authenticated_company_id:
+    requested_company_id = (
+        request.query_params.get("company_id") or payload.get("company_id")
+    )
+    if requested_company_id and str(requested_company_id) != authenticated_company_id:
         raise HTTPException(status_code=403, detail="Tenant access denied")
 
     requested_user_id = payload.get("user_id")
     if requested_user_id and str(requested_user_id) != str(user.id):
         raise HTTPException(status_code=403, detail="User access denied")
 
-    # Tenant ownership alone is not enough: onboarding conversations contain
-    # personal business details and must remain private to their creator.
     session_id = (
         payload.get("session_id")
         or request.query_params.get("session_id")
@@ -93,8 +91,15 @@ async def enforce_onboarding_identity(
 router = APIRouter(
     prefix="/api/jarvis/onboarding",
     tags=["jarvis-onboarding"],
-    dependencies=[Depends(enforce_onboarding_identity)],
+    dependencies=[Depends(get_current_user), Depends(enforce_onboarding_identity)],
 )
+
+
+def _require_company_id(user: User) -> str:
+    """Use the authenticated tenant, never the request-supplied company ID."""
+    if not user.company_id:
+        raise HTTPException(status_code=403, detail="A company account is required")
+    return str(user.company_id)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -174,11 +179,7 @@ class DeactivateRequest(BaseModel):
 
 
 @router.post("/session")
-def create_session(
-    request: CreateSessionRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def create_session(request: CreateSessionRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Create a new onboarding session.
 
     Called when a user lands on /jarvis for the first time.
@@ -189,7 +190,7 @@ def create_session(
 
         session = create_onboarding_session(
             db=db,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             user_id=str(current_user.id),
             entry_source=request.entry_source,
             entry_params=request.entry_params,
@@ -213,20 +214,21 @@ def create_session(
 
     except Exception as e:
         logger.exception("create_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.get("/session/{session_id}")
 def get_session(
     session_id: str,
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get an onboarding session by ID."""
     try:
         from app.services.jarvis_onboarding_service import get_onboarding_session
 
-        session = get_onboarding_session(db, session_id, company_id)
+        session = get_onboarding_session(db, session_id, _require_company_id(current_user))
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
 
@@ -246,20 +248,21 @@ def get_session(
         raise
     except Exception as e:
         logger.exception("get_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/session/resume")
 def resume_session(
     session_id: str = Query(..., description="Session ID to resume"),
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Resume an existing onboarding session."""
     try:
         from app.services.jarvis_onboarding_service import resume_onboarding_session
 
-        result = resume_onboarding_session(db, session_id, company_id)
+        result = resume_onboarding_session(db, session_id, _require_company_id(current_user))
         if not result:
             raise HTTPException(status_code=404, detail="Session not found or inactive")
 
@@ -269,11 +272,11 @@ def resume_session(
         raise
     except Exception as e:
         logger.exception("resume_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.patch("/context")
-def update_context(request: UpdateContextRequest, db: Session = Depends(get_db)):
+def update_context(request: UpdateContextRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Update the onboarding session context.
 
     Called whenever the frontend detects a context change —
@@ -285,7 +288,7 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
         updated_ctx = update_onboarding_context(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             updates=request.updates,
         )
 
@@ -302,11 +305,11 @@ def update_context(request: UpdateContextRequest, db: Session = Depends(get_db))
         raise
     except Exception as e:
         logger.exception("update_context_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/stage/advance")
-def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
+def advance_stage(request: AdvanceStageRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Advance the onboarding session to a new stage."""
     try:
         from app.services.jarvis_onboarding_service import advance_stage
@@ -314,7 +317,7 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
         new_stage = advance_stage(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             new_stage=request.new_stage,
             reason=request.reason,
         )
@@ -328,11 +331,11 @@ def advance_stage(request: AdvanceStageRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("advance_stage_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/message")
-def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
+def log_message(request: LogMessageRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Log a chat message to the onboarding session.
 
     Persists messages to DB and logs user messages to Activity Store.
@@ -346,7 +349,7 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
         msg = log_onboarding_message(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             role=request.role,
             content=request.content,
             message_type=request.message_type,
@@ -370,37 +373,30 @@ def log_message(request: LogMessageRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("log_message_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/verify-email")
-def verify_email(
-    request: EmailVerificationRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def verify_email(request: EmailVerificationRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Record email verification during onboarding."""
     try:
         from app.services.jarvis_onboarding_service import record_email_verification
-
-        # The request's boolean is not proof. Trust only the OTP service's
-        # persisted verification record for this tenant and email.
         from app.services.business_email_otp_service import check_business_email_verified
-        verified = check_business_email_verified(
+
+        company_id = _require_company_id(current_user)
+        if not request.verified or not check_business_email_verified(
             db=db,
             email=request.email,
-            company_id=request.company_id,
-            user_id=str(current_user.id),
-        )
-        if request.verified and not verified:
-            raise HTTPException(status_code=403, detail="Email OTP has not been verified")
+            company_id=company_id,
+        ):
+            raise HTTPException(status_code=403, detail="Email OTP verification is required")
 
         success = record_email_verification(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             email=request.email,
-            verified=verified,
+            verified=request.verified,
             otp_method=request.otp_method,
         )
 
@@ -409,31 +405,29 @@ def verify_email(
 
         return {
             "success": True,
-            "verified": verified,
-            "stage": "verification" if verified else None,
+            "verified": request.verified,
+            "stage": "verification" if request.verified else None,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("verify_email_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/payment")
-def record_payment(request: RecordPaymentRequest, db: Session = Depends(get_db)):
-    """Record a completed payment during onboarding."""
-    # A browser request must never be able to mark a payment complete.
-    # Payment completion is recorded only by the signed Razorpay webhook
-    # handled by /api/billing/razorpay/webhook.
+def record_payment(request: RecordPaymentRequest, current_user: User = Depends(get_current_user)):
+    """Reject client-reported payment state; only a verified provider webhook may activate it."""
+    _require_company_id(current_user)
     raise HTTPException(
         status_code=410,
-        detail="Client-side payment recording is disabled; payment status is confirmed by the verified provider webhook.",
+        detail="Direct onboarding payment recording is disabled. Complete payment through verified billing checkout.",
     )
 
 
 @router.post("/demo-call")
-def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
+def initiate_demo_call(request: DemoCallRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Record a demo call initiation during onboarding."""
     try:
         from app.services.jarvis_onboarding_service import record_demo_call
@@ -441,7 +435,7 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
         success = record_demo_call(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             call_data=request.call_data,
         )
 
@@ -454,15 +448,11 @@ def initiate_demo_call(request: DemoCallRequest, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         logger.exception("demo_call_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/handoff")
-def execute_handoff(
-    request: HandoffRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def execute_handoff(request: HandoffRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Execute the handoff from onboarding to CC Jarvis.
 
     This is the final step — creates a CC session with full onboarding context.
@@ -473,7 +463,7 @@ def execute_handoff(
         result = execute_handoff(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             user_id=str(current_user.id),
             handoff_data=request.handoff_data,
         )
@@ -487,11 +477,11 @@ def execute_handoff(
         raise
     except Exception as e:
         logger.exception("handoff_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.post("/deactivate")
-def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)):
+def deactivate_session(request: DeactivateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Deactivate an onboarding session (user left/dropped off)."""
     try:
         from app.services.jarvis_onboarding_service import deactivate_session
@@ -499,7 +489,7 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
         success = deactivate_session(
             db=db,
             session_id=request.session_id,
-            company_id=request.company_id,
+            company_id=_require_company_id(current_user),
             reason=request.reason,
         )
 
@@ -512,13 +502,14 @@ def deactivate_session(request: DeactivateRequest, db: Session = Depends(get_db)
         raise
     except Exception as e:
         logger.exception("deactivate_session_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.get("/funnel-metrics")
 def get_funnel_metrics(
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
     hours: int = Query(24, description="Hours of history to analyze"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get onboarding funnel metrics for a tenant.
@@ -530,7 +521,7 @@ def get_funnel_metrics(
 
         metrics = get_onboarding_funnel_metrics(
             db=db,
-            company_id=company_id,
+            company_id=_require_company_id(current_user),
             hours=hours,
         )
 
@@ -538,13 +529,14 @@ def get_funnel_metrics(
 
     except Exception as e:
         logger.exception("funnel_metrics_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
 
 
 @router.get("/awareness")
 def get_onboarding_awareness(
-    company_id: str = Query(..., description="Company ID for BC-001"),
+    company_id: Optional[str] = Query(None, description="Ignored; tenant comes from JWT"),
     hours: int = Query(1, description="Hours of history"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get onboarding-specific awareness data.
@@ -564,4 +556,4 @@ def get_onboarding_awareness(
 
     except Exception as e:
         logger.exception("onboarding_awareness_endpoint_failed")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e)[:200])
