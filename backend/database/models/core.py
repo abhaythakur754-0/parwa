@@ -498,7 +498,7 @@ class SuperglueCallQueue(Base):
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     tool_id = Column(String(255), nullable=False)
-    input_data = Column(Text, nullable=False)  # JSON of inputs
+    input_data = Column(Text, nullable=False)  # encrypted JSON of tool inputs
     ticket_id = Column(String(128), nullable=True, index=True)
     agent_id = Column(String(36), nullable=True)
 
@@ -506,7 +506,7 @@ class SuperglueCallQueue(Base):
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=2)
     error_message = Column(Text, nullable=True)
-    result_data = Column(Text, nullable=True)  # cached result for recovery
+    result_data = Column(Text, nullable=True)  # encrypted cached result (if used)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
