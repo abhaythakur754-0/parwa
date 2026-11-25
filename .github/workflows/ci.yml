@@ -120,10 +120,12 @@ jobs:
                       "AND c.relrowsecurity"
                   )).all()
               }
-              policy_counts = dict(connection.execute(text(
-                  "SELECT tablename, COUNT(*) FROM pg_policies "
-                  "WHERE schemaname = current_schema() GROUP BY tablename"
-              )).all())
+              existing_policies = {
+                  (row[0], row[1]) for row in connection.execute(text(
+                      "SELECT tablename, policyname FROM pg_policies "
+                      "WHERE schemaname = current_schema()"
+                  )).all()
+              }
           assert rls_enabled is True
           assert policy_count == 4
           assert version_length >= 255
@@ -134,10 +136,13 @@ jobs:
           spec.loader.exec_module(rls_migration)
           expected_rls_tables = set(rls_migration.TENANT_TABLES)
           assert expected_rls_tables <= enabled_tables, sorted(expected_rls_tables - enabled_tables)
-          missing_policy_tables = {
-              table for table in expected_rls_tables if policy_counts.get(table, 0) != 4
+          required_policies = {
+              (table, f"{table}_tenant_{suffix}")
+              for table in expected_rls_tables
+              for suffix in ("select", "insert", "update", "delete")
           }
-          assert not missing_policy_tables, sorted(missing_policy_tables)
+          missing_policies = required_policies - existing_policies
+          assert not missing_policies, sorted(missing_policies)
           print("PostgreSQL schema, long Alembic IDs, and tenant RLS policies are verified")
           PY
 
