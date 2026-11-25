@@ -202,3 +202,36 @@ async def test_tool_verification_uses_tenant_key_and_namespaced_tool_id(monkeypa
     url, request = calls[0]
     assert url.endswith("/v1/tools/tenant_tenant-123__refund-tool")
     assert request["headers"]["Authorization"] == "Bearer tenant-key"
+
+
+
+def test_recovery_reconciles_outer_idempotency_record_in_tenant_scope():
+    from types import SimpleNamespace
+    from app.core.superglue_client import _sync_ticket_tool_execution_status
+
+    class _DB:
+        bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+        def __init__(self):
+            self.calls = []
+        def execute(self, statement, params=None):
+            self.calls.append((str(statement), params))
+
+    db = _DB()
+    _sync_ticket_tool_execution_status(
+        db,
+        company_id="tenant-a",
+        idempotency_key="tenant-a:ticket-1:tool-1",
+        status="completed",
+    )
+
+    assert len(db.calls) == 2
+    assert "set_config('app.current_tenant_id'" in db.calls[0][0]
+    sql, params = db.calls[1]
+    assert "UPDATE ticket_tool_executions" in sql
+    assert "company_id = :company_id" in sql
+    assert params == {
+        "status": "completed",
+        "error_message": None,
+        "idempotency_key": "tenant-a:ticket-1:tool-1",
+        "company_id": "tenant-a",
+    }
