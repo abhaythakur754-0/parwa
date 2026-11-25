@@ -461,7 +461,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         t.id === id ? { ...t, status, updated_at: new Date().toISOString() } : t
       ),
     }));
-    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status });
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status }).then(() => syncFromBackend());
   },
 
   assignVariant: (id, variant) => {
@@ -515,7 +515,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         };
       }),
     }));
-    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status: 'resolved', resolution });
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status: 'resolved', reason: 'issue_fixed' }).then(() => syncFromBackend());
   },
 
   escalateToHuman: (id) => {
@@ -544,7 +544,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         };
       }),
     }));
-    void pushToBackend('POST', `/api/v1/tickets/${id}/escalate`, { reason: 'Manually escalated to CRM from dashboard' });
+    void pushToBackend('POST', `/api/v1/tickets/${id}/escalate`, { reason: 'Manually escalated to CRM from dashboard' }).then(() => syncFromBackend());
   },
 
   resumeWithGuidance: async (id, guidance) => {
