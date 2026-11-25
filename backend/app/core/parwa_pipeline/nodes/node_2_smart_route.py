@@ -1126,6 +1126,27 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         agent_verification_status = "error"
         tool_verification_status = "error"
 
+    # A newly cloned template agent was not held in the local agent variable.
+    # Re-load it by BOTH id and tenant so its instructions/restrictions are
+    # available to the downstream response-generation nodes as well.
+    if verified_agent_id and not selected_agent_name:
+        try:
+            from database.base import SessionLocal as _AgentSession
+            from database.models.variant_engine import AIAgentAssignment as _AgentModel
+            with _AgentSession() as _agent_db:
+                selected = _agent_db.query(_AgentModel).filter(
+                    _AgentModel.id == verified_agent_id,
+                    _AgentModel.company_id == tenant_id,
+                    _AgentModel.status == "active",
+                ).first()
+                if selected:
+                    selected_agent_name = selected.agent_name or ""
+                    selected_agent_domain = selected.domain or ""
+                    agent_instructions = (selected.instructions or "").strip()
+                    agent_restrictions = (selected.restrictions or "").strip()
+        except Exception as exc:
+            logger.warning("Node 2: selected agent guidance lookup failed: %s", str(exc)[:160])
+
     # ── DECISION: go forward or send back ──
     if agent_verification_status == "failed":
         # Can't create agent → ESCALATE (send back)
