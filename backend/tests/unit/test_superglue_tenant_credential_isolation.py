@@ -142,6 +142,34 @@ async def test_oauth_exchange_uses_tenant_service_account_and_configured_app(mon
     assert calls[1][2]["json"] == {"systemId": "hubspot", "oauthAppId": "oauth-app-1"}
 
 
+@pytest.mark.asyncio
+async def test_async_run_poll_uses_admin_only_for_server_returned_run_id(monkeypatch):
+    calls = []
+
+    class PollClient(_Client):
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url, kwargs))
+            return _Response(200, {
+                "status": "success",
+                "data": {"ok": True},
+                "stepResults": [],
+            })
+
+    monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "admin-secret"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-key")
+    monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
+    monkeypatch.setattr(superglue_client.httpx, "AsyncClient", lambda **kwargs: PollClient(calls))
+
+    result = await superglue_client._poll_run_status(
+        "run-created-by-this-request", tool_id="tenant-tool", tenant_id="tenant-1",
+    )
+
+    assert result["success"] is True
+    assert calls[0][1].endswith("/v1/runs/run-created-by-this-request")
+    assert calls[0][2]["headers"]["Authorization"] == "Bearer admin-secret"
+
+
+
 def test_tool_generator_uses_canonical_system_ids_without_credentials():
     from app.core.superglue_tool_generator import _format_integrations
 
