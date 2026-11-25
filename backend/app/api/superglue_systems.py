@@ -1085,89 +1085,26 @@ async def test_system(
         except Exception as exc:
             return TestResponse(system_id=system_id, works=False, tested_at=tested_at, message=f"Zoho test failed: {str(exc)[:150]}")
 
-    # ── Custom API TEST: require a configured URL and credential ─────
-    if not system_url:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message="System has no URL configured",
-        )
+    # Unknown/custom providers must not be marked verified by a root URL
+    # returning HTTP 200. Require a provider-specific health-check definition
+    # before enabling an agent to use this integration.
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if integration:
+        integration.status = "error"
+        integration.error_message = "No provider-specific authenticated health check is configured"
+        db.commit()
+        if system_id in CRM_SYSTEM_IDS or (integration.settings or {}).get("is_crm"):
+            _set_mcp_connection_status(db, integration, system_id, "error")
 
-    # 2. Build auth headers from credentials
-    headers = {"Accept": "application/json", "User-Agent": "PARWA-Test/1.0"}
-    api_key = credentials.get("api_key") or credentials.get("token") or credentials.get("access_token")
-    if api_key:
-        # Try common auth header patterns
-        headers["Authorization"] = f"Bearer {api_key}"
-        # Also set X-API-Key as fallback (some APIs use this)
-        headers["X-API-Key"] = api_key
-
-    # 3. Make a real GET request to the system's URL
-    tested_at = datetime.now(timezone.utc).isoformat()
-    try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(system_url, headers=headers)
-
-        # 200/201 = works; 401/403 = auth failed; 404 = wrong URL; 5xx = their server broken
-        works = resp.status_code in (200, 201)
-        # Never return raw external response bodies; they may contain PII.
-        sample = ""
-
-        # Update the Integration record with test result
-        integration = db.query(Integration).filter(
-            Integration.company_id == tenant_id,
-            Integration.integration_type == system_id,
-        ).first()
-        if integration:
-            integration.last_sync = datetime.now(timezone.utc)
-            if works:
-                integration.status = "verified"
-                integration.error_message = None
-            else:
-                integration.status = "error"
-                integration.error_message = f"HTTP {resp.status_code}: {sample[:200]}"
-            db.commit()
-
-        if works:
-            message = f"✓ Connection works (HTTP {resp.status_code})"
-        elif resp.status_code in (401, 403):
-            message = f"✗ Authentication failed (HTTP {resp.status_code}) — check your API key"
-        elif resp.status_code == 404:
-            message = f"✗ URL not found (HTTP 404) — check your system URL"
-        else:
-            message = f"✗ API returned HTTP {resp.status_code}"
-
-        return TestResponse(
-            system_id=system_id,
-            works=works,
-            status_code=resp.status_code,
-            tested_at=tested_at,
-            message=message,
-            sample_data={"preview": sample} if sample else None,
-        )
-
-    except httpx.ConnectError:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message=f"✗ Cannot connect to {system_url} — URL is wrong or unreachable",
-        )
-    except httpx.TimeoutException:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message=f"✗ Connection timed out — {system_url} is too slow or unreachable",
-        )
-    except Exception as exc:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message=f"✗ Test failed: {str(exc)[:150]}",
-        )
+    return TestResponse(
+        system_id=system_id,
+        works=False,
+        tested_at=tested_at,
+        message="This provider has no authenticated connection test configured. It cannot be marked verified yet.",
+    )
 
 
 # ── Helper: upsert DBConnection (for database-type systems) ──────────
