@@ -597,117 +597,119 @@ async def recover_stuck_superglue_calls() -> None:
         import json as _json
         from sqlalchemy import text as _sql_text
 
-        _db = SessionLocal()
-        try:
-            # Check if table exists first (avoid spamming errors every 60s)
+        from app.core.tenant_context import tenant_bypass
+        with tenant_bypass(reason="Superglue queue recovery worker"):
+            _db = SessionLocal()
             try:
-                _db.execute(_sql_text("SELECT 1 FROM superglue_call_queue LIMIT 1"))
-            except Exception as table_check_exc:
-                if "does not exist" in str(table_check_exc).lower():
-                    if not _superglue_queue_table_missing_warned:
-                        logger.info(
-                            "superglue_call_recovery: table superglue_call_queue not yet created — "
-                            "will be auto-created on first Superglue DB-backed call. Skipping recovery loop."
-                        )
-                        _superglue_queue_table_missing_warned = True
-                    return  # Table doesn't exist yet — silent skip
-                raise  # Different error — re-raise
-
-            stuck_rows = _db.query(SuperglueCallQueue).filter(
-                SuperglueCallQueue.status == "in_progress"
-            ).limit(5).all()  # cap at 5 per cycle
-
-            if not stuck_rows:
-                return
-
-            # Table exists now — reset the warned flag
-            _superglue_queue_table_missing_warned = False
-
-            logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
-
-            for row in stuck_rows:
-                if row.retry_count >= row.max_retries:
-                    # Max retries exceeded — mark failed
-                    if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
-                        _db.execute(
-                            _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
-                            {"tenant_id": str(row.company_id)},
-                        )
-                    row.status = "failed"
-                    row.error_message = "max retries exceeded during recovery"
-                    row.completed_at = datetime.now(timezone.utc)
-                    _db.commit()
-                    continue
-
-                # Retry the call
+                # Check if table exists first (avoid spamming errors every 60s)
                 try:
-                    # New rows are encrypted at rest. Support legacy plaintext
-                    # rows during the rolling migration, then rewrite them encrypted.
-                    try:
-                        from shared.utils.token_encryption import decrypt_token, encrypt_token
-                        decrypted_payload = decrypt_token(row.input_data)
-                        input_data = _json.loads(decrypted_payload)
-                    except Exception:
-                        try:
-                            input_data = _json.loads(row.input_data)
-                            from shared.utils.token_encryption import encrypt_token
-                            row.input_data = encrypt_token(_json.dumps(input_data))
-                        except Exception:
-                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
-                                _db.execute(
-                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
-                                    {"tenant_id": str(row.company_id)},
-                                )
-                            row.status = "failed"
-                            row.error_message = "queued payload could not be decrypted"
-                            row.completed_at = datetime.now(timezone.utc)
-                            _db.commit()
-                            continue
-
-                    # Set tenant RLS context before modifying this tenant's queue row.
-                    if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
-                        _db.execute(
-                            _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
-                            {"tenant_id": str(row.company_id)},
-                        )
-                    row.retry_count = (row.retry_count or 0) + 1
-                    _db.commit()
-
-                    # Make the actual call (without re-persisting to avoid loops)
-                    result = await _execute_tool_raw(
-                        row.tool_id, input_data, tenant_id=row.company_id
-                    )
-
-                    if result.get("success"):
-                        # Success — delete the row
-                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
-                            _db.execute(
-                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
-                                {"tenant_id": str(row.company_id)},
+                    _db.execute(_sql_text("SELECT 1 FROM superglue_call_queue LIMIT 1"))
+                except Exception as table_check_exc:
+                    if "does not exist" in str(table_check_exc).lower():
+                        if not _superglue_queue_table_missing_warned:
+                            logger.info(
+                                "superglue_call_recovery: table superglue_call_queue not yet created — "
+                                "will be auto-created on first Superglue DB-backed call. Skipping recovery loop."
                             )
-                        _db.query(SuperglueCallQueue).filter(
-                            SuperglueCallQueue.id == row.id,
-                            SuperglueCallQueue.company_id == row.company_id,
-                        ).delete()
-                        _db.commit()
-                        logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
-                    else:
+                            _superglue_queue_table_missing_warned = True
+                        return  # Table doesn't exist yet — silent skip
+                    raise  # Different error — re-raise
+
+                stuck_rows = _db.query(SuperglueCallQueue).filter(
+                    SuperglueCallQueue.status == "in_progress"
+                ).limit(5).all()  # cap at 5 per cycle
+
+                if not stuck_rows:
+                    return
+
+                # Table exists now — reset the warned flag
+                _superglue_queue_table_missing_warned = False
+
+                logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
+
+                for row in stuck_rows:
+                    if row.retry_count >= row.max_retries:
+                        # Max retries exceeded — mark failed
                         if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
                             _db.execute(
                                 _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
                                 {"tenant_id": str(row.company_id)},
                             )
                         row.status = "failed"
-                        row.error_message = result.get("error", "unknown")[:500]
+                        row.error_message = "max retries exceeded during recovery"
                         row.completed_at = datetime.now(timezone.utc)
                         _db.commit()
-                except Exception as retry_exc:
-                    logger.warning(
-                        "superglue_call_recovery_retry_failed: call=%s err=%s",
-                        row.id[:8], str(retry_exc)[:200],
-                    )
-        finally:
-            _db.close()
+                        continue
+
+                    # Retry the call
+                    try:
+                        # New rows are encrypted at rest. Support legacy plaintext
+                        # rows during the rolling migration, then rewrite them encrypted.
+                        try:
+                            from shared.utils.token_encryption import decrypt_token, encrypt_token
+                            decrypted_payload = decrypt_token(row.input_data)
+                            input_data = _json.loads(decrypted_payload)
+                        except Exception:
+                            try:
+                                input_data = _json.loads(row.input_data)
+                                from shared.utils.token_encryption import encrypt_token
+                                row.input_data = encrypt_token(_json.dumps(input_data))
+                            except Exception:
+                                if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                    _db.execute(
+                                        _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                        {"tenant_id": str(row.company_id)},
+                                    )
+                                row.status = "failed"
+                                row.error_message = "queued payload could not be decrypted"
+                                row.completed_at = datetime.now(timezone.utc)
+                                _db.commit()
+                                continue
+
+                        # Set tenant RLS context before modifying this tenant's queue row.
+                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            _db.execute(
+                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                {"tenant_id": str(row.company_id)},
+                            )
+                        row.retry_count = (row.retry_count or 0) + 1
+                        _db.commit()
+
+                        # Make the actual call (without re-persisting to avoid loops)
+                        result = await _execute_tool_raw(
+                            row.tool_id, input_data, tenant_id=row.company_id
+                        )
+
+                        if result.get("success"):
+                            # Success — delete the row
+                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                _db.execute(
+                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                    {"tenant_id": str(row.company_id)},
+                                )
+                            _db.query(SuperglueCallQueue).filter(
+                                SuperglueCallQueue.id == row.id,
+                                SuperglueCallQueue.company_id == row.company_id,
+                            ).delete()
+                            _db.commit()
+                            logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
+                        else:
+                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                _db.execute(
+                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                    {"tenant_id": str(row.company_id)},
+                                )
+                            row.status = "failed"
+                            row.error_message = result.get("error", "unknown")[:500]
+                            row.completed_at = datetime.now(timezone.utc)
+                            _db.commit()
+                    except Exception as retry_exc:
+                        logger.warning(
+                            "superglue_call_recovery_retry_failed: call=%s err=%s",
+                            row.id[:8], str(retry_exc)[:200],
+                        )
+            finally:
+                _db.close()
     except Exception as exc:
         logger.warning("recover_stuck_superglue_calls_error: %s", str(exc)[:200])
 
