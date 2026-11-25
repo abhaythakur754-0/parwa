@@ -25,8 +25,16 @@ test.describe('Parwa browser smoke checks', () => {
         `Unexpected HTTP status for ${route.path}`,
       ).toBeLessThan(500);
 
+      await page.waitForLoadState('load');
       await expect(page.locator('body')).toBeVisible();
       await expect(page.locator('body')).not.toBeEmpty();
+
+      // The landing hero reveals its content with an IntersectionObserver and
+      // a short counter animation. Wait for the finished state before capture.
+      if (route.path === '/') {
+        await expect(page.getByRole('heading', { name: /Human Support vs/ })).toBeVisible();
+        await expect(page.getByText('92%', { exact: true })).toBeVisible({ timeout: 10_000 });
+      }
 
       await page.screenshot({
         path: testInfo.outputPath(`${route.name}.png`),
