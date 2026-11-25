@@ -81,3 +81,18 @@ def test_env_example_documents_environment_only_external_credentials():
         "SUPERGLUE_SESSION_ID",
     ):
         assert f"{key}=" in env_example
+
+
+
+def test_production_env_template_documents_external_agent_endpoints():
+    env = (REPO_ROOT / ".env.prod.example").read_text(encoding="utf-8")
+    for key in (
+        "BUILDER_API_URL",
+        "BUILDER_API_KEY",
+        "CRM_ANALYSER_URL",
+        "CRM_ANALYSER_API_KEY",
+        "SUPERGLUE_API_URL",
+        "SUPERGLUE_AUTH_TOKEN",
+        "SUPERGLUE_LLM_API_KEY",
+    ):
+        assert f"{key}=" in env
