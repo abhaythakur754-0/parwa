@@ -253,6 +253,11 @@ async def create_system(
         {},
     )
     auth_type = system_definition.get("auth_type", "api_key")
+    if req.metadata is None:
+        req.metadata = {}
+    # The server-side catalog is authoritative; callers cannot downgrade an
+    # OAuth provider into an API-key integration by changing request metadata.
+    req.metadata["auth_type"] = auth_type
     has_provider_credentials = any(
         str(value).strip() for value in (req.credentials or {}).values() if value is not None
     )
