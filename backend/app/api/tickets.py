@@ -827,6 +827,8 @@ async def pause_company_agents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
+    if not current_user.is_platform_admin and current_user.role not in {"owner", "admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only workspace owners and admins can pause AI processing")
     state = db.query(EmergencyState).filter(
         EmergencyState.company_id == current_user.company_id,
     ).order_by(EmergencyState.created_at.desc()).first()
@@ -853,6 +855,8 @@ async def resume_company_agents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
+    if not current_user.is_platform_admin and current_user.role not in {"owner", "admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only workspace owners and admins can resume AI processing")
     states = db.query(EmergencyState).filter(
         EmergencyState.company_id == current_user.company_id,
         EmergencyState.is_paused.is_(True),
