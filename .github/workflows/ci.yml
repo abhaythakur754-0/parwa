@@ -281,6 +281,8 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: https://fake
           DATABASE_URL: file:./test.db
+          JWT_SECRET_KEY: parwa-e2e-test-secret-minimum-32-bytes
+          NEXT_PUBLIC_JWT_ALGORITHM: HS256
 
       - name: Upload browser screenshots and traces
         if: always()
