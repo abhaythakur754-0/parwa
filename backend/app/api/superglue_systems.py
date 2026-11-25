@@ -187,32 +187,38 @@ async def get_catalog() -> CatalogResponse:
 
 
 @router.get("/systems", response_model=ListSystemsResponse)
-async def list_systems(user: User = Depends(get_current_user)) -> ListSystemsResponse:
-    """List all systems connected by this tenant.
-
-    BC-001: Scoped to user's company_id. Only returns systems with the
-    tenant_{company_id}__ prefix.
-    """
+async def list_systems(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ListSystemsResponse:
+    """List this tenant's locally registered integrations without leaking other tenants."""
     tenant_id = str(user.company_id)
-    systems = await superglue_client.list_tenant_systems(tenant_id)
-    # Strip the tenant prefix from the ID for cleaner frontend display
-    cleaned = []
-    prefix = f"tenant_{tenant_id}__"
-    for s in systems:
-        clean_id = s.get("id", "")
-        if clean_id.startswith(prefix):
-            clean_id = clean_id[len(prefix):]
-        cleaned.append(SystemResponse(
-            id=clean_id,
-            name=s.get("name", ""),
-            url=s.get("url", ""),
-            icon=s.get("icon", ""),
-            credentials={},  # never expose credentials to frontend
-            metadata=s.get("metadata", {}),
-            created_at=s.get("createdAt") or s.get("created_at"),
-            updated_at=s.get("updatedAt") or s.get("updated_at"),
+    shared_ids = {item["id"] for item in POPULAR_SYSTEMS}
+    rows = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+    ).order_by(Integration.created_at.asc()).all()
+
+    systems = []
+    for row in rows:
+        is_shared = row.integration_type in shared_ids
+        result = await superglue_client.get_system(
+            row.integration_type,
+            tenant_id=None if is_shared else tenant_id,
+        )
+        data = result.get("data", {}) if result.get("success") else {}
+        metadata = dict(data.get("metadata") or {})
+        metadata["local_status"] = row.status
+        systems.append(SystemResponse(
+            id=row.integration_type,
+            name=data.get("name") or row.name or row.integration_type,
+            url=data.get("url") or "",
+            icon=data.get("icon") or "",
+            credentials={},
+            metadata=metadata,
+            created_at=data.get("createdAt") or row.created_at,
+            updated_at=data.get("updatedAt") or row.updated_at,
         ))
-    return ListSystemsResponse(success=True, systems=cleaned, count=len(cleaned))
+    return ListSystemsResponse(success=True, systems=systems, count=len(systems))
 
 
 @router.post("/systems", response_model=SystemResponse, status_code=201)
@@ -404,10 +410,21 @@ async def create_system(
 async def get_system(
     system_id: str,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> SystemResponse:
-    """Get details of one connected system."""
+    """Get details of one connected system after tenant ownership validation."""
     tenant_id = str(user.company_id)
-    result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
+    result = await superglue_client.get_system(
+        system_id,
+        tenant_id=None if is_shared else tenant_id,
+    )
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "System not found"))
 
