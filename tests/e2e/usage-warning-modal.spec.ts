@@ -97,6 +97,17 @@ async function installAuthMocks(
     });
   });
 
+  // Dashboard access and login redirects now use the Razorpay subscriptions API.
+  await page.route('**/api/billing/razorpay/subscriptions', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        hasSubscription ? [{ id: 'sub-1', status: 'active' }] : [],
+      ),
+    });
+  });
+
   // Subscription check — hasSubscription=true so user lands on /dashboard
   await page.route('**/api/ai/instances', async (route) => {
     const items = hasSubscription ? [{ id: 'v1', variant_type: 'parwa', status: 'active' }] : [];
