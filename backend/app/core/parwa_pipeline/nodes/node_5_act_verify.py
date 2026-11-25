@@ -652,7 +652,25 @@ THOUGHT:"""
                     for db_info in connected_dbs:
                         readonly = " (read-only)" if db_info.get("readonly", True) else ""
                         db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+                        schema = db_info.get("schema")
+                        if schema:
+                            db_lines.append(
+                                "    verified schema metadata: " + str(schema)[:2500]
+                            )
+                        else:
+                            db_lines.append("    schema not verified; do not invent table or column names")
                     db_context = "\n".join(db_lines) + "\n\n"
+
+                tenant_integrations = state.get("tenant_integrations", {})
+                if tenant_integrations:
+                    integration_lines = ["Tenant-connected integrations:"]
+                    for integration_type, info in list(tenant_integrations.items())[:40]:
+                        if isinstance(info, dict):
+                            integration_lines.append(
+                                f"  - {integration_type}: {info.get('name', integration_type)} "
+                                f"(status={info.get('status', 'unknown')})"
+                            )
+                    db_context += "\n".join(integration_lines) + "\n\n"
 
                 # Step 3: Ask LLM which tool to call
                 tool_prompt = f"""You are deciding which tool to call for a customer support action.
