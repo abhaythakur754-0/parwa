@@ -48,7 +48,7 @@ def upgrade() -> None:
     op.create_table(
         'gsd_sessions',
         sa.Column('id', sa.String(36), primary_key=True),
-        sa.Column('session_id', sa.String(36), sa.ForeignKey('sessions.id'), nullable=False, index=True),
+        sa.Column('session_id', sa.String(36), nullable=False, index=True),
         sa.Column('company_id', sa.String(36), sa.ForeignKey('companies.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('current_step', sa.String(100), nullable=False),
         sa.Column('state_data', sa.Text, server_default='{}'),
@@ -60,7 +60,7 @@ def upgrade() -> None:
     op.create_table(
         'confidence_scores',
         sa.Column('id', sa.String(36), primary_key=True),
-        sa.Column('session_id', sa.String(36), sa.ForeignKey('sessions.id'), nullable=False, index=True),
+        sa.Column('session_id', sa.String(36), nullable=False, index=True),
         sa.Column('company_id', sa.String(36), sa.ForeignKey('companies.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('overall_score', sa.Numeric(5, 2), nullable=False),
         sa.Column('retrieval_score', sa.Numeric(5, 2)),
@@ -73,7 +73,7 @@ def upgrade() -> None:
     op.create_table(
         'guardrail_blocks',
         sa.Column('id', sa.String(36), primary_key=True),
-        sa.Column('session_id', sa.String(36), sa.ForeignKey('sessions.id'), nullable=False, index=True),
+        sa.Column('session_id', sa.String(36), nullable=False, index=True),
         sa.Column('company_id', sa.String(36), sa.ForeignKey('companies.id', ondelete='CASCADE'), nullable=False, index=True),
         sa.Column('block_type', sa.String(50), nullable=False),
         sa.Column('original_response', sa.Text),
@@ -115,7 +115,7 @@ def upgrade() -> None:
         'model_usage_logs',
         sa.Column('id', sa.String(36), primary_key=True),
         sa.Column('company_id', sa.String(36), sa.ForeignKey('companies.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('session_id', sa.String(36), sa.ForeignKey('sessions.id')),
+        sa.Column('session_id', sa.String(36)),
         sa.Column('provider_name', sa.String(100), nullable=False),
         sa.Column('model_name', sa.String(100), nullable=False),
         sa.Column('input_tokens', sa.Integer, server_default='0'),
