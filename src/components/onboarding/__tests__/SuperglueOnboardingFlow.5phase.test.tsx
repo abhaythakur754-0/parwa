@@ -24,7 +24,7 @@ const MOCK_VERIFY = {
 };
 
 const MOCK_ANALYSIS = {
-  company_id: 'test', analyzed_at: '2026-08-18T00:00:00Z',
+  company_id: 'test', analysis_id: 'analysis-1', analyzed_at: '2026-08-18T00:00:00Z',
   connected_integrations: [], data_profile: { total_tickets: 50 },
   detected_gaps: [],
   recommendations: [
@@ -100,7 +100,7 @@ afterEach(() => {
 });
 
 // Helper: complete Phase 1 + 2 (connect CRM → analysis → recommendations appear)
-async function completePhase1And2() {
+async function completePhase1And2(expectRecommendation = true) {
   render(<SuperglueOnboardingFlow />);
   fireEvent.click(screen.getByText('HubSpot'));
   await waitFor(() => expect(screen.getByText(/Connect HubSpot/)).toBeInTheDocument());
@@ -108,7 +108,7 @@ async function completePhase1And2() {
   fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
   // API key is REQUIRED now — empty-credential connects were a bug
   fireEvent.click(screen.getByText('Connect & Verify'));
-  await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
+  if (expectRecommendation) {\n    await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());\n  } else {\n    await waitFor(() => expect(screen.getByText(MOCK_ANALYSIS.analysis_summary)).toBeInTheDocument());\n  }
 }
 
 // Helper: connect + test a recommendation
@@ -134,6 +134,29 @@ async function connectAndTestRecommendation() {
 }
 
 describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
+
+  it('allows CRM-only onboarding when analysis recommends no additional integrations', async () => {
+    const originalRecommendations = MOCK_ANALYSIS.recommendations;
+    MOCK_ANALYSIS.recommendations = [];
+    try {
+      await completePhase1And2(false);
+      const verifyButton = screen.getByText('Verify All Connections');
+      expect(verifyButton).toBeEnabled();
+      fireEvent.click(verifyButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/onboarding-build/trigger',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByText('Continue to Next Step')).toBeEnabled();
+      }, { timeout: 7000 });
+    } finally {
+      MOCK_ANALYSIS.recommendations = originalRecommendations;
+    }
+  });
 
   it('Phase 2→3: agent build auto-triggers when analysis returns (no button click)', async () => {
     await completePhase1And2();
