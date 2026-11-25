@@ -1403,6 +1403,10 @@ async def api_analyze_integrations(
         if not raw_name:
             continue
         system_id = _system_id(str(raw_system_id or raw_name))
+        # The analyser receives the connected inventory, but enforce this
+        # server-side too so users are never asked to reconnect an existing app.
+        if system_id in connected_keys:
+            continue
         catalog_entry = get_integration_by_key(system_id)
         superglue_entry = popular_systems.get(system_id, {})
         display_name = (
@@ -1442,7 +1446,7 @@ async def api_analyze_integrations(
 
     from app.api.onboarding_build import STARTER_AGENT_PACK
     starter_integrations = ("Stripe", "Shopify", "Gmail", "Slack")
-    if result.get("error") or not recommendations:
+    if result.get("error") or (not result.get("tickets_scanned") and not recommendations):
         recommendations = [
             {
                 "name": name,
@@ -1451,6 +1455,7 @@ async def api_analyze_integrations(
                 "reason": "Starter integration — connect only if your business uses it",
             }
             for name in starter_integrations
+            if _system_id(name) not in connected_keys
         ]
     if not recommended_agents:
         recommended_agents = [
