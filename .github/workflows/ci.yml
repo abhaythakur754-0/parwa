@@ -5,9 +5,13 @@ on:
     branches:
       - main
       - 'security/**'
+      - 'fix/**'
+      - 'feat/**'
+      - 'chore/**'
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
