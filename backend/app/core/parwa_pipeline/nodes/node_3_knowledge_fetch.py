@@ -2642,43 +2642,10 @@ def _set_pipeline_tenant_context(db: Any, tenant_id: str) -> None:
 
 
 def _schema_metadata_only(schema: Any) -> Dict[str, Any]:
-    """Keep schema structure for agent reasoning; never pass sample row values."""
-    if not isinstance(schema, dict):
-        return {}
-    safe: Dict[str, Any] = {}
-    for key in ("summary", "database_type", "analyzed_at", "source"):
-        value = schema.get(key)
-        if isinstance(value, (str, int, float, bool)):
-            safe[key] = str(value)[:500] if isinstance(value, str) else value
-    for collection_key in ("tables", "collections", "schemas"):
-        items = schema.get(collection_key)
-        if not isinstance(items, list):
-            continue
-        safe_items = []
-        for item in items[:100]:
-            if isinstance(item, str):
-                safe_items.append({"name": item[:200]})
-                continue
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name") or item.get("table_name") or item.get("collection_name")
-            entry: Dict[str, Any] = {"name": str(name or "unknown")[:200]}
-            columns = item.get("columns") or item.get("fields")
-            if isinstance(columns, list):
-                entry["columns"] = []
-                for column in columns[:100]:
-                    if isinstance(column, str):
-                        entry["columns"].append({"name": column[:200]})
-                    elif isinstance(column, dict):
-                        col_name = column.get("name") or column.get("column_name") or column.get("field")
-                        col_type = column.get("type") or column.get("data_type")
-                        entry["columns"].append({
-                            "name": str(col_name or "unknown")[:200],
-                            "type": str(col_type or "unknown")[:100],
-                        })
-            safe_items.append(entry)
-        safe[collection_key] = safe_items
-    return safe
+    """Use the shared allowlist sanitizer before schema enters agent state."""
+    from app.core.schema_metadata import sanitize_schema_metadata
+    return sanitize_schema_metadata(schema)
+
 
 
 def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
