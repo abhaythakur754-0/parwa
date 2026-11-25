@@ -2649,17 +2649,24 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
         try:
             connections = db.query(DBConnection).filter(
                 DBConnection.company_id == tenant_id,
-                DBConnection.status == "connected",
+                DBConnection.status.in_(["connected", "verified"]),
             ).all()
 
+            import json
             result = []
             for conn in connections:
+                try:
+                    schema = json.loads(conn.schema_analysis) if conn.schema_analysis else None
+                except (json.JSONDecodeError, TypeError):
+                    schema = None
                 db_info = {
                     "id": str(conn.id),
                     "name": conn.name,
                     "db_type": conn.db_type,
-                    "readonly": conn.is_readonly,  # always True — AI never writes to customer DB
+                    "readonly": conn.is_readonly,
                     "status": conn.status,
+                    "schema": schema,
+                    "schema_ready": bool(schema and schema.get("source") != "fallback"),
                 }
                 result.append(db_info)
 
@@ -2680,6 +2687,39 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
         # Non-fatal: pipeline should never break because of this
         logger.warning("fetch_connected_databases_failed: %s", str(exc)[:200])
         return []
+
+
+def _fetch_connected_integrations(tenant_id: str) -> Dict[str, Dict[str, Any]]:
+    """Return non-secret integration metadata for this tenant's agents."""
+    try:
+        import json
+        from database.base import SessionLocal
+        from database.models.integration import Integration
+
+        db = SessionLocal()
+        try:
+            rows = db.query(Integration).filter(
+                Integration.company_id == tenant_id,
+                Integration.status.in_(["active", "connected", "verified"]),
+            ).all()
+            result: Dict[str, Dict[str, Any]] = {}
+            for row in rows:
+                try:
+                    settings = json.loads(row.settings or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    settings = {}
+                result[row.integration_type] = {
+                    "name": row.name or row.integration_type,
+                    "system_id": row.integration_type,
+                    "status": row.status,
+                    "settings": settings,
+                }
+            return result
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("fetch_connected_integrations_failed: %s", str(exc)[:180])
+        return {}
 
 
 # ── Main Node Function ────────────────────────────────────────────
@@ -3333,6 +3373,19 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
 
     # ── Connected Database Discovery: make pipeline aware of tenant's DBs ─
     connected_databases = _fetch_connected_databases(tenant_id)
+    tenant_integrations = _fetch_connected_integrations(tenant_id)
+    # Include discovered DB schemas in the same non-secret integration context
+    # consumed by onboarding/tool generation and the Node 5 tool-forge fallback.
+    for db_info in connected_databases:
+        tenant_integrations[f"database:{db_info['id']}"] = {
+            "name": db_info["name"],
+            "system_id": db_info["id"],
+            "db_type": db_info["db_type"],
+            "status": db_info["status"],
+            "readonly": db_info["readonly"],
+            "schema": db_info.get("schema"),
+            "schema_ready": db_info.get("schema_ready", False),
+        }
     if connected_databases:
         logs.append({"node": 3, "technique": "ConnectedDBDiscovery", "duration_ms": 0,
                      "result_summary": f"dbs={len(connected_databases)} types={[d['db_type'] for d in connected_databases]}"})
@@ -3378,6 +3431,7 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
 
     return {
         "connected_databases": connected_databases,
+        "tenant_integrations": tenant_integrations,
         "knowledge_context": filtered,
         "wiki_section_a": wiki_a,
         "wiki_section_b": wiki_b,
