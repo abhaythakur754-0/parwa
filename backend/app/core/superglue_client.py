@@ -420,7 +420,13 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         finally:
             _qdb.close()
     except Exception as persist_exc:
-        logger.warning("superglue_call_persist_failed: %s", str(persist_exc)[:200])
+        logger.error("superglue_call_persist_failed; refusing external execution: %s", str(persist_exc)[:200])
+
+    if not _call_persisted:
+        return {
+            "success": False,
+            "error": "Durable tenant call queue is unavailable; action was not executed",
+        }
 
     try:
         # Sync execution — waits for the full multi-step chain to complete.
