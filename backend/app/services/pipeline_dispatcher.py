@@ -174,7 +174,7 @@ def _claim_next_ticket():
                 "    OR (status = 'processing' "
                 "        AND updated_at < NOW() - (:stale_minutes * INTERVAL '1 minute'))"
                 "  ) "
-                "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\\\"skipped\\\": true%' "
+                "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\"skipped\": true%' "
                 "  ORDER BY "
                 "    CASE channel "
                 "      WHEN 'phone' THEN 0 "
