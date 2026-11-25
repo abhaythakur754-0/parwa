@@ -44,7 +44,7 @@ router = APIRouter(prefix="/api/onboarding-build", tags=["onboarding-build"])
 # fallback, zero agents get built and /status can never report all_ready=True
 # — onboarding deadlocks at verify. This guarantees the build always runs.
 CRM_PROVIDER_IDS = {
-    "hubspot", "zendesk", "salesforce", "freshdesk", "zoho", "pipedrive",
+    "hubspot", "zendesk", "salesforce", "freshdesk", "zoho",
 }
 
 STARTER_AGENT_PACK = {
