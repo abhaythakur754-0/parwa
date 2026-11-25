@@ -1288,8 +1288,8 @@ def _persist_ai_response(
         ticket.awaiting_human = False  # legacy flag — no ticket waits for a human anymore
         if not ticket.first_response_at:
             ticket.first_response_at = now
-        if status == "resolved" and not ticket.resolved_at:
-            ticket.resolved_at = now
+        if status == "resolved" and not ticket.closed_at:
+            ticket.closed_at = now
         ticket.updated_at = now
         try:
             db.commit()
@@ -1326,8 +1326,8 @@ def _persist_ai_response(
     ticket.awaiting_human = False  # legacy flag — no ticket waits for a human anymore
     if not ticket.first_response_at:
         ticket.first_response_at = now
-    if status == "resolved" and not ticket.resolved_at:
-        ticket.resolved_at = now
+    if status == "resolved" and not ticket.closed_at:
+        ticket.closed_at = now
     ticket.updated_at = now
 
     # ── Write cost/savings/confidence into ticket metadata ───────────
