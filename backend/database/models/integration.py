@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Integer, String, Text, ForeignKey
+    Boolean, Column, DateTime, Integer, String, Text, ForeignKey, UniqueConstraint
 )
 
 from database.base import Base
@@ -39,6 +39,30 @@ class Integration(Base):
     error_message = Column(Text)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class SuperglueTenantAccount(Base):
+    """Per-tenant Superglue service account; its API key is encrypted at rest."""
+
+    __tablename__ = "superglue_tenant_accounts"
+    __table_args__ = (
+        UniqueConstraint("company_id", name="uq_superglue_tenant_account_company"),
+    )
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    company_id = Column(
+        String(36), ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    service_account_id = Column(String(255), nullable=False, unique=True)
+    api_key_encrypted = Column(Text, nullable=False)
+    status = Column(String(30), nullable=False, default="active")
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class RESTConnector(Base):
