@@ -505,7 +505,14 @@ THOUGHT:"""
                             # Tool exists and active — use it
                             # Initialize variables that might be used in approval gate
                             _tool_id = _agent.superglue_tool_id
-                            _tool_input = _extract_tool_inputs(details, action, knowledge)
+                            _tool_input = _extract_tool_inputs(
+                                details,
+                                action,
+                                knowledge,
+                                tool_definition=_agent.superglue_tool_definition,
+                                crm_data=crm_data,
+                                ticket_id=state.get("ticket_id", ""),
+                            )
                             result = {"success": False, "error": "not executed"}
                             # ── APPROVAL GATE (eliminates the risky part) ──
                             # If this agent's tool does dangerous actions (refund, cancel),
@@ -686,7 +693,14 @@ THOUGHT:"""
                                     _f_agent.superglue_tool_status = "active"
                                     _f_db.commit()
                                     _forge_tool_id = _forge["tool_id"]
-                                    _forge_input = _extract_tool_inputs(details, action, knowledge)
+                                    _forge_input = _extract_tool_inputs(
+                                        details,
+                                        action,
+                                        knowledge,
+                                        tool_definition=_forge.get("tool_definition"),
+                                        crm_data=crm_data,
+                                        ticket_id=state.get("ticket_id", ""),
+                                    )
                                     _forge_ticket = state.get("ticket_id", "")
                                     _forge_result = await _execute_with_idempotency(
                                         _forge_tool_id, _forge_input,
