@@ -14,6 +14,7 @@ BC-001: All operations scoped to authenticated user's company_id.
 """
 
 import uuid
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -1299,6 +1300,8 @@ class AnalyzeIntegrationsResponse(BaseModel):
     data_profile: Dict[str, Any]
     detected_gaps: List[Dict[str, Any]]
     recommendations: List[Dict[str, Any]]
+    recommended_agents: List[Dict[str, Any]] = Field(default_factory=list)
+    analysis_id: Optional[str] = None
     analysis_summary: str
 
 
@@ -1372,37 +1375,69 @@ async def api_analyze_integrations(
         connected_integrations=connected_keys,
     )
 
-    # Build the response
+    # The CRM analyser returns two different things: missing integrations
+    # and support-agent capabilities. Keep them separate; a Stripe connection
+    # is a data source, not a "Stripe agent".
+    def _system_id(name: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", str(name).strip().lower()).strip("-")
+        aliases = {
+            "postgresql": "postgres",
+            "postgres-db": "postgres",
+            "mongo-db": "mongodb",
+            "google-mail": "gmail",
+            "google-workspace-mail": "gmail",
+        }
+        return aliases.get(slug, slug)
+
     recommendations = [
-        {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
+        {
+            "name": str(name),
+            "system_id": _system_id(str(name)),
+            "priority": "high",
+            "reason": "Recommended by CRM analysis",
+        }
         for name in result.get("integrations", [])
     ]
+    recommended_agents = [
+        item if isinstance(item, dict) else {"name": str(item)}
+        for item in (result.get("agents") or [])
+        if isinstance(item, (dict, str)) and str(item).strip()
+    ]
 
-    # ── Fallback: never return empty recommendations ──
-    # Brand-new tenants have zero tickets, so the analyser has nothing to
-    # learn from and returns []. Empty recommendations → zero agents built
-    # → onboarding-build /status can never report all_ready=True → the
-    # customer deadlocks at the verify screen. Guarantee a starter pack.
     from app.api.onboarding_build import STARTER_AGENT_PACK
+    starter_integrations = ("Stripe", "Shopify", "Gmail", "Slack")
+    if result.get("error") or not recommendations:
+        recommendations = [
+            {
+                "name": name,
+                "system_id": _system_id(name),
+                "priority": "medium",
+                "reason": "Starter integration — connect only if your business uses it",
+            }
+            for name in starter_integrations
+        ]
+    if not recommended_agents:
+        recommended_agents = [
+            {"name": name, "capabilities": capabilities, "priority": "medium"}
+            for name, capabilities in STARTER_AGENT_PACK.items()
+        ]
 
     if result.get("error"):
         analysis_summary = (
-            "CRM Analyser unavailable — showing a starter pack you can "
-            "connect now. Re-run analysis after your first tickets arrive."
+            "CRM Analyser unavailable — showing starter integration and support-agent suggestions. "
+            "Re-run analysis after your first tickets arrive."
         )
-    elif not recommendations:
-        recommendations = [
-            {"name": name, "priority": "medium",
-             "reason": "Starter pack — recommended for new accounts"}
-            for name in STARTER_AGENT_PACK
-        ]
+    elif not result.get("tickets_scanned"):
         analysis_summary = (
-            "No ticket history yet — showing a starter pack. "
-            "Re-run analysis after your first tickets arrive for "
-            "personalized recommendations."
+            "No ticket history yet — showing starter suggestions. "
+            "Re-run analysis after your first tickets arrive for personalized recommendations."
         )
     else:
-        analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
+        analysis_summary = (
+            result.get("analysis_summary")
+            or f"Analyzed {result.get('tickets_scanned', 0)} tickets. "
+               f"Found {len(recommendations)} integrations and {len(recommended_agents)} agent capabilities."
+        )
 
     # Include the same tenant-scoped inventory that was sent to the analyser.
     connected_list = [
@@ -1410,11 +1445,15 @@ async def api_analyze_integrations(
         for r in connected_rows
     ]
 
-    data_profile = {"total_tickets": result.get("tickets_scanned", 0)}
+    data_profile = {
+        "total_tickets": result.get("tickets_scanned", 0),
+        "recommended_agents": recommended_agents,
+    }
 
     # ── Save to CRMAnalysisResult table (persists across logins) ──
     # Stores the full analysis so the user can see their recommendations
     # on the dashboard later, not just during onboarding.
+    analysis_id = None
     try:
         from database.models.crm_analysis import CRMAnalysisResult
         analysis_record = CRMAnalysisResult(
@@ -1429,6 +1468,8 @@ async def api_analyze_integrations(
         )
         db.add(analysis_record)
         db.commit()
+        db.refresh(analysis_record)
+        analysis_id = str(analysis_record.id)
     except Exception as exc:
         # Don't fail the whole request if DB save fails — the analysis
         # result is still returned to the frontend.
@@ -1445,6 +1486,8 @@ async def api_analyze_integrations(
         data_profile=data_profile,
         detected_gaps=[],
         recommendations=recommendations,
+        recommended_agents=recommended_agents,
+        analysis_id=analysis_id,
         analysis_summary=analysis_summary,
     )
 
