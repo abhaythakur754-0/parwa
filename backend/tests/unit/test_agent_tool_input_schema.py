@@ -76,3 +76,69 @@ async def test_missing_required_inputs_block_tool_execution_before_network():
     assert result["success"] is False
     assert result["needs_customer_info"] is True
     assert result["missing_required"] == ["customer_id"]
+
+
+def test_input_extractor_maps_public_crm_reply_contract():
+    tool_definition = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticketId": {"type": "string"},
+                "responseBody": {"type": "string"},
+                "public": {"type": "boolean"},
+                "status": {"type": "string"},
+            },
+            "required": ["ticketId", "responseBody", "public"],
+        }
+    }
+    inputs = _extract_tool_inputs(
+        {
+            "ticket_id": "crm-123",
+            "response": "We have resolved your issue.",
+            "status": "resolved",
+            "public": True,
+        },
+        "reply_to_ticket",
+        "",
+        tool_definition=tool_definition,
+        ticket_id="crm-123",
+    )
+    assert inputs == {
+        "ticketId": "crm-123",
+        "responseBody": "We have resolved your issue.",
+        "public": True,
+        "status": "resolved",
+    }
+
+
+def test_input_extractor_maps_private_escalation_contract():
+    tool_definition = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket_id": {"type": "string"},
+                "internal_note": {"type": "string"},
+                "status": {"type": "string"},
+                "internal": {"type": "boolean"},
+            },
+            "required": ["ticket_id", "internal_note", "status", "internal"],
+        }
+    }
+    inputs = _extract_tool_inputs(
+        {
+            "ticket_id": "crm-456",
+            "internal_note": "Requires human approval for a policy exception.",
+            "status": "open",
+            "public": False,
+            "internal": True,
+        },
+        "create_private_escalation_note",
+        "",
+        tool_definition=tool_definition,
+        ticket_id="crm-456",
+    )
+    assert inputs["ticket_id"] == "crm-456"
+    assert inputs["internal_note"].startswith("Requires human approval")
+    assert inputs["status"] == "open"
+    assert inputs["internal"] is True
+    assert "_missing_required" not in inputs
