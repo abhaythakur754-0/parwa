@@ -66,14 +66,15 @@ def test_legacy_plaintext_credentials_are_reencrypted_on_read(monkeypatch):
     )
     db = _DB(row)
     service = IntegrationService(db)
+    encrypted_values = []
     monkeypatch.setattr(
         "app.services.integration_service.encrypt_token",
-        lambda value: "fernet:" + value,
+        lambda value: encrypted_values.append(value) or "fernet:opaque-ciphertext",
     )
 
     assert service._load_credentials(row) == {"api_key": "legacy-secret"}
-    assert row.credentials_encrypted.startswith("fernet:")
-    assert "legacy-secret" not in row.credentials_encrypted
+    assert row.credentials_encrypted == "fernet:opaque-ciphertext"
+    assert encrypted_values == [json.dumps({"api_key": "legacy-secret"})]
     assert db.flush_count == 1
 
 
@@ -106,7 +107,7 @@ def test_skipping_validation_keeps_integration_pending(monkeypatch):
         "get_integration_by_key",
         lambda key: SimpleNamespace(auth_schema=SimpleNamespace(fields=[])),
     )
-    monkeypatch.setattr(service_module, "encrypt_token", lambda value: "fernet:" + value)
+    monkeypatch.setattr(service_module, "encrypt_token", lambda value: "fernet:opaque-ciphertext")
     monkeypatch.setattr(
         IntegrationService,
         "_to_dict",
@@ -122,8 +123,7 @@ def test_skipping_validation_keeps_integration_pending(monkeypatch):
     )
 
     assert result["status"] == "pending"
-    assert db.added.credentials_encrypted.startswith("fernet:")
-    assert "secret" not in db.added.credentials_encrypted
+    assert db.added.credentials_encrypted == "fernet:opaque-ciphertext"
     assert db.execute_count == 0
     assert db.commit_count == 0
 
