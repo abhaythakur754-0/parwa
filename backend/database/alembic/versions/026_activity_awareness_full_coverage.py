@@ -18,23 +18,84 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 1. Update the CHECK constraint for event_category to include new categories
-    with op.batch_alter_table("jarvis_activity_events") as batch_op:
-        batch_op.drop_constraint("ck_jarvis_act_category", type_="check")
-        batch_op.create_check_constraint(
-            "ck_jarvis_act_category",
-            sa.column("event_category").in_(
-                [
-                    "ui", "subscription", "payment", "refund", "channel_email",
-                    "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
-                    "config", "security", "integration", "cron", "agent",
-                    "sla", "escalation", "quality", "training",
-                    # New categories
-                    "shadow_mode", "dashboard", "variant_ops", "knowledge_ops",
-                    "onboarding", "notification", "approval_flow",
-                ]
+    # 1. Ensure the activity-event table exists on fresh installations.
+    # The ORM model predates this migration, but older migration chains never
+    # created its table. Build it here so a clean database can reach head.
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table("jarvis_activity_events"):
+        op.create_table(
+            "jarvis_activity_events",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column(
+                "company_id", sa.String(36),
+                sa.ForeignKey("companies.id", ondelete="CASCADE"),
+                nullable=False, index=True,
+            ),
+            sa.Column("variant_scope", sa.String(50), nullable=True),
+            sa.Column("instance_id", sa.String(36), nullable=True),
+            sa.Column("event_source", sa.String(30), nullable=False, server_default="system"),
+            sa.Column("event_category", sa.String(30), nullable=False, server_default="config"),
+            sa.Column("action", sa.String(100), nullable=False),
+            sa.Column("severity", sa.String(15), nullable=False, server_default="info"),
+            sa.Column("actor_id", sa.String(36), nullable=True),
+            sa.Column("actor_type", sa.String(20), nullable=False, server_default="system"),
+            sa.Column("description", sa.Text, nullable=True),
+            sa.Column("context_json", sa.Text, server_default="{}"),
+            sa.Column("old_value", sa.Text, nullable=True),
+            sa.Column("new_value", sa.Text, nullable=True),
+            sa.Column("resource_type", sa.String(50), nullable=True),
+            sa.Column("resource_id", sa.String(36), nullable=True),
+            sa.Column("jarvis_relevant", sa.Boolean, nullable=False, server_default=sa.true()),
+            sa.Column("jarvis_control_boundary", sa.String(30), nullable=True, server_default="notify_only"),
+            sa.Column("session_id", sa.String(36), nullable=True),
+            sa.Column("occurred_at", sa.DateTime, server_default=sa.func.now()),
+            sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
+            sa.CheckConstraint(
+                "event_source IN ('user_action','billing','channel','admin','system','integration','agent_action','unknown')",
+                name="ck_jarvis_act_event_source",
+            ),
+            sa.CheckConstraint(
+                "severity IN ('info','warning','critical','emergency')",
+                name="ck_jarvis_act_severity",
+            ),
+            sa.CheckConstraint(
+                "event_category IN ('ui','subscription','payment','refund','channel_email','channel_sms','channel_voice','channel_chat','channel_webhook','config','security','integration','cron','agent','sla','escalation','quality','training','shadow_mode','dashboard','variant_ops','knowledge_ops','onboarding','notification','approval_flow')",
+                name="ck_jarvis_act_category",
+            ),
+            sa.CheckConstraint(
+                "jarvis_control_boundary IN ('notify_only','agent_controlled','jarvis_can_act','human_required')",
+                name="ck_jarvis_act_control_boundary",
+            ),
+            sa.CheckConstraint(
+                "actor_type IN ('user','admin','system','agent','api_key','cron')",
+                name="ck_jarvis_act_actor_type",
             ),
         )
+        op.create_index("ix_jarvis_act_comp_created", "jarvis_activity_events", ["company_id", "created_at"])
+        op.create_index("ix_jarvis_act_comp_source", "jarvis_activity_events", ["company_id", "event_source"])
+        op.create_index("ix_jarvis_act_comp_category", "jarvis_activity_events", ["company_id", "event_category"])
+        op.create_index("ix_jarvis_act_comp_relevant", "jarvis_activity_events", ["company_id", "jarvis_relevant", "created_at"])
+        op.create_index("ix_jarvis_act_comp_variant", "jarvis_activity_events", ["company_id", "variant_scope", "created_at"])
+        op.create_index("ix_jarvis_act_comp_severity", "jarvis_activity_events", ["company_id", "severity", "created_at"])
+        op.create_index("ix_jarvis_act_comp_resource", "jarvis_activity_events", ["company_id", "resource_type", "resource_id"])
+        op.create_index("ix_jarvis_act_comp_control", "jarvis_activity_events", ["company_id", "jarvis_control_boundary", "created_at"])
+    else:
+        # Existing installs may have the older, narrower category CHECK.
+        with op.batch_alter_table("jarvis_activity_events") as batch_op:
+            batch_op.drop_constraint("ck_jarvis_act_category", type_="check")
+            batch_op.create_check_constraint(
+                "ck_jarvis_act_category",
+                sa.column("event_category").in_(
+                    [
+                        "ui", "subscription", "payment", "refund", "channel_email",
+                        "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
+                        "config", "security", "integration", "cron", "agent",
+                        "sla", "escalation", "quality", "training",
+                        "shadow_mode", "dashboard", "variant_ops", "knowledge_ops",
+                        "onboarding", "notification", "approval_flow",
+                    ]
+                ),
+            )
 
     # 2. Add shadow_mode columns to awareness snapshots
     op.add_column(
