@@ -666,16 +666,21 @@ async def test_system(
 
     data = sg_result.get("data", {})
     system_url = data.get("url", "").rstrip("/")
-    credentials = data.get("credentials", {}) or {}
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    # Prefer the locally encrypted credentials; Superglue may redact secrets
+    # when returning a system object.
+    from app.services.integration_service import IntegrationService
+    credentials = IntegrationService._parse_json(
+        integration.credentials_encrypted if integration else None
+    ) or {}
 
     tested_at = datetime.now(timezone.utc).isoformat()
 
     # ── DATABASE TEST: require real schema discovery ──
     if system_id in DATABASE_SYSTEM_IDS:
-        integration = db.query(Integration).filter(
-            Integration.company_id == tenant_id,
-            Integration.integration_type == system_id,
-        ).first()
         db_conn = db.query(DBConnection).filter(
             DBConnection.company_id == tenant_id,
             DBConnection.name == integration.name,
@@ -706,7 +711,95 @@ async def test_system(
             sample_data={"db_type": db_conn.db_type, "schema_ready": works},
         )
 
-    # ── API TEST: make a real HTTP GET to verify credentials work ──
+    # ── Provider-specific credential test ──────────────────────────
+    # A GET to an API root can return 200 without authenticating. Use the
+    # integration catalog's real test endpoint for known providers.
+    from app.core.integration_catalog import get_integration_by_key
+    catalog_entry = get_integration_by_key(system_id)
+
+    if catalog_entry:
+        normalized = dict(credentials)
+        token = (
+            normalized.get("access_token")
+            or normalized.get("api_key")
+            or normalized.get("token")
+            or normalized.get("api_token")
+        )
+        if system_id == "hubspot" and token:
+            normalized["api_key"] = token
+        elif system_id == "salesforce" and token:
+            normalized["refresh_token"] = token
+            normalized.setdefault("instance_url", system_url)
+        elif system_id == "gmail" and token:
+            normalized["refresh_token"] = token
+        elif system_id == "shopify" and token:
+            from urllib.parse import urlparse
+            normalized["access_token"] = token
+            normalized.setdefault("store_url", urlparse(system_url).netloc)
+        elif system_id == "slack" and token:
+            normalized["bot_token"] = token
+        elif system_id in ("github", "notion") and token:
+            normalized["api_key"] = token
+        elif system_id == "zendesk":
+            normalized["api_token"] = token or normalized.get("api_token", "")
+            if not normalized.get("subdomain") and system_url:
+                from urllib.parse import urlparse
+                normalized["subdomain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "freshdesk":
+            if not normalized.get("domain") and system_url:
+                from urllib.parse import urlparse
+                normalized["domain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "pipedrive" and token:
+            normalized["api_token"] = token
+            if not normalized.get("company_domain") and system_url:
+                from urllib.parse import urlparse
+                normalized["company_domain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "twilio" and token:
+            normalized["auth_token"] = token
+
+        test_result = await asyncio.to_thread(
+            IntegrationService(db)._test_credentials, system_id, normalized
+        )
+        works = bool(test_result.get("success"))
+        if integration:
+            integration.last_sync = datetime.now(timezone.utc)
+            integration.status = "verified" if works else "error"
+            integration.error_message = None if works else str(test_result.get("message", "Provider test failed"))[:500]
+            db.commit()
+        return TestResponse(
+            system_id=system_id,
+            works=works,
+            status_code=200 if works else None,
+            tested_at=tested_at,
+            message=test_result.get("message", "Provider credential test failed"),
+        )
+
+    # Zoho uses a provider-specific authorization scheme and is not in the
+    # shared catalog yet; do not fall back to an unauthenticated API-root GET.
+    if system_id == "zoho":
+        token = credentials.get("access_token") or credentials.get("api_key")
+        if not token:
+            return TestResponse(system_id=system_id, works=False, tested_at=tested_at, message="Zoho access token is missing")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://www.zohoapis.com/crm/v2/users?type=CurrentUser",
+                    headers={"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"},
+                )
+            works = resp.status_code == 200
+            if integration:
+                integration.status = "verified" if works else "error"
+                integration.error_message = None if works else f"Zoho returned HTTP {resp.status_code}"
+                db.commit()
+            return TestResponse(
+                system_id=system_id, works=works, status_code=resp.status_code,
+                tested_at=tested_at,
+                message="Connected to Zoho CRM" if works else f"Zoho authentication failed (HTTP {resp.status_code})",
+            )
+        except Exception as exc:
+            return TestResponse(system_id=system_id, works=False, tested_at=tested_at, message=f"Zoho test failed: {str(exc)[:150]}")
+
+    # ── Custom API TEST: require a configured URL and credential ─────
     if not system_url:
         return TestResponse(
             system_id=system_id,
@@ -732,7 +825,8 @@ async def test_system(
 
         # 200/201 = works; 401/403 = auth failed; 404 = wrong URL; 5xx = their server broken
         works = resp.status_code in (200, 201)
-        sample = resp.text[:500] if resp.text else ""
+        # Never return raw external response bodies; they may contain PII.
+        sample = ""
 
         # Update the Integration record with test result
         integration = db.query(Integration).filter(
