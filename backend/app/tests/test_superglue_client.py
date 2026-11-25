@@ -181,6 +181,18 @@ class TestListTools:
 
 class TestExecuteTool:
     @pytest.mark.asyncio
+    async def test_queue_persistence_failure_blocks_http_execution(self, monkeypatch):
+        from database import base
+        from app.core.superglue_client import execute_tool
+
+        monkeypatch.setattr(base, "SessionLocal", lambda: (_ for _ in ()).throw(RuntimeError("queue unavailable")))
+        with patch("app.core.superglue_client.httpx.AsyncClient") as mock_client_cls:
+            result = await execute_tool("refund-tool", {"amount": 1000}, tenant_id="tenant-test")
+            assert result["success"] is False
+            assert "Durable tenant call queue" in result["error"]
+            mock_client_cls.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_requires_tenant_context(self):
         from app.core.superglue_client import execute_tool
 
