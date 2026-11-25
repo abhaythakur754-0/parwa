@@ -226,10 +226,13 @@ def namespaced_tool_id(tool_id: str, tenant_id: str) -> str:
     Superglue server.
     """
     if not tenant_id:
-        return tool_id  # no tenant context — use raw ID (legacy behavior)
-    if tool_id.startswith(f"tenant_") and "__" in tool_id:
-        return tool_id  # already namespaced
-    return f"tenant_{tenant_id}__{tool_id}"
+        return tool_id  # administrative callers without tenant scope use raw IDs
+    tenant_prefix = f"tenant_{tenant_id}__"
+    if tool_id.startswith("tenant_") and "__" in tool_id:
+        if not tool_id.startswith(tenant_prefix):
+            raise ValueError("Tool ID belongs to a different tenant namespace")
+        return tool_id
+    return f"{tenant_prefix}{tool_id}"
 
 
 async def list_tools() -> List[Dict[str, Any]]:
