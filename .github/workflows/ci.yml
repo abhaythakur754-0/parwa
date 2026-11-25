@@ -277,7 +277,7 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Run real-browser smoke tests
-        run: bunx playwright test tests/e2e/ci-smoke.spec.ts --project=chromium
+        run: bunx playwright test tests/e2e/ci-smoke.spec.ts tests/e2e/auth-redirect-verification.spec.ts tests/e2e/usage-warning-modal.spec.ts --project=chromium
         env:
           NEXT_PUBLIC_API_URL: https://fake
           DATABASE_URL: file:./test.db
