@@ -651,7 +651,7 @@ THOUGHT:"""
                     db_lines = ["Connected databases:"]
                     for db_info in connected_dbs:
                         readonly = " (read-only)" if db_info.get("readonly", True) else ""
-                        db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+                        db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly} (system_id={db_info.get('system_id', 'unknown')})")
                         schema = db_info.get("schema")
                         if schema:
                             db_lines.append(
