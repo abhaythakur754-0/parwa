@@ -172,30 +172,31 @@ def api_create_integration(
     except Exception:
         pass  # BC-012: Audit logging must not break the main operation
 
-    # Phase 3: auto-retry escalated tickets that were waiting for THIS
-    # connection. Non-blocking, non-fatal — a sweep hiccup never fails
-    # the connect call.
-    try:
-        from app.services.auto_retry_service import retry_tickets_for_integration
+    # Retry escalated tickets only after the provider credentials were
+    # actually validated. A pending/unverified connection must not trigger
+    # customer-facing side effects.
+    if integration.get("status") in {"active", "verified"}:
+        try:
+            from app.services.auto_retry_service import retry_tickets_for_integration
 
-        _definition = get_integration_by_key(body.integration_type)
-        _category = _definition.category.value if _definition else ""
-        retry_summary = retry_tickets_for_integration(
-            db=db,
-            company_id=str(user.company_id),
-            integration_type=body.integration_type,
-            category=_category,
-        )
-        if retry_summary.get("retried"):
-            import logging
-
-            logging.getLogger("parwa.api.integrations").info(
-                "integration_connect_auto_retry company=%s integration=%s retried=%d",
-                str(user.company_id)[:8], body.integration_type,
-                retry_summary["retried"],
+            _definition = get_integration_by_key(body.integration_type)
+            _category = _definition.category.value if _definition else ""
+            retry_summary = retry_tickets_for_integration(
+                db=db,
+                company_id=str(user.company_id),
+                integration_type=body.integration_type,
+                category=_category,
             )
-    except Exception:  # noqa: BLE001 — retry sweep must never break connect
-        pass
+            if retry_summary.get("retried"):
+                import logging
+
+                logging.getLogger("parwa.api.integrations").info(
+                    "integration_connect_auto_retry company=%s integration=%s retried=%d",
+                    str(user.company_id)[:8], body.integration_type,
+                    retry_summary["retried"],
+                )
+        except Exception:  # noqa: BLE001 — retry sweep must never break connect
+            pass
 
     return IntegrationResponse(**integration)
 
