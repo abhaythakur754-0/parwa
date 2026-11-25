@@ -534,6 +534,20 @@ def _run_pipeline_sync(
             logger.error("pipeline_ticket_not_found", extra={"ticket_id": ticket_id})
             return {"status": "error", "ticket_id": ticket_id, "error": "Ticket not found"}
 
+        # A ticket can be skipped after a worker claims it but before the
+        # pipeline starts. Re-check the persisted tenant control at execution
+        # time so that race does not start an avoidable LLM/tool run.
+        try:
+            ticket_metadata = json.loads(ticket.metadata_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            ticket_metadata = {}
+        if isinstance(ticket_metadata, dict) and ticket_metadata.get("skipped") is True:
+            ticket.status = "open"
+            ticket.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            logger.info("pipeline_skipped_by_ticket_control", extra={"ticket_id": ticket_id})
+            return {"status": "skipped", "ticket_id": ticket_id}
+
         # ── Load first customer message as the query ──────────────────
         first_msg = db.query(TicketMessage).filter(
             TicketMessage.ticket_id == ticket_id,
