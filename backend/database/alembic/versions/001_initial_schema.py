@@ -68,7 +68,6 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_index('ix_refresh_tokens_user_id', 'refresh_tokens', ['user_id'])
 
     op.create_table(
         'api_keys',
@@ -90,7 +89,6 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_index('ix_api_keys_company_id', 'api_keys', ['company_id'])
     op.create_index('ix_api_keys_key_prefix', 'api_keys', ['key_prefix'])
 
     op.create_table(
