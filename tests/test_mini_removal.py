@@ -103,6 +103,30 @@ def test_variant_limit_service_uses_safe_parwa_default_for_unknown_tier():
     assert limits["ai_agents"] == 5
 
 
+def test_variant_limit_service_reads_price_monthly_from_db_fallback():
+    from unittest.mock import MagicMock, patch
+    from app.services import variant_limit_service
+
+    row = MagicMock()
+    row.monthly_tickets = 2999
+    row.ai_agents = 5
+    row.team_members = 10
+    row.voice_slots = 2
+    row.kb_docs = 500
+    row.price_monthly = Decimal("2999.00")
+
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = row
+    session_factory = MagicMock()
+    session_factory.return_value.__enter__.return_value = db
+
+    with patch.object(variant_limit_service, "get_variant_limits", return_value=None), \
+         patch.object(variant_limit_service, "SessionLocal", session_factory):
+        limits = variant_limit_service.VariantLimitService().get_variant_limits("parwa")
+
+    assert limits["price"] == "2999.00"
+
+
 # ── 4. Upgrade logic ──────────────────────────────────────────────────────
 
 def test_is_upgrade_mini_to_high_still_works():
