@@ -9,17 +9,18 @@
  * Scenarios covered:
  *   1. Email/password signup          → / (always — new user has no variants)
  *   2. Email/password login, no sub   → /
- *   3. Email/password login, has sub  → /dashboard
+ *   3. Email/password login, has sub  → /dashboard/tickets
  *   4. Already-authed visits /login, no sub  → /
- *   5. Already-authed visits /login, has sub → /dashboard
+ *   5. Already-authed visits /login, has sub → /dashboard/tickets
  *   6. Already-authed visits /signup, no sub  → /
- *   7. Already-authed visits /signup, has sub → /dashboard
+ *   7. Already-authed visits /signup, has sub → /dashboard/tickets
  *
  * Per CLAUDE.md Rule #5: "Never say it works unless you have PROVEN it works."
  * This test IS the proof.
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { SignJWT } from 'jose';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -53,11 +54,27 @@ const MOCK_VARIANT_ITEM = {
  * Middleware (src/middleware.ts) only checks for cookie existence, not
  * validity — the backend does the real verification.
  */
-async function setAuthCookie(context: BrowserContext): Promise<void> {
+async function setAuthCookie(
+  context: BrowserContext,
+  userId = MOCK_USER_NO_SUB.id,
+): Promise<void> {
+  // Middleware now verifies the JWT signature. Use a short-lived test token
+  // instead of the old invalid placeholder so protected routes can be tested.
+  const secret = new TextEncoder().encode(
+    process.env.JWT_SECRET_KEY || 'parwa-e2e-test-secret-minimum-32-bytes',
+  );
+  const accessToken = await new SignJWT({ type: 'access', email: 'e2e@parwa-test.io' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(userId)
+    .setJti(`e2e-${userId}`)
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(secret);
+
   await context.addCookies([
     {
       name: 'parwa_at',
-      value: 'mock-access-token',
+      value: accessToken,
       domain: 'localhost',
       path: '/',
     },
@@ -276,10 +293,10 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     expect(finalPath).toBe('/');
   });
 
-  // ── Scenario 3: Email/password login, WITH subscription → /dashboard ─
-  test('3. Email/password login (with subscription) → /dashboard', async ({ page, context }) => {
+  // ── Scenario 3: Email/password login, WITH subscription → /dashboard/tickets ─
+  test('3. Email/password login (with subscription) → /dashboard/tickets', async ({ page, context }) => {
     // Pre-set auth cookie so middleware allows /dashboard navigation
-    await setAuthCookie(context);
+    await setAuthCookie(context, MOCK_USER_WITH_SUB.id);
     await installAuthMocks(page, { hasSubscription: true, user: MOCK_USER_WITH_SUB });
 
     await page.goto(`${BASE_URL}/login`);
@@ -292,7 +309,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     const finalUrl = await stableUrl(page);
     console.log(`[Test 3] Final URL: ${finalUrl}`);
     const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard');
+    expect(finalPath).toBe('/dashboard/tickets');
   });
 
   // ── Scenario 4: Already-authed visits /login, no subscription → / ───
@@ -313,9 +330,9 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     expect(finalPath).toBe('/');
   });
 
-  // ── Scenario 5: Already-authed visits /login, WITH subscription → /dashboard ─
-  test('5. Already-authed visits /login, has sub → /dashboard', async ({ page, context }) => {
-    await setAuthCookie(context);
+  // ── Scenario 5: Already-authed visits /login, WITH subscription → /dashboard/tickets ─
+  test('5. Already-authed visits /login, has sub → /dashboard/tickets', async ({ page, context }) => {
+    await setAuthCookie(context, MOCK_USER_WITH_SUB.id);
     await installAuthMocks(page, {
       hasSubscription: true,
       user: MOCK_USER_WITH_SUB,
@@ -326,7 +343,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     const finalUrl = await stableUrl(page);
     console.log(`[Test 5] Final URL: ${finalUrl}`);
     const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard');
+    expect(finalPath).toBe('/dashboard/tickets');
   });
 
   // ── Scenario 6: Already-authed visits /signup, no subscription → / ──
@@ -345,9 +362,9 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     expect(finalPath).toBe('/');
   });
 
-  // ── Scenario 7: Already-authed visits /signup, WITH subscription → /dashboard ─
-  test('7. Already-authed visits /signup, has sub → /dashboard', async ({ page, context }) => {
-    await setAuthCookie(context);
+  // ── Scenario 7: Already-authed visits /signup, WITH subscription → /dashboard/tickets ─
+  test('7. Already-authed visits /signup, has sub → /dashboard/tickets', async ({ page, context }) => {
+    await setAuthCookie(context, MOCK_USER_WITH_SUB.id);
     await installAuthMocks(page, {
       hasSubscription: true,
       user: MOCK_USER_WITH_SUB,
@@ -358,7 +375,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     const finalUrl = await stableUrl(page);
     console.log(`[Test 7] Final URL: ${finalUrl}`);
     const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard');
+    expect(finalPath).toBe('/dashboard/tickets');
   });
 });
 
