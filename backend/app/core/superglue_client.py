@@ -395,6 +395,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
     # User vision: 'and other data also' — same pattern as LLM queue
     import uuid as _uuid
     import json as _json
+    from shared.utils.token_encryption import encrypt_token
     _call_id = str(_uuid.uuid4())
     _call_persisted = False
     try:
@@ -412,7 +413,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
                 id=_call_id,
                 company_id=tenant_id,
                 tool_id=actual_tool_id,
-                input_data=__import__("shared.utils.token_encryption", fromlist=["encrypt_token"]).encrypt_token(_json.dumps(input_data)),
+                input_data=encrypt_token(_json.dumps(input_data)),
                 status="in_progress",
                 max_retries=2,
             )
