@@ -359,10 +359,9 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
     Args:
         tool_id: The Superglue tool ID (e.g. "payment-refund-by-email")
         input_data: Input parameters (e.g. {"customerEmail": "john@gmail.com"})
-        tenant_id: OPTIONAL but strongly recommended. When provided, the tool_id
-            is namespaced as "tenant_{tenant_id}__{tool_id}" so each tenant
-            can only execute their OWN tools. This is critical for multi-tenant
-            security — without it, Tenant A could call Tenant B's tools.
+        tenant_id: REQUIRED authenticated tenant ID. The tool_id is namespaced
+            as "tenant_{tenant_id}__{tool_id}" and executed with that tenant's
+            dedicated Superglue service-account key.
 
     Returns:
         {success: bool, data: dict, error: str, run_id: str, step_results: list}
@@ -372,8 +371,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         - Sync mode returns the FULL result inline (no need to poll /v1/runs/{id}).
         - For multi-step tools, this waits for ALL steps to complete (~3-10s typical).
         - For async mode (long-running tools), pass options.async=true and poll separately.
-        - Tenant isolation: pass tenant_id from the caller's authenticated context.
-          The actual tool ID sent to Superglue becomes tenant-namespaced.
+        - Tenant isolation: tenant_id and its service-account key are mandatory.
     """
     url, _admin_token = _get_config()
     if not tenant_id:
