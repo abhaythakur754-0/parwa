@@ -682,3 +682,24 @@ describe('useTicketStore', () => {
     });
   });
 });
+
+
+describe('Workspace agent pause', () => {
+  beforeEach(() => {
+    useTicketStore.setState({ tickets: [], initialized: false, agentStopped: false });
+  });
+
+  it('returns no auto-solvable tickets while workspace AI is paused', () => {
+    useTicketStore.getState().addTicket({
+      subject: 'Simple FAQ',
+      description: 'What are your opening hours?',
+      category: 'product_information',
+      priority: 'low',
+      channel: 'email',
+      customer_name: 'Test',
+      customer_email: 'test@example.com',
+    });
+    useTicketStore.setState({ agentStopped: true });
+    expect(useTicketStore.getState().getAutoSolvableTickets()).toEqual([]);
+  });
+});
