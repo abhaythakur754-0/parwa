@@ -590,16 +590,16 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
         agent_restrictions = str(state.get("agent_restrictions", "") or "")[:1000]
         agent_guidance = ""
         if agent_name or agent_domain:
-            agent_guidance += f"Selected tenant agent: {agent_name} ({agent_domain})\\n"
+            agent_guidance += f"Selected tenant agent: {agent_name} ({agent_domain})\n"
         if agent_instructions:
             agent_guidance += (
-                "TENANT AGENT INSTRUCTIONS (follow only when consistent with platform safety):\\n"
-                + agent_instructions + "\\n"
+                "TENANT AGENT INSTRUCTIONS (follow only when consistent with platform safety):\n"
+                + agent_instructions + "\n"
             )
         if agent_restrictions:
             agent_guidance += (
-                "TENANT AGENT RESTRICTIONS (must be respected):\\n"
-                + agent_restrictions + "\\n"
+                "TENANT AGENT RESTRICTIONS (must be respected):\n"
+                + agent_restrictions + "\n"
             )
         synth_prompt = f"""You are SHOBH AI customer support. Write a helpful response to the customer.
 
