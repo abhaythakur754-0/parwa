@@ -386,7 +386,7 @@ async def create_system(
         name=req.name,
         credentials=req.credentials,
         settings=req.metadata or {},
-        status="pending_oauth" if auth_type == "oauth" else "connected",
+        status="pending_oauth" if auth_type == "oauth" else "pending",
     )
 
     # If this is a CRM system, ALSO register an MCPConnection
@@ -684,6 +684,23 @@ def _upsert_mcp_connection(
     db.commit()
     db.refresh(mcp)
     return mcp
+
+
+def _set_mcp_connection_status(
+    db: Session,
+    integration: Optional[Integration],
+    system_id: str,
+    status: str,
+) -> None:
+    if not integration:
+        return
+    connection = db.query(MCPConnection).filter(
+        MCPConnection.company_id == str(integration.company_id),
+        MCPConnection.name == f"{integration.name} ({system_id})",
+    ).first()
+    if connection:
+        connection.status = status
+        db.commit()
 
 
 # ── Helper: upsert Integration (local DB record for every connection) ──
@@ -1032,6 +1049,8 @@ async def test_system(
             integration.status = "verified" if works else "error"
             integration.error_message = None if works else str(test_result.get("message", "Provider test failed"))[:500]
             db.commit()
+            if system_id in CRM_SYSTEM_IDS or (integration.settings or {}).get("is_crm"):
+                _set_mcp_connection_status(db, integration, system_id, "connected" if works else "error")
         return TestResponse(
             system_id=system_id,
             works=works,
@@ -1057,6 +1076,7 @@ async def test_system(
                 integration.status = "verified" if works else "error"
                 integration.error_message = None if works else f"Zoho returned HTTP {resp.status_code}"
                 db.commit()
+                _set_mcp_connection_status(db, integration, system_id, "connected" if works else "error")
             return TestResponse(
                 system_id=system_id, works=works, status_code=resp.status_code,
                 tested_at=tested_at,
