@@ -46,6 +46,8 @@ interface TestResult {
 
 interface AnalysisRecommendation {
   name: string;
+  system_id?: string;
+  category?: string;
   priority?: string;
   reason?: string;
 }
@@ -57,6 +59,8 @@ interface AnalysisResult {
   data_profile: any;
   detected_gaps: any[];
   recommendations: AnalysisRecommendation[];
+  recommended_agents?: Array<Record<string, unknown>>;
+  analysis_id?: string;
   analysis_summary: string;
 }
 
@@ -190,9 +194,8 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       if (res.ok) {
         setAnalysisResult(data);
         setPhase('recommendations');
-        // AUTO-TRIGGER agent + tool creation in the background (no user click needed).
-        // Runs in parallel while the user fills in their integrations.
-        triggerAgentBuild();
+        // Build agents only after the user has connected and verified the
+        // recommended data sources; otherwise tools are generated too early.
       } else {
         setAnalysisError((data as any).detail || 'Analysis failed');
         setPhase('error');
@@ -207,10 +210,11 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
   // Opens a connect form (same modal as CRM) — detects if it's a database
   // and shows DB-specific fields (host, port, db name, user, password)
   const connectRecommendation = async (rec: AnalysisRecommendation) => {
-    const systemId = rec.name.toLowerCase().replace(/\s+/g, '-');
+    const systemId = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
     // Detect if this is a database recommendation
     const dbKeywords = ['database', 'db', 'postgres', 'mysql', 'mongo', 'snowflake', 'bigquery', 'warehouse'];
-    const isDb = dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
+    const isDb = rec.category?.toLowerCase().includes('database') === true ||
+      dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
 
     // Open the connect form with the right mode
     setSelectedCRM({ id: systemId, name: rec.name, icon: '🔌', url_hint: '' });
@@ -310,8 +314,35 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         if (isCrm) {
           await handleVerify(selectedCRM.id);
         } else {
-          // Phase 3 recommendation — mark as connected
-          setConnectedRecommendations((prev) => new Set(prev).add(formName));
+          // A connection is not ready until its provider credentials or
+          // database schema have been tested successfully.
+          const connectedName = formName;
+          setConnectedRecommendations((prev) => new Set(prev).add(connectedName));
+          try {
+            const testRes = await fetch(
+              `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/test`,
+              { method: 'POST' },
+            );
+            const testData = await testRes.json();
+            setTestResults((prev) => ({
+              ...prev,
+              [selectedCRM.id]: {
+                works: testRes.ok && testData.works === true,
+                message: testData.message || 'Connection test failed',
+              },
+            }));
+            if (testRes.ok && testData.works === true) {
+              toast.success(`${connectedName}: connection verified`);
+            } else {
+              toast.error(`${connectedName}: ${testData.message || 'connection test failed'}`);
+            }
+          } catch {
+            setTestResults((prev) => ({
+              ...prev,
+              [selectedCRM.id]: { works: false, message: 'Network error during connection test' },
+            }));
+            toast.error(`${connectedName}: could not verify connection`);
+          }
         }
       } else {
         toast.error(data.detail || 'Failed to connect');
@@ -325,7 +356,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
 
   // ── Phase 3b: Test that a connected integration actually works ────
   const testIntegration = async (rec: AnalysisRecommendation) => {
-    const systemId = rec.name.toLowerCase().replace(/\s+/g, '-');
+    const systemId = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
     setTestingSystem(systemId);
     try {
       const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/test`, {
@@ -359,45 +390,6 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     }
   }, [connectedRecommendations, testResults, analysisResult]);
 
-  // ── Phase 4 (background): Auto-trigger agent + tool creation ──────
-  // Called automatically when analysis results come back. Runs in the
-  // background while the user fills in integrations. No UI change — just
-  // polls status silently.
-  const triggerAgentBuild = async () => {
-    try {
-      const res = await fetch('/api/onboarding-build/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        // Start polling for status in the background
-        pollBuildStatus();
-      }
-      // If it fails, the Verify button will catch it (agents not ready)
-    } catch {
-      // Silent — Verify button will report the failure
-    }
-  };
-
-  // ── Background polling for build status ───────────────────────────
-  const pollBuildStatus = async () => {
-    const poll = async () => {
-      try {
-        const res = await fetch('/api/onboarding-build/status');
-        const data: BuildStatus = await res.json();
-        setBuildStatus(data);
-        // Keep polling until all agents are ready or all failed
-        if (!data.all_ready && !(data.failed > 0 && data.pending === 0)) {
-          setTimeout(poll, 3000);
-        }
-      } catch {
-        setTimeout(poll, 5000);
-      }
-    };
-    poll();
-  };
-
   // ── Phase 4: Verify button — checks all 3 things with progressive loading ──
   const [verifyingAll, setVerifyingAll] = useState(false);
   const [verifyStep, setVerifyStep] = useState(0); // 0=idle, 1=checking API keys, 2=checking MCP, 3=checking agents, 4=done
@@ -415,57 +407,76 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setVerifyStep(1);
 
     try {
-      // Step 1: Check all connected integrations have been tested + work
       const connected = Array.from(connectedRecommendations);
-      const allTestedOk = connected.every((name) => {
-        const id = name.toLowerCase().replace(/\s+/g, '-');
+      const integrationsOk = connected.every((name) => {
+        const rec = analysisResult?.recommendations.find((item) => item.name === name);
+        const id = rec?.system_id || name.toLowerCase().replace(/\\s+/g, '-');
         return testResults[id]?.works === true;
       });
-      const apiKeysOk = allTestedOk && connected.length > 0;
-      // Brief pause so the user sees the loading state for each step
-      await new Promise((r) => setTimeout(r, 400));
+      const apiKeysOk = integrationsOk;
       setVerifyStep(2);
-
-      // Step 2: Check MCP connection (CRM was verified in Phase 1)
       const mcpOk = verified;
-      await new Promise((r) => setTimeout(r, 400));
-      setVerifyStep(3);
 
-      // Step 3: Check build status (agents + tools)
-      const statusRes = await fetch('/api/onboarding-build/status');
-      const status: BuildStatus = await statusRes.json();
-      setBuildStatus(status);
-      const agentsOk = status.all_ready;
-      setVerifyStep(4);
+      let agentsOk = false;
+      let status: BuildStatus | null = null;
 
-      const allPassed = apiKeysOk && mcpOk && agentsOk;
+      if (apiKeysOk && mcpOk && analysisResult?.analysis_id) {
+        setVerifyStep(3);
+        const triggerRes = await fetch('/api/onboarding-build/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis_result_id: analysisResult.analysis_id }),
+        });
+        const triggerData = await triggerRes.json();
+        if (!triggerRes.ok) {
+          throw new Error(triggerData.detail || 'Could not start agent creation');
+        }
 
-      let message = '';
-      if (allPassed) {
-        message = '✓ All checks passed — ready to continue!';
+        // Wait for every generated agent tool to be verified in Superglue.
+        for (let attempt = 0; attempt < 60; attempt += 1) {
+          const statusRes = await fetch('/api/onboarding-build/status');
+          if (!statusRes.ok) throw new Error('Could not verify agent build status');
+          status = await statusRes.json();
+          setBuildStatus(status);
+          if (status.all_ready || (status.failed > 0 && status.pending === 0)) break;
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+        agentsOk = status?.all_ready === true;
       } else {
-        const failures: string[] = [];
-        if (!apiKeysOk) failures.push('test all integrations');
-        if (!mcpOk) failures.push('MCP not connected');
-        if (!agentsOk) failures.push(`agents building (${status.ready}/${status.total_agents} ready)`);
-        message = `✗ Pending: ${failures.join(', ')}`;
+        setVerifyStep(3);
+        const statusRes = await fetch('/api/onboarding-build/status');
+        if (statusRes.ok) {
+          status = await statusRes.json();
+          setBuildStatus(status);
+        }
       }
+
+      setVerifyStep(4);
+      const allPassed = apiKeysOk && mcpOk && agentsOk;
+      const failures: string[] = [];
+      if (!apiKeysOk) failures.push('verify all recommended integrations');
+      if (!mcpOk) failures.push('CRM/MCP connection is not verified');
+      if (!agentsOk) failures.push(
+        status?.failed ? `${status.failed} agent tool(s) failed` : 'agents are not ready',
+      );
 
       setVerifyResult({
         api_keys_ok: apiKeysOk,
         mcp_ok: mcpOk,
         agents_ok: agentsOk,
         all_passed: allPassed,
-        message,
+        message: allPassed
+          ? '✓ All integrations and agent tools are verified — ready to continue!'
+          : `✗ Pending: ${failures.join(', ')}`,
       });
-    } catch {
+    } catch (error) {
       setVerifyStep(4);
       setVerifyResult({
         api_keys_ok: false,
         mcp_ok: false,
         agents_ok: false,
         all_passed: false,
-        message: '✗ Network error during verification',
+        message: error instanceof Error ? error.message : 'Network error during verification',
       });
     } finally {
       setVerifyingAll(false);
