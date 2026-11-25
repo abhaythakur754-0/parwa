@@ -13,6 +13,12 @@ on:
       - main
   workflow_dispatch:
 
+# Keep only the newest verification run for a branch. Rapid fix commits
+# should not leave dozens of stale CI runs queued behind one another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
   # Backend: Rust core build + Python lint + unit tests
