@@ -38,6 +38,9 @@ STATUS_PENDING = "pending"
 STATUS_ACTIVE = "active"
 STATUS_ERROR = "error"
 STATUS_DISCONNECTED = "disconnected"
+STATUS_CONNECTED = "connected"
+STATUS_VERIFIED = "verified"
+CONNECTED_STATUSES = (STATUS_ACTIVE, STATUS_CONNECTED, STATUS_VERIFIED)
 
 
 class IntegrationService:
@@ -156,7 +159,7 @@ class IntegrationService:
             query = query.filter(Integration.integration_type == integration_type.lower())
 
         if active_only:
-            query = query.filter(Integration.status == STATUS_ACTIVE)
+            query = query.filter(Integration.status.in_(CONNECTED_STATUSES))
 
         integrations = query.order_by(Integration.created_at.desc()).all()
 
@@ -277,8 +280,8 @@ class IntegrationService:
         return True
 
     def get_active_integrations(self, company_id: str) -> List[Dict[str, Any]]:
-        """Get all active integrations for a company."""
-        return self.get_integrations(company_id, status=STATUS_ACTIVE)
+        """Get all connected, verified, or active integrations for a company."""
+        return self.get_integrations(company_id, active_only=True)
 
     def get_integrations_by_type(self, company_id: str, integration_type: str) -> List[Dict[str, Any]]:
         """Get integrations filtered by type."""
@@ -300,9 +303,10 @@ class IntegrationService:
         calling the provider API.
 
         Lookup rules:
-          - Scope by company_id + integration_type + status=active
-          - If multiple active rows exist (rare), return the most recently updated
-          - Returns None if no active integration is found
+          - Scope by company_id + integration_type + connected status
+          - Accept legacy "active" and Superglue "connected"/"verified" rows
+          - If multiple rows exist, return the most recently updated
+          - Returns None if no connected integration is found
           - NEVER expose this via a public API endpoint — internal callers only
 
         Args:
@@ -319,7 +323,7 @@ class IntegrationService:
                 and_(
                     Integration.company_id == company_id,
                     Integration.integration_type == integration_type,
-                    Integration.status == STATUS_ACTIVE,
+                    Integration.status.in_(CONNECTED_STATUSES),
                 )
             )
             .order_by(Integration.updated_at.desc())
@@ -477,12 +481,29 @@ class IntegrationService:
 
     @staticmethod
     def _parse_json(text_field: Optional[str]) -> Optional[Dict[str, Any]]:
-        """Safely parse a JSON text field."""
+        """Parse legacy JSON or decrypt Fernet-encrypted integration credentials.
+
+        Older IntegrationService rows store JSON directly. Superglue-created
+        rows store the serialized credentials encrypted with token_encryption.
+        Support both formats so all internal integration consumers use the
+        same tenant-scoped credential lookup.
+        """
         if not text_field:
             return None
         try:
-            return json.loads(text_field)
+            value = json.loads(text_field)
+            return value if isinstance(value, dict) else None
         except (json.JSONDecodeError, TypeError):
+            pass
+
+        try:
+            from shared.utils.token_encryption import decrypt_token
+
+            decrypted = decrypt_token(text_field)
+            value = json.loads(decrypted) if decrypted else None
+            return value if isinstance(value, dict) else None
+        except Exception:
+            logger.warning("integration_credentials_decrypt_failed")
             return None
 
 
