@@ -235,3 +235,13 @@ def test_recovery_reconciles_outer_idempotency_record_in_tenant_scope():
         "idempotency_key": "tenant-a:ticket-1:tool-1",
         "company_id": "tenant-a",
     }
+
+
+
+def test_recovery_only_replays_read_only_calls_automatically():
+    from app.core.superglue_client import _can_safely_recover_tool_call
+
+    assert _can_safely_recover_tool_call("read") is True
+    assert _can_safely_recover_tool_call("sensitive_pii") is True
+    for safety_level in ("write", "financial", "destructive", "unknown", None):
+        assert _can_safely_recover_tool_call(safety_level) is False
