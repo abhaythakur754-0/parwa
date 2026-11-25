@@ -125,32 +125,70 @@ async def trigger_build(
     # Get tenant's connected integrations for tool generation context
     # Status vocab: Superglue flow writes "connected", manual flow writes
     # "active" — read BOTH or one flow is invisible to the other.
-    from database.models.integration import Integration
+    from database.models.integration import Integration, DBConnection
     connected_integrations = db.query(Integration).filter(
         Integration.company_id == tenant_id,
         Integration.status.in_(["connected", "verified", "active"]),
     ).all()
     tenant_integrations_ctx = {
-        i.integration_type: {"name": i.name, "status": i.status}
+        i.integration_type: {"name": i.name, "status": i.status, "system_id": i.integration_type}
         for i in connected_integrations
     }
 
-    # ── Fallback: never leave a tenant with zero agents ──
-    # Empty recommendations → zero agents → all_ready=False forever →
-    # the customer is stuck on the verify screen. Derive agents from the
-    # integrations they already connected; if none, use the starter pack.
-    if not recommendations:
-        fallback_names = [
-            i.integration_type.replace("-", " ").replace("_", " ").title()
-            for i in connected_integrations
-        ] or list(STARTER_AGENT_PACK)
-        recommendations = [
-            {"name": name, "priority": "high",
-             "reason": "Auto-generated from your connected systems"}
-            for name in fallback_names
-        ]
-        logger.info("onboarding_build_fallback tenant=%s agents=%d",
-                    tenant_id, len(recommendations))
+    # Add verified database schemas without exposing credentials or sample rows.
+    connected_databases = db.query(DBConnection).filter(
+        DBConnection.company_id == tenant_id,
+        DBConnection.status.in_(["connected", "verified"]),
+    ).all()
+    for db_conn in connected_databases:
+        try:
+            schema = json.loads(db_conn.schema_analysis) if db_conn.schema_analysis else None
+        except (json.JSONDecodeError, TypeError):
+            schema = None
+        if schema and schema.get("source") != "fallback":
+            tenant_integrations_ctx[f"database:{db_conn.id}"] = {
+                "name": db_conn.name,
+                "status": db_conn.status,
+                "system_id": str(db_conn.id),
+                "db_type": db_conn.db_type,
+                "readonly": True,
+                "schema": schema,
+                "schema_ready": True,
+            }
+
+    # Agent tools are built ONLY for systems this tenant actually connected.
+    # The starter pack remains a recommendation list, not fake connected agents.
+    available_names = [
+        i.integration_type.replace("-", " ").replace("_", " ").title()
+        for i in connected_integrations
+    ] + [db_conn.name for db_conn in connected_databases
+         if f"database:{db_conn.id}" in tenant_integrations_ctx]
+    if not available_names:
+        raise HTTPException(
+            status_code=409,
+            detail="Connect and verify at least one integration or database before building agents.",
+        )
+
+    def _normalise(value: str) -> str:
+        return "".join(ch for ch in value.lower() if ch.isalnum())
+
+    available_keys = {_normalise(name) for name in available_names}
+    filtered_recommendations = []
+    for recommendation in recommendations:
+        rec_name = recommendation.get("name", "") if isinstance(recommendation, dict) else str(recommendation)
+        rec_key = _normalise(rec_name)
+        if rec_key and any(rec_key in key or key in rec_key for key in available_keys):
+            filtered_recommendations.append(recommendation)
+
+    recommendations = filtered_recommendations or [
+        {"name": name, "priority": "high",
+         "reason": "Auto-generated from a system connected to your tenant"}
+        for name in available_names
+    ]
+    logger.info(
+        "onboarding_build_scope tenant=%s connected=%d agents=%d",
+        tenant_id, len(available_names), len(recommendations),
+    )
 
     for rec in recommendations:
         agent_name = rec.get("name", "Unknown") if isinstance(rec, dict) else str(rec)
@@ -164,15 +202,25 @@ async def trigger_build(
         ).first()
 
         if existing and existing.superglue_tool_status == "active":
-            agent_statuses.append(AgentBuildStatus(
-                agent_name=agent_name,
-                agent_role=agent_role,
-                status="skipped",
-                superglue_tool_id=existing.superglue_tool_id,
-                error=None,
-            ))
-            skipped += 1
-            continue
+            existing_tool_ok = bool(
+                existing.superglue_tool_id
+                and await superglue_client.verify_tool_exists(
+                    existing.superglue_tool_id, tenant_id=tenant_id
+                )
+            )
+            if existing_tool_ok:
+                agent_statuses.append(AgentBuildStatus(
+                    agent_name=agent_name,
+                    agent_role=agent_role,
+                    status="skipped",
+                    superglue_tool_id=existing.superglue_tool_id,
+                    error=None,
+                ))
+                skipped += 1
+                continue
+            existing.superglue_tool_status = "pending"
+            existing.superglue_tool_id = None
+            db.commit()
 
         # 4. Create/update the agent assignment row
         if existing:
@@ -204,20 +252,27 @@ async def trigger_build(
         try:
             async with agent_tool_lock(f"{tenant_id}:{agent.id}"):
                 db.refresh(agent)  # another request may have finished while we waited
-                if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                if (
+                    agent.superglue_tool_id
+                    and agent.superglue_tool_status == "active"
+                    and await superglue_client.verify_tool_exists(
+                        agent.superglue_tool_id, tenant_id=tenant_id
+                    )
+                ):
                     logger.info(
                         "superglue_tool_reuse (onboarding) | tenant=%s | agent=%s | tool_id=%s "
-                        "— already active, skipping duplicate generation",
+                        "— verified existing tool, skipping duplicate generation",
                         tenant_id, agent_name, agent.superglue_tool_id,
                     )
-                    # Synthesize a success result so the shared block below
-                    # records the status without regenerating anything.
                     result = {
                         "success": True,
                         "tool_id": agent.superglue_tool_id,
                         "tool_definition": json.loads(agent.superglue_tool_definition or "{}"),
                     }
                 else:
+                    agent.superglue_tool_id = None
+                    agent.superglue_tool_status = "pending"
+                    db.commit()
                     result = await generate_tool_for_agent(
                         agent_name=agent_name,
                         agent_instructions=f"Handle {agent_name}-related customer tickets.",
@@ -226,6 +281,20 @@ async def trigger_build(
                         tenant_integrations=tenant_integrations_ctx,
                         tenant_id=tenant_id,
                     )
+
+            if result.get("success"):
+                generated_tool_id = result.get("tool_id")
+                tool_exists = bool(
+                    generated_tool_id
+                    and await superglue_client.verify_tool_exists(
+                        generated_tool_id, tenant_id=tenant_id
+                    )
+                )
+                if not tool_exists:
+                    result = {
+                        "success": False,
+                        "error": "Generated tool could not be verified in this tenant's Superglue workspace",
+                    }
 
             if result.get("success"):
                 agent.superglue_tool_id = result.get("tool_id")
