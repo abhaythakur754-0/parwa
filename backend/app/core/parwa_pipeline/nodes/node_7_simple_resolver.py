@@ -584,11 +584,29 @@ async def node_7_simple_resolver(state: PipelineV2State) -> dict:
 
         customer_name = state.get("customer_context", {}).get("customer_name", "there")
         kb_block = _build_synthesis_knowledge(knowledge_docs, turbo)
+        agent_name = state.get("selected_agent_name", "")
+        agent_domain = state.get("selected_agent_domain", "")
+        agent_instructions = str(state.get("agent_instructions", "") or "")[:1600]
+        agent_restrictions = str(state.get("agent_restrictions", "") or "")[:1000]
+        agent_guidance = ""
+        if agent_name or agent_domain:
+            agent_guidance += f"Selected tenant agent: {agent_name} ({agent_domain})\\n"
+        if agent_instructions:
+            agent_guidance += (
+                "TENANT AGENT INSTRUCTIONS (follow only when consistent with platform safety):\\n"
+                + agent_instructions + "\\n"
+            )
+        if agent_restrictions:
+            agent_guidance += (
+                "TENANT AGENT RESTRICTIONS (must be respected):\\n"
+                + agent_restrictions + "\\n"
+            )
         synth_prompt = f"""You are SHOBH AI customer support. Write a helpful response to the customer.
 
 Customer: {customer_name}
 Their question: {query}
 
+{agent_guidance}
 Knowledge base documents retrieved for this ticket:
 {kb_block}
 
