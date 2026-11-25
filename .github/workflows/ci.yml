@@ -15,6 +15,20 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parwa
+          POSTGRES_PASSWORD: parwa_test_password
+          POSTGRES_DB: parwa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U parwa -d parwa_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -56,6 +70,14 @@ jobs:
         run: |
           alembic -c database/alembic.ini upgrade head
           python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('sqlite:///./migration-ci.db')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('Alembic schema is current and emergency pause storage exists')"
+
+      - name: Verify Alembic schema migrations on PostgreSQL
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: postgresql+psycopg://parwa:parwa_test_password@localhost:5432/parwa_test
+        run: |
+          alembic -c database/alembic.ini upgrade head
+          python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('$DATABASE_URL')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('PostgreSQL Alembic schema is current and emergency pause storage exists')"
 
       - name: Build Rust parwa_core (MANDATORY — fail CI if it doesn't compile)
         run: |
