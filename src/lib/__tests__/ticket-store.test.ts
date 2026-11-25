@@ -47,9 +47,10 @@ describe('Ticket Store Constants', () => {
       channel: 'email', customer_name: 'Test Customer',
       customer_email: 'test@example.com', created_at: '2026-11-25T00:00:00Z',
       updated_at: '2026-11-25T00:00:00Z',
-      skipped: true, kb_matched: true, kb_article_id: 'kb-article-1',
+      skipped: true, agent_stopped: true, kb_matched: true, kb_article_id: 'kb-article-1',
     });
     expect(ticket.skipped).toBe(true);
+    expect(ticket.agent_stopped).toBe(true);
     expect(ticket.kb_matched).toBe(true);
     expect(ticket.kb_article_id).toBe('kb-article-1');
   });
@@ -278,7 +279,7 @@ describe('useTicketStore', () => {
   });
 
   describe('resolveTicket', () => {
-    it('sets status to resolved with resolution time', () => {
+    it('marks the ticket resolved without inventing a customer-facing AI reply', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Resolve test',
         description: 'Testing resolve',
@@ -293,31 +294,10 @@ describe('useTicketStore', () => {
 
       const resolved = useTicketStore.getState().getTicket(ticket.id)!;
       expect(resolved.status).toBe('resolved');
-      expect(resolved.resolved_at).toBeDefined();
-      expect(resolved.resolution_time_hours).toBeGreaterThanOrEqual(0);
-      expect(resolved.messages).toHaveLength(1);
-      expect(resolved.messages[0].content).toContain('Fixed the billing issue');
-      expect(resolved.messages[0].sender).toBe('ai_agent');
+      expect(resolved.messages).toHaveLength(0);
     });
 
-    it('uses default message when no resolution provided', () => {
-      const ticket = useTicketStore.getState().addTicket({
-        subject: 'Resolve test',
-        description: 'Testing resolve',
-        category: 'billing_payments',
-        priority: 'medium',
-        channel: 'email',
-        customer_name: 'Test',
-        customer_email: 'test@example.com',
-      });
-
-      useTicketStore.getState().resolveTicket(ticket.id);
-
-      const resolved = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(resolved.messages[0].content).toContain('marked as resolved');
-    });
-
-    it('preserves existing messages when resolving', () => {
+    it('preserves existing conversation messages when resolving', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Messages test',
         description: 'Testing messages on resolve',
@@ -337,7 +317,8 @@ describe('useTicketStore', () => {
       useTicketStore.getState().resolveTicket(ticket.id);
 
       const resolved = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(resolved.messages).toHaveLength(2); // customer message + resolution message
+      expect(resolved.messages).toHaveLength(1);
+      expect(resolved.messages[0].content).toBe('Original message');
     });
   });
 
