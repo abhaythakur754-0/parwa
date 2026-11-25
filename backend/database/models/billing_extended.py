@@ -148,7 +148,7 @@ class VariantLimit(Base):
     __tablename__ = "variant_limits"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    variant_name = Column(String(50), unique=True, nullable=False)  # starter/growth/high
+    variant_name = Column(String(50), unique=True, nullable=False)  # parwa/high
     monthly_tickets = Column(Integer, nullable=False)
     ai_agents = Column(Integer, nullable=False)
     team_members = Column(Integer, nullable=False)
