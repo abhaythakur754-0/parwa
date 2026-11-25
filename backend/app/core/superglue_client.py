@@ -353,7 +353,13 @@ async def list_systems() -> List[Dict[str, Any]]:
         return []
 
 
-async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Optional[str] = None) -> Dict[str, Any]:
+async def execute_tool(
+    tool_id: str,
+    input_data: Dict[str, Any],
+    tenant_id: Optional[str] = None,
+    idempotency_key: Optional[str] = None,
+    safety_level: str = "unknown",
+) -> Dict[str, Any]:
     """Execute a Superglue tool (sync — waits for full multi-step chain to complete).
 
     Args:
@@ -379,6 +385,11 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
     token = _get_tenant_api_key(tenant_id)
     if not url or not token:
         return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
+    if safety_level not in {"read", "sensitive_pii"} and not idempotency_key:
+        return {
+            "success": False,
+            "error": "An idempotency key is required for non-read tool execution",
+        }
 
     # ── Per-tenant tool isolation (CRITICAL for multi-tenant security) ──
     # Without this, Tenant A could call Tenant B's tools by guessing the tool_id.
@@ -411,6 +422,8 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
                 company_id=tenant_id,
                 tool_id=actual_tool_id,
                 input_data=encrypt_token(_json.dumps(input_data)),
+                idempotency_key=idempotency_key,
+                safety_level=safety_level,
                 status="in_progress",
                 max_retries=2,
             )
