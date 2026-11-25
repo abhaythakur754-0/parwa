@@ -247,10 +247,9 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      - name: "Run Linter (temporary while baseline issues are repaired)"
+      - name: "Run Linter (required)"
         id: lint
         run: npx eslint . --max-warnings=0
-        continue-on-error: true
 
       - name: Type Check (FAILS on type errors)
         run: bun run type-check
@@ -288,12 +287,29 @@ jobs:
         run: |
           set -eu
           printf 'commit=%s\\nbranch=%s\\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
-          zip -qr parwa-source.zip . \\
-            -x '.git/*' 'node_modules/*' '**/node_modules/*' \\
-               '.next/*' '**/.next/*' 'backend/.venv/*' \\
-               '**/__pycache__/*' '**/.pytest_cache/*' \\
-               'backend/test.db' 'backend/*.log' 'coverage/*' \\
-               'parwa-source.zip'
+          python - <<'PY'
+          from pathlib import PurePosixPath
+          import subprocess
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          excluded = {
+              "venv", ".venv", "node_modules", ".next", "__pycache__",
+              ".pytest_cache", "coverage", "dist", "build",
+          }
+          tracked = subprocess.run(
+              ["git", "ls-files", "-z"], check=True, capture_output=True
+          ).stdout.split(b"\\0")
+
+          with ZipFile("parwa-source.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
+              for raw_path in tracked:
+                  if not raw_path:
+                      continue
+                  path = raw_path.decode("utf-8")
+                  if any(part in excluded for part in PurePosixPath(path).parts):
+                      continue
+                  archive.write(path, path)
+              archive.write("BUILD_INFO.txt", "BUILD_INFO.txt")
+          PY
 
       - name: Upload verified source snapshot
         uses: actions/upload-artifact@v4
