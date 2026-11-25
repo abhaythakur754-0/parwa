@@ -36,6 +36,21 @@ test.describe('Parwa browser smoke checks', () => {
         await expect(page.getByText('92%', { exact: true })).toBeVisible({ timeout: 10_000 });
       }
 
+      if (route.path === '/') {
+        // Trigger viewport-based reveal animations before taking a full-page
+        // screenshot; fullPage capture alone does not fire IntersectionObserver.
+        const { height, viewport } = await page.evaluate(() => ({
+          height: document.documentElement.scrollHeight,
+          viewport: window.innerHeight,
+        }));
+        for (let y = 0; y < height; y += Math.floor(viewport * 0.75)) {
+          await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
+          await page.waitForTimeout(750);
+        }
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(750);
+      }
+
       await page.screenshot({
         path: testInfo.outputPath(`${route.name}.png`),
         fullPage: true,
