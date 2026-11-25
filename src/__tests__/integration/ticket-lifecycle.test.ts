@@ -70,10 +70,10 @@ describe('Integration: Ticket Lifecycle Flow', () => {
 
       const resolved = useTicketStore.getState().getTicket(ticket.id)!;
       expect(resolved.status).toBe('resolved');
-      expect(resolved.resolved_at).toBeDefined();
-      expect(resolved.resolution_time_hours).toBeGreaterThanOrEqual(0);
-      expect(resolved.messages).toHaveLength(4); // AI + customer + AI + resolution
-      expect(resolved.messages[3].content).toContain('Refund processed');
+      // Local UI state must not invent backend-owned timestamps or a customer-facing reply.
+      expect(resolved.resolved_at).toBeNull();
+      expect(resolved.resolution_time_hours).toBeNull();
+      expect(resolved.messages).toHaveLength(3); // Only the actual AI/customer messages
     });
   });
 
