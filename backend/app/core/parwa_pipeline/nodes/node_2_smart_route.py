@@ -935,6 +935,10 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         detected_capability = _ticket_type_raw
     verified_agent_id = state.get("builder_agent_id")  # may have been set by Node 1
     verified_tool_id = None
+    selected_agent_name = ""
+    selected_agent_domain = ""
+    agent_instructions = ""
+    agent_restrictions = ""
     agent_verification_status = "exists"  # exists | created | failed
     tool_verification_status = "exists"   # exists | created | failed | not_needed
 
@@ -951,6 +955,8 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                 # Node 1 already created one — verify it exists
                 agent = _v_db.query(AIAgentAssignment).filter(
                     AIAgentAssignment.id == verified_agent_id,
+                    AIAgentAssignment.company_id == tenant_id,
+                    AIAgentAssignment.status == "active",
                 ).first()
 
             if not agent:
@@ -1016,7 +1022,12 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
                     })
 
             if agent:
-                # Agent found ✅
+                # Agent found — carry its tenant-owned operating rules into
+                # the reasoning and simple-resolution nodes, not only its tool.
+                selected_agent_name = agent.agent_name or ""
+                selected_agent_domain = agent.domain or ""
+                agent_instructions = (agent.instructions or "").strip()
+                agent_restrictions = (agent.restrictions or "").strip()
                 agent_verification_status = "exists"
                 logs.append({
                     "node": 2, "technique": "AgentVerification",
@@ -1213,6 +1224,10 @@ async def node_2_smart_route(state: PipelineV2State) -> dict:
         # ── Verification layer output ──
         "verified_agent_id": verified_agent_id,
         "verified_tool_id": verified_tool_id,
+        "selected_agent_name": selected_agent_name,
+        "selected_agent_domain": selected_agent_domain,
+        "agent_instructions": agent_instructions,
+        "agent_restrictions": agent_restrictions,
         "agent_verification_status": agent_verification_status,
         "tool_verification_status": tool_verification_status,
     }
