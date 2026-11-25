@@ -448,13 +448,15 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
 
   // ── Phase 3c: Check if all connected integrations have been tested ──
   useEffect(() => {
-    if (analysisResult && connectedRecommendations.size > 0) {
-      const allTestedNow = Array.from(connectedRecommendations).every((name) => {
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        return testResults[id] !== undefined;
-      });
-      setAllTested(allTestedNow);
+    if (!analysisResult) {
+      setAllTested(false);
+      return;
     }
+    const allTestedNow = analysisResult.recommendations.every((rec) => {
+      const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
+      return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
+    });
+    setAllTested(allTestedNow);
   }, [connectedRecommendations, testResults, analysisResult]);
 
   // ── Phase 4: Verify button — checks all 3 things with progressive loading ──
@@ -474,11 +476,10 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setVerifyStep(1);
 
     try {
-      const connected = Array.from(connectedRecommendations);
-      const integrationsOk = connected.every((name) => {
-        const rec = analysisResult?.recommendations.find((item) => item.name === name);
-        const id = rec?.system_id || name.toLowerCase().replace(/\s+/g, '-');
-        return testResults[id]?.works === true;
+      const expectedIntegrations = analysisResult?.recommendations || [];
+      const integrationsOk = expectedIntegrations.every((rec) => {
+        const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
+        return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
       });
       const apiKeysOk = integrationsOk;
       setVerifyStep(2);
