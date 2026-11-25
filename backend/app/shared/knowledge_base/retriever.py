@@ -75,17 +75,24 @@ class KnowledgeRetriever:
 
             query_emb = embed_text_sync(query.strip(), input_type="query")
             if query_emb and len(query_emb) in (768, 1024):
+                dimension = len(query_emb)
                 query_emb_str = "[" + ",".join(str(v) for v in query_emb) + "]"
+                # Dimension is selected from a strict allowlist above. Keep
+                # the query expression and predicate aligned with the matching
+                # partial IVFFlat index; otherwise PostgreSQL cannot use it.
+                vector_expr = f"dc.embedding::vector({dimension})"
+                query_vector = f"CAST(:qemb AS vector({dimension}))"
                 vector_rows = self.db.execute(
                     sql_text(
                         "SELECT dc.id, dc.content, dc.document_id, "
-                        "1 - (dc.embedding::vector <=> :qemb::vector) AS similarity, "
+                        f"1 - ({vector_expr} <=> {query_vector}) AS similarity, "
                         "kd.filename, kd.category "
                         "FROM document_chunks dc "
                         "JOIN knowledge_documents kd ON dc.document_id = kd.id "
                         "WHERE dc.company_id = :cid AND kd.company_id = :cid "
                         "AND kd.status = 'completed' AND dc.embedding IS NOT NULL "
-                        "ORDER BY dc.embedding::vector <=> :qemb::vector "
+                        f"AND vector_dims(dc.embedding::vector) = {dimension} "
+                        f"ORDER BY {vector_expr} <=> {query_vector} "
                         "LIMIT :max"
                     ),
                     {"cid": self.company_id, "qemb": query_emb_str, "max": max_results},
