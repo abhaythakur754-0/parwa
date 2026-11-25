@@ -71,3 +71,21 @@ def test_integrations_endpoint_passes_connected_keys_to_analyser():
     source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
     assert "connected_integrations=connected_keys" in source
     assert 'Integration.status.in_(["active", "verified"])' in source
+
+
+def test_analyser_keeps_integration_and_agent_recommendations_separate():
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
+    assert 'result.get("integrations", [])' in source
+    assert 'result.get("agents")' in source
+    assert '"recommended_agents": recommended_agents' in source
+    assert '"system_id": _system_id(str(name))' in source
+
+
+def test_agent_builder_uses_agent_capabilities_not_integration_names():
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/onboarding_build.py").read_text(encoding="utf-8")
+    assert '(analysis.data_profile or {}).get("recommended_agents")' in source
+    assert 'for name, capabilities in STARTER_AGENT_PACK.items()' in source
+    assert 'available_names' not in source
+    assert 'Integration.status.in_(["verified", "active"])' in source
