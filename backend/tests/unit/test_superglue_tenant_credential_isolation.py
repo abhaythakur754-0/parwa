@@ -25,15 +25,25 @@ class _Client:
     async def __aexit__(self, *args):
         return None
 
+    async def get(self, url, **kwargs):
+        self.calls.append(("GET", url, kwargs))
+        return _Response(404, {})
+
     async def post(self, url, **kwargs):
-        self.calls.append((url, kwargs))
-        if url.endswith("/v1/systems"):
-            return _Response(201, {"data": {"id": "hubspot"}})
-        return _Response(201, {"data": {"id": "credential-1"}})
+        self.calls.append(("POST", url, kwargs))
+        return _Response(201, {"data": {"id": "connection-1", "systemId": "hubspot"}})
+
+    async def patch(self, url, **kwargs):
+        self.calls.append(("PATCH", url, kwargs))
+        return _Response(200, {"data": {"id": "connection-1", "systemId": "hubspot"}})
+
+    async def delete(self, url, **kwargs):
+        self.calls.append(("DELETE", url, kwargs))
+        return _Response(204, {})
 
 
 @pytest.mark.asyncio
-async def test_customer_secrets_are_posted_with_tenant_key_not_admin_key(monkeypatch):
+async def test_customer_secrets_are_posted_to_connections_with_tenant_key(monkeypatch):
     calls = []
     monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
     monkeypatch.setattr(
@@ -51,25 +61,54 @@ async def test_customer_secrets_are_posted_with_tenant_key_not_admin_key(monkeyp
         system_id="hubspot",
         name="HubSpot",
         url="https://api.hubapi.com",
-        tenant_id=None,
-        credentials={"access_token": "customer-secret"},
+        tenant_id="tenant-1",
+        credentials={"api_key": "customer-secret"},
+        metadata={"auth_type": "api_key"},
         customer_api_key="tenant-service-account-key",
         credential_url="https://api.hubapi.com",
-        template_id="hubspot",
     )
 
     assert result["success"] is True
-    assert len(calls) == 2
-    system_url, system_request = calls[0]
-    credential_url, credential_request = calls[1]
-    assert system_url.endswith("/v1/systems")
-    assert system_request["headers"]["Authorization"] == "Bearer admin-secret"
-    assert system_request["json"]["credentials"] == {}
-    assert system_request["json"]["template"] == "hubspot"
-    assert credential_url.endswith("/v1/credentials")
-    assert credential_request["headers"]["Authorization"] == "Bearer tenant-service-account-key"
-    assert credential_request["json"]["systemId"] == "hubspot"
-    assert credential_request["json"]["credentials"] == {"access_token": "customer-secret"}
+    get_call, post_call = calls
+    assert get_call[0] == "GET"
+    assert get_call[1].endswith("/v1/connections")
+    assert get_call[2]["headers"]["Authorization"] == "Bearer tenant-service-account-key"
+    assert post_call[0] == "POST"
+    assert post_call[1].endswith("/v1/connections")
+    assert post_call[2]["headers"]["Authorization"] == "Bearer tenant-service-account-key"
+    assert post_call[2]["json"]["systemId"] == "hubspot"
+    assert post_call[2]["json"]["authentication"] == {"type": "api_key"}
+    assert post_call[2]["json"]["credentials"] == {"api_key": "customer-secret"}
+    assert "admin-secret" not in str(post_call)
+
+
+@pytest.mark.asyncio
+async def test_oauth_connection_status_uses_tenant_connections_endpoint(monkeypatch):
+    calls = []
+
+    class OAuthClient(_Client):
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url, kwargs))
+            return _Response(200, {"data": [{
+                "id": "connection-1",
+                "systemId": "hubspot",
+                "credentialKeys": [{"key": "access_token", "hasValue": True}],
+            }]})
+
+    monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
+    monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "admin-secret"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-key")
+    monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
+    monkeypatch.setattr(superglue_client.httpx, "AsyncClient", lambda **kwargs: OAuthClient(calls))
+
+    result = await superglue_client.check_oauth_credentials("hubspot", "tenant-1")
+
+    assert result == {"success": True, "connected": True}
+    assert calls[0][1].endswith("/v1/connections")
+    assert calls[0][2]["headers"]["Authorization"] == "Bearer tenant-key"
+    assert calls[0][2]["params"] == {"systemId": "hubspot"}
+
+
 
 
 def test_tool_generator_uses_canonical_system_ids_without_credentials():
