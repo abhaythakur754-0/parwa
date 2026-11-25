@@ -2251,6 +2251,20 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
     Returns special keys "guardrail_blocked" and "safety_approval_required" so
     the caller can distinguish safety blocks from normal failures.
     """
+    missing_required = list((tool_input or {}).get("_missing_required") or [])
+    if missing_required:
+        return {
+            "success": False,
+            "needs_customer_info": True,
+            "missing_required": missing_required,
+            "error": "Required information is missing: " + ", ".join(missing_required),
+        }
+    # Internal routing metadata must never be sent to Superglue as tool input.
+    tool_input = {
+        key: value for key, value in (tool_input or {}).items()
+        if not str(key).startswith("_")
+    }
+
     from app.core.superglue_client import execute_tool
     from database.base import SessionLocal
     from sqlalchemy import text as _sql_text
