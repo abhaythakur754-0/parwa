@@ -1,5 +1,5 @@
 /**
- * SHOBH LockedFeature Component
+ * PARWA LockedFeature Component
  *
  * Tier-gated feature wrapper. Shows children if the user's current tier
  * meets or exceeds the required tier. Otherwise shows an upgrade CTA
