@@ -66,6 +66,10 @@ class PipelineV2State(TypedDict, total=False):
     variant_capabilities: List[str]      # what this tier CAN do
     verified_agent_id: Optional[str]     # Builder/Superglue agent verified by Node 2
     verified_tool_id: Optional[str]      # linked Superglue tool id
+    selected_agent_name: str             # tenant agent selected by Node 2
+    selected_agent_domain: str           # tenant agent domain/capability
+    agent_instructions: str              # tenant-configured agent operating instructions
+    agent_restrictions: str               # tenant-configured agent restrictions
     agent_verification_status: str       # exists | created | failed | error
     tool_verification_status: str        # exists | created | failed | not_needed | error
 
