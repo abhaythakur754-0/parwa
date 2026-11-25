@@ -155,6 +155,17 @@ def main() -> int:
     check("skip control persisted", (current or {}).get("skipped") is True,
           f"skipped={(current or {}).get('skipped')}")
     s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
+                      {"agent_stopped": True}, token)
+    check("pause control accepted", s == 200 and control.get("agent_stopped") is True,
+          f"http={s} {str(control)[:120]}")
+    _, current = call("GET", f"/api/v1/tickets/{tid}", token=token)
+    check("pause control persisted", (current or {}).get("agent_stopped") is True,
+          f"agent_stopped={(current or {}).get('agent_stopped')}")
+    s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
+                      {"agent_stopped": False}, token)
+    check("resume control accepted", s == 200 and control.get("agent_stopped") is False,
+          f"http={s} {str(control)[:120]}")
+    s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
                       {"skipped": False}, token)
     check("unskip control accepted", s == 200 and control.get("skipped") is False,
           f"http={s} {str(control)[:120]}")
