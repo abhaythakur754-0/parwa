@@ -2683,7 +2683,7 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
     """
     try:
         from database.base import SessionLocal
-        from database.models.integration import DBConnection
+        from database.models.integration import DBConnection, Integration
 
         db = SessionLocal()
         try:
@@ -2699,8 +2699,13 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
                     schema = _schema_metadata_only(json.loads(conn.schema_analysis)) if conn.schema_analysis else None
                 except (json.JSONDecodeError, TypeError):
                     schema = None
+                linked_integration = db.query(Integration).filter(
+                    Integration.company_id == tenant_id,
+                    Integration.name == conn.name,
+                ).first()
                 db_info = {
                     "id": str(conn.id),
+                    "system_id": linked_integration.integration_type if linked_integration else conn.name,
                     "name": conn.name,
                     "db_type": conn.db_type,
                     "readonly": conn.is_readonly,
@@ -3417,9 +3422,9 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
     # Include discovered DB schemas in the same non-secret integration context
     # consumed by onboarding/tool generation and the Node 5 tool-forge fallback.
     for db_info in connected_databases:
-        tenant_integrations[f"database:{db_info['id']}"] = {
+        tenant_integrations[f"database:{db_info['system_id']}"] = {
             "name": db_info["name"],
-            "system_id": db_info["id"],
+            "system_id": db_info["system_id"],
             "db_type": db_info["db_type"],
             "status": db_info["status"],
             "readonly": db_info["readonly"],
