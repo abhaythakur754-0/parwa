@@ -61,11 +61,10 @@ except Exception:  # noqa: BLE001
 
 # Superglue's own LLM lane (OpenAI-compatible) — $0 generation cost for Parwa
 DEFAULT_LLM_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions"
-DEFAULT_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
 LLM_MODEL = "open-mistral-7b"
 
 LLM_URL = os.environ.get("SUPERGLUE_LLM_URL", DEFAULT_LLM_URL)
-LLM_KEY = os.environ.get("SUPERGLUE_LLM_API_KEY", DEFAULT_LLM_KEY)
+LLM_KEY = os.environ.get("SUPERGLUE_LLM_API_KEY", "").strip()
 
 
 def _register_in_db(journal: dict | None, tenant: str, tool_id: str, spec: dict,
