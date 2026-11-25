@@ -138,6 +138,29 @@ async function connectAndTestRecommendation() {
 
 describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
 
+  it('does not block agent provisioning on optional starter integrations', async () => {
+    const originalRecommendations = MOCK_ANALYSIS.recommendations;
+    MOCK_ANALYSIS.recommendations = [{ ...originalRecommendations[0], required: false }];
+    try {
+      await completePhase1And2();
+      const verifyButton = screen.getByText('Verify All Connections');
+      expect(verifyButton).toBeEnabled();
+      fireEvent.click(verifyButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/onboarding-build/trigger',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByText('Continue to Next Step')).toBeEnabled();
+      }, { timeout: 7000 });
+    } finally {
+      MOCK_ANALYSIS.recommendations = originalRecommendations;
+    }
+  });
+
   it('allows CRM-only onboarding when analysis recommends no additional integrations', async () => {
     const originalRecommendations = MOCK_ANALYSIS.recommendations;
     MOCK_ANALYSIS.recommendations = [];
