@@ -58,6 +58,7 @@ let statusCallCount = 0;
 
 beforeEach(() => {
   statusCallCount = 0;
+  jest.spyOn(window, 'open').mockReturnValue({ location: { href: '' }, closed: false, close: jest.fn() } as any);
   fetchMock = jest.fn();
   global.fetch = fetchMock as unknown as typeof global.fetch;
 
@@ -106,7 +107,6 @@ async function completePhase1And2() {
   fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
   fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
   // API key is REQUIRED now — empty-credential connects were a bug
-  fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
   fireEvent.click(screen.getByText('Connect & Verify'));
   await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
 }
