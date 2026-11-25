@@ -654,8 +654,11 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         t.id === id ? { ...t, skipped: true, updated_at: new Date().toISOString() } : t
       ),
     }));
-    toast.success('Ticket marked as skipped — AI will not auto-solve');
-    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status: 'skipped' });
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { skipped: true })
+      .then((ok) => {
+        if (ok) toast.success('Ticket skipped — AI will not auto-solve');
+        else void syncFromBackend();
+      });
   },
 
   /**
@@ -667,7 +670,11 @@ export const useTicketStore = create<TicketState>((set, get) => ({
         t.id === id ? { ...t, skipped: false, updated_at: new Date().toISOString() } : t
       ),
     }));
-    toast.success('Ticket unskipped — AI can now process');
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { skipped: false })
+      .then((ok) => {
+        if (ok) toast.success('Ticket unskipped — AI can now process');
+        else void syncFromBackend();
+      });
   },
 
   /**
@@ -713,6 +720,10 @@ export const useTicketStore = create<TicketState>((set, get) => ({
           : t
       ),
     }));
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, {
+      kb_matched: true,
+      kb_article_id: articleId,
+    }).then((ok) => { if (ok) void syncFromBackend(); });
   },
 
   // ── NEW: Computed Getters for UI Sections ───────────────────────────
