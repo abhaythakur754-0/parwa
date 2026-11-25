@@ -863,7 +863,7 @@ async def test_system(
     # 1. Get the shared provider definition or tenant-namespaced custom system.
     sg_result = await superglue_client.get_system(
         system_id,
-        tenant_id=None if is_shared else tenant_id,
+        tenant_id=tenant_id,
     )
     if not sg_result.get("success"):
         return TestResponse(
