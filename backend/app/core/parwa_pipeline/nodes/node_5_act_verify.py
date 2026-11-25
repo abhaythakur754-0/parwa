@@ -2293,12 +2293,14 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
 
 
 async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
-    """Execute a Superglue tool with idempotency + safety gate protection.
+    """Execute a tenant Superglue tool with safety checks and atomic idempotency.
 
-    Pipeline: action safety gate → idempotency check → execute.
-    Returns special keys "guardrail_blocked" and "safety_approval_required" so
-    the caller can distinguish safety blocks from normal failures.
+    A reservation is committed before the external side effect. Failed or
+    ambiguous executions retain the reservation so retries cannot double-refund
+    or duplicate a customer-visible CRM update.
     """
+    import hashlib
+
     missing_required = list((tool_input or {}).get("_missing_required") or [])
     if missing_required:
         return {
@@ -2307,7 +2309,13 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
             "missing_required": missing_required,
             "error": "Required information is missing: " + ", ".join(missing_required),
         }
-    # Internal routing metadata must never be sent to Superglue as tool input.
+    if not tenant_id:
+        return {
+            "success": False,
+            "error": "Tenant context is required; action was not executed",
+            "guardrail_blocked": True,
+        }
+
     tool_input = {
         key: value for key, value in (tool_input or {}).items()
         if not str(key).startswith("_")
@@ -2317,56 +2325,145 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
     from database.base import SessionLocal
     from sqlalchemy import text as _sql_text
 
-    # ── ACTION SAFETY GATE (runs before idempotency check) ──
-    # 2026-10 FIX: classify by the TOOL's identity (name), NOT the ticket's
-    # action text. Passing the action (e.g. "investigate_billing") matched
-    # FINANCIAL keywords ("billing") and parked even read-only lookup tools
-    # in the approval queue — so NO tool ever auto-executed.
+    # Safety validation must pass before an idempotency reservation or side effect.
     try:
-        _sg = _run_action_safety_gate(tool_id, "", tool_input or {}, tenant_id, "parwa")
-        if _sg["blocked"]:
-            return {"success": False, "error": _sg["reason"],
-                    "guardrail_blocked": True, "safety_level": _sg["safety_level"]}
-        if _sg["needs_approval"]:
-            return {"success": False, "error": f"Safety approval required: {_sg['reason']}",
-                    "safety_approval_required": True, "safety_level": _sg["safety_level"]}
-    except Exception as _sg_exc:
-        logger.debug("idempotency_safety_gate_error: %s", str(_sg_exc)[:100])
-
-    # ── IDEMPOTENCY CHECK ──
-    try:
-        _idb = SessionLocal()
-        try:
-            # Check if already executed
-            _existing = _idb.execute(_sql_text(
-                "SELECT 1 FROM ticket_tool_executions "
-                "WHERE idempotency_key = :key LIMIT 1"
-            ), {"key": idempotency_key}).fetchone()
-
-            if _existing:
-                logger.warning(
-                    "IDEMPOTENCY_BLOCK: ticket=%s tool=%s action=%s already executed — SKIP",
-                    ticket_id[:8], tool_id[:20], action,
-                )
-                return {"success": False, "error": "already_executed", "skipped": True}
-
-            # Not executed → execute now
-            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
-
-            # Record execution (prevent future duplicates)
-            if result.get("success"):
-                _idb.execute(_sql_text(
-                    "INSERT INTO ticket_tool_executions "
-                    "(idempotency_key, ticket_id, tool_id, action, executed_at) "
-                    "VALUES (:key, :tid, :tool, :action, NOW()) "
-                    "ON CONFLICT (idempotency_key) DO NOTHING"
-                ), {"key": idempotency_key, "tid": ticket_id, "tool": tool_id, "action": action})
-                _idb.commit()
-
-            return result
-        finally:
-            _idb.close()
+        safety = _run_action_safety_gate(tool_id, "", tool_input, tenant_id, "parwa")
+        if safety.get("blocked"):
+            return {
+                "success": False,
+                "error": safety.get("reason", "Action blocked by safety policy"),
+                "guardrail_blocked": True,
+                "safety_level": safety.get("safety_level", "unknown"),
+            }
+        if safety.get("needs_approval"):
+            return {
+                "success": False,
+                "error": f"Safety approval required: {safety.get('reason', 'manual review required')}",
+                "safety_approval_required": True,
+                "safety_level": safety.get("safety_level", "unknown"),
+            }
     except Exception as exc:
-        # Table doesn't exist yet — just execute (backward compat)
-        logger.debug("idempotency_check_skipped: %s", str(exc)[:100])
-        return await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+        logger.error("idempotency_safety_gate_failed: %s", str(exc)[:160])
+        return {
+            "success": False,
+            "error": "Safety validation is unavailable; action was not executed",
+            "guardrail_blocked": True,
+            "safety_level": "unknown",
+        }
+
+    scoped_key = f"{tenant_id}:{idempotency_key}"
+    if len(scoped_key) > 512:
+        scoped_key = f"{tenant_id}:{hashlib.sha256(scoped_key.encode('utf-8')).hexdigest()}"
+    legacy_key = str(idempotency_key)[:512]
+
+    # Atomically reserve the idempotency key before calling Superglue.
+    db = SessionLocal()
+    try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            db.execute(
+                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+
+        existing = db.execute(
+            _sql_text(
+                "SELECT status FROM ticket_tool_executions "
+                "WHERE company_id = :tenant_id "
+                "AND idempotency_key IN (:scoped_key, :legacy_key) "
+                "ORDER BY CASE WHEN idempotency_key = :scoped_key THEN 0 ELSE 1 END "
+                "LIMIT 1"
+            ),
+            {
+                "tenant_id": str(tenant_id),
+                "scoped_key": scoped_key,
+                "legacy_key": legacy_key,
+            },
+        ).fetchone()
+        if existing:
+            status = existing[0]
+            message = (
+                "already_executed" if status == "completed"
+                else "previous_attempt_failed" if status == "failed"
+                else "execution_in_progress"
+            )
+            logger.warning(
+                "IDEMPOTENCY_BLOCK tenant=%s ticket=%s tool=%s status=%s",
+                str(tenant_id)[:12], str(ticket_id)[:24], str(tool_id)[:40], status,
+            )
+            return {"success": False, "error": message, "skipped": True, "execution_status": status}
+
+        reservation = db.execute(
+            _sql_text(
+                "INSERT INTO ticket_tool_executions "
+                "(idempotency_key, company_id, ticket_id, tool_id, action, status, created_at, executed_at) "
+                "VALUES (:key, :tenant_id, :ticket_id, :tool_id, :action, 'in_progress', CURRENT_TIMESTAMP, NULL) "
+                "ON CONFLICT (idempotency_key) DO NOTHING"
+            ),
+            {
+                "key": scoped_key,
+                "tenant_id": str(tenant_id),
+                "ticket_id": str(ticket_id)[:128],
+                "tool_id": str(tool_id)[:255],
+                "action": str(action)[:100],
+            },
+        )
+        if reservation.rowcount != 1:
+            db.rollback()
+            return {
+                "success": False,
+                "error": "execution_in_progress",
+                "skipped": True,
+                "execution_status": "in_progress",
+            }
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("idempotency_reservation_failed: %s", str(exc)[:180])
+        return {
+            "success": False,
+            "error": "Idempotency storage is unavailable; action was not executed",
+            "guardrail_blocked": True,
+        }
+    finally:
+        db.close()
+
+    # The reservation is durable before the external request begins.
+    try:
+        result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+        if not isinstance(result, dict):
+            result = {"success": False, "error": "Superglue returned an invalid tool result"}
+    except Exception as exc:
+        result = {"success": False, "error": str(exc)[:200]}
+
+    final_status = "completed" if result.get("success") is True else "failed"
+    update_db = SessionLocal()
+    try:
+        if getattr(update_db, "bind", None) and update_db.bind.dialect.name == "postgresql":
+            update_db.execute(
+                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+        update_db.execute(
+            _sql_text(
+                "UPDATE ticket_tool_executions "
+                "SET status = :status, error_message = :error_message, "
+                "executed_at = CASE WHEN :status = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END "
+                "WHERE idempotency_key = :key AND company_id = :tenant_id"
+            ),
+            {
+                "status": final_status,
+                "error_message": str(result.get("error") or "")[:1000] or None,
+                "key": scoped_key,
+                "tenant_id": str(tenant_id),
+            },
+        )
+        update_db.commit()
+    except Exception as exc:
+        update_db.rollback()
+        # Keep the committed reservation in_progress: retrying could duplicate
+        # a side effect whose final status could not be recorded.
+        logger.error("idempotency_status_update_failed: %s", str(exc)[:160])
+    finally:
+        update_db.close()
+
+    return result
