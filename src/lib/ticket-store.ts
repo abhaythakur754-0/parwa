@@ -484,38 +484,19 @@ export const useTicketStore = create<TicketState>((set, get) => ({
   },
 
   resolveTicket: (id, resolution) => {
-    const now = new Date().toISOString();
+    // Resolving a ticket is a status action, not proof that a customer reply
+    // was sent. Do not fabricate an AI message in the conversation timeline.
     set((s) => ({
-      tickets: s.tickets.map((t) => {
-        if (t.id !== id) return t;
-        const created = new Date(t.created_at).getTime();
-        const resolved = new Date(now).getTime();
-        const hours = Math.round(((resolved - created) / 3600000) * 10) / 10;
-        const msgs: TicketMessage[] = [
-          ...t.messages,
-          {
-            id: uuid(),
-            ticket_id: id,
-            sender: 'ai_agent',
-            sender_name: 'SHOBH AI',
-            content: resolution
-              ? `Issue resolved: ${resolution}`
-              : 'This ticket has been marked as resolved. Please let us know if you need further assistance.',
-            created_at: now,
-            variant: t.assigned_variant || undefined,
-          },
-        ];
-        return {
-          ...t,
-          status: 'resolved' as TicketStatus,
-          resolved_at: now,
-          updated_at: now,
-          resolution_time_hours: hours,
-          messages: msgs,
-        };
-      }),
+      tickets: s.tickets.map((t) =>
+        t.id === id
+          ? { ...t, status: 'resolved' as TicketStatus, updated_at: new Date().toISOString() }
+          : t
+      ),
     }));
-    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, { status: 'resolved', reason: 'issue_fixed' }).then(() => syncFromBackend());
+    void pushToBackend('PATCH', `/api/v1/tickets/${id}/status`, {
+      status: 'resolved',
+      reason: resolution?.trim() ? 'issue_fixed' : 'other',
+    }).then(() => syncFromBackend());
   },
 
   escalateToHuman: (id) => {
