@@ -158,6 +158,15 @@ def main() -> int:
                       {"skipped": False}, token)
     check("unskip control accepted", s == 200 and control.get("skipped") is False,
           f"http={s} {str(control)[:120]}")
+    s, control = call("PATCH", f"/api/v1/tickets/{tid}/controls",
+                      {"kb_matched": True, "kb_article_id": "kb-e2e-article"}, token)
+    check("KB match control accepted", s == 200 and control.get("kb_matched") is True,
+          f"http={s} {str(control)[:120]}")
+    _, current = call("GET", f"/api/v1/tickets/{tid}", token=token)
+    check("KB match control persisted",
+          (current or {}).get("kb_matched") is True
+          and (current or {}).get("kb_article_id") == "kb-e2e-article",
+          f"kb_matched={(current or {}).get('kb_matched')} article={(current or {}).get('kb_article_id')}")
 
     print("── 4. poll status while the dispatcher settles ──")
     seen = []
