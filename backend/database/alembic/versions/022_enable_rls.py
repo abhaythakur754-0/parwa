@@ -295,6 +295,9 @@ def _disable_rls_for_table(table: str) -> None:
 
 def upgrade() -> None:
     conn = op.get_bind()
+    if conn.dialect.name != "postgresql":
+        log.info("Skipping PostgreSQL-only RLS migration on %s", conn.dialect.name)
+        return
 
     # ── 1. Create the app schema (if missing) and helper function ──
     try:
@@ -321,6 +324,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
+    if conn.dialect.name != "postgresql":
+        log.info("Skipping PostgreSQL-only RLS downgrade on %s", conn.dialect.name)
+        return
 
     # ── 1. Revoke BYPASSRLS from parwa_admin ─────────────────────
     try:
