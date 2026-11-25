@@ -286,7 +286,7 @@ jobs:
       - name: Create source archive and provenance
         run: |
           set -eu
-          printf 'commit=%s\\nbranch=%s\\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
+          printf 'commit=%s\nbranch=%s\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
           python - <<'PY'
           from pathlib import PurePosixPath
           import subprocess
@@ -298,7 +298,7 @@ jobs:
           }
           tracked = subprocess.run(
               ["git", "ls-files", "-z"], check=True, capture_output=True
-          ).stdout.split(b"\\0")
+          ).stdout.split(b"\0")
 
           with ZipFile("parwa-source.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
               for raw_path in tracked:
