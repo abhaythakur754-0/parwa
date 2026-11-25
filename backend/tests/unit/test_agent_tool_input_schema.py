@@ -142,3 +142,105 @@ def test_input_extractor_maps_private_escalation_contract():
     assert inputs["status"] == "open"
     assert inputs["internal"] is True
     assert "_missing_required" not in inputs
+
+
+@pytest.mark.asyncio
+async def test_idempotency_reserves_before_tool_side_effect(monkeypatch):
+    from types import SimpleNamespace
+    from database import base
+    from app.core import superglue_client
+    from app.core.parwa_pipeline.nodes import node_5_act_verify
+
+    events = []
+
+    class _Result:
+        rowcount = 1
+        def fetchone(self):
+            return None
+
+    class _DB:
+        bind = None
+        def execute(self, statement, params=None):
+            sql = str(statement).lower()
+            if "insert into ticket_tool_executions" in sql:
+                events.append("reserve")
+            elif "update ticket_tool_executions" in sql:
+                events.append("complete")
+            return _Result()
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+
+    async def fake_execute_tool(*args, **kwargs):
+        events.append("tool")
+        return {"success": True, "data": {"ok": True}}
+
+    monkeypatch.setattr(base, "SessionLocal", lambda: _DB())
+    monkeypatch.setattr(superglue_client, "execute_tool", fake_execute_tool)
+    monkeypatch.setattr(
+        node_5_act_verify,
+        "_run_action_safety_gate",
+        lambda *args, **kwargs: {"blocked": False, "needs_approval": False},
+    )
+
+    result = await _execute_with_idempotency(
+        "tenant_tool",
+        {"ticket_id": "ticket-1"},
+        "ticket-1:action",
+        "ticket-1",
+        "update_ticket",
+        "tenant-1",
+    )
+
+    assert result["success"] is True
+    assert events == ["reserve", "tool", "complete"]
+
+
+@pytest.mark.asyncio
+async def test_idempotency_storage_failure_blocks_external_action(monkeypatch):
+    from database import base
+    from app.core import superglue_client
+    from app.core.parwa_pipeline.nodes import node_5_act_verify
+
+    calls = []
+
+    class _DB:
+        bind = None
+        def execute(self, statement, params=None):
+            if "INSERT INTO ticket_tool_executions" in str(statement):
+                raise RuntimeError("database unavailable")
+            return SimpleNamespace(rowcount=1, fetchone=lambda: None)
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+
+    async def fake_execute_tool(*args, **kwargs):
+        calls.append("executed")
+        return {"success": True}
+
+    monkeypatch.setattr(base, "SessionLocal", lambda: _DB())
+    monkeypatch.setattr(superglue_client, "execute_tool", fake_execute_tool)
+    monkeypatch.setattr(
+        node_5_act_verify,
+        "_run_action_safety_gate",
+        lambda *args, **kwargs: {"blocked": False, "needs_approval": False},
+    )
+
+    result = await _execute_with_idempotency(
+        "tenant_tool",
+        {"ticket_id": "ticket-1"},
+        "ticket-1:action",
+        "ticket-1",
+        "update_ticket",
+        "tenant-1",
+    )
+
+    assert result["success"] is False
+    assert result["guardrail_blocked"] is True
+    assert calls == []
