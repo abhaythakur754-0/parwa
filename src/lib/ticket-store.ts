@@ -657,7 +657,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { skipped: true })
       .then((ok) => {
         if (ok) toast.success('Ticket skipped — AI will not auto-solve');
-        else void syncFromBackend();
+        void syncFromBackend();
       });
   },
 
@@ -673,7 +673,7 @@ export const useTicketStore = create<TicketState>((set, get) => ({
     void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { skipped: false })
       .then((ok) => {
         if (ok) toast.success('Ticket unskipped — AI can now process');
-        else void syncFromBackend();
+        void syncFromBackend();
       });
   },
 
