@@ -145,9 +145,12 @@ def test_namespaced_tool_id_format():
     result = namespaced_tool_id("shopify", "tenant-123")
     assert result == "tenant_tenant-123__shopify"
 
-    # Already-namespaced IDs should pass through unchanged
-    already = "tenant_abc__shopify"
-    assert namespaced_tool_id(already, "different-tenant") == already
+    # Already-namespaced IDs are accepted only for their owning tenant.
+    already = "tenant_tenant-123__shopify"
+    assert namespaced_tool_id(already, "tenant-123") == already
+    import pytest
+    with pytest.raises(ValueError, match="different tenant"):
+        namespaced_tool_id("tenant_other__shopify", "tenant-123")
 
     # Empty tenant_id should return the raw tool_id
     assert namespaced_tool_id("shopify", "") == "shopify"
