@@ -874,175 +874,138 @@ async def get_available_tools_description(tenant_id: Optional[str] = None) -> st
 
 
 async def create_system(
-    system_id: str,
-    name: str,
-    url: str,
-    tenant_id: Optional[str] = None,
-    credentials: Optional[Dict[str, Any]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    icon: str = "",
-    specific_instructions: str = "",
-    customer_api_key: Optional[str] = None,
-    credential_url: Optional[str] = None,
+    system_id: str, name: str, url: str, tenant_id: Optional[str] = None,
+    credentials: Optional[Dict[str, Any]] = None, metadata: Optional[Dict[str, Any]] = None,
+    icon: str = "", specific_instructions: str = "",
+    customer_api_key: Optional[str] = None, credential_url: Optional[str] = None,
     template_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create/reuse a system definition and store secrets under a tenant key."""
+    """Create/update a connection owned by exactly one Superglue tenant account."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
+    cfg_url, _ = _get_config()
+    token = customer_api_key or _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue service account is unavailable"}
 
-    cfg_url, admin_token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-    payload: Dict[str, Any] = {
-        "id": actual_id,
-        "name": name,
-        "url": url,
-        "icon": icon,
-        "specificInstructions": specific_instructions,
-        "credentials": {},
-        "metadata": metadata or {},
-    }
-    if template_id:
-        payload["template"] = template_id
+    meta = metadata or {}
+    auth_type = str(meta.get("auth_type") or "api_key").lower()
+    connection_url = credential_url or url
+    if auth_type == "oauth":
+        # OAuth exchange creates the provider connection after user consent.
+        return {"success": True, "pending_oauth": True, "data": {
+            "id": system_id, "systemId": system_id, "name": name,
+            "url": connection_url, "icon": icon, "metadata": meta,
+        }}
 
+    authentication = {"type": "none"} if auth_type in {"database", "smtp"} else {"type": "api_key"}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()}
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            response = await client.post(
-                f"{cfg_url}/v1/systems",
-                headers={
-                    "Authorization": f"Bearer {admin_token}",
-                    "Content-Type": "application/json",
-                    **_session_headers(),
-                },
-                json=payload,
+            existing_response = await client.get(
+                f"{cfg_url}/v1/connections", headers=headers, params={"systemId": system_id}
             )
-            if response.status_code in (200, 201):
-                response_payload = response.json()
-                system_data = response_payload.get("data", response_payload)
-            elif response.status_code == 409:
-                existing_response = await client.get(
-                    f"{cfg_url}/v1/systems/{actual_id}",
-                    headers={"Authorization": f"Bearer {admin_token}", **_session_headers()},
+            existing = None
+            if existing_response.status_code == 200:
+                body = existing_response.json()
+                data = body.get("data", body) if isinstance(body, dict) else {}
+                if isinstance(data, list):
+                    existing = next((x for x in data if isinstance(x, dict) and x.get("systemId") == system_id), None)
+                elif isinstance(data, dict):
+                    items = data.get("connections")
+                    if isinstance(items, list):
+                        existing = next((x for x in items if isinstance(x, dict) and x.get("systemId") == system_id), None)
+                    else:
+                        existing = data.get("connection")
+
+            request_body = {
+                "systemId": system_id, "name": name, "url": connection_url,
+                "authentication": authentication, "credentials": credentials or {},
+            }
+            if isinstance(existing, dict) and existing.get("id"):
+                response = await client.patch(
+                    f"{cfg_url}/v1/connections/{existing['id']}", headers=headers, json=request_body
                 )
-                if existing_response.status_code != 200:
-                    return {
-                        "success": False,
-                        "error": f"System definition conflict (HTTP {response.status_code})",
-                    }
-                existing_payload = existing_response.json()
-                system_data = existing_payload.get("data", existing_payload)
             else:
-                return {
-                    "success": False,
-                    "error": f"HTTP {response.status_code}: {response.text[:200]}",
-                }
-
-            if credentials:
-                tenant_token = customer_api_key or _get_tenant_api_key(tenant_id)
-                if not tenant_token:
-                    return {
-                        "success": False,
-                        "error": "Tenant Superglue service account is unavailable; credentials were not stored",
-                    }
-                connection_response = await client.post(
-                    f"{cfg_url}/v1/connections",
-                    headers={
-                        "Authorization": f"Bearer {tenant_token}",
-                        "Content-Type": "application/json",
-                        **_session_headers(),
-                    },
-                    json={
-                        "systemId": actual_id,
-                        "name": name,
-                        "url": credential_url or url,
-                        "authentication": {"type": "api_key"},
-                        "credentials": credentials,
-                    },
+                response = await client.post(
+                    f"{cfg_url}/v1/connections", headers=headers, json=request_body
                 )
-                if connection_response.status_code not in (200, 201):
-                    logger.error(
-                        "superglue_connection_store_failed system=%s status=%s",
-                        actual_id[:80], connection_response.status_code,
-                    )
-                    return {
-                        "success": False,
-                        "error": f"Could not store tenant connection (HTTP {connection_response.status_code})",
-                    }
-
-        return {"success": True, "data": system_data}
+        if response.status_code not in (200, 201):
+            logger.error("superglue_connection_write_failed system=%s status=%s", system_id[:80], response.status_code)
+            return {"success": False, "error": f"Could not save tenant connection (HTTP {response.status_code})"}
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
+        return {"success": True, "data": data}
     except Exception as exc:
-        logger.warning("superglue_create_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
-
+        logger.warning("superglue_create_connection_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not save tenant connection"}
 
 async def get_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-    """Get a single system from Superglue.
-
-    Returns: {"success": bool, "data": {...}, "error": str?}
-    """
+    """Read a tenant-owned connection; never use the organization admin key."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
-
-    cfg_url, token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            res = await client.get(
-                f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+            response = await client.get(
+                f"{cfg_url}/v1/connections", headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                params={"systemId": system_id},
             )
-        if res.status_code == 200:
-            data = res.json()
-            return {"success": True, "data": data.get("data", data)}
-        if res.status_code == 404:
-            return {"success": False, "error": "System not found"}
-        return {"success": False, "error": f"HTTP {res.status_code}"}
+        if response.status_code == 404:
+            return {"success": False, "error": "Connection not found"}
+        if response.status_code != 200:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
+        if isinstance(data, list):
+            connection = next((x for x in data if isinstance(x, dict) and x.get("systemId") == system_id), None)
+        elif isinstance(data, dict):
+            items = data.get("connections")
+            connection = next((x for x in items if isinstance(x, dict) and x.get("systemId") == system_id), None) if isinstance(items, list) else data.get("connection") or data
+        else:
+            connection = None
+        if not isinstance(connection, dict) or not connection:
+            return {"success": False, "error": "Connection not found"}
+        safe = {k: connection[k] for k in ("id", "systemId", "name", "url", "authentication", "credentialKeys", "createdAt", "updatedAt") if k in connection}
+        return {"success": True, "data": safe}
     except Exception as exc:
-        logger.warning("superglue_get_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
-
+        logger.warning("superglue_get_connection_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not read tenant connection"}
 
 async def delete_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-    """Delete a system from Superglue (disconnect the app).
-
-    Returns: {"success": bool, "error": str?}
-    """
-    if not is_configured():
-        return {"success": False, "error": "Superglue not configured"}
-
-    cfg_url, token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            res = await client.delete(
-                f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}", **_session_headers()},
-            )
-        if res.status_code in (200, 204):
-            return {"success": True}
-        if res.status_code == 404:
-            return {"success": False, "error": "System not found"}
-        return {"success": False, "error": f"HTTP {res.status_code}"}
-    except Exception as exc:
-        logger.warning("superglue_delete_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
-
+    """Delete only this tenant's connection for the selected system ID."""
+    return await delete_tenant_credentials(system_id, str(tenant_id or ""))
 
 async def list_tenant_systems(tenant_id: str) -> List[Dict[str, Any]]:
-    """List all systems belonging to a specific tenant.
-
-    Filters the global system list by the tenant's namespace prefix
-    (tenant_{tenant_id}__) so each tenant only sees their own connections.
-
-    Returns: list of system dicts (empty list on error).
-    """
-    all_systems = await list_systems()
-    if not tenant_id:
-        return all_systems
-    prefix = f"tenant_{tenant_id}__"
-    return [s for s in all_systems if s.get("id", "").startswith(prefix)]
-
+    """List only connections visible to the tenant service account."""
+    if not is_configured() or not tenant_id:
+        return []
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{cfg_url}/v1/connections",
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+            )
+        if response.status_code != 200:
+            return []
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else []
+        if isinstance(data, dict):
+            data = data.get("connections", [])
+        return [
+            {k: item[k] for k in ("id", "systemId", "name", "url", "authentication", "credentialKeys") if k in item}
+            for item in data if isinstance(item, dict)
+        ] if isinstance(data, list) else []
+    except Exception as exc:
+        logger.warning("superglue_list_tenant_connections_error: %s", str(exc)[:160])
+        return []
 
 # ── Superglue Catalog Discovery (for Custom integrations/databases) ─────
 # When a user wants to connect a platform NOT in our curated catalog,
