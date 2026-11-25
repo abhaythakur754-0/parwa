@@ -16,8 +16,6 @@ import { create } from 'zustand';
 import {
   VARIANT_PRICES,
   VARIANT_DISPLAY_NAMES,
-  VARIANT_TIER_ORDER,
-  type VariantTier as CanonicalTier,
 } from './pricing-config';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -135,7 +133,6 @@ export function isTierAtLeast(current: VariantTier, required: VariantTier): bool
 }
 
 export function getTierLabel(tier: VariantTier): string {
-  const labels: Record<VariantTier, string> = {
   return VARIANT_DISPLAY_NAMES[tier];
 }
 
