@@ -9,10 +9,10 @@ MIGRATION = (BACKEND_ROOT / "database/alembic/versions/033_enable_pgvector.py").
 
 
 def test_pgvector_migration_indexes_both_supported_dimensions():
-    for dimension in (768, 1024):
-        assert f"ix_document_chunks_embedding_vector_{dimension}" in MIGRATION
-        assert f"embedding::vector({dimension})" in MIGRATION
-        assert f"vector_dims(embedding::vector) = {dimension}" in MIGRATION
+    assert "for dimension in (768, 1024)" in MIGRATION
+    assert "ix_document_chunks_embedding_vector_{dimension}" in MIGRATION
+    assert "embedding::vector({dimension})" in MIGRATION
+    assert "vector_dims(embedding::vector) = {dimension}" in MIGRATION
 
 
 def test_retriever_query_uses_matching_dimension_and_partial_index_predicate():
