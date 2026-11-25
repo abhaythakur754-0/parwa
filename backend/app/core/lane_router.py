@@ -10,21 +10,21 @@ one of 3 processing lanes:
   FOLLOW_UP             →  QUICK      →  Node 1 → 7 (Simple Resolver) → END
   CLARIFICATION         →  QUICK      →  Node 1 → 7 (Simple Resolver) → END
   GRATITUDE             →  INSTANT    →  Node 1 → finalize (canned response) → END
-  SIMPLE_QUESTION       →  INSTANT    →  Node 1 → finalize (canned response) → END
+  SIMPLE_QUESTION       →  FULL       → Node 1 → agent + tenant KB → resolver → END
 
 ALL 16 non-LLM techniques run in Node 1 for EVERY lane (they're free —
 zero API cost). The lane only controls what happens AFTER Node 1:
 
   - FULL lane:    ~15 LLM calls (Nodes 2-6 reasoning + quality loop)
   - QUICK lane:   0-3 LLM calls (Node 7 Simple Resolver only)
-  - INSTANT lane: 0-1 LLM calls (canned response, no LLM needed)
+  - INSTANT lane: 0 LLM calls (gratitude-only canned response)
 
 Thread detection: a message is a FOLLOW_UP if the ticket already has
 an AI response (i.e., this is a customer replying to an existing
 conversation, not starting a new one).
 
 Business rationale (P-004): 80% of customer messages are follow-ups
-or simple questions that don't need the full 8-node reasoning pipeline.
+Simple questions about tenant hours, contacts, and policies need tenant-specific knowledge and use the KB-backed pipeline.
 Routing them to QUICK/INSTANT lanes cuts average LLM cost by ~70% and
 cuts response time from ~15s to ~2s for simple messages.
 """
@@ -57,7 +57,7 @@ MESSAGE_TYPE_TO_LANE: Dict[str, str] = {
     FOLLOW_UP: LANE_QUICK,
     CLARIFICATION: LANE_QUICK,
     GRATITUDE: LANE_INSTANT,
-    SIMPLE_QUESTION: LANE_INSTANT,
+    SIMPLE_QUESTION: LANE_FULL,
 }
 
 
@@ -188,11 +188,11 @@ def get_lane_for_message_type(message_type: str) -> str:
 def generate_instant_response(message_type: str, query: str) -> str:
     """Generate a canned response for INSTANT lane messages.
 
-    GRATITUDE and SIMPLE_QUESTION messages don't need LLM reasoning —
-    a friendly canned response is faster and costs zero API calls.
+    Only GRATITUDE messages are safe for a global canned response. Business-specific
+    questions must use the tenant's agent and knowledge base.
 
     Args:
-        message_type: GRATITUDE or SIMPLE_QUESTION
+        message_type: GRATITUDE only
         query: The original customer message (for light personalization)
 
     Returns:
@@ -206,31 +206,11 @@ def generate_instant_response(message_type: str, query: str) -> str:
         )
 
     if message_type == SIMPLE_QUESTION:
-        # Light personalization based on the question type
-        q_lower = query.lower()
-        if "hours" in q_lower or "open" in q_lower or "available" in q_lower:
-            return (
-                "Our support team is available 24/7 to help you with any questions or concerns. "
-                "You can reach us anytime through this chat, by email, or by phone. "
-                "Is there anything specific I can help you with today?"
-            )
-        if "contact" in q_lower or "reach" in q_lower or "call" in q_lower:
-            return (
-                "You can reach our support team through this chat, by email at support@parwa.buzz, "
-                "or by submitting a ticket through your dashboard. We're here 24/7 to help. "
-                "What can I assist you with?"
-            )
-        if "located" in q_lower or "based" in q_lower or "address" in q_lower:
-            return (
-                "PARWA is a cloud-based platform, so we're available wherever you are. "
-                "Our team operates globally to provide 24/7 support. "
-                "Is there anything specific I can help you with?"
-            )
-        # Generic fallback for simple questions
-        return (
-            "Great question! I'd be happy to help you with that. "
-            "Could you provide a bit more detail so I can give you the most accurate answer? "
-            "Alternatively, our support team is available 24/7 if you need immediate assistance."
+        # Tenant-specific facts must never be answered from a global canned template.
+        # This type is routed through the FULL path so Node 2 selects the tenant's
+        # agent and Node 3 retrieves the tenant's knowledge base.
+        raise ValueError(
+            "Business-specific questions require the tenant knowledge-backed pipeline"
         )
 
     # Fallback (shouldn't reach here for INSTANT lane)
