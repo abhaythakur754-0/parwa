@@ -449,18 +449,28 @@ async def delete_system(
 ) -> Dict[str, Any]:
     """Disconnect a system (delete from Superglue + remove MCPConnection if CRM)."""
     tenant_id = str(user.company_id)
-    result = await superglue_client.delete_system(system_id, tenant_id=tenant_id)
-    if not result.get("success"):
-        raise HTTPException(status_code=404, detail=result.get("error", "System not found"))
-
-    # Also remove the local Integration record
     integration = db.query(Integration).filter(
         Integration.company_id == tenant_id,
         Integration.integration_type == system_id,
     ).first()
-    if integration:
-        db.delete(integration)
-        db.commit()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
+    result = (
+        await superglue_client.delete_tenant_credentials(system_id, tenant_id)
+        if is_shared
+        else await superglue_client.delete_system(system_id, tenant_id=tenant_id)
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "Could not revoke integration credentials"),
+        )
+
+    integration_name = integration.name
+    db.delete(integration)
+    db.commit()
 
     # Also remove the MCPConnection record if this was a CRM
     if system_id in CRM_SYSTEM_IDS:
@@ -476,7 +486,7 @@ async def delete_system(
     if system_id in DATABASE_SYSTEM_IDS:
         db_conn = db.query(DBConnection).filter(
             DBConnection.company_id == tenant_id,
-            DBConnection.name.like(f"%({system_id})"),
+            DBConnection.name == integration_name,
         ).first()
         if db_conn:
             db.delete(db_conn)
