@@ -39,6 +39,7 @@ _KEYWORDS: dict[ActionSafetyLevel, list[str]] = {
     ActionSafetyLevel.WRITE: [
         "update", "modify", "change", "edit", "set", "create",
         "add", "assign", "send", "email", "sms", "notify",
+        "reply", "respond", "comment", "escalate", "escalation", "note", "resolve",
     ],
     ActionSafetyLevel.READ: [
         "get", "fetch", "list", "search", "query", "check",
@@ -69,7 +70,7 @@ def classify_action(tool_name: str, tool_description: str = "") -> ActionSafetyR
 
     Scans both *tool_name* and *tool_description* (case-insensitive).
     Returns the highest-severity match. Defaults to READ.
-    BC-008: never raises — returns READ on any error.
+    Classification failures are marked destructive so callers fail closed.
     """
     try:
         text = f"{tool_name} {tool_description}".lower()
@@ -100,10 +101,10 @@ def classify_action(tool_name: str, tool_description: str = "") -> ActionSafetyR
         )
     except Exception:
         return ActionSafetyResult(
-            level=ActionSafetyLevel.READ,
+            level=ActionSafetyLevel.DESTRUCTIVE,
             confidence=0.0,
             matched_keyword=None,
-            reasoning="Error during classification; defaulting to READ",
+            reasoning="Error during classification; blocking for manual review",
         )
 
 
