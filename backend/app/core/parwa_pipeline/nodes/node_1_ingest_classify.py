@@ -2370,7 +2370,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
     # gets the full benefit of those techniques.
     #
     # IMPORTANT: Lane detection runs BEFORE the UoT LLM call so that
-    # INSTANT lane tickets (gratitude, simple questions) can SKIP the
+    # INSTANT lane gratitude messages can SKIP the
     # LLM call entirely (0 API cost, ~2s response time). If the LLM
     # call fails, INSTANT lane tickets still get their canned response.
     conversation_summary = None  # initialized before try for BC-008 safety
@@ -2452,7 +2452,7 @@ async def node_1_ingest_classify(state: PipelineV2State) -> dict:
             "result_summary": f"message_type={message_type} lane={lane}",
         })
 
-        # For INSTANT lane, generate a canned response, set it as
+        # For INSTANT gratitude messages, generate a canned response, set it as
         # simple_answer, and SKIP the UoT LLM call (0 API cost).
         # The graph routes to finalize_simple which picks up simple_answer.
         instant_response = ""
