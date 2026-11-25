@@ -998,6 +998,17 @@ def _build_tool_instruction(
     if tenant_integrations:
         integ_list = ", ".join(tenant_integrations.keys())
         parts.append(f"Tenant has these integrations connected: {integ_list}.")
+        for integration_id, details in tenant_integrations.items():
+            if not isinstance(details, dict):
+                continue
+            schema = details.get("schema")
+            if schema and details.get("schema_ready", True):
+                # Schema metadata is filtered to table/column names upstream;
+                # never include credentials or sample row values in prompts.
+                parts.append(
+                    f"Verified read-only schema for {integration_id}: "
+                    f"{json.dumps(schema, ensure_ascii=False)[:5000]}"
+                )
 
     parts.append(
         "Design a multi-step tool that takes the customer's input (e.g. email, order ID) "
