@@ -249,6 +249,7 @@ async def trigger_build(
             agent = existing
             agent.agent_role = agent_role
             agent.capabilities = json.dumps(capabilities)
+            agent.instructions = agent_instructions
             agent.superglue_tool_status = "pending"
         else:
             agent = AIAgentAssignment(
@@ -380,6 +381,7 @@ async def get_build_status(
 
     agents = db.query(AIAgentAssignment).filter(
         AIAgentAssignment.company_id == tenant_id,
+        AIAgentAssignment.superglue_tool_status.in_(["active", "pending", "failed"]),
     ).all()
 
     agent_statuses: List[AgentBuildStatus] = []
