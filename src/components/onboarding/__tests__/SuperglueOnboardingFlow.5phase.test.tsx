@@ -106,9 +106,12 @@ async function completePhase1And2(expectRecommendation = true) {
   await waitFor(() => expect(screen.getByText(/Connect HubSpot/)).toBeInTheDocument());
   fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
   fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
-  // API key is REQUIRED now — empty-credential connects were a bug
   fireEvent.click(screen.getByText('Connect & Verify'));
-  if (expectRecommendation) {\n    await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());\n  } else {\n    await waitFor(() => expect(screen.getByText(MOCK_ANALYSIS.analysis_summary)).toBeInTheDocument());\n  }
+  if (expectRecommendation) {
+    await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
+  } else {
+    await waitFor(() => expect(screen.getByText(MOCK_ANALYSIS.analysis_summary)).toBeInTheDocument());
+  }
 }
 
 // Helper: connect + test a recommendation
