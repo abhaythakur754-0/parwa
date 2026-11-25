@@ -71,6 +71,32 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: MCP_SERVER_URL
+        sync: false
+      - key: MCP_AUTH_TOKEN
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
       - key: CORS_ORIGINS
         value: https://parwa.buzz,https://parwa.vercel.app
       - key: FRONTEND_URL
@@ -175,6 +201,24 @@ services:
       - key: PRICING_SIGNING_KEY
         sync: false
       - key: REFRESH_TOKEN_PEPPER
+        sync: false
+      - key: MCP_SERVER_URL
+        sync: false
+      - key: MCP_AUTH_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: SENTRY_DSN
         sync: false
       # ── LLM provider keys (CRITICAL) ──
       # The 8-node AI pipeline runs in THIS worker, not the web service.
