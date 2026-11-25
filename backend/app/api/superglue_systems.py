@@ -73,7 +73,10 @@ POPULAR_SYSTEMS: List[Dict[str, Any]] = [
     {"id": "pipedrive",    "name": "Pipedrive",         "icon": "🔄", "url_hint": "https://api.pipedrive.com",      "category": "CRM",           "auth_type": "api_key"},
 
     # ── E-commerce ──
-    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",    "auth_type": "oauth"},
+    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",    "auth_type": "oauth",
+     "auth_schema": [
+         {"key": "store", "label": "Store subdomain", "type": "text", "required": True, "placeholder": "mystore"},
+     ]},
 
     # ── Email (OAuth + API key + SMTP mix) ──
     {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email",         "auth_type": "oauth"},
@@ -99,7 +102,10 @@ POPULAR_SYSTEMS: List[Dict[str, Any]] = [
     # ── Dev Tools / Productivity ──
     {"id": "github",       "name": "GitHub",            "icon": "🐙", "url_hint": "https://api.github.com",         "category": "Dev Tools",     "auth_type": "oauth"},
     {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity",  "auth_type": "oauth"},
-    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "auth_type": "oauth"},
+    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "auth_type": "oauth",
+     "auth_schema": [
+         {"key": "subdomain", "label": "Atlassian site", "type": "text", "required": True, "placeholder": "mycompany"},
+     ]},
     {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics", "auth_type": "oauth"},
 
     # ── Databases (standard host/port form) ──
