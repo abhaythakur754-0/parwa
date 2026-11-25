@@ -16,13 +16,11 @@ import { SuperglueOnboardingFlow } from '../SuperglueOnboardingFlow';
 // ── Mock fetch ────────────────────────────────────────────────────────
 
 const MOCK_VERIFY_RESPONSE = {
-  verified: true,
-  superglue_ok: true,
-  mcp_registered: true,
+  works: true,
   system_id: 'hubspot',
-  name: 'My HubSpot',
-  url: 'https://api.hubapi.com',
-  message: 'CRM verified — connected to Superglue + registered with MCP',
+  status_code: 200,
+  tested_at: '2026-11-26T00:00:00Z',
+  message: 'Connection works (HTTP 200)',
 };
 
 const MOCK_ANALYSIS_RESPONSE = {
@@ -60,8 +58,8 @@ beforeEach(() => {
         }),
       });
     }
-    // POST /api/superglue/systems/hubspot/verify
-    if (url.includes('/systems/hubspot/verify') && opts?.method === 'POST') {
+    // POST /api/superglue/systems/hubspot/test
+    if (url.includes('/systems/hubspot/test') && opts?.method === 'POST') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(MOCK_VERIFY_RESPONSE),
@@ -222,7 +220,7 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
       if (url === '/api/superglue/systems' && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'hubspot', name: 'My HubSpot', url: '', icon: '', credentials: {}, metadata: {} }) });
       }
-      if (url.includes('/verify') && opts?.method === 'POST') {
+      if (url.includes('/test') && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_VERIFY_RESPONSE) });
       }
       if (url === '/api/integrations/analyze' && opts?.method === 'POST') {
