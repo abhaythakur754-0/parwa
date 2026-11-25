@@ -29,6 +29,8 @@ depends_on = None
 
 def upgrade() -> None:
     """Enable pgvector extension (idempotent)."""
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     # Add an index on the embedding column for cosine similarity queries.
     # The column is TEXT (storing "[0.1,0.2,...]" literals); the cast
@@ -46,4 +48,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the index (keep the extension — other features may depend on it)."""
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute("DROP INDEX IF EXISTS ix_document_chunks_embedding_vector;")
