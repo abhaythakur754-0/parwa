@@ -19,7 +19,7 @@ export type TicketCategory =
   | 'fraud_security';
 
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
-export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed' | 'awaiting_client' | 'crm_pending' | 'review_needed';
+export type TicketStatus = 'open' | 'assigned' | 'in_progress' | 'awaiting_client' | 'awaiting_human' | 'crm_pending' | 'resolved' | 'reopened' | 'closed' | 'frozen' | 'queued' | 'stale' | 'processing' | 'review_needed';
 export type TicketChannel = 'email' | 'chat' | 'sms' | 'voice';
 export type TicketVariant = 'light' | 'medium' | 'heavy';
 export type MessageSender = 'customer' | 'ai_agent' | 'human_agent' | 'system';
@@ -109,6 +109,13 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   awaiting_client: 'Awaiting Client',
   crm_pending: 'Waiting for CRM',
   review_needed: 'Needs Review',
+  assigned: 'Assigned',
+  awaiting_human: 'Awaiting Human',
+  reopened: 'Reopened',
+  frozen: 'Frozen',
+  queued: 'Queued',
+  stale: 'Stale',
+  processing: 'AI Processing',
 };
 
 export const CHANNEL_LABELS: Record<TicketChannel, string> = {
@@ -137,6 +144,12 @@ export const ALL_CATEGORIES: TicketCategory[] = [
 ];
 
 export const ALL_STATUSES: TicketStatus[] = [
+  'open', 'assigned', 'in_progress', 'awaiting_client', 'awaiting_human', 'crm_pending',
+  'resolved', 'reopened', 'closed', 'frozen', 'queued', 'stale', 'processing', 'review_needed',
+];
+
+// States an administrator may set manually. Worker-owned lifecycle states stay read-only.
+export const EDITABLE_STATUSES: TicketStatus[] = [
   'open', 'in_progress', 'resolved', 'closed', 'awaiting_client', 'crm_pending',
 ];
 
@@ -794,7 +807,7 @@ interface BackendTicketResponse {
   kb_article_id?: string | null;
 }
 
-function normalizeBackendTicket(raw: BackendTicketResponse): Ticket {
+export function normalizeBackendTicket(raw: BackendTicketResponse): Ticket {
   // Validate enum fields; fall back to safe defaults if backend sends unknown values
   const validCategories: TicketCategory[] = ALL_CATEGORIES;
   const validPriorities: TicketPriority[] = ALL_PRIORITIES;
