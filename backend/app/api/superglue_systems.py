@@ -236,15 +236,18 @@ async def create_system(
     tenant_id = str(user.company_id)
     is_database = req.system_id in DATABASE_SYSTEM_IDS
 
-    # Do not create a false "connected" system with empty OAuth/API credentials.
-    # This deployment uses provider-issued tokens; the OAuth redirect/callback
-    # flow is not yet available in the Superglue adapter.
-    if not is_database and not any(
+    system_definition = next(
+        (item for item in POPULAR_SYSTEMS if item["id"] == req.system_id),
+        {},
+    )
+    auth_type = system_definition.get("auth_type", "api_key")
+    has_provider_credentials = any(
         str(value).strip() for value in (req.credentials or {}).values() if value is not None
-    ):
+    )
+    if not is_database and auth_type != "oauth" and not has_provider_credentials:
         raise HTTPException(
             status_code=422,
-            detail="Provider credentials are required. Complete the provider authorization or paste a valid access token/API key.",
+            detail="Provider credentials are required for this integration.",
         )
 
     # For databases, build the URL + credentials from the DB-specific fields
@@ -281,6 +284,20 @@ async def create_system(
         req.metadata["system_type"] = "database"
         req.metadata["db_type"] = db_type
 
+    # Provision a separate Superglue service account for each tenant. The
+    # global admin token must never own customer credentials or OAuth tokens.
+    from app.core.superglue_tenant_accounts import get_or_create_tenant_account
+    tenant_account = await get_or_create_tenant_account(db, tenant_id)
+    if not tenant_account.get("success"):
+        raise HTTPException(
+            status_code=503,
+            detail=tenant_account.get("error", "Could not provision integration credentials"),
+        )
+
+    if not req.metadata:
+        req.metadata = {}
+    req.metadata["auth_type"] = auth_type
+
     result = await superglue_client.create_system(
         system_id=req.system_id,
         name=req.name,
@@ -290,6 +307,7 @@ async def create_system(
         metadata=req.metadata,
         icon=req.icon,
         specific_instructions=req.specific_instructions,
+        customer_api_key=tenant_account["api_key"],
     )
     if not result.get("success"):
         raw_error = str(result.get("error", "unknown"))
@@ -313,6 +331,7 @@ async def create_system(
         name=req.name,
         credentials=req.credentials,
         settings=req.metadata or {},
+        status="pending_oauth" if auth_type == "oauth" else "connected",
     )
 
     # If this is a CRM system, ALSO register an MCPConnection
@@ -579,7 +598,7 @@ def _upsert_mcp_connection(
             name=full_name,
             server_url=server_url,
             auth_token_encrypted=encrypt_token(auth_token) if auth_token else None,
-            status="connected",
+            status=status,
             capabilities=json.dumps(["crm"]),
         )
         db.add(mcp)
@@ -599,6 +618,7 @@ def _upsert_integration(
     name: str,
     credentials: Optional[Dict[str, Any]] = None,
     settings: Optional[Dict[str, Any]] = None,
+    status: str = "connected",
 ) -> Integration:
     """Create or update an Integration record.
 
@@ -627,7 +647,7 @@ def _upsert_integration(
     if integration:
         # Update existing
         integration.name = name
-        integration.status = "connected"
+        integration.status = status
         if creds_encrypted:
             integration.credentials_encrypted = creds_encrypted
         integration.settings = settings_json
