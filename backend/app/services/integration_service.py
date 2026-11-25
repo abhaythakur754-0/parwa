@@ -304,7 +304,7 @@ class IntegrationService:
 
         Lookup rules:
           - Scope by company_id + integration_type + connected status
-          - Accept legacy "active" and Superglue "connected"/"verified" rows
+          - Accept only "active"/"verified" rows; "connected" is not tested yet
           - If multiple rows exist, return the most recently updated
           - Returns None if no connected integration is found
           - NEVER expose this via a public API endpoint — internal callers only
