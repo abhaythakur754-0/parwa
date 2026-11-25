@@ -1286,6 +1286,7 @@ def resume_pipeline(
     from database.models.tickets import Ticket
     ticket = db.query(Ticket).filter(
         Ticket.id == ticket_id,
+        Ticket.company_id == current_user.company_id,
     ).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
