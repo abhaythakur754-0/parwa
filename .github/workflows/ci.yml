@@ -49,6 +49,14 @@ jobs:
           pip install flake8 pytest pytest-asyncio maturin
           pip install -r requirements.txt
 
+      - name: Verify Alembic schema migrations on SQLite
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: sqlite:///./migration-ci.db
+        run: |
+          alembic -c database/alembic.ini upgrade head
+          python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('sqlite:///./migration-ci.db')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('Alembic schema is current and emergency pause storage exists')"
+
       - name: Build Rust parwa_core (MANDATORY — fail CI if it doesn't compile)
         run: |
           cd parwa_core
