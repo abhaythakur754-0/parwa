@@ -485,15 +485,17 @@ PHASES = [phase0_health, phase1_toolset, phase2_crm, phase3_builder, phase4_self
 
 
 def main():
-    if not ALLOW_MUTATIONS:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--phase", type=int, choices=range(0, 7), help="run a single phase")
+    args = ap.parse_args()
+    # Health checks are read-only. Every other phase uploads test data or
+    # creates/executes external tools, so require explicit sandbox opt-in.
+    if (args.phase is None or args.phase != 0) and not ALLOW_MUTATIONS:
         raise SystemExit(
             "Refusing to mutate external test tenants. Set PARWA_E2E_ALLOW_MUTATIONS=true "
             "only when SUPERGLUE, BUILDER_API_URL and CRM_ANALYSER_URL point to approved "
             "sandbox/test services and the demo tenants are reserved for this test."
         )
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", type=int, choices=range(0, 7), help="run a single phase")
-    args = ap.parse_args()
     if args.phase is not None:
         ok = PHASES[args.phase]()
     else:
