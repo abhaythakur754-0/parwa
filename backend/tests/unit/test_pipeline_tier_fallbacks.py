@@ -100,3 +100,15 @@ async def test_reasoning_synthesis_receives_selected_tenant_agent_rules(monkeypa
     assert "Returns Specialist" in captured["prompt"]
     assert "Use a warm, concise tone" in captured["prompt"]
     assert "Never promise a refund before inspection" in captured["prompt"]
+
+
+def test_pipeline_state_declares_selected_agent_guidance_fields():
+    from app.core.parwa_pipeline.state_v2 import PipelineV2State
+
+    declared = PipelineV2State.__annotations__
+    assert {
+        "selected_agent_name",
+        "selected_agent_domain",
+        "agent_instructions",
+        "agent_restrictions",
+    }.issubset(declared)
