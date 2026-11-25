@@ -1,11 +1,11 @@
 /**
- * SHOBH LockedFeature Component — Unit Tests
+ * PARWA LockedFeature Component — Unit Tests
  *
  * Tests tier gating, upgrade CTA, custom fallback,
  * TierBadge, and InlineLock sub-components.
  *
  * Tier model: parwa ($2,999/mo) | high ($3,999/mo)
- * Mini SHOBH was removed — legacy 'mini' values auto-upgrade to 'parwa'.
+ * Mini PARWA was removed — legacy 'mini' values auto-upgrade to 'parwa'.
  */
 
 import React from 'react';
@@ -27,12 +27,12 @@ describe('LockedFeature', () => {
 
       render(
         <LockedFeature requiredTier="parwa">
-          <div data-testid="child-content">Shobh Feature</div>
+          <div data-testid="child-content">PARWA Feature</div>
         </LockedFeature>
       );
 
       expect(screen.getByTestId('child-content')).toBeInTheDocument();
-      expect(screen.getByText('Shobh Feature')).toBeInTheDocument();
+      expect(screen.getByText('PARWA Feature')).toBeInTheDocument();
     });
 
     it('renders children when high user accesses parwa feature', () => {
@@ -100,7 +100,7 @@ describe('LockedFeature', () => {
         </LockedFeature>
       );
 
-      expect(screen.getByText('SHOBH High')).toBeInTheDocument();
+      expect(screen.getByText('PARWA High')).toBeInTheDocument();
       expect(screen.getByText(/\$3,999\/mo/)).toBeInTheDocument();
     });
 
@@ -150,7 +150,7 @@ describe('LockedFeature', () => {
 
       render(
         <LockedFeature requiredTier="parwa" fallback={<div data-testid="custom-fallback">Fallback</div>}>
-          <div data-testid="child-content">Shobh Feature</div>
+          <div data-testid="child-content">PARWA Feature</div>
         </LockedFeature>
       );
 
@@ -178,7 +178,7 @@ describe('LockedFeature', () => {
 
       render(
         <LockedFeature requiredTier="parwa" showUpgrade={false}>
-          <div data-testid="child-content">Shobh Feature</div>
+          <div data-testid="child-content">PARWA Feature</div>
         </LockedFeature>
       );
 
@@ -207,17 +207,17 @@ describe('TierBadge', () => {
     const { container } = render(<TierBadge requiredTier="high" />);
 
     expect(container.querySelector('svg.lucide-lock')).toBeInTheDocument();
-    // getTierLabel('high').split(' ')[0] = 'SHOBH'
-    expect(screen.getByText('SHOBH')).toBeInTheDocument();
+    // getTierLabel('high').split(' ')[0] = 'PARWA'
+    expect(screen.getByText('PARWA')).toBeInTheDocument();
   });
 
-  it('shows "SHOBH" label for high-tier badge', () => {
+  it('shows "PARWA" label for high-tier badge', () => {
     useVariantStore.getState().setTier('parwa');
 
     render(<TierBadge requiredTier="high" />);
 
-    // getTierLabel('high').split(' ')[0] = 'SHOBH'
-    expect(screen.getByText('SHOBH')).toBeInTheDocument();
+    // getTierLabel('high').split(' ')[0] = 'PARWA'
+    expect(screen.getByText('PARWA')).toBeInTheDocument();
   });
 });
 
@@ -249,6 +249,6 @@ describe('InlineLock', () => {
     const { container } = render(<InlineLock requiredTier="high" />);
 
     const lockElement = container.querySelector('svg.lucide-lock')?.closest('span');
-    expect(lockElement).toHaveAttribute('title', 'Requires SHOBH High ($3,999/mo)');
+    expect(lockElement).toHaveAttribute('title', 'Requires PARWA High ($3,999/mo)');
   });
 });
