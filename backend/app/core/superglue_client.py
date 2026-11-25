@@ -402,6 +402,12 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         from database.models.core import SuperglueCallQueue
         _qdb = SessionLocal()
         try:
+            if tenant_id and _qdb.bind and _qdb.bind.dialect.name == "postgresql":
+                from sqlalchemy import text as _tenant_sql
+                _qdb.execute(
+                    _tenant_sql("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                    {"tenant_id": tenant_id},
+                )
             _qrow = SuperglueCallQueue(
                 id=_call_id,
                 company_id=tenant_id,
@@ -464,7 +470,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
             if status == "success":
                 # ── SUCCESS: delete from queue (user's 'delete that' vision) ──
                 if _call_persisted:
-                    _delete_superglue_call_row(_call_id)
+                    _delete_superglue_call_row(_call_id, tenant_id)
                 return {
                     "success": True,
                     "data": result.get("data"),
@@ -505,7 +511,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
 
         # ── FAILURE: mark in DB for audit (don't delete — keep for recovery) ──
         if _call_persisted:
-            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}: {res.text[:200]}")
+            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}: {res.text[:200]}", tenant_id)
         return {
             "success": False,
             "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
@@ -516,20 +522,26 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         logger.error("superglue_execute_tool error: %s", str(exc)[:200])
         # Mark failed in DB (Render might have restarted mid-call)
         if _call_persisted:
-            _mark_superglue_call_failed(_call_id, str(exc)[:200])
+            _mark_superglue_call_failed(_call_id, str(exc)[:200], tenant_id)
         return {"success": False, "error": str(exc)[:200], "tool_id": tool_id}
 
 
 # ── DB queue helpers for Superglue calls (small + surgical) ────────────
 
-def _delete_superglue_call_row(call_id: str) -> None:
+def _delete_superglue_call_row(call_id: str, tenant_id: Optional[str] = None) -> None:
     """Delete a completed Superglue call from the queue."""
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
+        from sqlalchemy import text
         _db = SessionLocal()
         try:
-            _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).delete()
+            if tenant_id and _db.bind and _db.bind.dialect.name == "postgresql":
+                _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+            query = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id)
+            if tenant_id:
+                query = query.filter(SuperglueCallQueue.company_id == tenant_id)
+            query.delete()
             _db.commit()
         finally:
             _db.close()
@@ -537,15 +549,21 @@ def _delete_superglue_call_row(call_id: str) -> None:
         logger.warning("superglue_call_delete_failed: %s", str(exc)[:200])
 
 
-def _mark_superglue_call_failed(call_id: str, error: str) -> None:
+def _mark_superglue_call_failed(call_id: str, error: str, tenant_id: Optional[str] = None) -> None:
     """Mark a Superglue call as failed (kept in DB for audit + recovery)."""
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
         from datetime import datetime, timezone
+        from sqlalchemy import text
         _db = SessionLocal()
         try:
-            row = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).first()
+            if tenant_id and _db.bind and _db.bind.dialect.name == "postgresql":
+                _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+            query = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id)
+            if tenant_id:
+                query = query.filter(SuperglueCallQueue.company_id == tenant_id)
+            row = query.first()
             if row:
                 row.status = "failed"
                 row.error_message = error[:500]
