@@ -2250,11 +2250,16 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
       - needs_approval (bool): whether this action requires human approval
       - guardrail_result (dict|None): raw guardrail result if applicable
 
-    BC-008: never crashes — returns {blocked: False} on any error so
-    execution proceeds as normal.
+    Safety validation is fail-closed: if classification or guardrail checks
+    are unavailable, the action is blocked and must be reviewed manually.
     """
-    default = {"blocked": False, "reason": "", "safety_level": "read",
-               "needs_approval": False, "guardrail_result": None}
+    default = {
+        "blocked": True,
+        "reason": "Safety validation unavailable; action blocked for manual review",
+        "safety_level": "unknown",
+        "needs_approval": True,
+        "guardrail_result": None,
+    }
     try:
         from app.core.action_safety import classify_action, needs_approval as _needs_approval
         from app.core.action_safety import ActionSafetyLevel
@@ -2288,7 +2293,7 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
                 "safety_level": safety.level.value, "needs_approval": approval,
                 "guardrail_result": guardrail_result}
     except Exception as exc:
-        logger.debug("action_safety_gate_error: %s", str(exc)[:150])
+        logger.error("action_safety_gate_error: %s", str(exc)[:150])
         return default
 
 
