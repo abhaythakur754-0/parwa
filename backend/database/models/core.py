@@ -512,3 +512,29 @@ class SuperglueCallQueue(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                        onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+
+
+
+class TicketToolExecution(Base):
+    """Tenant-scoped idempotency ledger for external agent side effects.
+
+    The ledger intentionally stores no raw tool inputs or customer payloads.
+    A reservation is committed before a Superglue call and retained when the
+    outcome is failed or ambiguous to prevent duplicate external actions.
+    """
+    __tablename__ = "ticket_tool_executions"
+
+    idempotency_key = Column(String(512), primary_key=True, nullable=False)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    ticket_id = Column(String(128), nullable=False, index=True)
+    tool_id = Column(String(255), nullable=False)
+    action = Column(String(100), nullable=True)
+    status = Column(String(24), nullable=False, default="completed", index=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    executed_at = Column(DateTime, nullable=True)
