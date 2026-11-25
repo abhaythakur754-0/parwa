@@ -67,71 +67,170 @@ _CAPABILITY_MATRIX = {
 # If extraction fails, falls back to the LLM-selection path.
 
 
-def _extract_tool_inputs(details: Dict, action: str, knowledge: str) -> Dict[str, Any]:
-    """Extract common tool inputs from ticket details + knowledge text.
+def _extract_tool_inputs(
+    details: Dict,
+    action: str,
+    knowledge: str,
+    tool_definition: Optional[Dict[str, Any]] = None,
+    crm_data: Optional[Dict[str, Any]] = None,
+    ticket_id: str = "",
+) -> Dict[str, Any]:
+    """Map ticket/CRM context into the exact generated tool input schema.
 
-    Looks for: emails, transaction IDs, order numbers, amounts, customer names.
-    Returns a dict suitable for Superglue execute_tool(input_data).
+    Unknown required fields are returned as _missing_required so callers can
+    ask for information instead of executing a tool with guessed parameters.
     """
     import re
+    import json
 
-    inputs: Dict[str, Any] = {}
+    details = details if isinstance(details, dict) else {}
+    crm_data = crm_data if isinstance(crm_data, dict) else {}
+    text = " ".join([str(details), str(crm_data), knowledge or "", action or ""])
 
-    # Combine all available text to scan
-    text = " ".join([
-        str(details or {}),
-        knowledge or "",
-        action or "",
-    ])
-
-    # Email
     email_match = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', text)
-    if email_match:
-        inputs["customerEmail"] = email_match.group(0).rstrip(".")
+    email = email_match.group(0).rstrip(".") if email_match else None
 
-    # Transaction ID (txn_xxx, ch_xxx, pi_xxx for Stripe/Paddle)
     txn_match = re.search(r'\b(txn_|ch_|pi_|re_|sub_|ctm_)[A-Za-z0-9]{6,}', text)
-    if txn_match:
-        inputs["transactionId"] = txn_match.group(0)
+    transaction_id = txn_match.group(0) if txn_match else None
 
-    # Order number (#1234, ORD-1234, order 1234)
-    order_match = re.search(r'(?:order|ord|#)\s*[-:]?\s*([A-Z0-9]{4,12})', text, re.IGNORECASE)
-    if order_match:
-        inputs["orderNumber"] = order_match.group(1)
+    order_match = re.search(
+        r'(?:order|ord|#)\s*[-:]?\s*([A-Z0-9]{4,12})', text, re.IGNORECASE
+    )
+    order_number = order_match.group(1) if order_match else None
 
-    # Amount ($50, $99.99, 100 cents)
-    # 2026-10 FIX: prefer the currency-anchored amount Node 1 already
-    # extracted (details["amount"]). The old regex re-scanned the combined
-    # text — including KB knowledge — and grabbed unrelated "$" amounts
-    # (e.g. "$500" from pricing docs) as the refund amount.
-    _details_amount = details.get("amount") if isinstance(details, dict) else None
-    if _details_amount:
+    amount_cents = None
+    raw_amount = details.get("amount")
+    if raw_amount not in (None, ""):
         try:
-            inputs["amount"] = int(round(float(_details_amount) * 100))
+            amount_cents = int(round(float(raw_amount) * 100))
         except (TypeError, ValueError):
-            pass
-    amount_match = re.search(r'\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)', text)
-    if amount_match and "amount" not in inputs:
-        # Convert dollars to cents (Superglue tools expect cents).
-        # 2026-11 live-test fix: comma-formatted amounts ("$4,500") used to
-        # parse as "$4" and slip past the tier refund limit.
-        try:
-            dollars = float(amount_match.group(1).replace(",", ""))
-            inputs["amount"] = int(dollars * 100)
-        except ValueError:
-            pass
+            amount_cents = None
+    if amount_cents is None:
+        amount_match = re.search(
+            r'\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)', text
+        )
+        if amount_match:
+            try:
+                amount_cents = int(float(amount_match.group(1).replace(",", "")) * 100)
+            except ValueError:
+                pass
 
-    # Customer name (heuristic: "my name is X" or "I'm X")
-    name_match = re.search(r'(?:my name is|i am|i\'m)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', text)
-    if name_match:
-        inputs["customerName"] = name_match.group(1)
-
-    # Date (next Tuesday, tomorrow, 2024-01-15)
+    name_match = re.search(
+        r'(?:my name is|i am|i\'m)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', text
+    )
+    customer_name = name_match.group(1) if name_match else None
     date_match = re.search(r'\b(\d{4}-\d{2}-\d{2})\b', text)
-    if date_match:
-        inputs["dateTime"] = date_match.group(1)
+    date_value = date_match.group(1) if date_match else None
+    phone_match = re.search(r'\+?\d[\d\s().-]{7,}\d', text)
+    phone_value = re.sub(r'\s+', '', phone_match.group(0)) if phone_match else None
 
-    return inputs
+    base: Dict[str, Any] = {}
+    if email:
+        base["customerEmail"] = email
+        base["email"] = email
+    if transaction_id:
+        base["transactionId"] = transaction_id
+        base["transaction_id"] = transaction_id
+        base["payment_id"] = transaction_id
+    if order_number:
+        base["orderNumber"] = order_number
+        base["order_number"] = order_number
+        base["order_id"] = order_number
+    if amount_cents is not None:
+        base["amount"] = amount_cents
+        base["amount_cents"] = amount_cents
+    if customer_name:
+        base["customerName"] = customer_name
+        base["customer_name"] = customer_name
+    if date_value:
+        base["dateTime"] = date_value
+        base["date"] = date_value
+    if phone_value:
+        base["phone"] = phone_value
+    if ticket_id:
+        base["ticket_id"] = ticket_id
+        base["ticketId"] = ticket_id
+
+    def _normalise_key(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+    def _lookup(source: Any, key: str) -> Any:
+        target = _normalise_key(key)
+        if isinstance(source, dict):
+            for source_key, value in source.items():
+                if _normalise_key(source_key) == target and value not in (None, ""):
+                    return value
+            for nested in source.values():
+                if isinstance(nested, dict):
+                    value = _lookup(nested, key)
+                    if value not in (None, ""):
+                        return value
+        return None
+
+    if isinstance(tool_definition, str):
+        try:
+            tool_definition = json.loads(tool_definition)
+        except (TypeError, ValueError):
+            tool_definition = {}
+    definition = tool_definition if isinstance(tool_definition, dict) else {}
+    schema = None
+    for candidate in (
+        definition.get("inputSchema"),
+        definition.get("input_schema"),
+        definition.get("parameters"),
+        definition.get("inputParameters"),
+        definition.get("input_parameters"),
+    ):
+        if isinstance(candidate, dict) and (
+            isinstance(candidate.get("properties"), dict) or isinstance(candidate.get("required"), list)
+        ):
+            schema = candidate
+            break
+    if schema is None and isinstance(definition.get("tool_definition"), dict):
+        nested = definition["tool_definition"]
+        schema = nested.get("inputSchema") or nested.get("input_schema") or nested.get("parameters")
+
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return base
+
+    mapped: Dict[str, Any] = {}
+    for key, spec in schema["properties"].items():
+        spec = spec if isinstance(spec, dict) else {}
+        value = _lookup(details, key) or _lookup(crm_data, key) or _lookup(base, key)
+        norm = _normalise_key(key)
+        if value in (None, ""):
+            if "email" in norm:
+                value = email
+            elif any(part in norm for part in ("transaction", "paymentid", "refundid", "chargeid", "subscriptionid")):
+                value = transaction_id
+            elif "order" in norm:
+                value = order_number
+            elif "amount" in norm:
+                value = amount_cents
+            elif "ticket" in norm and "id" in norm:
+                value = ticket_id
+            elif any(part in norm for part in ("customername", "fullname", "contactname")):
+                value = customer_name
+            elif "phone" in norm or "mobile" in norm:
+                value = phone_value
+            elif "date" in norm or "time" in norm:
+                value = date_value
+            elif any(part in norm for part in ("reason", "description", "comment", "message", "note")):
+                value = details.get("description") or details.get("message") or action
+            elif "currency" in norm:
+                value = details.get("currency") or _lookup(crm_data, "currency")
+            elif norm in ("limit", "pagesize", "perpage") and "required" not in schema.get("required", []):
+                value = spec.get("default", 10)
+        if value not in (None, ""):
+            mapped[key] = value
+        elif "default" in spec:
+            mapped[key] = spec["default"]
+
+    required = schema.get("required", [])
+    missing = [key for key in required if key not in mapped or mapped[key] in (None, "")]
+    if missing:
+        mapped["_missing_required"] = missing
+    return mapped
 
 
 # ── Rule-based action check (non-LLM) ─────────────────────────────
