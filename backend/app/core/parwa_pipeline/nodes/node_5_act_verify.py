@@ -383,6 +383,9 @@ async def _execute_real_refund(
     # Load the tenant's Stripe credentials
     db = SessionLocal()
     try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant_id)})
         service = IntegrationService(db)
         creds = service.get_credential_config(tenant_id, "stripe")
         if not creds or not creds.get("api_key"):
@@ -512,6 +515,9 @@ THOUGHT:"""
                     from database.models.variant_engine import AIAgentAssignment
                     _db = SessionLocal()
                     try:
+                        if getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            from sqlalchemy import text
+                            _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant_id)})
                         _agent = _db.query(AIAgentAssignment).filter(
                             AIAgentAssignment.id == routed_agent_id,
                             AIAgentAssignment.company_id == tenant_id,
