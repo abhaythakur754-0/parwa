@@ -521,11 +521,18 @@ THOUGHT:"""
                             # Tool exists and active — use it
                             # Initialize variables that might be used in approval gate
                             _tool_id = _agent.superglue_tool_id
+                            _agent_tool_definition = _agent.superglue_tool_definition or {}
+                            if isinstance(_agent_tool_definition, str):
+                                try:
+                                    _agent_tool_definition = json.loads(_agent_tool_definition)
+                                except (TypeError, ValueError):
+                                    _agent_tool_definition = {}
+                            _agent_tool_description = str(_agent_tool_definition.get("description") or "")
                             _tool_input = _extract_tool_inputs(
                                 details,
                                 action,
                                 knowledge,
-                                tool_definition=_agent.superglue_tool_definition,
+                                tool_definition=_agent_tool_definition,
                                 crm_data=crm_data,
                                 ticket_id=state.get("ticket_id", ""),
                             )
@@ -572,7 +579,7 @@ THOUGHT:"""
                                     _ticket_id_5 = state.get("ticket_id", "")
                                     _idem_key = f"{_ticket_id_5}:{_tool_id}:{action}"
                                     result = await _execute_with_idempotency(
-                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id
+                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id, _agent_tool_description
                                     )
                             else:
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
@@ -601,7 +608,7 @@ THOUGHT:"""
                                     result = await _execute_with_idempotency(
                                         _tool_id, _tool_input,
                                         f"{state.get('ticket_id','')}:{_tool_id}:{action}",
-                                        state.get("ticket_id",""), action, tenant_id
+                                        state.get("ticket_id",""), action, tenant_id, _agent_tool_description
                                     )
 
                             # If approval was required by agent config, observation is already set — skip result check
@@ -719,11 +726,18 @@ THOUGHT:"""
                                     _f_agent.superglue_tool_status = "active"
                                     _f_db.commit()
                                     _forge_tool_id = _forge["tool_id"]
+                                    _forge_tool_definition = _forge.get("tool_definition") or {}
+                                    if isinstance(_forge_tool_definition, str):
+                                        try:
+                                            _forge_tool_definition = json.loads(_forge_tool_definition)
+                                        except (TypeError, ValueError):
+                                            _forge_tool_definition = {}
+                                    _forge_tool_description = str(_forge_tool_definition.get("description") or "")
                                     _forge_input = _extract_tool_inputs(
                                         details,
                                         action,
                                         knowledge,
-                                        tool_definition=_forge.get("tool_definition"),
+                                        tool_definition=_forge_tool_definition,
                                         crm_data=crm_data,
                                         ticket_id=state.get("ticket_id", ""),
                                     )
@@ -731,7 +745,7 @@ THOUGHT:"""
                                     _forge_result = await _execute_with_idempotency(
                                         _forge_tool_id, _forge_input,
                                         f"{_forge_ticket}:{_forge_tool_id}:{action}",
-                                        _forge_ticket, action, tenant_id,
+                                        _forge_ticket, action, tenant_id, _forge_tool_description,
                                     )
                                 if _forge_result and _forge_result.get("needs_customer_info"):
                                     state["needs_customer_info"] = True
