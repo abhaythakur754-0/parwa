@@ -683,15 +683,21 @@ export const useTicketStore = create<TicketState>((set, get) => ({
    */
   stopAllAgents: () => {
     set({ agentStopped: true });
-    // Also mark all in-progress tickets as stopped
+    const activeIds = get().tickets
+      .filter((ticket) => ['open', 'in_progress', 'processing'].includes(ticket.status))
+      .map((ticket) => ticket.id);
     set((s) => ({
-      tickets: s.tickets.map((t) =>
-        t.status === 'open' || t.status === 'in_progress'
-          ? { ...t, agent_stopped: true, updated_at: new Date().toISOString() }
-          : t
+      tickets: s.tickets.map((ticket) =>
+        activeIds.includes(ticket.id)
+          ? { ...ticket, agent_stopped: true, updated_at: new Date().toISOString() }
+          : ticket
       ),
     }));
-    toast.success('All agents stopped — processing halted');
+    for (const id of activeIds) {
+      void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: true })
+        .then((ok) => { if (!ok) void syncFromBackend(); });
+    }
+    toast.success(`Stopping AI processing for ${activeIds.length} active tickets`);
   },
 
   /**
@@ -699,13 +705,19 @@ export const useTicketStore = create<TicketState>((set, get) => ({
    */
   resumeAllAgents: () => {
     set({ agentStopped: false });
-    // Clear stop flags on tickets
+    const stoppedIds = get().tickets.filter((ticket) => ticket.agent_stopped).map((ticket) => ticket.id);
     set((s) => ({
-      tickets: s.tickets.map((t) =>
-        t.agent_stopped ? { ...t, agent_stopped: false, updated_at: new Date().toISOString() } : t
+      tickets: s.tickets.map((ticket) =>
+        ticket.agent_stopped
+          ? { ...ticket, agent_stopped: false, updated_at: new Date().toISOString() }
+          : ticket
       ),
     }));
-    toast.success('Agents resumed — processing active');
+    for (const id of stoppedIds) {
+      void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: false })
+        .then((ok) => { if (!ok) void syncFromBackend(); });
+    }
+    toast.success(`Resuming AI processing for ${stoppedIds.length} tickets`);
   },
 
   /**
