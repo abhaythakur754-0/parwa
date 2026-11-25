@@ -83,6 +83,11 @@ class TestNamespacedToolId:
         result = namespaced_tool_id(tool_id, "tenant-abc")
         assert result == tool_id  # unchanged
 
+    def test_rejects_another_tenants_namespace(self):
+        import pytest
+        with pytest.raises(ValueError, match="different tenant"):
+            namespaced_tool_id("tenant_tenant-b__refund-by-email", "tenant-a")
+
     def test_no_tenant_returns_raw(self):
         result = namespaced_tool_id("refund-by-email", "")
         assert result == "refund-by-email"
