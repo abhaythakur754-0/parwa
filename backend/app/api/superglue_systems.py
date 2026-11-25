@@ -676,8 +676,9 @@ def _upsert_integration(
 
     # Encrypt credentials if provided
     creds_encrypted = None
-    if credentials:
-        # Store the whole credentials dict as encrypted JSON
+    if credentials is not None:
+        # Store the whole credentials dict as encrypted JSON. An empty OAuth
+        # dict intentionally clears any stale API-key credentials on reconnect.
         creds_encrypted = encrypt_token(json.dumps(credentials))
 
     settings_json = json.dumps(settings or {})
@@ -686,7 +687,7 @@ def _upsert_integration(
         # Update existing
         integration.name = name
         integration.status = status
-        if creds_encrypted:
+        if credentials is not None:
             integration.credentials_encrypted = creds_encrypted
         integration.settings = settings_json
         integration.error_message = None
