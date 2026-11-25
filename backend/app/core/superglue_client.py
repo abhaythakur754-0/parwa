@@ -865,26 +865,12 @@ async def create_system(
     credential_url: Optional[str] = None,
     template_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create a system (connected app) in Superglue.
-
-    Args:
-        system_id: Raw system ID (e.g. "shopify-store"). Will be namespaced.
-        name: Human-readable name (e.g. "My Shopify Store").
-        url: Base URL of the external system (e.g. "https://mystore.myshopify.com").
-        tenant_id: Tenant UUID for namespacing. Strongly recommended.
-        credentials: Optional auth credentials (api_key, oauth_token, etc.).
-        metadata: Optional freeform metadata.
-        icon: Optional emoji/icon string.
-        specific_instructions: Optional notes for Superglue's LLM.
-
-    Returns: {"success": bool, "data": {...}, "error": str?}
-    """
+    """Create/reuse a system definition and store secrets under a tenant key."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
 
-    cfg_url, token = _get_config()
+    cfg_url, admin_token = _get_config()
     actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-
     payload: Dict[str, Any] = {
         "id": actual_id,
         "name": name,
@@ -899,28 +885,37 @@ async def create_system(
 
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            res = await client.post(
+            response = await client.post(
                 f"{cfg_url}/v1/systems",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
+                headers={
+                    "Authorization": f"Bearer {admin_token}",
+                    "Content-Type": "application/json",
+                    **_session_headers(),
+                },
                 json=payload,
             )
-        if res.status_code in (200, 201):
-            data = res.json()
-            system_data = data.get("data", data)
-        elif res.status_code == 409:
-            # Shared provider system definitions are created once per org.
-            existing_response = await client.get(
-                f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}", **_session_headers()},
-            )
-            if existing_response.status_code != 200:
-                return {"success": False, "error": f"System definition conflict (HTTP {res.status_code})"}
-            existing_payload = existing_response.json()
-            system_data = existing_payload.get("data", existing_payload)
-        else:
-            return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
+            if response.status_code in (200, 201):
+                response_payload = response.json()
+                system_data = response_payload.get("data", response_payload)
+            elif response.status_code == 409:
+                existing_response = await client.get(
+                    f"{cfg_url}/v1/systems/{actual_id}",
+                    headers={"Authorization": f"Bearer {admin_token}", **_session_headers()},
+                )
+                if existing_response.status_code != 200:
+                    return {
+                        "success": False,
+                        "error": f"System definition conflict (HTTP {response.status_code})",
+                    }
+                existing_payload = existing_response.json()
+                system_data = existing_payload.get("data", existing_payload)
+            else:
+                return {
+                    "success": False,
+                    "error": f"HTTP {response.status_code}: {response.text[:200]}",
+                }
 
-        if credentials:
+            if credentials:
                 tenant_token = customer_api_key or _get_tenant_api_key(tenant_id)
                 if not tenant_token:
                     return {
@@ -949,6 +944,7 @@ async def create_system(
                         "success": False,
                         "error": f"Could not store tenant credentials (HTTP {credential_response.status_code})",
                     }
+
         return {"success": True, "data": system_data}
     except Exception as exc:
         logger.warning("superglue_create_system error: %s", str(exc)[:200])
