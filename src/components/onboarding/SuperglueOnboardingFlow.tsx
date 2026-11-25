@@ -228,14 +228,14 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       id: systemId,
       name: rec.name,
       icon: '🔌',
-      url_hint: '',
+      url_hint: CRM_OPTIONS.find((item) => item.id === systemId)?.url_hint || '',
       auth_type: rec.auth_type,
       auth_schema: rec.auth_schema,
       db_type: rec.db_type,
       category: rec.category,
     });
     setFormName(rec.name);
-    setFormUrl(rec.url_hint || '');
+    setFormUrl(CRM_OPTIONS.find((item) => item.id === systemId)?.url_hint || '');
     setFormApiKey('');
     setFormExtraFields({});
     setFormDbType(rec.db_type || 'postgresql');
@@ -504,9 +504,10 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         for (let attempt = 0; attempt < 60; attempt += 1) {
           const statusRes = await fetch('/api/onboarding-build/status');
           if (!statusRes.ok) throw new Error('Could not verify agent build status');
-          status = await statusRes.json();
-          setBuildStatus(status);
-          if (status.all_ready || (status.failed > 0 && status.pending === 0)) break;
+          const nextStatus = await statusRes.json() as BuildStatus;
+          status = nextStatus;
+          setBuildStatus(nextStatus);
+          if (nextStatus.all_ready || (nextStatus.failed > 0 && nextStatus.pending === 0)) break;
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
         agentsOk = status?.all_ready === true;
