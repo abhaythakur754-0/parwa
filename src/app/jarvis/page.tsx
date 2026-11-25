@@ -68,6 +68,7 @@ function JarvisPageInner() {
       onClose={() => window.history.back()}
       entrySource={entrySource}
       entryParams={entryParams}
+      isGuestDemo
     />
   );
 }
