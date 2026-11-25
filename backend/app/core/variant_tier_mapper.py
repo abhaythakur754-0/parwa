@@ -187,6 +187,11 @@ def industry_label_to_enum(industry_label: str) -> str:
         return "general"
 
 
+def variant_instance_name(canonical_variant: str) -> str:
+    """Map a canonical subscription variant to its onboarding display name."""
+    return "High Parwa" if canonical_variant == "high" else "Parwa"
+
+
 def tier_to_variant_id(tier: str) -> str:
     """Map a backend pipeline tier to a frontend variant_id.
 
