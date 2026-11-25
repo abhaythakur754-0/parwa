@@ -412,7 +412,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
                 id=_call_id,
                 company_id=tenant_id,
                 tool_id=actual_tool_id,
-                input_data=_json.dumps(input_data),
+                input_data=__import__("shared.utils.token_encryption", fromlist=["encrypt_token"]).encrypt_token(_json.dumps(input_data)),
                 status="in_progress",
                 max_retries=2,
             )
@@ -511,7 +511,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
 
         # ── FAILURE: mark in DB for audit (don't delete — keep for recovery) ──
         if _call_persisted:
-            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}: {res.text[:200]}", tenant_id)
+            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}", tenant_id)
         return {
             "success": False,
             "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
@@ -635,8 +635,30 @@ async def recover_stuck_superglue_calls() -> None:
 
                 # Retry the call
                 try:
-                    input_data = _json.loads(row.input_data)
-                    # Increment retry count
+                    # New rows are encrypted at rest. Support legacy plaintext
+                    # rows during the rolling migration, then rewrite them encrypted.
+                    try:
+                        from shared.utils.token_encryption import decrypt_token, encrypt_token
+                        decrypted_payload = decrypt_token(row.input_data)
+                        input_data = _json.loads(decrypted_payload)
+                    except Exception:
+                        try:
+                            input_data = _json.loads(row.input_data)
+                            from shared.utils.token_encryption import encrypt_token
+                            row.input_data = encrypt_token(_json.dumps(input_data))
+                        except Exception:
+                            row.status = "failed"
+                            row.error_message = "queued payload could not be decrypted"
+                            row.completed_at = datetime.now(timezone.utc)
+                            _db.commit()
+                            continue
+
+                    # Set tenant RLS context before modifying this tenant's queue row.
+                    if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                        _db.execute(
+                            _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                            {"tenant_id": str(row.company_id)},
+                        )
                     row.retry_count = (row.retry_count or 0) + 1
                     _db.commit()
 
@@ -647,8 +669,14 @@ async def recover_stuck_superglue_calls() -> None:
 
                     if result.get("success"):
                         # Success — delete the row
+                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            _db.execute(
+                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                {"tenant_id": str(row.company_id)},
+                            )
                         _db.query(SuperglueCallQueue).filter(
-                            SuperglueCallQueue.id == row.id
+                            SuperglueCallQueue.id == row.id,
+                            SuperglueCallQueue.company_id == row.company_id,
                         ).delete()
                         _db.commit()
                         logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
@@ -677,7 +705,10 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
 
-    url, token = _get_config()
+    url, _admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
     actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
 
     try:
