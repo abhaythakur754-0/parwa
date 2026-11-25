@@ -20,6 +20,7 @@ BC-001: All operations scoped to authenticated user's company_id (tenant isolati
         System IDs are namespaced as tenant_{company_id}__{system_id} in Superglue.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
