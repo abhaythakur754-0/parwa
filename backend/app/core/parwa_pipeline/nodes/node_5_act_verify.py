@@ -585,7 +585,8 @@ THOUGHT:"""
                                     _ticket_id_5 = state.get("ticket_id", "")
                                     _idem_key = f"{_ticket_id_5}:{_tool_id}:{action}"
                                     result = await _execute_with_idempotency(
-                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id, _agent_tool_description
+                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id,
+                                        _agent_tool_description, allow_bounded_financial=True,
                                     )
                             else:
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
@@ -614,7 +615,8 @@ THOUGHT:"""
                                     result = await _execute_with_idempotency(
                                         _tool_id, _tool_input,
                                         f"{state.get('ticket_id','')}:{_tool_id}:{action}",
-                                        state.get("ticket_id",""), action, tenant_id, _agent_tool_description
+                                        state.get("ticket_id",""), action, tenant_id, _agent_tool_description,
+                                        allow_bounded_financial=True,
                                     )
 
                             # If approval was required by agent config, observation is already set — skip result check
@@ -2258,7 +2260,8 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
 
 
 def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
-                            tenant_id: str, variant_tier: str) -> dict:
+                            tenant_id: str, variant_tier: str,
+                            allow_bounded_financial: bool = False) -> dict:
     """Run the Superglue Action Safety pipeline before tool execution.
 
     Pipeline: classify_action → check_financial_guardrails → needs_approval check.
@@ -2327,7 +2330,9 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
                         "guardrail_result": guardrail_result}
 
         # Step 3: Check if approval is required for this safety level
-        approval = _needs_approval(safety.level)
+        approval = _needs_approval(safety.level) and not (
+            allow_bounded_financial and safety.level == ActionSafetyLevel.FINANCIAL
+        )
         return {"blocked": False, "reason": safety.reasoning,
                 "safety_level": safety.level.value, "needs_approval": approval,
                 "guardrail_result": guardrail_result}
@@ -2336,7 +2341,10 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         return default
 
 
-async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id="", tool_description=""):
+async def _execute_with_idempotency(
+    tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id="",
+    tool_description="", allow_bounded_financial=False,
+):
     """Execute a tenant Superglue tool with safety checks and atomic idempotency.
 
     A reservation is committed before the external side effect. Failed or
@@ -2371,7 +2379,10 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
 
     # Safety validation must pass before an idempotency reservation or side effect.
     try:
-        safety = _run_action_safety_gate(tool_id, tool_description, tool_input, tenant_id, "parwa")
+        safety = _run_action_safety_gate(
+            tool_id, tool_description, tool_input, tenant_id, "parwa",
+            allow_bounded_financial=allow_bounded_financial,
+        )
         if safety.get("blocked"):
             return {
                 "success": False,
