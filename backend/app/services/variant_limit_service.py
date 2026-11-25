@@ -2,17 +2,16 @@
 Variant Limit Service (F-021, F-024, BC-001, BC-002, BC-007)
 
 Handles subscription variant limit enforcement:
-- Get variant limits (mini / parwa / high)
+- Get variant limits (parwa / high)
 - Check ticket, team member, AI agent, voice slot, and KB doc limits
 - Enforce limits by blocking operations when exceeded
 - Provide current usage counts against plan limits
 
-Locked Variant Limits:
-  | Variant | Tickets | AI Agents | Team | Voice | KB Docs | Price    |
-  |---------|---------|-----------|------|-------|---------|----------|
-  | Mini    | 999     | 0         | 3    | 0     | 100     | $999.00  |
-  | Parwa   | 2,499   | 3         | 10   | 2     | 500     | $2,499.00|
-  | High    | 3,999   | ∞         | 25   | 5     | 2,000   | $3,999.00|
+Locked Variant Limits (source: app.core.pricing_config):
+  | Variant     | Tickets | AI Agents | Team | Voice | KB Docs | Price    |
+  |-------------|---------|-----------|------|-------|---------|----------|
+  | PARWA Growth| 2,999   | 5         | 10   | 2     | 500     | $2,999.00|
+  | PARWA High  | 3,999   | 8         | 25   | 5     | 2,000   | $3,999.00|
 
 BC-001: All methods validate company_id
 BC-002: All money calculations use Decimal
@@ -184,7 +183,7 @@ class VariantLimitService:
     def _get_company_variant(self, db: Session, company_id: str) -> str:
         """Look up the subscription tier for a company.
 
-        Falls back to ``"starter"`` when the company has no active
+        Falls back to PARWA Growth when the company has no active
         subscription (new / trial accounts).
         """
         subscription = (
@@ -205,10 +204,10 @@ class VariantLimitService:
             return company.subscription_tier.lower().strip()
 
         logger.info(
-            "variant_limit_default_mini company_id=%s reason=no_subscription",
+            "variant_limit_default_parwa company_id=%s reason=no_subscription",
             company_id,
         )
-        return "mini"
+        return "parwa"
 
     # ── Public API ──────────────────────────────────────────────────
 
@@ -219,11 +218,12 @@ class VariantLimitService:
         Fallback: direct query of the ``VariantLimit`` DB table, then
         hardcoded defaults.
         """
-        # Normalize old names (mini_parwa → starter, etc.)
+        # Legacy names normalize to PARWA Growth; unknown values use the safe
+        # canonical default rather than querying arbitrary DB rows.
         try:
             variant_key = _normalize_variant(variant.lower().strip())
         except ValueError:
-            variant_key = variant.lower().strip()
+            variant_key = "parwa"
 
         # Primary — billing_extended helper
         limits = get_variant_limits(variant_key)
@@ -271,7 +271,7 @@ class VariantLimitService:
             "variant_limits_fallback variant=%s source=hardcoded",
             variant_key,
         )
-        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["mini"]))
+        return dict(_HARDCODED_LIMITS.get(variant_key, _HARDCODED_LIMITS["parwa"]))
 
     def get_company_limits(self, company_id: Any) -> Dict[str, Any]:
         """Get effective limits for a company based on their subscription tier."""
