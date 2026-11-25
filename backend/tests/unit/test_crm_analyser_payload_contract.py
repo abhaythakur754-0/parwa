@@ -82,6 +82,14 @@ def test_analyser_keeps_integration_and_agent_recommendations_separate():
     assert '"system_id": _system_id(str(name))' in source
 
 
+def test_analyser_never_recommends_already_connected_integrations_or_fills_false_gaps():
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
+    assert "if system_id in connected_keys:" in source
+    assert "not result.get(\"tickets_scanned\") and not recommendations" in source
+    assert "if _system_id(name) not in connected_keys" in source
+
+
 def test_agent_builder_uses_agent_capabilities_not_integration_names():
     backend_root = Path(__file__).resolve().parents[2]
     source = (backend_root / "app/api/onboarding_build.py").read_text(encoding="utf-8")
