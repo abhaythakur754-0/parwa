@@ -832,9 +832,24 @@ async def test_system(
     from datetime import datetime, timezone
 
     tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        return TestResponse(
+            system_id=system_id,
+            works=False,
+            tested_at=datetime.now(timezone.utc).isoformat(),
+            message="Integration is not connected for this tenant",
+        )
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
 
-    # 1. Get the system from Superglue (to retrieve URL + credentials)
-    sg_result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
+    # 1. Get the shared provider definition or tenant-namespaced custom system.
+    sg_result = await superglue_client.get_system(
+        system_id,
+        tenant_id=None if is_shared else tenant_id,
+    )
     if not sg_result.get("success"):
         return TestResponse(
             system_id=system_id,
@@ -845,10 +860,6 @@ async def test_system(
 
     data = sg_result.get("data", {})
     system_url = data.get("url", "").rstrip("/")
-    integration = db.query(Integration).filter(
-        Integration.company_id == tenant_id,
-        Integration.integration_type == system_id,
-    ).first()
     definition = next((item for item in POPULAR_SYSTEMS if item["id"] == system_id), {})
     if definition.get("auth_type") == "oauth":
         oauth_status = await superglue_client.check_oauth_credentials(
