@@ -248,6 +248,55 @@ class TestNeedsApproval:
         assert needs_approval(ActionSafetyLevel.SENSITIVE_PII) is False
 
 
+class TestBoundedFinancialAutonomy:
+    def _allowed_guardrail(self, monkeypatch):
+        from types import SimpleNamespace
+        import app.core.regulatory_guardrails as guardrails
+
+        monkeypatch.setattr(
+            guardrails,
+            "check_financial_guardrails",
+            lambda *args, **kwargs: SimpleNamespace(
+                allowed=True, reason="within tier limit", limit=500, remaining=475
+            ),
+        )
+
+    def test_preapproved_below_limit_financial_action_can_execute(self, monkeypatch):
+        from app.core.parwa_pipeline.nodes.node_5_act_verify import _run_action_safety_gate
+
+        self._allowed_guardrail(monkeypatch)
+        result = _run_action_safety_gate(
+            "refund_customer", "Process an eligible refund",
+            {"amount_cents": 2500}, "tenant-1", "parwa",
+            allow_bounded_financial=True,
+        )
+        assert result["blocked"] is False
+        assert result["needs_approval"] is False
+        assert result["guardrail_result"]["allowed"] is True
+
+    def test_financial_action_still_requires_approval_without_explicit_gate(self, monkeypatch):
+        from app.core.parwa_pipeline.nodes.node_5_act_verify import _run_action_safety_gate
+
+        self._allowed_guardrail(monkeypatch)
+        result = _run_action_safety_gate(
+            "refund_customer", "Process an eligible refund",
+            {"amount_cents": 2500}, "tenant-1", "parwa",
+        )
+        assert result["blocked"] is False
+        assert result["needs_approval"] is True
+
+    def test_destructive_action_never_bypasses_approval(self):
+        from app.core.parwa_pipeline.nodes.node_5_act_verify import _run_action_safety_gate
+
+        result = _run_action_safety_gate(
+            "cancel_subscription", "Cancel a customer's subscription",
+            {}, "tenant-1", "parwa",
+            allow_bounded_financial=True,
+        )
+        assert result["blocked"] is False
+        assert result["needs_approval"] is True
+
+
 # ═══════════════════════════════════════════════════════════════════
 # Case insensitivity
 # ═══════════════════════════════════════════════════════════════════
