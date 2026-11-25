@@ -719,7 +719,7 @@ def test_get_credential_config_decrypts_superglue_credentials_and_accepts_connec
         id="int-hubspot-superglue",
         company_id="company-abc",
         integration_type="hubspot",
-        status="connected",
+        status="verified",
         credentials_encrypted=encrypt_token(
             json.dumps({"access_token": "superglue-real-token"})
         ),
