@@ -260,6 +260,14 @@ jobs:
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
 
+      - name: Run deterministic full agent pipeline regression suite
+        timeout-minutes: 5
+        run: |
+          # Exercise the real multi-node pipeline with deterministic LLM/CRM mocks.
+          # Covers realistic ticket paths, safety/approval routing, escalation,
+          # quality loops, and Node 1–8 participation without live provider credentials.
+          python -m pytest ../tests/test_parwa_jarvis_integration.py -v --tb=short --noconftest
+
       - name: Run Superglue client contract tests (mocked HTTP)
         run: python -m pytest app/tests/test_superglue_client.py -v --tb=short --noconftest
 
