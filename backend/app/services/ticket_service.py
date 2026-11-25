@@ -526,7 +526,7 @@ class TicketService:
             # Backend-owned lifecycle timestamps must be set here, not
             # fabricated by the browser. This keeps reports and SLA metrics
             # consistent across API clients and dashboard refreshes.
-            if status == TicketStatus.resolved.value:
+            if status == TicketStatus.resolved.value and not ticket.resolved_at:
                 resolved_at = datetime.now(timezone.utc)
                 ticket.resolved_at = resolved_at
             elif status == TicketStatus.closed.value:
