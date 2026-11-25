@@ -515,7 +515,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
             _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}", tenant_id)
         return {
             "success": False,
-            "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
+            "error": f"Superglue returned HTTP {res.status_code}",
             "tool_id": tool_id,
         }
 
