@@ -708,3 +708,29 @@ def test_node_8_returns_5_tuple():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v", "--noconftest"]))
+
+
+def test_get_credential_config_decrypts_superglue_credentials_and_accepts_connected_status():
+    """Superglue records are Fernet-encrypted and use status='connected'."""
+    import json
+    from shared.utils.token_encryption import encrypt_token
+
+    row = _FakeIntegrationRow(
+        id="int-hubspot-superglue",
+        company_id="company-abc",
+        integration_type="hubspot",
+        status="connected",
+        credentials_encrypted=encrypt_token(
+            json.dumps({"access_token": "superglue-real-token"})
+        ),
+        updated_at=datetime(2026, 6, 26, tzinfo=timezone.utc),
+    )
+    svc, db = _build_service_with_rows([row])
+
+    config = svc.get_credential_config("company-abc", "hubspot")
+
+    assert config == {"access_token": "superglue-real-token"}
+    filter_expression = db.query.return_value.filter.call_args.args[0]
+    assert " IN " in str(filter_expression), (
+        "Credential lookup must accept active, connected, and verified statuses"
+    )
