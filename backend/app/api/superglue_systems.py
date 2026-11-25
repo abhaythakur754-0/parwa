@@ -243,14 +243,17 @@ async def create_system(
         db_port = req.db_port or 5432
         req.url = f"{req.db_type or 'postgresql'}://{req.db_host}:{db_port}/{req.db_name}"
         # Store DB credentials in the credentials dict for Superglue
-        req.credentials = {
+        db_credentials = dict(req.credentials or {})
+        db_credentials.update({
             "db_type": req.db_type,
             "host": req.db_host,
             "port": db_port,
             "database": req.db_name,
             "username": req.db_username,
             "password": req.db_password or "",
-        }
+            "readonly": True,
+        })
+        req.credentials = db_credentials
         # Tell Superglue this is a database — it will auto-read the schema
         if not req.metadata:
             req.metadata = {}
@@ -305,7 +308,7 @@ async def create_system(
 
     # If this is a database, ALSO save to DBConnection table (read-only enforced)
     if is_database:
-        _upsert_db_connection(
+        db_conn = _upsert_db_connection(
             db=db,
             company_id=tenant_id,
             name=req.name,
@@ -316,16 +319,31 @@ async def create_system(
             db_username=req.db_username,
             db_password=req.db_password,
             system_id=req.system_id,
+            connection_config=req.credentials,
+        )
+        # Schema discovery is part of connection setup, not a later manual step.
+        schema_discovery = await _discover_db_schema_for_connection(
+            db=db,
+            db_conn=db_conn,
+            tenant_id=tenant_id,
+            connection_config=req.credentials,
         )
 
     data = result.get("data", {})
+    response_metadata = dict(data.get("metadata") or req.metadata or {})
+    if is_database:
+        response_metadata["schema_discovery"] = {
+            "status": "verified" if schema_discovery.get("success") else "pending",
+            "table_count": len((schema_discovery.get("schema") or {}).get("tables", [])),
+            "error": schema_discovery.get("error"),
+        }
     return SystemResponse(
         id=req.system_id,  # return the clean (non-namespaced) ID
         name=data.get("name", req.name),
         url=data.get("url", req.url),
         icon=data.get("icon", req.icon),
         credentials={},
-        metadata=data.get("metadata", {}),
+        metadata=response_metadata,
         created_at=data.get("createdAt") or data.get("created_at"),
         updated_at=data.get("updatedAt") or data.get("updated_at"),
     )
@@ -641,28 +659,40 @@ async def test_system(
 
     tested_at = datetime.now(timezone.utc).isoformat()
 
-    # ── DATABASE TEST: verify DBConnection record + Superglue has the system ──
-    # For databases, Superglue auto-reads the schema when the system was created.
-    # The test just confirms: (1) Superglue has it, (2) DBConnection record exists.
-    # Superglue handles the actual schema introspection + tool generation automatically.
+    # ── DATABASE TEST: require real schema discovery ──
     if system_id in DATABASE_SYSTEM_IDS:
-        # Check DBConnection record exists
+        integration = db.query(Integration).filter(
+            Integration.company_id == tenant_id,
+            Integration.integration_type == system_id,
+        ).first()
         db_conn = db.query(DBConnection).filter(
             DBConnection.company_id == tenant_id,
-            DBConnection.name.like(f"%({system_id})"),
-        ).first()
+            DBConnection.name == integration.name,
+        ).first() if integration else None
 
-        if db_conn:
-            db_conn.status = "verified"
-            db.commit()
+        if not db_conn:
+            return TestResponse(
+                system_id=system_id,
+                works=False,
+                tested_at=tested_at,
+                message="Database connection record not found for this tenant",
+            )
 
+        discovery = await _discover_db_schema_for_connection(
+            db=db, db_conn=db_conn, tenant_id=tenant_id
+        )
+        schema = discovery.get("schema") or {}
+        works = bool(discovery.get("success"))
         return TestResponse(
             system_id=system_id,
-            works=True,
-            status_code=200,
+            works=works,
+            status_code=200 if works else None,
             tested_at=tested_at,
-            message=f"✓ Database connected — Superglue is reading schema + generating tools automatically",
-            sample_data={"db_type": data.get("metadata", {}).get("db_type", "unknown")} if data.get("metadata") else None,
+            message=(
+                f"Database reachable; discovered {len(schema.get('tables', []))} tables"
+                if works else f"Database schema discovery failed: {discovery.get('error', 'unknown error')}"
+            ),
+            sample_data={"db_type": db_conn.db_type, "schema_ready": works},
         )
 
     # ── API TEST: make a real HTTP GET to verify credentials work ──
@@ -763,6 +793,7 @@ def _upsert_db_connection(
     db_username: str,
     db_password: Optional[str],
     system_id: str,
+    connection_config: Optional[Dict[str, Any]] = None,
 ) -> DBConnection:
     """Create or update a DBConnection record for a database system.
 
@@ -773,18 +804,20 @@ def _upsert_db_connection(
     The (company_id, name) pair is the natural key — reconnecting the same
     database updates instead of creating a duplicate.
     """
-    # Build the connection string based on database type
-    if db_type == "mongodb":
-        conn_str = f"mongodb://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
-    elif db_type == "snowflake":
-        conn_str = f"snowflake://{db_username}:{db_password or ''}@{db_host}/{db_name}"
-    elif db_type == "bigquery":
-        conn_str = f"bigquery://{db_host}/{db_name}"  # uses service account, not password
-    else:
-        # postgresql, mysql
-        conn_str = f"{db_type}://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
-
-    conn_encrypted = encrypt_token(conn_str)
+    # Store the complete structured config encrypted. This preserves provider-
+    # specific fields (e.g. BigQuery service accounts, Snowflake warehouse/role)
+    # required by schema discovery and later agent tool generation.
+    config = dict(connection_config or {})
+    config.update({
+        "db_type": db_type,
+        "host": db_host,
+        "port": db_port,
+        "database": db_name,
+        "username": db_username,
+        "password": db_password or "",
+        "readonly": True,
+    })
+    conn_encrypted = encrypt_token(json.dumps(config))
 
     # Find existing by (company_id, name)
     db_conn = db.query(DBConnection).filter(
@@ -813,6 +846,55 @@ def _upsert_db_connection(
     db.commit()
     db.refresh(db_conn)
     return db_conn
+
+
+async def _discover_db_schema_for_connection(
+    db: Session,
+    db_conn: DBConnection,
+    tenant_id: str,
+    connection_config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Discover and persist a tenant database schema through Superglue.
+
+    A generic fallback schema is not success. Only a real schema response
+    marks the connection verified and exposes it to ticket-solving agents.
+    """
+    config = dict(connection_config or {})
+    if not config and db_conn.connection_string_encrypted:
+        try:
+            from shared.utils.token_encryption import decrypt_token
+            decrypted = decrypt_token(db_conn.connection_string_encrypted)
+            config = json.loads(decrypted) if decrypted else {}
+        except Exception as exc:
+            logger.warning("db_schema_config_decrypt_failed: %s", str(exc)[:160])
+            config = {}
+
+    if not config:
+        db_conn.status = "schema_pending"
+        db.commit()
+        return {"success": False, "schema": None, "error": "Database connection config is unavailable"}
+
+    result = await superglue_client.analyze_db_schema(
+        db_connection_id=str(db_conn.id),
+        tenant_id=tenant_id,
+        db_type=db_conn.db_type,
+        connection_config=config,
+    )
+    schema = result.get("schema")
+    if result.get("success") and isinstance(schema, dict) and schema.get("source") != "fallback":
+        db_conn.schema_analysis = json.dumps(schema)
+        db_conn.status = "verified"
+        db_conn.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"success": True, "schema": schema}
+
+    db_conn.status = "schema_pending"
+    db.commit()
+    return {
+        "success": False,
+        "schema": None,
+        "error": result.get("error") or "Superglue did not return a verified schema",
+    }
 
 
 # ── Custom Integration/DB Discovery Endpoints ──────────────────────────
@@ -863,7 +945,9 @@ async def analyze_db_schema(
     what data is available. Node 4 (Reasoning) uses this to decide which
     Superglue query tools to call.
     """
-    tenant_id = req.tenant_id or str(user.company_id)
+    tenant_id = str(user.company_id)
+    if req.tenant_id and req.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Cannot access another tenant's database")
 
     # Find the DB connection
     db_conn = db.query(DBConnection).filter(
@@ -874,26 +958,11 @@ async def analyze_db_schema(
     if not db_conn:
         raise HTTPException(status_code=404, detail="Database connection not found")
 
-    # Decrypt connection config to pass to Superglue
-    try:
-        from shared.utils.token_encryption import decrypt_token
-        config = json.loads(decrypt_token(db_conn.connection_string_encrypted)) if db_conn.connection_string_encrypted else {}
-    except Exception:
-        config = {}
-
-    # Call Superglue to analyze the schema
-    result = await superglue_client.analyze_db_schema(
-        db_connection_id=req.db_connection_id,
+    result = await _discover_db_schema_for_connection(
+        db=db,
+        db_conn=db_conn,
         tenant_id=tenant_id,
-        db_type=db_conn.db_type,
-        connection_config=config,
     )
-
-    if result.get("success") and result.get("schema"):
-        # Save the schema analysis to the DB connection record
-        db_conn.schema_analysis = json.dumps(result["schema"])
-        db_conn.updated_at = datetime.now(timezone.utc)
-        db.commit()
 
     return {
         "success": result.get("success", False),
