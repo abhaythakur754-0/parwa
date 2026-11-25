@@ -399,7 +399,9 @@ async def create_system(
             server_url=req.url,
             auth_token=(req.credentials.get("api_key") or req.credentials.get("access_token") or req.credentials.get("token")) if req.credentials else None,
             system_id=req.system_id,
-            status="pending_oauth" if auth_type == "oauth" else "connected",
+            # MCP must not expose an API-key integration until the provider
+            # health check has succeeded.
+            status="pending_oauth" if auth_type == "oauth" else "pending",
         )
 
     # If this is a database, ALSO save to DBConnection table (read-only enforced)
