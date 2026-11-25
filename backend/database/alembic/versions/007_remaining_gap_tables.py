@@ -241,7 +241,8 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_unique_constraint('uq_conf_thresh_company_intent_action', 'confidence_thresholds', ['company_id', 'intent_type', 'action_type'])
+    with op.batch_alter_table('confidence_thresholds') as batch_op:
+        batch_op.create_unique_constraint('uq_conf_thresh_company_intent_action', ['company_id', 'intent_type', 'action_type'])
 
     op.create_table(
         'human_corrections',
@@ -305,7 +306,8 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_unique_constraint('uq_first_victories_company_user_milestone', 'first_victories', ['company_id', 'user_id', 'milestone_type'])
+    with op.batch_alter_table('first_victories') as batch_op:
+        batch_op.create_unique_constraint('uq_first_victories_company_user_milestone', ['company_id', 'user_id', 'milestone_type'])
 
 
 def downgrade() -> None:
