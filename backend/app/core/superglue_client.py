@@ -925,8 +925,8 @@ async def create_system(
                         "success": False,
                         "error": "Tenant Superglue service account is unavailable; credentials were not stored",
                     }
-                credential_response = await client.post(
-                    f"{cfg_url}/v1/credentials",
+                connection_response = await client.post(
+                    f"{cfg_url}/v1/connections",
                     headers={
                         "Authorization": f"Bearer {tenant_token}",
                         "Content-Type": "application/json",
@@ -934,18 +934,20 @@ async def create_system(
                     },
                     json={
                         "systemId": actual_id,
+                        "name": name,
                         "url": credential_url or url,
+                        "authentication": {"type": "api_key"},
                         "credentials": credentials,
                     },
                 )
-                if credential_response.status_code not in (200, 201):
+                if connection_response.status_code not in (200, 201):
                     logger.error(
-                        "superglue_credential_store_failed system=%s status=%s",
-                        actual_id[:80], credential_response.status_code,
+                        "superglue_connection_store_failed system=%s status=%s",
+                        actual_id[:80], connection_response.status_code,
                     )
                     return {
                         "success": False,
-                        "error": f"Could not store tenant credentials (HTTP {credential_response.status_code})",
+                        "error": f"Could not store tenant connection (HTTP {connection_response.status_code})",
                     }
 
         return {"success": True, "data": system_data}
@@ -1146,36 +1148,36 @@ async def delete_tenant_credentials(system_id: str, tenant_id: str) -> Dict[str,
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
-                f"{url}/v1/credentials",
+                f"{url}/v1/connections",
                 headers=headers,
                 params={"systemId": system_id},
             )
             if response.status_code == 404:
                 return {"success": True}
             if response.status_code != 200:
-                return {"success": False, "error": f"Could not inspect credentials (HTTP {response.status_code})"}
+                return {"success": False, "error": f"Could not inspect tenant connection (HTTP {response.status_code})"}
             payload = response.json()
             data = payload.get("data", payload) if isinstance(payload, dict) else {}
-            connection_id = (
-                data.get("id")
-                or data.get("connectionId")
-                or (data.get("connection") or {}).get("id")
-            ) if isinstance(data, dict) else None
-            if connection_id:
-                deleted = await client.delete(
-                    f"{url}/v1/credentials/{connection_id}",
-                    headers=headers,
+            if isinstance(data, list):
+                connection = next(
+                    (item for item in data if item.get("systemId") == system_id),
+                    None,
                 )
+            elif isinstance(data, dict):
+                connection = data.get("connection") or data
             else:
-                deleted = await client.delete(
-                    f"{url}/v1/credentials",
-                    headers=headers,
-                    params={"systemId": system_id},
-                )
+                connection = None
+            connection_id = connection.get("id") if isinstance(connection, dict) else None
+            if not connection_id:
+                return {"success": True}
+            deleted = await client.delete(
+                f"{url}/v1/connections/{connection_id}",
+                headers=headers,
+            )
             return {"success": deleted.status_code in (200, 204, 404)}
     except Exception as exc:
         logger.warning("superglue_tenant_credential_delete_error: %s", str(exc)[:160])
-        return {"success": False, "error": "Could not revoke tenant credentials"}
+        return {"success": False, "error": "Could not revoke tenant connection"}
 
 
 async def start_oauth_exchange(
