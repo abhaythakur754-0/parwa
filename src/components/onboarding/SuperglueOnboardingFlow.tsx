@@ -28,11 +28,23 @@ import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────
 
+interface AuthSchemaField {
+  key: string;
+  label: string;
+  type: 'text' | 'email' | 'password' | 'textarea';
+  required?: boolean;
+  placeholder?: string;
+}
+
 interface CRMType {
   id: string;
   name: string;
   icon: string;
   url_hint: string;
+  auth_type?: string;
+  auth_schema?: AuthSchemaField[];
+  db_type?: string;
+  category?: string;
 }
 
 interface TestResult {
@@ -48,6 +60,9 @@ interface AnalysisRecommendation {
   name: string;
   system_id?: string;
   category?: string;
+  db_type?: string;
+  auth_type?: string;
+  auth_schema?: AuthSchemaField[];
   priority?: string;
   reason?: string;
 }
@@ -90,15 +105,7 @@ interface BuildStatus {
 // paste-a-token form — honest path until the Superglue OAuth redirect ships.
 // auth_schema: extra fields per system (rendered before the API Key field)
 
-interface AuthSchemaField {
-  key: string;
-  label: string;
-  type: 'text' | 'email' | 'password' | 'textarea';
-  required?: boolean;
-  placeholder?: string;
-}
-
-const CRM_OPTIONS: (CRMType & { auth_type?: string; auth_schema?: AuthSchemaField[] })[] = [
+const CRM_OPTIONS: CRMType[] = [
   { id: 'hubspot',    name: 'HubSpot',      icon: '🎯', url_hint: 'https://api.hubapi.com',  auth_type: 'oauth' },
   { id: 'salesforce',  name: 'Salesforce',   icon: '☁️', url_hint: 'https://login.salesforce.com', auth_type: 'oauth' },
   { id: 'zendesk',    name: 'Zendesk',      icon: '🎫', url_hint: 'https://{subdomain}.zendesk.com/api/v2', auth_type: 'api_key',
@@ -217,11 +224,20 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
 
     // Open the connect form with the right mode
-    setSelectedCRM({ id: systemId, name: rec.name, icon: '🔌', url_hint: '' });
+    setSelectedCRM({
+      id: systemId,
+      name: rec.name,
+      icon: '🔌',
+      url_hint: '',
+      auth_type: rec.auth_type,
+      auth_schema: rec.auth_schema,
+      db_type: rec.db_type,
+      category: rec.category,
+    });
     setFormName(rec.name);
     setFormUrl('');
     setFormApiKey('');
-    setFormDbType('postgresql');
+    setFormDbType(rec.db_type || 'postgresql');
     setFormDbHost('');
     setFormDbPort('5432');
     setFormDbName('');
@@ -239,7 +255,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       return;
     }
     if (isDbForm) {
-      if (!formDbHost.trim() || !formDbName.trim() || !formDbUsername.trim()) {
+      if (!formDbHost.trim() || !formDbName.trim() || (formDbType !== 'bigquery' && !formDbUsername.trim())) {
         toast.error('Host, database name, and username are required');
         return;
       }
@@ -271,14 +287,16 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         payload.db_username = formDbUsername.trim();
         payload.db_password = formDbPassword;
         payload.url = ''; // backend builds it from DB fields
-        payload.credentials = {};
+        payload.credentials = Object.fromEntries(
+          Object.entries(formExtraFields).filter(([, value]) => value.trim()),
+        );
       } else {
         // API connection — build credentials from auth_schema fields + API key.
         // auth_schema fields (Zendesk subdomain/email, Freshdesk domain, etc.)
         // used to be dropped here — they must reach Superglue or the
         // connection is broken from birth.
         const credentials: Record<string, string> = {};
-        const crmDef = CRM_OPTIONS.find((c) => c.id === selectedCRM.id);
+        const crmDef = CRM_OPTIONS.find((c) => c.id === selectedCRM.id) || selectedCRM;
         if (crmDef?.auth_schema) {
           for (const field of crmDef.auth_schema) {
             if (formExtraFields[field.key]?.trim()) {
@@ -951,6 +969,30 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
                       🔒 Read-only enforced. Superglue auto-reads your schema + generates query tools.
                     </p>
                   </div>
+                  {selectedCRM?.auth_schema?.map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-xs text-zinc-400 mb-1">
+                        {field.label}{field.required ? ' *' : ''}
+                      </label>
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          value={formExtraFields[field.key] || ''}
+                          onChange={(e) => setFormExtraFields((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder || ''}
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                        />
+                      ) : (
+                        <input
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          value={formExtraFields[field.key] || ''}
+                          onChange={(e) => setFormExtraFields((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder || ''}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                        />
+                      )}
+                    </div>
+                  ))}
                 </>
               ) : (
                 /* ── API FORM: show URL + API key ── */
