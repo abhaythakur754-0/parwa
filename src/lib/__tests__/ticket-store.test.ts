@@ -653,7 +653,7 @@ describe('useTicketStore', () => {
       useTicketStore.getState().resolveTicket(ticket.id, 'Issue resolved');
       const resolved = useTicketStore.getState().getTicket(ticket.id)!;
       expect(resolved.status).toBe('resolved');
-      expect(resolved.messages).toHaveLength(3); // AI + customer + resolution
+      expect(resolved.messages).toHaveLength(2); // Only the real AI and customer messages
     });
 
     it('open → in_progress → escalated flow', () => {
