@@ -70,4 +70,4 @@ def test_integrations_endpoint_passes_connected_keys_to_analyser():
     backend_root = Path(__file__).resolve().parents[2]
     source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
     assert "connected_integrations=connected_keys" in source
-    assert 'Integration.status.in_(["active", "connected", "verified"])' in source
+    assert 'Integration.status.in_(["active", "verified"])' in source
