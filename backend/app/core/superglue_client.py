@@ -707,7 +707,9 @@ async def recover_stuck_superglue_calls() -> None:
                 logger.info("superglue_call_recovery: found %d stale calls", len(stuck_rows))
 
                 for row in stuck_rows:
-                    if row.retry_count >= row.max_retries:
+                    retry_count = int(row.retry_count or 0)
+                    max_retries = int(row.max_retries or 2)
+                    if retry_count >= max_retries:
                         # Max retries exceeded — mark failed
                         if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
                             _db.execute(
@@ -776,7 +778,8 @@ async def recover_stuck_superglue_calls() -> None:
                                 _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
                                 {"tenant_id": str(row.company_id)},
                             )
-                        row.retry_count = (row.retry_count or 0) + 1
+                        row.retry_count = retry_count + 1
+                        row.updated_at = datetime.now(timezone.utc)
                         _db.commit()
 
                         # Make the actual call (without re-persisting to avoid loops)
@@ -807,7 +810,7 @@ async def recover_stuck_superglue_calls() -> None:
                                     {"tenant_id": str(row.company_id)},
                                 )
                             row.error_message = result.get("error", "unknown")[:500]
-                            if (row.retry_count or 0) < (row.max_retries or 0):
+                            if int(row.retry_count or 0) < max_retries:
                                 # Read-only calls may be retried again after a fresh lease.
                                 row.status = "in_progress"
                                 row.updated_at = datetime.now(timezone.utc)
