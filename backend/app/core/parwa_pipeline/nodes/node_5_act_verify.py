@@ -399,6 +399,8 @@ THOUGHT:"""
                     try:
                         _agent = _db.query(AIAgentAssignment).filter(
                             AIAgentAssignment.id == routed_agent_id,
+                            AIAgentAssignment.company_id == tenant_id,
+                            AIAgentAssignment.status == "active",
                         ).first()
                         if _agent and _agent.superglue_tool_id and _agent.superglue_tool_status == "active":
                             # Tool exists and active — use it
