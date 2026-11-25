@@ -176,6 +176,8 @@ def _claim_next_ticket():
                 "  ) "
                 "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\"skipped\": true%' "
                 "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\"agent_stopped\": true%' "
+                "  AND NOT EXISTS (SELECT 1 FROM emergency_states es "
+                "    WHERE es.company_id = tickets.company_id AND es.is_paused = TRUE) "
                 "  ORDER BY "
                 "    CASE channel "
                 "      WHEN 'phone' THEN 0 "
@@ -523,6 +525,7 @@ def _run_pipeline_sync(
     """
     from database.base import SessionLocal
     from database.models.tickets import Ticket, TicketMessage, Customer
+    from database.models.core import EmergencyState
 
     db = SessionLocal()
     try:
@@ -548,6 +551,19 @@ def _run_pipeline_sync(
             db.commit()
             logger.info("pipeline_skipped_or_paused_by_ticket_control", extra={"ticket_id": ticket_id})
             return {"status": "skipped", "ticket_id": ticket_id}
+
+        # A company-wide emergency pause may be enabled after the worker
+        # claims this ticket. Re-check before any model or tool execution.
+        company_pause = db.query(EmergencyState).filter(
+            EmergencyState.company_id == company_id,
+            EmergencyState.is_paused.is_(True),
+        ).first()
+        if company_pause:
+            ticket.status = "open"
+            ticket.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            logger.info("pipeline_paused_by_company_control", extra={"ticket_id": ticket_id})
+            return {"status": "paused", "ticket_id": ticket_id}
 
         # ── Load first customer message as the query ──────────────────
         first_msg = db.query(TicketMessage).filter(
