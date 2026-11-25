@@ -354,6 +354,7 @@ class TicketResponse(BaseModel):
     # Dashboard agent controls are stored in metadata_json so they remain
     # backwards-compatible with existing databases and free deployments.
     skipped: bool = Field(default=False, description="Exclude this ticket from automatic processing")
+    agent_stopped: bool = Field(default=False, description="Pause automatic processing for this ticket")
     kb_matched: bool = Field(default=False, description="Whether a tenant KB article matched")
     kb_article_id: Optional[str] = Field(default=None, description="Matched tenant KB article ID")
 
