@@ -31,22 +31,22 @@ def upgrade() -> None:
     )
 
     # Make user_id nullable in cancellation_requests (Bug 7 fix)
-    op.alter_column(
-        "cancellation_requests",
-        "user_id",
-        existing_type=sa.String(36),
-        nullable=True,
-    )
+    with op.batch_alter_table("cancellation_requests") as batch_op:
+        batch_op.alter_column(
+            "user_id",
+            existing_type=sa.String(36),
+            nullable=True,
+        )
 
 
 def downgrade() -> None:
     # Revert user_id to NOT NULL
-    op.alter_column(
-        "cancellation_requests",
-        "user_id",
-        existing_type=sa.String(36),
-        nullable=False,
-    )
+    with op.batch_alter_table("cancellation_requests") as batch_op:
+        batch_op.alter_column(
+            "user_id",
+            existing_type=sa.String(36),
+            nullable=False,
+        )
 
     # Remove new columns from subscriptions
     op.drop_column("subscriptions", "metadata_json")
