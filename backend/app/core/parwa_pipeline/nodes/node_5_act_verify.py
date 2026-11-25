@@ -215,7 +215,23 @@ def _extract_tool_inputs(
                 value = phone_value
             elif "date" in norm or "time" in norm:
                 value = date_value
-            elif any(part in norm for part in ("reason", "description", "comment", "message", "note")):
+            elif any(part in norm for part in ("response", "reply", "body", "comment", "message")):
+                value = (
+                    details.get("response")
+                    or details.get("reply")
+                    or details.get("message")
+                    or details.get("description")
+                    or action
+                )
+            elif "internalnote" in norm or norm == "note":
+                value = details.get("internal_note") or details.get("note") or action
+            elif norm in ("status", "ticketstatus"):
+                value = details.get("status") or "pending"
+            elif norm in ("public", "ispublic", "publicreply"):
+                value = details.get("public", True)
+            elif norm in ("internal", "isinternal", "privatenote"):
+                value = details.get("internal", False)
+            elif any(part in norm for part in ("reason", "description")):
                 value = details.get("description") or details.get("message") or action
             elif "currency" in norm:
                 value = details.get("currency") or _lookup(crm_data, "currency")
