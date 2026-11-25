@@ -39,22 +39,22 @@ def upgrade() -> None:
 
     # ── Extend jarvis_messages CHECK constraint for CC types ──
     # Must drop and recreate because CHECK constraints can't be ALTERed
-    op.drop_constraint("ck_jarvis_message_type", "jarvis_messages", type_="check")
-    op.create_check_constraint(
-        "ck_jarvis_message_type",
-        "jarvis_messages",
-        sa.column("message_type").in_(
-            [
-                "text", "bill_summary", "payment_card", "otp_card",
-                "handoff_card", "demo_call_card", "action_ticket",
-                "call_summary", "recharge_cta",
-                "limit_reached", "pack_expired", "error",
-                # Phase 1.3: Customer Care message types
-                "variant_pipeline", "ai_generated", "direct_ai",
-                "proactive_alert", "command_response",
-            ]
-        ),
-    )
+    with op.batch_alter_table("jarvis_messages") as batch_op:
+        batch_op.drop_constraint("ck_jarvis_message_type", type_="check")
+        batch_op.create_check_constraint(
+            "ck_jarvis_message_type",
+            sa.column("message_type").in_(
+                [
+                    "text", "bill_summary", "payment_card", "otp_card",
+                    "handoff_card", "demo_call_card", "action_ticket",
+                    "call_summary", "recharge_cta",
+                    "limit_reached", "pack_expired", "error",
+                    # Phase 1.3: Customer Care message types
+                    "variant_pipeline", "ai_generated", "direct_ai",
+                    "proactive_alert", "command_response",
+                ]
+            ),
+        )
 
     # ════════════════════════════════════════════════════════════════
     # JARVIS AWARENESS SNAPSHOTS
