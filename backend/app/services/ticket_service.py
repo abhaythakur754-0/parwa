@@ -530,7 +530,7 @@ class TicketService:
                 # The ticket schema's mapped lifecycle timestamp is closed_at;
                 # the API exposes it as resolved_at for resolved tickets.
                 ticket.closed_at = datetime.now(timezone.utc)
-            elif status == TicketStatus.closed.value:
+            elif status == TicketStatus.closed.value and not ticket.closed_at:
                 ticket.closed_at = datetime.now(timezone.utc)
             elif status == TicketStatus.reopened.value:
                 ticket.reopen_count = (ticket.reopen_count or 0) + 1
