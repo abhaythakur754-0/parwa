@@ -29,9 +29,10 @@ def test_direct_variant_id_keeps_priority_over_selected_variants():
     ) == "parwa_high"
 
 
-def test_instance_display_name_uses_canonical_variant():
-    assert variant_instance_name("starter") == "Mini Parwa"
-    assert variant_instance_name("mini_parwa") == "Mini Parwa"
+def test_instance_display_name_uses_normalized_subscription_variant():
+    # Retired Starter/Mini aliases are upgraded to the standard Parwa plan.
+    assert variant_instance_name("starter") == "Parwa"
+    assert variant_instance_name("mini_parwa") == "Parwa"
     assert variant_instance_name("growth") == "Parwa"
     assert variant_instance_name("parwa") == "Parwa"
     assert variant_instance_name("high") == "High Parwa"
