@@ -101,13 +101,13 @@ describe('TIER_LIMITS (via getFeatureMapForTier)', () => {
     expect(getFeatureMapForTier('high').maxAgents).toBe(8);
 
     expect(getFeatureMapForTier('parwa').maxKnowledgeDocs).toBe(500);
-    expect(getFeatureMapForTier('high').maxKnowledgeDocs).toBe(-1); // unlimited
+    expect(getFeatureMapForTier('high').maxKnowledgeDocs).toBe(2000);
 
     expect(getFeatureMapForTier('parwa').maxApiKeys).toBe(5);
     expect(getFeatureMapForTier('high').maxApiKeys).toBe(-1);
 
     expect(getFeatureMapForTier('parwa').maxTeamMembers).toBe(10);
-    expect(getFeatureMapForTier('high').maxTeamMembers).toBe(-1);
+    expect(getFeatureMapForTier('high').maxTeamMembers).toBe(25);
   });
 });
 
@@ -280,22 +280,34 @@ describe('useVariantStore', () => {
       expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
     });
 
-    it('returns false for unlimited resources on high tier (-1)', () => {
+    it('enforces High knowledge and team limits while leaving API keys uncapped', () => {
       useVariantStore.getState().setTier('high');
       useVariantStore.setState({
         usage: {
           agentsUsed: 8,
-          docsUsed: 99999,
+          docsUsed: 1999,
           apiKeysUsed: 99999,
-          teamMembersUsed: 99999,
+          teamMembersUsed: 24,
           ticketsThisMonth: 0,
           messagesThisMonth: 0,
         },
       });
-      // docs, apiKeys, teamMembers are unlimited on high (-1)
       expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
       expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
       expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
+
+      useVariantStore.setState({
+        usage: {
+          agentsUsed: 0,
+          docsUsed: 2000,
+          apiKeysUsed: 0,
+          teamMembersUsed: 25,
+          ticketsThisMonth: 0,
+          messagesThisMonth: 0,
+        },
+      });
+      expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+      expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
     });
 
     it('parwa tier respects its own limits', () => {
