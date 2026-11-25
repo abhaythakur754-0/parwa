@@ -31,4 +31,4 @@ def test_direct_variant_id_keeps_priority_over_selected_variants():
 
 def test_instance_display_name_uses_canonical_variant():
     assert variant_instance_name("parwa") == "Parwa"
-    assert _variant_instance_name("high") == "High Parwa"
+    assert variant_instance_name("high") == "High Parwa"
