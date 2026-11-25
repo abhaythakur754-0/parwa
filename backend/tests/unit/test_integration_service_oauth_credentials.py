@@ -24,6 +24,8 @@ class _DB:
     def __init__(self, row=None):
         self.row = row
         self.flush_count = 0
+        self.execute_count = 0
+        self.commit_count = 0
         self.added = None
 
     def query(self, model):
@@ -36,9 +38,11 @@ class _DB:
         self.added = value
 
     def execute(self, statement):
+        self.execute_count += 1
         return None
 
     def commit(self):
+        self.commit_count += 1
         return None
 
 
@@ -120,3 +124,5 @@ def test_skipping_validation_keeps_integration_pending(monkeypatch):
     assert result["status"] == "pending"
     assert db.added.credentials_encrypted.startswith("fernet:")
     assert "secret" not in db.added.credentials_encrypted
+    assert db.execute_count == 0
+    assert db.commit_count == 0
