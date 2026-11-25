@@ -1335,16 +1335,7 @@ async def api_analyze_integrations(
         get_crm_analyser_url,
     )
 
-    if not get_crm_analyser_url():
-        return AnalyzeIntegrationsResponse(
-            company_id=str(user.company_id),
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
-            connected_integrations=[],
-            data_profile={},
-            detected_gaps=[],
-            recommendations=[],
-            analysis_summary="CRM analyser not configured.",
-        )
+    analyser_url = get_crm_analyser_url()
 
     # Load this tenant's connected systems BEFORE analysis so the external
     # analyser can distinguish existing connections from missing capabilities.
@@ -1367,13 +1358,24 @@ async def api_analyze_integrations(
         row.integration_type for row in connected_rows if row.integration_type
     })
 
-    # Collect ticket history and include the real connected-system inventory.
-    tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
-    result = await analyze_crm_external(
-        tickets=tickets,
-        company_name=getattr(user, "company_name", "Unknown"),
-        connected_integrations=connected_keys,
-    )
+    # Never collect or transmit customer ticket content when the secure
+    # external analyser endpoint is not configured. Continue with the same
+    # persisted starter-pack path so onboarding can still build safe agents.
+    if analyser_url:
+        tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
+        result = await analyze_crm_external(
+            tickets=tickets,
+            company_name=getattr(user, "company_name", "Unknown"),
+            connected_integrations=connected_keys,
+        )
+    else:
+        result = {
+            "error": "CRM analyser not configured with a secure HTTPS endpoint and API key",
+            "integrations": [],
+            "agents": [],
+            "tools": [],
+            "tickets_scanned": 0,
+        }
 
     # The CRM analyser returns two different things: missing integrations
     # and support-agent capabilities. Keep them separate; a Stripe connection
