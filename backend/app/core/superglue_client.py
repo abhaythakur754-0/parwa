@@ -586,9 +586,8 @@ async def recover_stuck_superglue_calls() -> None:
     Finds calls with status='in_progress' (Render died mid-call) and
     retries them.
 
-    If the superglue_call_queue table doesn't exist yet (fresh DB), this
-    function silently skips — no log spam. The table is created on first
-    Superglue call that needs DB-backed queueing.
+    The queue is provisioned by Alembic. If an older deployment has not
+    applied the migration yet, this function silently skips — no log spam.
     """
     global _superglue_queue_table_missing_warned
     try:
