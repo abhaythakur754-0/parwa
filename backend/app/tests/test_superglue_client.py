@@ -26,6 +26,7 @@ from app.core.superglue_client import (
     is_configured,
     namespaced_tool_id,
     _get_config,
+    _get_llm_key,
     DEFAULT_SUPERGLUE_URL,
 )
 
@@ -33,19 +34,26 @@ from app.core.superglue_client import (
 # ── Config ──
 
 
+@pytest.fixture(autouse=True)
+def fake_superglue_credentials(monkeypatch):
+    """Mock HTTP tests use synthetic credentials, never production secrets."""
+    monkeypatch.setenv("SUPERGLUE_AUTH_TOKEN", "test-superglue-token")
+    monkeypatch.setenv("SUPERGLUE_LLM_API_KEY", "test-superglue-llm-key")
+
+
 class TestGetConfig:
-    def test_uses_free_defaults_when_no_env(self):
-        """The free shared Superglue setup remains usable without Render secrets."""
+    def test_fails_closed_when_no_env(self):
         with patch.dict(os.environ, {}, clear=True):
             url, token = _get_config()
             assert url == DEFAULT_SUPERGLUE_URL
-            assert token
+            assert token == ""
+            assert _get_llm_key() == ""
 
 
 class TestIsConfigured:
-    def test_configured_with_defaults(self):
-        # The existing free Superglue endpoint and credentials are code defaults.
-        assert is_configured() is True
+    def test_missing_environment_credentials_disable_superglue(self):
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_configured() is False
 
     def test_configured_empty_url(self):
         with patch.dict(os.environ, {"SUPERGLUE_API_URL": "", "SUPERGLUE_AUTH_TOKEN": "tok"}):
