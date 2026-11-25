@@ -125,12 +125,12 @@ def upgrade() -> None:
         'variant_ai_capabilities',
         ['company_id', 'feature_id'],
     )
-    op.create_unique_constraint(
-        'uq_var_cap_instance_feature',
-        'variant_ai_capabilities',
-        ['company_id', 'variant_type', 'instance_id',
+    with op.batch_alter_table('variant_ai_capabilities') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_var_cap_instance_feature',
+            ['company_id', 'variant_type', 'instance_id',
          'feature_id'],
-    )
+        )
 
     # ── variant_workload_distribution ──
     op.create_table(
@@ -252,12 +252,12 @@ def upgrade() -> None:
         'technique_caches',
         ['company_id', 'technique_id', 'query_hash'],
     )
-    op.create_unique_constraint(
-        'uq_tech_cache_instance',
-        'technique_caches',
-        ['company_id', 'instance_id',
+    with op.batch_alter_table('technique_caches') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_tech_cache_instance',
+            ['company_id', 'instance_id',
          'technique_id', 'query_hash'],
-    )
+        )
 
     # ── ai_token_budgets ──
     op.create_table(
@@ -310,12 +310,12 @@ def upgrade() -> None:
         'ai_token_budgets',
         ['company_id', 'budget_type', 'budget_period'],
     )
-    op.create_unique_constraint(
-        'uq_tok_bud_inst_period',
-        'ai_token_budgets',
-        ['company_id', 'instance_id',
+    with op.batch_alter_table('ai_token_budgets') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_tok_bud_inst_period',
+            ['company_id', 'instance_id',
          'budget_type', 'budget_period'],
-    )
+        )
 
     # ── prompt_injection_attempts ──
     op.create_table(
@@ -423,12 +423,12 @@ def upgrade() -> None:
         'ai_performance_variant_metrics',
         ['company_id', 'instance_id', 'metric_date'],
     )
-    op.create_unique_constraint(
-        'uq_aipvm_inst_date_hour',
-        'ai_performance_variant_metrics',
-        ['company_id', 'instance_id',
+    with op.batch_alter_table('ai_performance_variant_metrics') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_aipvm_inst_date_hour',
+            ['company_id', 'instance_id',
          'metric_date', 'metric_hour'],
-    )
+        )
 
     # ── pipeline_state_snapshots ──
     op.create_table(
