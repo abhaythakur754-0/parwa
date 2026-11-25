@@ -266,3 +266,18 @@ def test_unclassified_tool_is_blocked_by_pipeline_safety_gate():
     )
     assert result["blocked"] is True
     assert result["needs_approval"] is True
+
+
+def test_read_only_billing_lookup_is_not_misclassified_as_financial_write():
+    from app.core.action_safety import ActionSafetyLevel, classify_action
+
+    result = classify_action("tenant__billing-investigator", "Search billing records")
+    assert result.level == ActionSafetyLevel.READ
+
+
+def test_refund_execution_is_classified_as_financial_and_requires_approval():
+    from app.core.action_safety import ActionSafetyLevel, classify_action, needs_approval
+
+    result = classify_action("tenant__refund-specialist", "Process a refund for the customer")
+    assert result.level == ActionSafetyLevel.FINANCIAL
+    assert needs_approval(result.level) is True
