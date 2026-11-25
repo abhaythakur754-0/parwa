@@ -175,6 +175,7 @@ def _claim_next_ticket():
                 "        AND updated_at < NOW() - (:stale_minutes * INTERVAL '1 minute'))"
                 "  ) "
                 "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\"skipped\": true%' "
+                "  AND COALESCE(metadata_json, '{}') NOT LIKE '%\"agent_stopped\": true%' "
                 "  ORDER BY "
                 "    CASE channel "
                 "      WHEN 'phone' THEN 0 "
@@ -541,11 +542,11 @@ def _run_pipeline_sync(
             ticket_metadata = json.loads(ticket.metadata_json or "{}")
         except (json.JSONDecodeError, TypeError):
             ticket_metadata = {}
-        if isinstance(ticket_metadata, dict) and ticket_metadata.get("skipped") is True:
+        if isinstance(ticket_metadata, dict) and (ticket_metadata.get("skipped") is True or ticket_metadata.get("agent_stopped") is True):
             ticket.status = "open"
             ticket.updated_at = datetime.now(timezone.utc)
             db.commit()
-            logger.info("pipeline_skipped_by_ticket_control", extra={"ticket_id": ticket_id})
+            logger.info("pipeline_skipped_or_paused_by_ticket_control", extra={"ticket_id": ticket_id})
             return {"status": "skipped", "ticket_id": ticket_id}
 
         # ── Load first customer message as the query ──────────────────
