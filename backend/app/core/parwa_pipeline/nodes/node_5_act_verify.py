@@ -2268,6 +2268,14 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         # Step 1: Classify the action
         safety = classify_action(tool_id, description)
         logs_safe = []  # will be assigned by caller if needed
+        if safety.confidence < 0.6:
+            return {
+                "blocked": True,
+                "reason": "Action could not be classified safely; manual review is required",
+                "safety_level": safety.level.value,
+                "needs_approval": True,
+                "guardrail_result": None,
+            }
 
         # Step 2: For FINANCIAL actions, check tier-based guardrails
         guardrail_result = None
@@ -2308,7 +2316,7 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         return default
 
 
-async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
+async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id="", tool_description=""):
     """Execute a tenant Superglue tool with safety checks and atomic idempotency.
 
     A reservation is committed before the external side effect. Failed or
@@ -2343,7 +2351,7 @@ async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket
 
     # Safety validation must pass before an idempotency reservation or side effect.
     try:
-        safety = _run_action_safety_gate(tool_id, "", tool_input, tenant_id, "parwa")
+        safety = _run_action_safety_gate(tool_id, tool_description, tool_input, tenant_id, "parwa")
         if safety.get("blocked"):
             return {
                 "success": False,
