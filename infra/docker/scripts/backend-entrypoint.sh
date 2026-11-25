@@ -25,9 +25,7 @@ echo "[ready] Redis is up!"
 # Run database migrations
 echo "[migrate] Running Alembic migrations..."
 cd /app/backend
-alembic upgrade head 2>/dev/null || {
-  echo "[warn] Alembic migration failed — continuing anyway (may be first run)"
-}
+alembic -c database/alembic.ini upgrade head
 echo "[migrate] Migrations complete"
 
 # Start the application
