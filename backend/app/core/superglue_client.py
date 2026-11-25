@@ -566,6 +566,39 @@ def _delete_superglue_call_row(call_id: str, tenant_id: Optional[str] = None) ->
         logger.warning("superglue_call_delete_failed: %s", str(exc)[:200])
 
 
+def _sync_ticket_tool_execution_status(
+    db,
+    company_id: Optional[str],
+    idempotency_key: Optional[str],
+    status: str,
+    error: Optional[str] = None,
+) -> None:
+    """Reconcile the outer idempotency record when a durable call is recovered."""
+    if not company_id or not idempotency_key:
+        return
+    from sqlalchemy import text
+
+    if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+        db.execute(
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(company_id)},
+        )
+    db.execute(
+        text(
+            "UPDATE ticket_tool_executions "
+            "SET status = :status, error_message = :error_message, "
+            "executed_at = CASE WHEN :status = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END "
+            "WHERE idempotency_key = :idempotency_key AND company_id = :company_id"
+        ),
+        {
+            "status": status,
+            "error_message": str(error or "")[:1000] or None,
+            "idempotency_key": idempotency_key,
+            "company_id": str(company_id),
+        },
+    )
+
+
 def _mark_superglue_call_failed(call_id: str, error: str, tenant_id: Optional[str] = None) -> None:
     """Mark a Superglue call as failed (kept in DB for audit + recovery)."""
     try:
@@ -653,6 +686,10 @@ async def recover_stuck_superglue_calls() -> None:
                         row.status = "failed"
                         row.error_message = "max retries exceeded during recovery"
                         row.completed_at = datetime.now(timezone.utc)
+                        _sync_ticket_tool_execution_status(
+                            _db, row.company_id, row.idempotency_key, "failed",
+                            row.error_message,
+                        )
                         _db.commit()
                         continue
 
@@ -678,6 +715,10 @@ async def recover_stuck_superglue_calls() -> None:
                                 row.status = "failed"
                                 row.error_message = "queued payload could not be decrypted"
                                 row.completed_at = datetime.now(timezone.utc)
+                                _sync_ticket_tool_execution_status(
+                                    _db, row.company_id, row.idempotency_key, "failed",
+                                    row.error_message,
+                                )
                                 _db.commit()
                                 continue
 
@@ -702,6 +743,9 @@ async def recover_stuck_superglue_calls() -> None:
                                     _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
                                     {"tenant_id": str(row.company_id)},
                                 )
+                            _sync_ticket_tool_execution_status(
+                                _db, row.company_id, row.idempotency_key, "completed"
+                            )
                             _db.query(SuperglueCallQueue).filter(
                                 SuperglueCallQueue.id == row.id,
                                 SuperglueCallQueue.company_id == row.company_id,
@@ -717,6 +761,10 @@ async def recover_stuck_superglue_calls() -> None:
                             row.status = "failed"
                             row.error_message = result.get("error", "unknown")[:500]
                             row.completed_at = datetime.now(timezone.utc)
+                            _sync_ticket_tool_execution_status(
+                                _db, row.company_id, row.idempotency_key, "failed",
+                                row.error_message,
+                            )
                             _db.commit()
                     except Exception as retry_exc:
                         logger.warning(
