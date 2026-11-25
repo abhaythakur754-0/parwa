@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from database.models.core import User
+from database.models.core import EmergencyState, User
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
@@ -807,6 +807,60 @@ async def update_ticket_controls(
         "kb_matched": bool(metadata.get("kb_matched", False)),
         "kb_article_id": metadata.get("kb_article_id"),
     }
+
+
+# ── COMPANY-WIDE AI PAUSE ───────────────────────────────────────────────────
+
+@router.get("/agents/pause", response_model=dict, summary="Get company AI pause state")
+async def get_agent_pause_state(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    state = db.query(EmergencyState).filter(
+        EmergencyState.company_id == current_user.company_id,
+    ).order_by(EmergencyState.created_at.desc()).first()
+    return {"is_paused": bool(state.is_paused) if state else False}
+
+
+@router.post("/agents/pause", response_model=dict, summary="Pause company AI processing")
+async def pause_company_agents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    state = db.query(EmergencyState).filter(
+        EmergencyState.company_id == current_user.company_id,
+    ).order_by(EmergencyState.created_at.desc()).first()
+    if state is None:
+        state = EmergencyState(
+            company_id=current_user.company_id,
+            is_paused=True,
+            paused_by=str(current_user.id),
+            paused_at=datetime.now(timezone.utc),
+            reason="Paused from ticket dashboard",
+        )
+        db.add(state)
+    else:
+        state.is_paused = True
+        state.paused_by = str(current_user.id)
+        state.paused_at = datetime.now(timezone.utc)
+        state.reason = "Paused from ticket dashboard"
+    db.commit()
+    return {"is_paused": True}
+
+
+@router.delete("/agents/pause", response_model=dict, summary="Resume company AI processing")
+async def resume_company_agents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    states = db.query(EmergencyState).filter(
+        EmergencyState.company_id == current_user.company_id,
+        EmergencyState.is_paused.is_(True),
+    ).all()
+    for state in states:
+        state.is_paused = False
+    db.commit()
+    return {"is_paused": False}
 
 
 # ── ASSIGNMENT ──────────────────────────────────────────────────────────────
