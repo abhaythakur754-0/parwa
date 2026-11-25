@@ -89,3 +89,50 @@ def test_agent_builder_uses_agent_capabilities_not_integration_names():
     assert 'for name, capabilities in STARTER_AGENT_PACK.items()' in source
     assert 'available_names' not in source
     assert 'Integration.status.in_(["verified", "active"])' in source
+
+
+def test_ticket_reply_tool_requires_ticket_id_and_response_body():
+    from app.api.onboarding_build import _validate_platform_tool_schema
+
+    valid = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket_id": {"type": "string"},
+                "response_body": {"type": "string"},
+            },
+            "required": ["ticket_id", "response_body"],
+        }
+    }
+    assert _validate_platform_tool_schema("Ticket Reply Specialist", valid) is None
+
+    invalid = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket_id": {"type": "string"},
+                "response_body": {"type": "string"},
+            },
+            "required": ["ticket_id"],
+        }
+    }
+    assert "response body" in _validate_platform_tool_schema(
+        "Ticket Reply Specialist", invalid
+    )
+
+
+def test_escalation_tool_requires_private_note_and_status():
+    from app.api.onboarding_build import _validate_platform_tool_schema
+
+    valid = {
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ticket_id": {"type": "string"},
+                "internal_note": {"type": "string"},
+                "status": {"type": "string"},
+            },
+            "required": ["ticket_id", "internal_note", "status"],
+        }
+    }
+    assert _validate_platform_tool_schema("Ticket Escalation Specialist", valid) is None
