@@ -193,7 +193,7 @@ async def list_systems(
 ) -> ListSystemsResponse:
     """List this tenant's locally registered integrations without leaking other tenants."""
     tenant_id = str(user.company_id)
-    shared_ids = {item["id"] for item in POPULAR_SYSTEMS}
+    shared_ids = {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
     rows = db.query(Integration).filter(
         Integration.company_id == tenant_id,
     ).order_by(Integration.created_at.asc()).all()
@@ -304,7 +304,7 @@ async def create_system(
         req.metadata = {}
     req.metadata["auth_type"] = auth_type
 
-    shared_system_ids = {item["id"] for item in POPULAR_SYSTEMS}
+    shared_system_ids = {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
     is_shared_system = req.system_id in shared_system_ids
     if is_database:
         # The shared system definition is generic; the tenant-specific URL
@@ -420,7 +420,7 @@ async def get_system(
     ).first()
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
-    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
     result = await superglue_client.get_system(
         system_id,
         tenant_id=None if is_shared else tenant_id,
@@ -456,7 +456,7 @@ async def delete_system(
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
 
-    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
     result = (
         await superglue_client.delete_tenant_credentials(system_id, tenant_id)
         if is_shared
@@ -843,7 +843,7 @@ async def test_system(
             tested_at=datetime.now(timezone.utc).isoformat(),
             message="Integration is not connected for this tenant",
         )
-    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS}
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
 
     # 1. Get the shared provider definition or tenant-namespaced custom system.
     sg_result = await superglue_client.get_system(
