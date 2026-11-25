@@ -32,18 +32,21 @@ def upgrade() -> None:
     if op.get_bind().dialect.name != "postgresql":
         return
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    # Add an index on the embedding column for cosine similarity queries.
-    # The column is TEXT (storing "[0.1,0.2,...]" literals); the cast
-    # `embedding::vector` happens at query time. A GIN/IVFFlat index on the
-    # cast expression accelerates ORDER BY ... <=> :query.
-    op.execute(
-        """
-        CREATE INDEX IF NOT EXISTS ix_document_chunks_embedding_vector
-        ON document_chunks
-        USING ivfflat (embedding::vector(768) vector_cosine_ops)
-        WITH (lists = 100);
-        """
-    )
+    # Embeddings are stored as TEXT and can have either 768 or 1024
+    # dimensions, depending on the provider. pgvector requires an explicit
+    # dimension for an index over a variable-dimension vector column, so
+    # create a partial expression index for each supported dimension.
+    for dimension in (768, 1024):
+        op.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS ix_document_chunks_embedding_vector_{dimension}
+            ON document_chunks
+            USING ivfflat ((embedding::vector({dimension})) vector_cosine_ops)
+            WITH (lists = 100)
+            WHERE embedding IS NOT NULL
+              AND vector_dims(embedding::vector) = {dimension};
+            """
+        )
 
 
 def downgrade() -> None:
