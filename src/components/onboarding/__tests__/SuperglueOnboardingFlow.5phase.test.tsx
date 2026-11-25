@@ -28,7 +28,7 @@ const MOCK_ANALYSIS = {
   connected_integrations: [], data_profile: { total_tickets: 50 },
   detected_gaps: [],
   recommendations: [
-    { name: 'Stripe', priority: 'high', reason: 'Process refunds' },
+    { name: 'Stripe', priority: 'high', reason: 'Process refunds', required: true },
   ],
   analysis_summary: 'Analyzed 50 tickets. Found 1 integration needed.',
 };
