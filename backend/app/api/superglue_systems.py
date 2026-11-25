@@ -669,6 +669,94 @@ def _upsert_integration(
     return integration
 
 
+# ── Managed OAuth: explicit customer consent, tenant-scoped credentials ──
+
+
+class OAuthStartResponse(BaseModel):
+    authorization_url: str
+
+
+class OAuthStatusResponse(BaseModel):
+    system_id: str
+    connected: bool
+    status: str
+    message: str
+
+
+@router.post("/systems/{system_id}/oauth/start", response_model=OAuthStartResponse)
+async def start_system_oauth(
+    system_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OAuthStartResponse:
+    """Start a Superglue-managed OAuth exchange for the authenticated tenant."""
+    tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration has not been created")
+
+    definition = next((item for item in POPULAR_SYSTEMS if item["id"] == system_id), None)
+    if not definition or definition.get("auth_type") != "oauth":
+        raise HTTPException(status_code=400, detail="This integration does not use OAuth")
+
+    result = await superglue_client.start_oauth_exchange(
+        system_id=system_id,
+        tenant_id=tenant_id,
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "Could not start provider authorization"),
+        )
+    integration.status = "pending_oauth"
+    integration.error_message = None
+    db.commit()
+    return OAuthStartResponse(authorization_url=result["authorization_url"])
+
+
+@router.get("/systems/{system_id}/oauth/status", response_model=OAuthStatusResponse)
+async def get_system_oauth_status(
+    system_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OAuthStatusResponse:
+    """Poll Superglue's tenant credential store; never expose OAuth tokens."""
+    tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    result = await superglue_client.check_oauth_credentials(
+        system_id=system_id,
+        tenant_id=tenant_id,
+    )
+    connected = result.get("success") is True and result.get("connected") is True
+    if connected:
+        integration.status = "verified"
+        integration.error_message = None
+        integration.last_sync = datetime.now(timezone.utc)
+    elif integration.status != "verified":
+        integration.status = "pending_oauth"
+        integration.error_message = result.get("error")
+    db.commit()
+
+    return OAuthStatusResponse(
+        system_id=system_id,
+        connected=connected,
+        status=integration.status,
+        message=(
+            "Provider account authorized and credentials stored securely"
+            if connected else result.get("error") or "Waiting for provider authorization"
+        ),
+    )
+
+
 # ── Test endpoint: real credential verification ───────────────────────
 
 
