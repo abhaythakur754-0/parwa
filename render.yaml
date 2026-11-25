@@ -76,9 +76,13 @@ services:
       # ticket creation when Celery can't connect to Redis.
       - key: FORCE_SYNC_PIPELINE
         value: "true"
-      # Concurrent pipeline workers (10 = assembly line model).
+      # Starter is 512 MB RAM. The pipeline's own memory notes show
+      # 10 concurrent pipelines OOM-kill this service; keep 3 base workers
+      # and disable overflow until the service is upgraded.
       - key: MAX_CONCURRENT_PIPELINES
-        value: "10"
+        value: "3"
+      - key: SPARE_CAPACITY_WORKERS
+        value: "0"
       # LLM Provider API Keys (3 providers for 11-model Smart Router)
       - key: GOOGLE_AI_API_KEY
         sync: false
