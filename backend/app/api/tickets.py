@@ -1162,7 +1162,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
 
     # ── Compute resolution_time_hours from backend lifecycle timestamps ─
     resolution_time_hours = None
-    resolved_or_closed_at = ticket.closed_at or ticket.closed_at
+    resolved_or_closed_at = ticket.closed_at
     if resolved_or_closed_at and ticket.created_at:
         try:
             start_at = ticket.created_at
