@@ -163,6 +163,9 @@ jobs:
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
 
+      - name: Run Superglue client contract tests (mocked HTTP)
+        run: python -m pytest app/tests/test_superglue_client.py -v --tb=short --noconftest
+
       - name: Live API integration tests (escalation wiring + Phase 2/3 + E2E)
         timeout-minutes: 15
         run: |
