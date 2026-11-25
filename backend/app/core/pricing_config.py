@@ -186,7 +186,7 @@ def get_variant_price(
         >>> get_variant_price(VariantType.PARWA, "annual")
         Decimal('35988.00')
         >>> get_variant_price("mini")            # legacy → auto-upgraded to parwa
-        Decimal('2499.00')
+        Decimal('2999.00')
         >>> get_variant_price("parwa_high", "annual")
         Decimal('47988.00')
     """
