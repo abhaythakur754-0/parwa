@@ -307,12 +307,12 @@ export function SuperglueIntegrationsSection() {
                 />
               </div>
 
-              {/* OAuth redirect is not wired to the deployed Superglue API yet.
-                  Require a real provider token rather than creating a false connection. */}
+              {/* This dashboard form accepts provider tokens; guided onboarding
+                  provides the browser-based OAuth consent flow where supported. */}
               {formSystem.auth_type === 'oauth' && (
                 <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20 space-y-2">
                   <p className="text-xs text-violet-300">
-                    Paste a provider-issued access token for now. The OAuth redirect flow is not enabled in this deployment.
+                    Paste a provider-issued access token here. For browser-based OAuth consent, use the guided onboarding connection flow.
                   </p>
                   <label className="block text-xs text-zinc-400">Access token *</label>
                   <input
