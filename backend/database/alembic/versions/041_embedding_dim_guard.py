@@ -44,6 +44,8 @@ depends_on = None
 
 def upgrade() -> None:
     """Add CHECK (vector_dims = 768) on document_chunks.embedding (NOT VALID)."""
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute(
         """
         DO $$
@@ -65,6 +67,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the dimension guard constraint."""
+    if op.get_bind().dialect.name != "postgresql":
+        return
     op.execute(
         "ALTER TABLE document_chunks DROP CONSTRAINT IF EXISTS embedding_dim_ok;"
     )
