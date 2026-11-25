@@ -42,3 +42,12 @@ def test_sqlite_does_not_execute_postgres_rls_context_statement():
     db = _FakeDB("sqlite")
     _set_tenant_context(db, "tenant-123")
     assert db.calls == []
+
+
+def test_service_account_api_key_is_encrypted_at_rest():
+    from shared.utils.token_encryption import decrypt_token, encrypt_token
+
+    raw_key = "tenant-superglue-test-key"
+    encrypted = encrypt_token(raw_key)
+    assert encrypted != raw_key
+    assert decrypt_token(encrypted) == raw_key
