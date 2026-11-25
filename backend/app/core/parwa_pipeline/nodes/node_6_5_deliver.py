@@ -427,6 +427,9 @@ async def _push_to_crm_via_superglue(
 
     db_session = SessionLocal()
     try:
+        if getattr(db_session, "bind", None) and db_session.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db_session.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
         assignment = db_session.query(AIAgentAssignment).filter(
             AIAgentAssignment.company_id == tenant_id,
             AIAgentAssignment.agent_name == "Ticket Reply Specialist",
@@ -524,6 +527,9 @@ async def _push_to_crm_with_retry(
 
         db_session = SessionLocal()
         try:
+            if getattr(db_session, "bind", None) and db_session.bind.dialect.name == "postgresql":
+                from sqlalchemy import text
+                db_session.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
             svc = IntegrationService(db_session)
             crm_config = svc.get_crm_config_for_tenant(tenant_id, crm_provider)
         finally:
