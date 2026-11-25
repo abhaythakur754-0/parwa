@@ -31,14 +31,31 @@ logger = logging.getLogger("parwa.crm_analyser_client")
 # Hardcoded URL — the CRM Analyser service (no env var needed).
 # Uses NVIDIA llama-3.1-8b-instruct for deep analysis (25-30 LLM calls).
 # Render does NOT use its own LLM — just calls this API.
-DEFAULT_CRM_ANALYSER_URL = "https://preview-chat-448c1694-61bf-48c8-bac4-d207abd37b73.space-z.ai"
+DEFAULT_CRM_ANALYSER_URL = ""  # Never send customer tickets to a preview endpoint by default.
 
 
 def get_crm_analyser_url() -> str:
-    """Get the CRM Analyser service URL from env."""
-    url = os.environ.get("CRM_ANALYSER_URL", DEFAULT_CRM_ANALYSER_URL)
+    """Return an explicitly configured HTTPS CRM analyser endpoint.
+
+    Customer ticket content must never be sent to a hardcoded preview/demo
+    service. Production and staging deployments must configure their own
+    secured analyser endpoint explicitly.
+    """
+    from urllib.parse import urlparse
+
+    url = os.environ.get("CRM_ANALYSER_URL", DEFAULT_CRM_ANALYSER_URL).strip()
     if not url:
-        logger.warning("CRM_ANALYSER_URL not set — CRM analysis will fail")
+        logger.warning("CRM_ANALYSER_URL not set — CRM analysis is disabled")
+        return ""
+
+    parsed = urlparse(url)
+    local_http = parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
+    if parsed.scheme != "https" and not local_http:
+        logger.error("CRM_ANALYSER_URL must use HTTPS outside localhost")
+        return ""
+    if not parsed.hostname or parsed.username or parsed.password:
+        logger.error("CRM_ANALYSER_URL is malformed")
+        return ""
     return url.rstrip("/")
 
 
