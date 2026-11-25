@@ -4,27 +4,29 @@ const config = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
-  extensionsToTreatAsEsm: ['.ts', '.tsx'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      useESM: true,
+    '^.+\\.[tj]sx?$': ['ts-jest', {
       tsconfig: {
         jsx: 'react-jsx',
+        allowJs: true,
         esModuleInterop: true,
-        module: 'ESNext',
-        target: 'ES2022',
+        module: 'commonjs',
+        target: 'es2017',
         strict: false,
-        moduleResolution: 'bundler',
+        moduleResolution: 'node16',
         rootDir: '..',
         ignoreDeprecations: '6.0',
       },
     }],
   },
   moduleNameMapper: {
+    '^server-only$': '<rootDir>/src/test-mocks/server-only.ts',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  transformIgnorePatterns: ['/node_modules/(?!jose/)'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testPathIgnorePatterns: ['<rootDir>/src/app/api/chat/__tests__/jarvis-fallback.test.ts'],
+  // This regression is authored with Vitest APIs and is executed by the dedicated Vitest step.
+  testPathIgnorePatterns: ['/node_modules/', 'tests/e2e/', '<rootDir>/src/app/api/chat/__tests__/jarvis-fallback.test.ts'],
   testTimeout: 10000,
   verbose: true,
   collectCoverageFrom: [

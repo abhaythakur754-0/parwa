@@ -9,16 +9,33 @@
       "name": "Intelligent Ticket Handling",
       "description": "PARWA AI agents automatically receive, classify, prioritize, and resolve customer support tickets across multiple channels. The system processes incoming inquiries, determines the intent and urgency, generates contextual responses, and either resolves the ticket autonomously or escalates to a human agent with full context. Ticket handling supports email, live chat, phone (voice), and social media channels, with smart routing that directs each ticket to the most qualified AI agent variant based on the inquiry type.",
       "details": {
-        "channels_supported": ["Email", "Live Chat", "Phone (Voice)", "Social Media (Facebook Messenger, Instagram DMs, Twitter/X DMs, WhatsApp Business)"],
+        "channels_supported": [
+          "Email",
+          "Web Chat",
+          "SMS",
+          "Voice",
+          "Video"
+        ],
         "auto_classification_accuracy": "95%+ intent classification accuracy across 50+ intent categories",
         "languages_supported": "25+ languages with native-quality responses",
-        "priority_levels": ["Low", "Medium", "High", "Critical", "VIP"],
+        "priority_levels": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical",
+          "VIP"
+        ],
         "max_ticket_capacity_by_tier": {
-          "starter": "1,000 tickets/month",
-          "growth": "5,000 tickets/month",
-          "high": "20,000 tickets/month"
+          "growth": "2,999 tickets/month",
+          "high": "3,999 tickets/month"
         },
-        "response_formats": ["Text", "Rich HTML (email)", "Interactive buttons (chat)", "Document attachments", "Links and media"]
+        "response_formats": [
+          "Text",
+          "Rich HTML (email)",
+          "Interactive buttons (chat)",
+          "Document attachments",
+          "Links and media"
+        ]
       }
     },
     {
@@ -31,7 +48,14 @@
           "growth": "Up to 500 articles",
           "high": "Unlimited articles"
         },
-        "supported_formats": ["Plain text", "Markdown", "HTML", "PDF", "Word documents", "CSV/Excel"],
+        "supported_formats": [
+          "Plain text",
+          "Markdown",
+          "HTML",
+          "PDF",
+          "Word documents",
+          "CSV/Excel"
+        ],
         "search_type": "Semantic search powered by vector embeddings (not just keyword matching)",
         "auto_organization": true,
         "auto_organization_description": "PARWA automatically categorizes and tags knowledge base articles based on content analysis",
@@ -49,11 +73,31 @@
         "detection_method": "Automatic language detection from customer message with 99%+ accuracy",
         "translation_quality": "Native-quality — responses are generated directly in the target language, not translated from English",
         "supported_languages": [
-          "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch",
-          "Japanese", "Korean", "Chinese (Simplified and Traditional)", "Hindi",
-          "Arabic", "Turkish", "Russian", "Polish", "Thai", "Vietnamese",
-          "Indonesian", "Malay", "Filipino (Tagalog)", "Swedish", "Danish",
-          "Norwegian", "Finnish", "Greek"
+          "English",
+          "Spanish",
+          "French",
+          "German",
+          "Italian",
+          "Portuguese",
+          "Dutch",
+          "Japanese",
+          "Korean",
+          "Chinese (Simplified and Traditional)",
+          "Hindi",
+          "Arabic",
+          "Turkish",
+          "Russian",
+          "Polish",
+          "Thai",
+          "Vietnamese",
+          "Indonesian",
+          "Malay",
+          "Filipino (Tagalog)",
+          "Swedish",
+          "Danish",
+          "Norwegian",
+          "Finnish",
+          "Greek"
         ],
         "regional_adaptation": true,
         "regional_adaptation_description": "Adapts currency formats, date formats, formality levels, and cultural expressions based on detected region"
@@ -86,7 +130,14 @@
           "Conversation exceeds the maximum AI handling turns without resolution",
           "Inquiry involves legal, safety, or compliance concerns"
         ],
-        "handoff_information": ["Full conversation transcript", "Customer profile summary", "Intent classification and sentiment analysis", "Actions already taken", "Recommended resolution path", "Customer's communication history"],
+        "handoff_information": [
+          "Full conversation transcript",
+          "Customer profile summary",
+          "Intent classification and sentiment analysis",
+          "Actions already taken",
+          "Recommended resolution path",
+          "Customer's communication history"
+        ],
         "escalation_routing": "Configurable routing to specific teams, agents, or departments based on inquiry type",
         "context_preservation": "100% — no information is lost during handoff"
       }
@@ -106,7 +157,10 @@
         "learning_frequency": "Real-time for knowledge base updates; batch learning for pattern analysis (daily)",
         "no_downtime_required": "All learning happens continuously without system restarts or service interruptions",
         "human_oversight": "Learning can be reviewed and approved before deployment in supervised mode",
-        "tiers_available": ["Growth", "High"]
+        "tiers_available": [
+          "Growth",
+          "High"
+        ]
       }
     },
     {
@@ -291,9 +345,9 @@
       "recommendation": "Start with a comprehensive knowledge base (minimum 30 articles), and monitor resolution rates during the first month as the system learns your specific business context."
     },
     {
-      "limitation": "Cannot Process Real-Time Voice Without Voice Add-On",
-      "description": "PARWA's standard ticket handling supports text-based channels (email, chat, social media). Real-time AI voice support for phone calls (IVR replacement, voice-to-text, text-to-voice conversation) is available exclusively on the High tier. Starter and Growth tier customers cannot use the voice channel.",
-      "recommendation": "If voice support is important, consider the High tier. Growth customers can integrate with a third-party IVR system via the REST API."
+      "limitation": "Cannot Execute Unconfigured Third-Party Actions",
+      "description": "PARWA can only perform actions that are supported by the customer's configured integrations and permissions. A conversational request alone does not authorize or guarantee an external action.",
+      "recommendation": "Confirm the required integration is connected, the relevant permissions are enabled, and the action is supported before promising execution."
     }
   ],
   "security_features": [

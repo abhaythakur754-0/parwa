@@ -36,7 +36,9 @@ export function useKeyboardShortcut(
   handler: (e: KeyboardEvent) => void
 ) {
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
 
   const {
     key,
@@ -99,7 +101,42 @@ export function useKeyboardShortcut(
 export function useKeyboardShortcuts(
   shortcuts: Array<{ shortcut: KeyboardShortcutDef; handler: (e: KeyboardEvent) => void }>
 ) {
-  for (const { shortcut, handler } of shortcuts) {
-    useKeyboardShortcut(shortcut, handler);
-  }
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isInputField = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+
+      for (const { shortcut, handler } of shortcuts) {
+        const {
+          key,
+          ctrl = false,
+          meta = false,
+          shift = false,
+          alt = false,
+          enabled = true,
+          preventDefault = true,
+        } = shortcut;
+
+        if (!enabled || (isInputField && key !== 'Escape')) continue;
+        if (event.key.toLowerCase() !== key.toLowerCase() && event.key !== key) continue;
+        if (ctrl && !event.ctrlKey && !event.metaKey) continue;
+        if (meta && !event.metaKey && !event.ctrlKey) continue;
+        if (shift && !event.shiftKey) continue;
+        if (alt && !event.altKey) continue;
+        if (!ctrl && !meta && !shift && !alt && key !== 'Escape' &&
+            (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)) continue;
+
+        if (preventDefault) event.preventDefault();
+        handler(event);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [shortcuts]);
 }

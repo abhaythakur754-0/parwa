@@ -117,11 +117,12 @@ describe('Day 6 Integration: Collision Flow', () => {
   it('full collision lifecycle: enter → view → edit → field update → leave', () => {
     // User 1 enters viewing
     useCollisionStore.getState().userEntered('TKT-001', 'u1', 'Alice', 'viewing');
-    expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
+    expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(false); // one viewer is not a collision
     expect(useCollisionStore.getState().hasEditor('TKT-001')).toBe(false);
 
     // User 2 enters editing
     useCollisionStore.getState().userEntered('TKT-001', 'u2', 'Bob', 'editing');
+    expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
     expect(useCollisionStore.getState().hasEditor('TKT-001')).toBe(true);
     expect(useCollisionStore.getState().getEditors('TKT-001')).toHaveLength(1);
 
@@ -132,6 +133,7 @@ describe('Day 6 Integration: Collision Flow', () => {
     // User 2 leaves
     useCollisionStore.getState().userLeft('TKT-001', 'u2');
     expect(useCollisionStore.getState().getCollisions('TKT-001')).toHaveLength(1);
+    expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(false);
 
     // User 1 leaves
     useCollisionStore.getState().userLeft('TKT-001', 'u1');
@@ -140,6 +142,7 @@ describe('Day 6 Integration: Collision Flow', () => {
 
   it('collision across multiple tickets is independent', () => {
     useCollisionStore.getState().userEntered('TKT-001', 'u1', 'Alice');
+    useCollisionStore.getState().userEntered('TKT-001', 'u3', 'Charlie', 'viewing');
     useCollisionStore.getState().userEntered('TKT-002', 'u2', 'Bob', 'editing');
 
     expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
@@ -192,6 +195,8 @@ describe('Day 6 Integration: Presence + Collision Combined', () => {
 
     // Same agent enters a ticket
     useCollisionStore.getState().userEntered('TKT-001', 'agent-1', 'Alice', 'viewing');
+    expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(false);
+    useCollisionStore.getState().userEntered('TKT-001', 'agent-2', 'Bob', 'viewing');
     expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
 
     // Agent goes offline
@@ -201,7 +206,7 @@ describe('Day 6 Integration: Presence + Collision Combined', () => {
     // Collision is still tracked (agent may reconnect)
     expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
 
-    // Agent leaves the ticket
+    // Agent leaves the ticket; only one viewer remains, so no collision.
     useCollisionStore.getState().userLeft('TKT-001', 'agent-1');
     expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(false);
   });

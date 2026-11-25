@@ -183,6 +183,8 @@ describe('Collision Store', () => {
 
     it('hasCollision returns true', () => {
       useCollisionStore.getState().userEntered('TKT-001', 'user-1', 'Alice');
+      expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(false);
+      useCollisionStore.getState().userEntered('TKT-001', 'user-2', 'Bob');
       expect(useCollisionStore.getState().hasCollision('TKT-001')).toBe(true);
     });
   });

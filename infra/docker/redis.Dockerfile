@@ -11,18 +11,20 @@ LABEL maintainer="PARWA Team"
 LABEL version="1.0.0"
 LABEL description="PARWA Redis Cache - Production"
 
-# Copy custom Redis configuration
+# Copy configuration and startup script before dropping privileges.
 COPY infra/docker/redis.conf /usr/local/etc/redis/redis.conf
+COPY infra/docker/redis-entrypoint.sh /usr/local/bin/redis-entrypoint.sh
 
-# Create data directory with proper permissions
-RUN mkdir -p /data && chown redis:redis /data
+# Prepare writable paths and executable entrypoint as root.
+RUN mkdir -p /data && chown redis:redis /data && chmod 755 /usr/local/bin/redis-entrypoint.sh
+
+# Redis and its entrypoint run unprivileged.
+USER redis
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD redis-cli -a "${REDIS_PASSWORD:-}" ping 2>/dev/null | grep -q PONG || exit 1
+    CMD REDISCLI_AUTH="${REDIS_PASSWORD:-}" redis-cli ping 2>/dev/null | grep -q PONG || exit 1
 
-# Expose Redis port
 EXPOSE 6379
 
-# Run with custom config
-CMD ["redis-server", "/usr/local/etc/redis/redis.conf"]
+ENTRYPOINT ["/usr/local/bin/redis-entrypoint.sh"]

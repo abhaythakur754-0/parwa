@@ -3,7 +3,7 @@ PARWA Application Configuration
 
 Loads all configuration from environment variables using pydantic-settings.
 Sensible dev defaults are provided so the app starts without a .env file.
-Validators warn (not crash) if dev defaults are used in production.
+Production validators fail closed when critical secrets are missing or weak.
 """
 
 import logging
@@ -13,11 +13,51 @@ import warnings
 from enum import Enum
 from functools import lru_cache
 from typing import Literal, Optional
+from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+def _configured_environment(info: Optional[ValidationInfo] = None) -> str:
+    """Read ENVIRONMENT from validated settings data, then process environment."""
+    if info is not None:
+        configured = info.data.get("ENVIRONMENT")
+        if configured:
+            return str(configured).lower()
+    return os.environ.get("ENVIRONMENT", "development").lower()
+
+
+def _is_placeholder_secret(value: Optional[str]) -> bool:
+    """Reject obvious sample/template values when used as production secrets."""
+    if not value:
+        return True
+    normalized = value.strip().lower()
+    if normalized in {
+        "parwa_redis",
+        "parwa_dev_redis",
+        "parwa_dev",
+        "parwa",
+        "password",
+        "changeme",
+        "secret",
+        "test",
+        "fake",
+    }:
+        return True
+    return normalized.startswith((
+        "your_",
+        "your-",
+        "change-me",
+        "change-this",
+        "replace-me",
+        "placeholder",
+        "example-",
+        "dev-",
+    ))
+
+
 
 
 class Environment(str, Enum):
@@ -175,6 +215,20 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MAX_SESSIONS_PER_USER: int = 5
 
+    # Used to harden refresh-token hashes against offline guessing.
+    REFRESH_TOKEN_PEPPER: str = ""
+
+    @field_validator("REFRESH_TOKEN_PEPPER")
+    @classmethod
+    def validate_refresh_token_pepper(cls, v: str, info: ValidationInfo = None) -> str:
+        env = _configured_environment(info)
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
+            raise ValueError(
+                "SECURITY CRITICAL: REFRESH_TOKEN_PEPPER must be a non-placeholder "
+                "random value of at least 32 characters in production."
+            )
+        return v
+
     # ── JWT RS256 (Week 6) ───────────────────────────────────────
     JWT_ALGORITHM: str = "HS256"  # "HS256" or "RS256"
     JWT_PRIVATE_KEY_PATH: str = ""  # Path to RSA private key PEM file
@@ -268,103 +322,58 @@ class Settings(BaseSettings):
 
     @field_validator("DATA_ENCRYPTION_KEY")
     @classmethod
-    def validate_encryption_key(cls, v) -> str:
-        """BC-011: DATA_ENCRYPTION_KEY must be set and at least 32 characters.
-
-        Auto-generates a 32-char key if not set (all environments).
-        In production: logs a loud warning instead of crashing, because
-        a running app with auto-generated keys is better than a dead app.
-        """
+    def validate_encryption_key(cls, v, info: ValidationInfo = None) -> str:
+        """Require stable encryption material in production; generate only for development."""
+        env = _configured_environment(info)
         if v is None or v == "":
-            import secrets as _secrets
-            v = _secrets.token_urlsafe(24)[:32]  # exactly 32 chars
-            env = os.environ.get("ENVIRONMENT", "development")
             if env == "production":
-                warnings.warn(
-                    "SECURITY: DATA_ENCRYPTION_KEY not set in production — "
-                    "auto-generated! This means encrypted data will be lost on "
-                    "restart. Set a 32-character value via DATA_ENCRYPTION_KEY env var!",
-                    stacklevel=2,
+                raise ValueError(
+                    "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be explicitly "
+                    "configured in production. Auto-generated keys make existing "
+                    "encrypted data unreadable after a restart."
                 )
-            else:
-                warnings.warn(
-                    "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
-                    stacklevel=2,
-                )
-        # AES-256-GCM uses SHA-256 to derive the key, so any length >= 32 is fine.
-        # The old validator required exactly 32 chars, but longer keys are also valid
-        # because derive_key() in security.py uses hashlib.sha256().digest() which
-        # always produces exactly 32 bytes regardless of input length.
-        if len(v) < 32:
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(24)[:32]
             warnings.warn(
-                f"DATA_ENCRYPTION_KEY should be at least 32 characters, got {len(v)}",
+                "DATA_ENCRYPTION_KEY not set — auto-generated for development.",
                 stacklevel=2,
+            )
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
+            raise ValueError(
+                "SECURITY CRITICAL: DATA_ENCRYPTION_KEY must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 
     @field_validator("SECRET_KEY")
     @classmethod
-    def validate_secret_key(cls, v) -> str:
-        """BC-011: SECRET_KEY must be set and strong in production.
-
-        Auto-generates a 32-char key if not set (development only).
-        In production:
-          - RAISES if the value is a known default ("dev-...", "change-me")
-          - RAISES if the value is shorter than 16 chars
-          - Warns (but still runs) if unset — auto-generated key means
-            sessions invalidate on restart, which is annoying but not
-            a security hole.
-        """
-        env = os.environ.get("ENVIRONMENT", "development")
+    def validate_secret_key(cls, v, info: ValidationInfo = None) -> str:
+        """Require a persistent, non-default application secret in production."""
+        env = _configured_environment(info)
         if v is None or v == "":
-            import secrets as _secrets
-            v = _secrets.token_urlsafe(32)
-            if env == "production":
-                warnings.warn(
-                    "SECURITY: SECRET_KEY not set in production — "
-                    "auto-generated! Sessions will be invalidated on restart. "
-                    "Set via SECRET_KEY env var!",
-                    stacklevel=2,
-                )
-            else:
-                warnings.warn(
-                    "SECRET_KEY not set — auto-generated for development.",
-                    stacklevel=2,
-                )
-        # CRITICAL: known default secrets must never run in production.
-        # These values are committed to the public repo — attackers can
-        # forge session tokens if the backend accepts them.
-        if v.startswith("dev-") or v == "change-me":
             if env == "production":
                 raise ValueError(
-                    "SECURITY CRITICAL (C-06): SECRET_KEY is a known default "
-                    f"({v!r}) in production. This value is public in the repo "
-                    "and lets attackers forge session tokens. "
-                    "Set a strong SECRET_KEY via the SECRET_KEY env var."
+                    "SECURITY CRITICAL: SECRET_KEY must be explicitly configured in production."
                 )
+            import secrets as _secrets
+            v = _secrets.token_urlsafe(32)
             warnings.warn(
-                "Using development SECRET_KEY — change in production!",
+                "SECRET_KEY not set — auto-generated for development.",
                 stacklevel=2,
             )
-        # CRITICAL: too-short keys are brute-forceable. Refuse to start.
-        if env == "production" and len(v) < 16:
-            raise ValueError(
-                f"SECURITY CRITICAL (C-06): SECRET_KEY is only {len(v)} chars "
-                "in production — minimum 16 required (32+ recommended). "
-                "Set a strong SECRET_KEY via the SECRET_KEY env var."
-            )
-        # Warn (not crash) if shorter than recommended 32 chars
+        if env == "production" and _is_placeholder_secret(v):
+            raise ValueError("SECURITY CRITICAL: placeholder SECRET_KEY cannot be used in production.")
+        if v.startswith("dev-") or v == "change-me":
+            if env == "production":
+                raise ValueError("SECURITY CRITICAL: known default SECRET_KEY cannot be used in production.")
+            warnings.warn("Using development SECRET_KEY — change before production!", stacklevel=2)
         if env == "production" and len(v) < 32:
-            warnings.warn(
-                f"SECURITY: SECRET_KEY is only {len(v)} chars — "
-                f"should be at least 32 for production!",
-                stacklevel=2,
-            )
+            raise ValueError("SECURITY CRITICAL: SECRET_KEY must be at least 32 characters in production.")
         return v
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod
-    def validate_jwt_key(cls, v) -> str:
+    def validate_jwt_key(cls, v, info: ValidationInfo = None) -> str:
         """BC-011: JWT_SECRET_KEY must be set and strong in production.
 
         In production:
@@ -375,7 +384,7 @@ class Settings(BaseSettings):
           - RAISES if the value is shorter than 16 chars
         In development: auto-generates a 32-char key if not set.
         """
-        env = os.environ.get("ENVIRONMENT", "development")
+        env = _configured_environment(info)
         if v is None or v == "":
             if env == "production":
                 # CRITICAL: an auto-generated JWT secret in production means
@@ -413,30 +422,33 @@ class Settings(BaseSettings):
                 stacklevel=2,
             )
         # CRITICAL: too-short keys are brute-forceable. Refuse to start.
-        if env == "production" and len(v) < 16:
+        if env == "production" and _is_placeholder_secret(v):
+            raise ValueError("SECURITY CRITICAL: placeholder JWT_SECRET_KEY cannot be used in production.")
+        if env == "production" and len(v) < 32:
             raise ValueError(
                 f"SECURITY CRITICAL (C-06): JWT_SECRET_KEY is only {len(v)} "
-                "chars in production — minimum 16 required (32+ recommended). "
-                "Set a strong JWT_SECRET_KEY via the JWT_SECRET_KEY env var."
-            )
-        # Warn (not crash) if shorter than recommended 32 chars
-        if env == "production" and len(v) < 32:
-            warnings.warn(
-                f"SECURITY: JWT_SECRET_KEY is only {len(v)} chars — "
-                f"should be at least 32 for production!",
-                stacklevel=2,
+                "characters; at least 32 are required in production."
             )
         return v
 
-    @field_validator("REDIS_PASSWORD")
+    @field_validator("REDIS_URL")
     @classmethod
-    def validate_redis_password(cls, v: str) -> str:
-        if not v:
-            warnings.warn(
-                "REDIS_PASSWORD is empty — Redis is unauthenticated. "
-                "Set REDIS_PASSWORD in production!",
-                stacklevel=2,
+    def validate_production_redis_auth(cls, v: str, info: ValidationInfo = None) -> str:
+        """Require credentials on the URL actually used by the Redis client."""
+        if _configured_environment(info) == "production":
+            parsed = urlsplit(v)
+            configured_password = (
+                (info.data.get("REDIS_PASSWORD") if info is not None else None)
+                or os.environ.get("REDIS_PASSWORD")
             )
+            # get_redis() passes REDIS_PASSWORD explicitly when configured,
+            # so validate that value first; otherwise validate the URL password.
+            redis_password = configured_password or parsed.password
+            if not redis_password or _is_placeholder_secret(redis_password):
+                raise ValueError(
+                    "SECURITY CRITICAL: REDIS_URL Redis credentials must be configured "
+                    "in the URL or via REDIS_PASSWORD, and must not be sample/template values."
+                )
         return v
 
     # ── Feature Flags ────────────────────────────────────────────
@@ -510,26 +522,34 @@ class Settings(BaseSettings):
 
     @field_validator("PRICING_SIGNING_KEY")
     @classmethod
-    def validate_pricing_signing_key(cls, v) -> str:
+    def validate_pricing_signing_key(cls, v, info: ValidationInfo = None) -> str:
+        env = _configured_environment(info)
         if v is None or v == "":
+            if env == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: PRICING_SIGNING_KEY must be configured "
+                    "in production; pricing token signing cannot be disabled."
+                )
             warnings.warn(
                 "PRICING_SIGNING_KEY is not set — pricing token signing is disabled. "
-                "Set a cryptographically random value via the PRICING_SIGNING_KEY env var.",
+                "Set a cryptographically random value before production deployment.",
                 stacklevel=2,
             )
             return v
         if v.startswith("dev-"):
+            if env == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: development PRICING_SIGNING_KEY cannot "
+                    "be used in production."
+                )
             warnings.warn(
-                "Using development PRICING_SIGNING_KEY — change in production!",
+                "Using development PRICING_SIGNING_KEY — change before production!",
                 stacklevel=2,
             )
-        # Enforce minimum key length in production
-        if os.environ.get("ENVIRONMENT") == "production" and len(v) < 32:
-            warnings.warn(
-                f"PRICING_SIGNING_KEY should be at least 32 characters in production, "
-                f"got {len(v)}. Generate one with: "
-                f"python -c \"import secrets; print(secrets.token_urlsafe(32))\"",
-                stacklevel=2,
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
+            raise ValueError(
+                "SECURITY CRITICAL: PRICING_SIGNING_KEY must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 

@@ -19,6 +19,7 @@ Features:
 """
 
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -27,6 +28,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.logger import get_logger
+from app.config import get_settings
 from app.exceptions import ValidationError, RateLimitError
 from app.services.email_service import send_email
 from app.core.email_renderer import render_email_template
@@ -43,8 +45,15 @@ OTP_LENGTH = 6  # 6-digit OTP
 
 
 def _hash_otp(otp: str) -> str:
-    """Hash an OTP code using SHA-256."""
-    return hashlib.sha256(otp.encode("utf-8")).hexdigest()
+    """Keyed-hash an OTP so a database leak cannot cheaply brute-force six digits."""
+    pepper = get_settings().DATA_ENCRYPTION_KEY
+    if not pepper:
+        raise RuntimeError("DATA_ENCRYPTION_KEY is required to hash verification codes.")
+    return hmac.new(
+        pepper.encode("utf-8"),
+        otp.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _generate_otp() -> str:
@@ -114,6 +123,7 @@ def send_business_email_otp(
     recent_otps = db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
+        BusinessEmailOTP.user_id == user_id,
         BusinessEmailOTP.created_at >= one_hour_ago,
     ).count()
     
@@ -127,6 +137,7 @@ def send_business_email_otp(
     db.query(BusinessEmailOTP).filter(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
+        BusinessEmailOTP.user_id == user_id,
         BusinessEmailOTP.verified == False,  # noqa: E712
     ).update({"expires_at": datetime.now(timezone.utc)})  # Expire them
     
@@ -165,18 +176,23 @@ def send_business_email_otp(
         subject=f"Your PARWA Verification Code: {otp_code}",
         html_content=html_content,
     )
-    
-    if not sent:
+    email_ok = sent.get("success", False) if isinstance(sent, dict) else bool(sent)
+    if not email_ok:
+        otp_record.expires_at = datetime.now(timezone.utc)
+        db.commit()
         logger.warning(
             "business_email_otp_send_failed email=%s user_id=%s",
-            email, user_id)
-        # Still return success - don't reveal email sending status
-        # User will see "check your email" message
-    
+            email, user_id,
+        )
+        raise ValidationError(
+            message="Unable to send the verification code right now. Please try again later."
+        )
+
     logger.info(
         "business_email_otp_sent email=%s user_id=%s company_id=%s",
-        email, user_id, company_id)
-    
+        email, user_id, company_id,
+    )
+
     return {
         "message": f"Verification code sent to {email}",
         "expires_in": OTP_EXPIRY_MINUTES * 60,  # seconds
@@ -189,6 +205,7 @@ def verify_business_email_otp(
     email: str,
     otp_code: str,
     company_id: str,
+    user_id: str,
 ) -> dict:
     """Verify the OTP code for a business email.
     
@@ -232,9 +249,11 @@ def verify_business_email_otp(
                 BusinessEmailOTP.company_id == company_id,
                 BusinessEmailOTP.verified == False,  # noqa: E712
                 BusinessEmailOTP.expires_at > now,
+                BusinessEmailOTP.user_id == user_id,
             )
         )
         .order_by(BusinessEmailOTP.created_at.desc())
+        .with_for_update()
         .first()
     )
     
@@ -290,6 +309,7 @@ def check_business_email_verified(
     db: Session,
     email: str,
     company_id: str,
+    user_id: str,
 ) -> bool:
     """Check if a business email has been verified.
     
@@ -307,6 +327,7 @@ def check_business_email_verified(
         BusinessEmailOTP.email == email,
         BusinessEmailOTP.company_id == company_id,
         BusinessEmailOTP.verified == True,  # noqa: E712
+        BusinessEmailOTP.user_id == user_id,
     ).first()
     
     return verified_otp is not None

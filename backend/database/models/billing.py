@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import uuid
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey
+    Boolean, Column, Date, DateTime, Integer, Numeric, String, Text, ForeignKey, UniqueConstraint
 )
 
 from database.base import Base
@@ -41,6 +41,9 @@ class Subscription(Base):
 
 class Invoice(Base):
     __tablename__ = "invoices"
+    __table_args__ = (
+        UniqueConstraint("paddle_invoice_id", name="uq_invoices_provider_invoice_id"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(
@@ -77,6 +80,9 @@ class OverageCharge(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("paddle_transaction_id", name="uq_transactions_provider_transaction_id"),
+    )
 
     id = Column(String(36), primary_key=True, default=_uuid)
     company_id = Column(

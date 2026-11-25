@@ -18,13 +18,16 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
+    console.error(
+      '[health] Backend unreachable:',
+      err instanceof Error ? err.name : 'UnknownError',
+    );
     return NextResponse.json(
       {
         status: 'error',
         message: 'Backend unreachable — may be waking from sleep',
-        error: err instanceof Error ? err.message : 'Unknown error',
       },
-      { status: 502 },
+      { status: 502, headers: { 'Cache-Control': 'no-store' } },
     );
   }
 }

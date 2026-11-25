@@ -30,10 +30,10 @@ describe('Integration: Ticket Lifecycle Flow', () => {
 
       // Verify initial state
       expect(ticket.status).toBe('open');
-      expect(ticket.assigned_variant).toBe('medium'); // high priority → medium variant
+      expect(ticket.assigned_variant).toBeNull(); // Node 2 assigns variants on the backend
       expect(ticket.messages).toHaveLength(0);
-      expect(ticket.ai_confidence).toBe(89.7); // medium variant confidence
-      expect(ticket.cost_per_ticket).toBe(VARIANT_COST.medium);
+      expect(ticket.ai_confidence).toBeNull(); // populated after backend processing
+      expect(ticket.cost_per_ticket).toBeNull(); // backend is the source of truth
 
       // 2. AI responds (auto-transitions to in_progress)
       const aiMsg = useTicketStore.getState().addMessage(ticket.id, {
@@ -91,7 +91,7 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       });
 
       expect(ticket.status).toBe('open');
-      expect(ticket.assigned_variant).toBe('medium'); // high priority
+      expect(ticket.assigned_variant).toBeNull(); // assigned by backend Node 2
 
       // 2. AI responds and recognizes need for escalation
       useTicketStore.getState().addMessage(ticket.id, {
@@ -107,10 +107,10 @@ describe('Integration: Ticket Lifecycle Flow', () => {
 
       const escalated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(escalated.status).toBe('crm_pending');
-      expect(escalated.assigned_agent).toBe('Human Agent');
+      expect(escalated.assigned_agent).toBe('CRM Team');
       expect(escalated.messages).toHaveLength(2); // AI response + escalation message
       expect(escalated.messages[1].sender).toBe('system');
-      expect(escalated.messages[1].content).toContain('escalated to a human agent');
+      expect(escalated.messages[1].content).toContain('Request sent to the CRM');
     });
   });
 
@@ -173,9 +173,9 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       expect(stats.byPriority.critical).toBe(1);
 
       // Check variant breakdown
-      expect(stats.byVariant.light).toBe(3);  // low priority + medium priority standard categories
-      expect(stats.byVariant.medium).toBe(1);  // high priority (billing)
-      expect(stats.byVariant.heavy).toBe(1);   // critical priority
+      expect(stats.byVariant.light).toBe(0);  // variant assignment is backend-owned
+      expect(stats.byVariant.medium).toBe(0);
+      expect(stats.byVariant.heavy).toBe(0)
 
       // Check channel breakdown
       expect(stats.byChannel.chat).toBe(2);
@@ -183,13 +183,12 @@ describe('Integration: Ticket Lifecycle Flow', () => {
       expect(stats.byChannel.sms).toBe(1);
 
       // Total cost and savings
-      const expectedCost = VARIANT_COST.light * 3 + VARIANT_COST.medium + VARIANT_COST.heavy;
-      expect(stats.totalCost).toBeCloseTo(expectedCost, 2);
+      expect(stats.totalCost).toBe(0); // costs arrive with the persisted backend ticket
     });
   });
 
   describe('Priority change updates variant and cost', () => {
-    it('escalating priority re-assigns heavier variant', () => {
+    it('escalating priority leaves variant assignment to backend Node 2', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Low priority issue',
         description: 'Not urgent',
@@ -200,21 +199,21 @@ describe('Integration: Ticket Lifecycle Flow', () => {
         customer_email: 'test@example.com',
       });
 
-      // Low priority → light variant
-      expect(ticket.assigned_variant).toBe('light');
-      expect(ticket.cost_per_ticket).toBe(VARIANT_COST.light);
+      // Optimistic client ticket does not guess the backend's variant or cost.
+      expect(ticket.assigned_variant).toBeNull();
+      expect(ticket.cost_per_ticket).toBeNull();
 
       // Escalate to critical
       useTicketStore.getState().updatePriority(ticket.id, 'critical');
 
       const updated = useTicketStore.getState().getTicket(ticket.id)!;
       expect(updated.priority).toBe('critical');
-      expect(updated.assigned_variant).toBe('heavy');
-      expect(updated.cost_per_ticket).toBe(VARIANT_COST.heavy);
-      expect(updated.savings_per_ticket).toBeCloseTo(12.5 - VARIANT_COST.heavy);
+      expect(updated.assigned_variant).toBeNull();
+      expect(updated.cost_per_ticket).toBeNull();
+      expect(updated.savings_per_ticket).toBeNull();
     });
 
-    it('downgrading priority re-assigns lighter variant', () => {
+    it('downgrading priority does not invent a client-side variant', () => {
       const ticket = useTicketStore.getState().addTicket({
         subject: 'Critical issue',
         description: 'Urgent',
@@ -225,14 +224,14 @@ describe('Integration: Ticket Lifecycle Flow', () => {
         customer_email: 'test@example.com',
       });
 
-      expect(ticket.assigned_variant).toBe('heavy');
+      expect(ticket.assigned_variant).toBeNull();
 
       // Downgrade to low
       useTicketStore.getState().updatePriority(ticket.id, 'low');
 
       const updated = useTicketStore.getState().getTicket(ticket.id)!;
-      expect(updated.assigned_variant).toBe('light');
-      expect(updated.cost_per_ticket).toBe(VARIANT_COST.light);
+      expect(updated.assigned_variant).toBeNull();
+      expect(updated.cost_per_ticket).toBeNull();
     });
   });
 

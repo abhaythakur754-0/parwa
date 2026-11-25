@@ -77,22 +77,66 @@ def test_normalize_parwa_and_high_unchanged():
 
 
 def test_get_variant_price_mini_returns_parwa_price():
-    """Asking for Mini's price returns Parwa's price ($2499, not $999)."""
+    """Legacy Mini resolves to the current PARWA Growth price ($2,999)."""
     from app.core.pricing_config import get_variant_price
 
-    assert get_variant_price("mini") == Decimal("2499.00")
-    assert get_variant_price("mini_parwa") == Decimal("2499.00")
-    assert get_variant_price("starter") == Decimal("2499.00")
+    assert get_variant_price("mini") == Decimal("2999.00")
+    assert get_variant_price("mini_parwa") == Decimal("2999.00")
+    assert get_variant_price("starter") == Decimal("2999.00")
 
 
 def test_get_variant_limits_mini_returns_parwa_limits():
-    """Mini gets Parwa's limits (5 AI agents, not 0)."""
+    """Mini gets PARWA Growth limits (5 AI agents, not 0)."""
     from app.core.pricing_config import get_variant_limits
 
     mini_limits = get_variant_limits("mini")
-    assert mini_limits["monthly_tickets"] == 2499  # was 999
-    assert mini_limits["ai_agents"] == 5            # was 0
-    assert mini_limits["voice_slots"] == 2          # was 0
+    assert mini_limits["monthly_tickets"] == 2999
+    assert mini_limits["ai_agents"] == 5
+    assert mini_limits["voice_slots"] == 2
+
+
+def test_variant_limit_service_uses_safe_parwa_default_for_unknown_tier():
+    from app.services.variant_limit_service import VariantLimitService
+
+    limits = VariantLimitService().get_variant_limits("unknown-tier")
+    assert limits["monthly_tickets"] == 2999
+    assert limits["ai_agents"] == 5
+
+
+def test_variant_limit_service_canonicalizes_legacy_company_subscription_tiers():
+    from unittest.mock import MagicMock
+    from app.services.variant_limit_service import VariantLimitService
+
+    subscription = MagicMock()
+    subscription.tier = "growth"
+    db = MagicMock()
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = subscription
+
+    assert VariantLimitService()._get_company_variant(db, "company-123") == "parwa"
+
+
+def test_variant_limit_service_reads_price_monthly_from_db_fallback():
+    from unittest.mock import MagicMock, patch
+    from app.services import variant_limit_service
+
+    row = MagicMock()
+    row.monthly_tickets = 2999
+    row.ai_agents = 5
+    row.team_members = 10
+    row.voice_slots = 2
+    row.kb_docs = 500
+    row.price_monthly = Decimal("2999.00")
+
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = row
+    session_factory = MagicMock()
+    session_factory.return_value.__enter__.return_value = db
+
+    with patch.object(variant_limit_service, "get_variant_limits", return_value=None), \
+         patch.object(variant_limit_service, "SessionLocal", session_factory):
+        limits = variant_limit_service.VariantLimitService().get_variant_limits("parwa")
+
+    assert limits["price"] == "2999.00"
 
 
 # ── 4. Upgrade logic ──────────────────────────────────────────────────────

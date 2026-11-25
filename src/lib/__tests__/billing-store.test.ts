@@ -5,7 +5,7 @@
  * cancelSubscription, and error handling.
  *
  * Updated 2026-07-26: Mini SHOBH removed — codebase now has 2 tiers
- * (parwa $2,499/mo + high $3,999/mo). Legacy mini/starter/growth/mini_parwa
+ * (parwa $2,999/mo + high $3,999/mo). Legacy mini/starter/growth/mini_parwa
  * tier values auto-upgrade to parwa via the nameMap in fetchBilling.
  */
 
@@ -20,7 +20,7 @@ describe('useBillingStore', () => {
     // Reset store to initial state (parwa is the entry tier post-Mini-removal)
     useBillingStore.setState({
       currentTier: 'parwa',
-      currentPrice: 2499,
+      currentPrice: 2999,
       renewalDate: null,
       invoices: [],
       paymentMethods: [],
@@ -41,9 +41,9 @@ describe('useBillingStore', () => {
   });
 
   describe('initial state', () => {
-    it('defaults to parwa tier at $2499', () => {
+    it('defaults to parwa tier at $2999', () => {
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
     });
 
     it('has no renewal date initially', () => {
@@ -85,7 +85,7 @@ describe('useBillingStore', () => {
       await useBillingStore.getState().fetchBilling();
 
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
       expect(useBillingStore.getState().renewalDate).toBe('2026-06-14');
     });
 
@@ -114,7 +114,7 @@ describe('useBillingStore', () => {
       await useBillingStore.getState().fetchBilling();
 
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
     });
 
     it('sets error on network failure', async () => {
@@ -142,7 +142,7 @@ describe('useBillingStore', () => {
       await billingPromise;
       expect(useBillingStore.getState().isLoading).toBe(false);
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
     });
 
     it('nameMap auto-upgrades legacy mini→parwa and falls back to parwa on unknown tier', async () => {
@@ -153,7 +153,7 @@ describe('useBillingStore', () => {
       });
       await useBillingStore.getState().fetchBilling();
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
 
       // Unknown tier falls through nameMap to default parwa pricing
       mockFetch.mockResolvedValueOnce({
@@ -162,7 +162,7 @@ describe('useBillingStore', () => {
       });
       await useBillingStore.getState().fetchBilling();
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
     });
   });
 
@@ -358,7 +358,7 @@ describe('useBillingStore', () => {
       await useBillingStore.getState().cancelSubscription();
 
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
       expect(useBillingStore.getState().renewalDate).toBeNull();
     });
 
@@ -391,7 +391,7 @@ describe('useBillingStore', () => {
     it('parwa → upgrade to high → cancel → back to parwa', async () => {
       // Start at parwa (entry tier post-Mini-removal)
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
 
       // Upgrade to high
       mockFetch.mockResolvedValueOnce({
@@ -409,7 +409,7 @@ describe('useBillingStore', () => {
       });
       await useBillingStore.getState().cancelSubscription();
       expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
+      expect(useBillingStore.getState().currentPrice).toBe(2999);
     });
   });
 });

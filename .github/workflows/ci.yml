@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'security/**'
   pull_request:
     branches:
       - main
@@ -129,6 +130,9 @@ jobs:
           # Run Rust-core activation tests FIRST (fast, catches build regressions)
           python -m pytest ../tests/test_parwa_core_rust.py -v --tb=short --noconftest
 
+          # Keep retired-tier aliases and safe defaults aligned with the pricing contract.
+          python -m pytest ../tests/test_mini_removal.py -v --tb=short --noconftest
+
           # Run unit tests — DB-dependent tests are excluded (they need Docker services).
           # NO `|| true` — real failures now fail the build.
           python -m pytest tests/unit/ -v --tb=short -x \
@@ -179,6 +183,49 @@ jobs:
 
           kill $SERVER_PID 2>/dev/null || true
 
+      - name: Build and smoke-test production Redis image
+        timeout-minutes: 5
+        run: |
+          set -eu
+          docker build -f ../infra/docker/redis.Dockerfile -t parwa-redis-ci ..
+          container="parwa-redis-ci-${GITHUB_RUN_ID}"
+          password="$(openssl rand -hex 32)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker run -d --name "$container" -e REDIS_PASSWORD="$password" parwa-redis-ci
+          ready=0
+          for attempt in $(seq 1 20); do
+            if docker exec -e REDISCLI_AUTH="$password" "$container" redis-cli ping 2>/dev/null | grep -q PONG; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            docker logs "$container"
+            exit 1
+          fi
+          docker exec "$container" sh -c 'grep -Eq "^requirepass [A-Za-z0-9_-]+$" /tmp/redis-runtime.conf'
+          unauthenticated_response="$(docker exec -e REDISCLI_AUTH= -e REDIS_PASSWORD= "$container" redis-cli ping 2>&1 || true)"
+          if [ "$unauthenticated_response" = "PONG" ]; then
+            echo "Redis accepted an unauthenticated command"
+            exit 1
+          fi
+          case "$unauthenticated_response" in
+            *NOAUTH*) echo "Unauthenticated Redis access correctly rejected" ;;
+            *) echo "Unexpected unauthenticated Redis response: $unauthenticated_response"; exit 1 ;;
+          esac
+          redis_uid="$(docker exec "$container" id -u)"
+          if [ "$redis_uid" = "0" ]; then
+            echo "Redis is running as root"
+            exit 1
+          fi
+          redis_args="$(docker exec "$container" sh -c "ps w | grep '[r]edis-server'")"
+          if printf '%s' "$redis_args" | grep -F "$password"; then
+            echo "Redis password leaked in process arguments"
+            exit 1
+          fi
+          echo "Redis image authentication, non-root execution, and argv secrecy verified"
+
       - name: Test Summary
         if: always()
         run: echo "Backend tests completed"
@@ -188,6 +235,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-frontend:
     runs-on: ubuntu-latest
+    outputs:
+      lint_outcome: ${{ steps.lint.outcome }}
 
     steps:
       - name: Checkout Code
@@ -201,15 +250,9 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-
-      - name: Run Linter (FAILS on errors)
+      - name: "Run Linter (required)"
+        id: lint
         run: npx eslint . --max-warnings=0
-        continue-on-error: true  # TODO: enforce once all existing warnings are fixed
-
-      - name: Generate Prisma client
-        run: bun run db:generate
-        env:
-          DATABASE_URL: file:./test.db
 
       - name: Type Check (FAILS on type errors)
         run: bun run type-check
@@ -220,18 +263,86 @@ jobs:
           NEXT_PUBLIC_API_URL: https://fake
           DATABASE_URL: file:./test.db
 
-      - name: Run Jest Unit Tests
-        # Native ESM support is required by the jose dependency.
-        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js --passWithNoTests
-        env:
-          JWT_SECRET_KEY: fake_jwt_secret_for_ci
-          NEXT_PUBLIC_JWT_ALGORITHM: HS256
-        continue-on-error: true  # Keep non-blocking until legacy suites are reconciled.
+      - name: Run Jarvis production-guard regression test (required)
+        run: npx jest src/lib/jarvis/__tests__/legacy-guest-guard.test.ts --runInBand
 
-      - name: Run Vitest API Tests
-        run: bun run vitest run src/app/api/chat/__tests__/jarvis-fallback.test.ts
-        continue-on-error: true  # Keep non-blocking until legacy suites are reconciled.
+      - name: Run Vitest chat API regression
+        run: bunx vitest run src/app/api/chat/__tests__/jarvis-fallback.test.ts
+
+      - name: Run Frontend Unit Suite (required)
+        run: npx jest --passWithNoTests
 
       - name: Frontend Test Summary
         if: always()
         run: echo "Frontend tests completed"
+
+  # Produce a reproducible source snapshot only after both required CI jobs pass.
+  package-source:
+    name: Package verified source snapshot
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+    if: needs.test-frontend.outputs.lint_outcome == 'success'
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+
+      - name: Create source archive and provenance
+        run: |
+          set -eu
+          printf 'commit=%s\nbranch=%s\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
+          python - <<'PY'
+          from pathlib import PurePosixPath
+          import subprocess
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          excluded = {
+              "venv", ".venv", "node_modules", ".next", "__pycache__",
+              ".pytest_cache", "coverage", "dist", "build",
+          }
+          tracked = subprocess.run(
+              ["git", "ls-files", "-z"], check=True, capture_output=True
+          ).stdout.split(b"\0")
+
+          with ZipFile("parwa-source.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
+              for raw_path in tracked:
+                  if not raw_path:
+                      continue
+                  path = raw_path.decode("utf-8")
+                  if any(part in excluded for part in PurePosixPath(path).parts):
+                      continue
+                  archive.write(path, path)
+              archive.write("BUILD_INFO.txt", "BUILD_INFO.txt")
+          PY
+          python - <<'PY'
+          from pathlib import PurePosixPath
+          from zipfile import ZipFile
+          from pathlib import Path
+
+          with ZipFile("parwa-source.zip") as archive:
+              names = archive.namelist()
+              required = {
+                  "BUILD_INFO.txt",
+                  "package.json",
+                  "backend/requirements.txt",
+                  "src/lib/variant-store.ts",
+              }
+              missing = required.difference(names)
+              if missing:
+                  raise SystemExit(f"Source archive is missing required files: {sorted(missing)}")
+              if len(names) < 1000 or Path("parwa-source.zip").stat().st_size < 1_000_000:
+                  raise SystemExit("Source archive is unexpectedly small or incomplete")
+              if archive.testzip() is not None:
+                  raise SystemExit("Source archive failed ZIP integrity verification")
+              if any(part in {"venv", ".venv", "node_modules"} for name in names for part in PurePosixPath(name).parts):
+                  raise SystemExit("Source archive unexpectedly contains generated dependency directories")
+          PY
+
+      - name: Upload verified source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: parwa-source-${{ github.sha }}
+          path: |
+            parwa-source.zip
+            BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30

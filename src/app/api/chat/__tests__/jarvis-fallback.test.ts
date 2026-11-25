@@ -45,7 +45,7 @@ global.fetch = vi.fn().mockImplementation(async () => ({
 // Mock the JarvisAIEngine so we can assert it gets called.
 const { generateResponseMock, ensureLoadedMock } = vi.hoisted(() => ({
   generateResponseMock: vi.fn().mockResolvedValue(
-    'Thanks for your question! SHOBH handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini SHOBH.'
+    'Thanks for your question! PARWA handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini PARWA.'
   ),
   ensureLoadedMock: vi.fn().mockResolvedValue(undefined),
 }));
@@ -60,28 +60,27 @@ vi.mock('@/lib/jarvis-ai-engine', () => ({
 }));
 
 // Mock JWT verification (vi.hoisted so the mocks are available to the hoisted vi.mock calls).
-const { verifyTokenMock, getAccessTokenFromCookiesMock } = vi.hoisted(() => ({
-  verifyTokenMock: vi.fn().mockResolvedValue({ sub: 'user-1', company_id: 'company-1' }),
-  getAccessTokenFromCookiesMock: vi.fn().mockReturnValue('fake-token'),
+const { authenticatedUserIdMock } = vi.hoisted(() => ({
+  authenticatedUserIdMock: vi.fn().mockResolvedValue('user-1'),
 }));
 
-vi.mock('@/lib/jwt', () => ({
-  verifyToken: verifyTokenMock,
-  getAccessTokenFromCookies: getAccessTokenFromCookiesMock,
+// The route delegates identity, revocation, and active-account checks to this
+// boundary. Keep route tests isolated from backend auth/network dependencies;
+// auth-helper behavior is covered by its own tests.
+vi.mock('@/lib/api-auth', () => ({
+  getAuthenticatedUserId: authenticatedUserIdMock,
 }));
 
 describe('POST /api/chat — JarvisAIEngine fallback', () => {
   beforeEach(() => {
     // mockReset clears both call history AND one-time return value queues.
-    verifyTokenMock.mockReset();
-    getAccessTokenFromCookiesMock.mockReset();
+    authenticatedUserIdMock.mockReset();
     generateResponseMock.mockReset();
     ensureLoadedMock.mockReset();
     // Restore default return values.
-    verifyTokenMock.mockResolvedValue({ sub: 'user-1', company_id: 'company-1' });
-    getAccessTokenFromCookiesMock.mockReturnValue('fake-token');
+    authenticatedUserIdMock.mockResolvedValue('user-1');
     generateResponseMock.mockResolvedValue(
-      'Thanks for your question! SHOBH handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini SHOBH.'
+      'Thanks for your question! PARWA handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini PARWA.'
     );
     ensureLoadedMock.mockResolvedValue(undefined);
   });
@@ -94,7 +93,7 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
         'Authorization': 'Bearer fake-token',
       },
       body: JSON.stringify({
-        message: 'What does SHOBH cost?',
+        message: 'What does PARWA cost?',
         industry: 'ecommerce',
       }),
     });
@@ -109,11 +108,11 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
     // The response should be successful with the fallback text.
     expect(response.status).toBe(200);
     expect(data.status).toBe('success');
-    expect(data.reply).toContain('SHOBH');
+    expect(data.reply).toContain('PARWA');
     expect(data.reply.length).toBeGreaterThan(10);
   });
 
-  it('returns the fallback text containing SHOBH pricing keywords', async () => {
+  it('returns the fallback text containing PARWA pricing keywords', async () => {
     const req = new Request('http://localhost:3000/api/chat', {
       method: 'POST',
       headers: {
@@ -130,14 +129,13 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('success');
-    // The mocked JarvisAIEngine response mentions SHOBH + pricing.
+    // The mocked JarvisAIEngine response mentions PARWA + pricing.
     expect(data.reply.toLowerCase()).toMatch(/parwa|\$|price|plan/);
   });
 
   it('requires authentication', async () => {
     // Simulate no token in cookie OR header.
-    getAccessTokenFromCookiesMock.mockReturnValueOnce(null);
-    verifyTokenMock.mockResolvedValueOnce(null);
+    authenticatedUserIdMock.mockResolvedValueOnce(null);
 
     const req = new Request('http://localhost:3000/api/chat', {
       method: 'POST',
@@ -151,8 +149,7 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
 
   it('rejects empty messages', async () => {
     // Explicitly ensure auth passes for this test.
-    verifyTokenMock.mockResolvedValue({ sub: 'user-1', company_id: 'company-1' });
-    getAccessTokenFromCookiesMock.mockReturnValue('fake-token');
+    authenticatedUserIdMock.mockResolvedValue('user-1');
 
     const req = new Request('http://localhost:3000/api/chat', {
       method: 'POST',

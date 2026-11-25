@@ -17,11 +17,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.core.integration_catalog import get_catalog, get_catalog_for_industry, get_integration_by_key, ParwaIndustry
 from app.services.audit_service import log_audit, AuditAction, ActorType
 from app.services.integration_service import IntegrationService
@@ -966,7 +966,7 @@ class OutboundWebhookResponse(BaseModel):
     id: str
     url: str
     events: List[str]
-    secret: str
+    secret: str | None = None
     active: bool
     last_triggered_at: str | None = None
     failure_count: int = 0
@@ -979,7 +979,7 @@ class OutboundWebhookResponse(BaseModel):
     response_model=List[OutboundWebhookResponse],
 )
 def api_list_outbound_webhooks(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> List[OutboundWebhookResponse]:
     """List all outbound webhooks for the authenticated user's company.
@@ -1000,7 +1000,7 @@ def api_list_outbound_webhooks(
             id=wh.id,
             url=wh.url,
             events=wh.events or [],
-            secret=wh.secret,
+            secret=None,
             active=wh.active,
             last_triggered_at=wh.last_triggered_at.isoformat() if wh.last_triggered_at else None,
             failure_count=wh.failure_count,
@@ -1018,7 +1018,7 @@ def api_list_outbound_webhooks(
 )
 def api_create_outbound_webhook(
     body: CreateOutboundWebhookRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> OutboundWebhookResponse:
     """Register a new outbound webhook endpoint.
@@ -1029,6 +1029,12 @@ def api_create_outbound_webhook(
     BC-003: HMAC signing secret auto-generated.
     """
     from database.models.outbound_webhook import OutboundWebhook
+    from app.security.outbound_url import validate_public_https_url
+
+    try:
+        safe_url = validate_public_https_url(body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     # Validate event types
     valid_events = set(OutboundWebhook.VALID_EVENTS)
@@ -1042,7 +1048,7 @@ def api_create_outbound_webhook(
 
     webhook = OutboundWebhook(
         company_id=user.company_id,
-        url=body.url,
+        url=safe_url,
         events=body.events,
         description=body.description,
     )
@@ -1072,7 +1078,7 @@ def api_create_outbound_webhook(
 )
 def api_delete_outbound_webhook(
     webhook_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     """Delete an outbound webhook.
@@ -1104,7 +1110,7 @@ def api_delete_outbound_webhook(
 )
 def api_test_outbound_webhook(
     webhook_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Send a test event to an outbound webhook endpoint.
@@ -1116,9 +1122,11 @@ def api_test_outbound_webhook(
     import hmac
     import hashlib
     import json as json_lib
-    import httpx
-
     from database.models.outbound_webhook import OutboundWebhook
+    from app.security.outbound_url import (
+        post_public_https_url,
+        validate_public_https_url,
+    )
 
     webhook = (
         db.query(OutboundWebhook)
@@ -1131,6 +1139,11 @@ def api_test_outbound_webhook(
     if not webhook:
         from app.exceptions import NotFoundError
         raise NotFoundError(message="Webhook not found")
+
+    try:
+        safe_url = validate_public_https_url(webhook.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     # Build test payload
     test_payload = {
@@ -1158,13 +1171,17 @@ def api_test_outbound_webhook(
     }
 
     try:
-        with httpx.Client(timeout=10.0) as client:
-            resp = client.post(webhook.url, content=payload_str, headers=headers)
-        success = 200 <= resp.status_code < 300
+        status_code, _response_body = post_public_https_url(
+            safe_url,
+            payload_str,
+            headers,
+            timeout=10.0,
+        )
+        success = 200 <= status_code < 300
         result = {
             "success": success,
-            "status_code": resp.status_code,
-            "message": "Test event delivered successfully" if success else f"Endpoint returned {resp.status_code}",
+            "status_code": status_code,
+            "message": "Test event delivered successfully" if success else f"Endpoint returned {status_code}",
             "webhook_id": webhook.id,
         }
     except Exception as e:
@@ -1290,7 +1307,7 @@ class AnalyzeIntegrationsResponse(BaseModel):
     response_model=AnalyzeIntegrationsResponse,
 )
 async def api_analyze_integrations(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> AnalyzeIntegrationsResponse:
     """Analyze connected CRM data and recommend missing integrations.
@@ -1427,7 +1444,7 @@ async def api_analyze_integrations(
     "/analyze/stored",
 )
 async def api_get_stored_analysis(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Retrieve most recent stored CRM analysis for dashboard display.

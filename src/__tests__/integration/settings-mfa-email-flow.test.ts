@@ -218,14 +218,10 @@ describe('Email Verification Integration', () => {
 // ── Error Boundary + Demo Banner Integration ─────────────────────────
 
 describe('UI Components Integration', () => {
-  it('DemoBanner renders and is dismissable', () => {
-    const { DemoBanner } = require('@/components/DemoBanner');
+  it('keeps the retired demo-mode banner disabled', () => {
+    const DemoBanner = require('@/components/DemoBanner').default;
     render(React.createElement(DemoBanner));
 
-    expect(screen.getByTestId('demo-banner')).toBeInTheDocument();
-    expect(screen.getByText(/Demo Mode/)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText('Dismiss demo banner'));
     expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument();
   });
 
@@ -241,7 +237,7 @@ describe('UI Components Integration', () => {
 
     render(
       // @ts-expect-error — ErrorBoundary class component props typing is overly strict in React 19
-      React.createElement(ErrorBoundary as any, { children: React.createElement(BrokenComponent) })
+      React.createElement(ErrorBoundary as any, null, React.createElement(BrokenComponent))
     );
 
     expect(screen.getByTestId('error-boundary')).toBeInTheDocument();

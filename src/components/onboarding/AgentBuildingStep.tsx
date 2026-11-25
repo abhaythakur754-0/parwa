@@ -56,7 +56,6 @@ export function AgentBuildingStep({ onComplete }: { onComplete: () => void }) {
     if (buildState === 'idle') {
       startBuild();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Simulate stage progression while building

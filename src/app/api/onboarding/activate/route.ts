@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUserId } from '@/lib/authenticated-user';
-import { createOrUpdateOnboardingSession } from '@/lib/supabase-db';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
+import { createOrUpdateOnboardingSession, getOnboardingSession, getUserDetails } from '@/lib/supabase-db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,12 +23,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { variant, industry } = body;
 
-    // Update session with final data and mark as ready for FirstVictory
+    const existing = await getOnboardingSession(userId);
+    if (!existing || !existing.details_completed || !existing.integration_completed || !existing.kb_completed) {
+      return NextResponse.json({ error: 'onboarding_incomplete', message: 'Complete the required onboarding steps first' }, { status: 409 });
+    }
+    const userDetails = await getUserDetails(userId);
+    if (!userDetails || userDetails.work_email_verified !== true) {
+      return NextResponse.json(
+        { error: 'email_not_verified', message: 'Verify your saved work email before activating the account.' },
+        { status: 409 }
+      );
+    }
+
+    // Preserve verified progress; do not manufacture completed steps.
     const session = await createOrUpdateOnboardingSession({
       user_id: userId,
       status: 'completed',
       current_step: 4,
-      completed_steps: [1, 2, 3],
+      completed_steps: existing.completed_steps || [],
       details_completed: true,
       integration_completed: true,
       kb_completed: true,

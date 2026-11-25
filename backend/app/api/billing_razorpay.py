@@ -179,7 +179,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": result.get("status", "processed")}
     except Exception as e:
         logger.exception("Webhook processing failed: %s", e)
-        raise HTTPException(500, f"Webhook processing failed: {e}")
+        raise HTTPException(500, "Webhook processing failed")
 
 
 @router.get("/tickets-by-variant")

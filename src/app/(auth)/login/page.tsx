@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
-import { getSafeRedirect } from '@/lib/auth-cookies';
+import { getSafeRedirect } from '@/lib/safe-redirect';
 
 // ── Loading Skeleton ──────────────────────────────────────────────────
 

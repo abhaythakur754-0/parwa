@@ -1,10 +1,51 @@
 import '@testing-library/jest-dom';
-import { webcrypto } from 'node:crypto';
 import { TextDecoder, TextEncoder } from 'node:util';
 
-Object.assign(globalThis, { crypto: webcrypto, TextDecoder, TextEncoder });
+// jsdom does not expose the Web Encoding API in every supported Jest runtime.
+// jose and JWT regression tests use these globals when constructing/verifying tokens.
+Object.defineProperty(globalThis, 'TextEncoder', {
+  configurable: true,
+  writable: true,
+  value: TextEncoder,
+});
+Object.defineProperty(globalThis, 'TextDecoder', {
+  configurable: true,
+  writable: true,
+  value: TextDecoder,
+});
 
-// JSDOM does not provide Node's fetch API. Tests replace this spy with the
-// response they need; the default prevents unrelated store tests from
-// failing with ReferenceError when their best-effort API sync runs.
-global.fetch = jest.fn();
+// jsdom does not provide fetch in every supported Node/Jest combination.
+// Store tests mock this function directly, so provide a stable Jest mock.
+if (typeof globalThis.fetch !== 'function') {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    writable: true,
+    value: jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
+      text: async () => 'Test fetch not configured',
+    }),
+  });
+}
+
+
+// Components that call App Router hooks can render without a Next.js runtime.
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+    back: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', {
+    configurable: true,
+    value: jest.fn(),
+  });
+}

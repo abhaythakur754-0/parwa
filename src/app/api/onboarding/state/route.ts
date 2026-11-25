@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUserId } from '@/lib/authenticated-user';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 import { getOnboardingSession, createOrUpdateOnboardingSession } from '@/lib/supabase-db';
 
 // Helper to get user ID from auth token/cookie
@@ -62,11 +62,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    
-    // Save to Supabase
+    const allowedFields = [
+      'ai_name', 'selected_variant', 'selected_industry',
+    ] as const;
+    const safeUpdates: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        safeUpdates[field] = body[field];
+      }
+    }
+    // Ownership, status, and verification flags are server-controlled.
     const session = await createOrUpdateOnboardingSession({
-      ...body,
       user_id: userId,
+      ...safeUpdates,
     });
 
     return NextResponse.json({

@@ -1,3 +1,5 @@
+import 'server-only';
+
 /**
  * SHOBH Database Utility - Supabase Direct
  *
@@ -457,17 +459,21 @@ export async function createPayment(data: PaymentData) {
 }
 
 export async function updatePaymentStatus(
-  razorpayOrderId: string,
+  paymentId: string,
   status: string,
-  extraData?: Record<string, unknown>
+  extraData?: Record<string, unknown>,
+  userId?: string
 ) {
   return db.from('payments').update(
     {
       status,
       ...extraData,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     } as unknown as Record<string, unknown>,
-    { razorpay_order_id: razorpayOrderId },
+    {
+      razorpay_order_id: paymentId,
+      ...(userId ? { user_id: userId } : {}),
+    }
   );
 }
 
@@ -488,6 +494,7 @@ export interface SubscriptionData {
   amount: number;
   currency?: string;
   trial_ends_at?: string;
+  razorpay_order_id?: string;
 }
 
 export async function createSubscription(data: SubscriptionData) {

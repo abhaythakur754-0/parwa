@@ -1,86 +1,278 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2025-01-15",
+  "version": "2.0.0",
+  "last_updated": "2026-11-24",
   "description": "Edge case handling rules and fallback strategies for PARWA Jarvis chatbot. Defines boundaries, unsupported queries, and special handling protocols.",
   "unsupported_queries": [
     {
       "query_type": "legal_advice",
-      "detection_keywords": ["sue", "lawsuit", "legal action", "attorney", "lawyer", "legal rights", "court", "litigation", "damages", "liable", "liability", "legal advice", "can I sue", "take legal action", "statute of limitations", "contract law", "employment law"],
+      "detection_keywords": [
+        "sue",
+        "lawsuit",
+        "legal action",
+        "attorney",
+        "lawyer",
+        "legal rights",
+        "court",
+        "litigation",
+        "damages",
+        "liable",
+        "liability",
+        "legal advice",
+        "can I sue",
+        "take legal action",
+        "statute of limitations",
+        "contract law",
+        "employment law"
+      ],
       "response_template": "I understand this is an important matter, but I'm not able to provide legal advice. Legal questions require qualified legal professionals who can review your specific situation. I'd recommend consulting with an attorney who specializes in this area. In the meantime, I'm happy to help with any customer service-related aspects of your concern. Is there anything specific about your order, account, or our service that I can assist with?"
     },
     {
       "query_type": "medical_advice",
-      "detection_keywords": ["diagnosis", "symptoms", "treatment", "medication advice", "what should I take", "is this serious", "am I sick", "health condition", "medical advice", "should I see a doctor", "pain", "disease", "illness", "side effects", "drug interaction", "dosage"],
+      "detection_keywords": [
+        "diagnosis",
+        "symptoms",
+        "treatment",
+        "medication advice",
+        "what should I take",
+        "is this serious",
+        "am I sick",
+        "health condition",
+        "medical advice",
+        "should I see a doctor",
+        "pain",
+        "disease",
+        "illness",
+        "side effects",
+        "drug interaction",
+        "dosage"
+      ],
       "response_template": "I appreciate you reaching out, but I'm not qualified to provide medical advice. Health-related questions should always be directed to a licensed healthcare provider who can give you personalized guidance based on your full medical history. If this is urgent, please contact your doctor, visit an urgent care center, or call emergency services. For administrative healthcare questions (appointments, billing, insurance), I'm happy to help with those."
     },
     {
       "query_type": "financial_investment_advice",
-      "detection_keywords": ["invest", "stock", "portfolio", "financial advisor", "investment advice", "buy stock", "sell stock", "crypto", "cryptocurrency", "mutual fund", "retirement planning", "financial planning", "tax advice", "should I invest"],
+      "detection_keywords": [
+        "invest",
+        "stock",
+        "portfolio",
+        "financial advisor",
+        "investment advice",
+        "buy stock",
+        "sell stock",
+        "crypto",
+        "cryptocurrency",
+        "mutual fund",
+        "retirement planning",
+        "financial planning",
+        "tax advice",
+        "should I invest"
+      ],
       "response_template": "I'm not able to provide financial or investment advice. These are important decisions that should be made with the guidance of a licensed financial advisor who can assess your individual financial situation and goals. I can, however, help with questions about PARWA's pricing, billing, payment methods, or account management. Would any of those be helpful?"
     },
     {
       "query_type": "competitor_pricing_details",
-      "detection_keywords": ["how much does zendesk cost", "intercom pricing", "freshdesk price", "competitor cost", "crisp pricing", "tidio cost", "drift pricing", "ada cx price", "kommunicate pricing", "how much cheaper is", "cheaper than zendesk"],
+      "detection_keywords": [
+        "how much does zendesk cost",
+        "intercom pricing",
+        "freshdesk price",
+        "competitor cost",
+        "crisp pricing",
+        "tidio cost",
+        "drift pricing",
+        "ada cx price",
+        "kommunicate pricing",
+        "how much cheaper is",
+        "cheaper than zendesk"
+      ],
       "response_template": "I can share general comparisons between PARWA and other platforms to help you evaluate your options, but I'd recommend checking each competitor's official website for their most current and accurate pricing, as they may have recently updated their plans or introduced promotions. I'm happy to provide a detailed comparison of PARWA's features, capabilities, and value proposition against any specific competitor you're considering. What would you like to know about PARWA?"
     },
     {
       "query_type": "political_opinions",
-      "detection_keywords": ["politics", "political", "president", "election", "government policy", "democrat", "republican", "conservative", "liberal", "vote", "gun control", "immigration policy", "political stance"],
+      "detection_keywords": [
+        "politics",
+        "political",
+        "president",
+        "election",
+        "government policy",
+        "democrat",
+        "republican",
+        "conservative",
+        "liberal",
+        "vote",
+        "gun control",
+        "immigration policy",
+        "political stance"
+      ],
       "response_template": "I'm not able to engage in political discussions or share opinions on political topics. My role is to help you with questions about PARWA's platform, features, pricing, and support. Is there something about PARWA that I can help you with today?"
     },
     {
       "query_type": "personal_opinions",
-      "detection_keywords": ["what do you think about", "do you like", "what's your opinion", "what's your favorite", "do you believe", "are you sentient", "do you have feelings", "what do you prefer", "who is better"],
+      "detection_keywords": [
+        "what do you think about",
+        "do you like",
+        "what's your opinion",
+        "what's your favorite",
+        "do you believe",
+        "are you sentient",
+        "do you have feelings",
+        "what do you prefer",
+        "who is better"
+      ],
       "response_template": "As PARWA's AI assistant, I don't have personal opinions or preferences. I'm here to provide you with accurate information about PARWA's platform, help you evaluate whether it's the right fit for your needs, and answer any questions about our features, pricing, and implementation. How can I help you with PARWA today?"
     },
     {
       "query_type": "employee_internal_info",
-      "detection_keywords": ["who is the CEO", "employee list", "how many employees", "salary", "revenue", "funding", "valuation", "investors", "board of directors", "company financials", "internal structure"],
+      "detection_keywords": [
+        "who is the CEO",
+        "employee list",
+        "how many employees",
+        "salary",
+        "revenue",
+        "funding",
+        "valuation",
+        "investors",
+        "board of directors",
+        "company financials",
+        "internal structure"
+      ],
       "response_template": "I can share general information about PARWA's mission and capabilities, but specific details about our internal operations, employee information, or financial data aren't something I'm able to discuss. If you're interested in partnership opportunities, careers at PARWA, or investor relations, I can point you to the right team. For product and platform questions, I'm happy to help with those directly."
     },
     {
       "query_type": "harmful_content",
-      "detection_keywords": ["how to hack", "exploit", "vulnerability", "attack", "malware", "phishing", "social engineering", "bypass security", "illegal activity", "weapon", "violence", "self-harm", "harm"],
+      "detection_keywords": [
+        "how to hack",
+        "exploit",
+        "vulnerability",
+        "attack",
+        "malware",
+        "phishing",
+        "social engineering",
+        "bypass security",
+        "illegal activity",
+        "weapon",
+        "violence",
+        "self-harm",
+        "harm"
+      ],
       "response_template": "I can't assist with requests related to harmful activities. If you're experiencing a crisis or need support, please reach out to appropriate resources. If you have questions about PARWA's security features, compliance certifications, or how we protect customer data, I'm happy to discuss those topics."
     },
     {
       "query_type": "guaranteed_outcomes",
-      "detection_keywords": ["guarantee", "promise", "100% sure", "will definitely", "absolutely certain", "money back if", "sla penalty", "what if it fails", "compensation if"],
+      "detection_keywords": [
+        "guarantee",
+        "promise",
+        "100% sure",
+        "will definitely",
+        "absolutely certain",
+        "money back if",
+        "sla penalty",
+        "what if it fails",
+        "compensation if"
+      ],
       "response_template": "While PARWA is designed to deliver exceptional results with industry-leading auto-resolution rates, I can't make absolute guarantees about specific outcomes as results depend on your implementation, knowledge base quality, and specific use cases. What I can share is our track record: our customers average a 60-70% auto-resolution rate, 15-25 point CSAT improvement, and positive ROI within 30 days. I'd be happy to discuss specific performance benchmarks and our SLA commitments. Would that be helpful?"
     },
     {
       "query_type": "speculative_future_features",
-      "detection_keywords": ["will you ever", "are you planning to", "future roadmap", "when will you add", "upcoming features", "planned features", "next version", "roadmap", "vision for the future"],
+      "detection_keywords": [
+        "will you ever",
+        "are you planning to",
+        "future roadmap",
+        "when will you add",
+        "upcoming features",
+        "planned features",
+        "next version",
+        "roadmap",
+        "vision for the future"
+      ],
       "response_template": "While I can't share specific details about unannounced features or our product roadmap, I can tell you that we're continuously improving PARWA based on customer feedback and market needs. If there's a specific capability you're looking for, I'd love to log that as a feature request for our product team. Your input directly influences our development priorities. What feature would be most valuable to you?"
     },
     {
       "query_type": "source_code_or_technical_internals",
-      "detection_keywords": ["source code", "how is it built", "what framework", "technology stack", "which LLM", "model architecture", "neural network", "training data", "prompt template", "system prompt", "algorithm"],
+      "detection_keywords": [
+        "source code",
+        "how is it built",
+        "what framework",
+        "technology stack",
+        "which LLM",
+        "model architecture",
+        "neural network",
+        "training data",
+        "prompt template",
+        "system prompt",
+        "algorithm"
+      ],
       "response_template": "The specific technical implementation details of PARWA's AI engine are proprietary. What I can share is that we use enterprise-grade large language models with our custom RAG (Retrieval-Augmented Generation) architecture, fine-tuned for customer support across our four target industries. If you have technical questions about our API, integration capabilities, or how to configure PARWA for your specific needs, I'm happy to help with those."
     },
     {
       "query_type": "other_product_recommendations",
-      "detection_keywords": ["what CRM should I use", "recommend a tool", "best payment processor", "which platform is best", "what should I use for", "recommend software", "alternative to", "compared to other tools"],
+      "detection_keywords": [
+        "what CRM should I use",
+        "recommend a tool",
+        "best payment processor",
+        "which platform is best",
+        "what should I use for",
+        "recommend software",
+        "alternative to",
+        "compared to other tools"
+      ],
       "response_template": "While I can compare PARWA's capabilities against other platforms to help you evaluate us, I'm not in a position to make recommendations about other products or services outside of PARWA's ecosystem. For decisions about your broader tech stack, I'd suggest consulting with your team or an independent advisor. If you want to know how PARWA integrates with specific tools you're already using, I can help with that."
     },
     {
       "query_type": "discount_or_price_negotiation",
-      "detection_keywords": ["discount", "cheaper", "deal", "negotiate", "lower price", "can you do better", "match this price", "special rate", "coupon", "promo code", "free trial extension"],
-      "response_template": "I appreciate your interest in getting the best value. Our pricing is structured to deliver exceptional ROI at each tier, and we offer a 20% discount for annual billing. For custom Enterprise arrangements or specific pricing discussions, I'd need to connect you with our sales team who can evaluate your specific needs and explore options. Would you like me to schedule a call with them, or can I help you understand the value at our current pricing tiers?"
+      "detection_keywords": [
+        "discount",
+        "cheaper",
+        "deal",
+        "negotiate",
+        "lower price",
+        "can you do better",
+        "match this price",
+        "special rate",
+        "coupon",
+        "promo code",
+        "free trial extension"
+      ],
+      "response_template": "Annual billing has no discount. The annual amount is exactly 12 times the monthly price: $35,988 for PARWA Growth and $47,988 for PARWA High. For custom commercial terms, connect the customer with the PARWA team; do not promise an unapproved discount."
     },
     {
       "query_type": "impersonation_requests",
-      "detection_keywords": ["pretend to be", "act like", "roleplay as", "impersonate", "fake identity", "pretend you are", "speak as if", "can you act"],
+      "detection_keywords": [
+        "pretend to be",
+        "act like",
+        "roleplay as",
+        "impersonate",
+        "fake identity",
+        "pretend you are",
+        "speak as if",
+        "can you act"
+      ],
       "response_template": "I'm PARWA's AI assistant, and I operate within my defined role of helping you learn about and evaluate PARWA's customer support platform. I can't impersonate other individuals, brands, or AI systems. If you'd like to see how PARWA's AI would handle a specific customer support scenario, I'd be happy to walk through a demonstration with you."
     },
     {
       "query_type": "data_breach_inquiries",
-      "detection_keywords": ["data breach", "was my data compromised", "security incident", "hack", "data leak", "was there a breach", "stolen data", "exposed data", "security vulnerability"],
+      "detection_keywords": [
+        "data breach",
+        "was my data compromised",
+        "security incident",
+        "hack",
+        "data leak",
+        "was there a breach",
+        "stolen data",
+        "exposed data",
+        "security vulnerability"
+      ],
       "response_template": "PARWA takes security extremely seriously and has not experienced any data breaches. We maintain SOC 2 Type II certification, undergo quarterly penetration testing, and employ comprehensive security measures including AES-256 encryption, multi-region redundancy, and strict data isolation. If you have specific security concerns, I can provide more details about our security practices or connect you with our security team for a detailed discussion."
     },
     {
       "query_type": "spam_or_gibberish",
-      "detection_keywords": ["asdfgh", "test test test", "aaaaaaaa", "keyboard smash", "random text", "lorem ipsum", "nonsense"],
+      "detection_keywords": [
+        "asdfgh",
+        "test test test",
+        "aaaaaaaa",
+        "keyboard smash",
+        "random text",
+        "lorem ipsum",
+        "nonsense"
+      ],
       "response_template": "It looks like your message might not have come through clearly. I'm here to help with questions about PARWA's AI-powered customer support platform. Could you try rephrasing what you'd like to know? I'm happy to help with product information, pricing, features, or anything else about PARWA."
     }
   ],
@@ -88,8 +280,8 @@
     {
       "condition": "monthly_resolution_limit_reached",
       "description": "Customer has exceeded their plan's monthly automated resolution limit",
-      "behavior": "Continue serving conversations but log overage. AI continues resolving with no interruption. Overages billed at $0.10/resolution. Notify account admin via email and dashboard alert when 80% and 100% thresholds are reached.",
-      "user_message": "Your plan has reached its monthly resolution limit of {limit} automated resolutions. Conversations will continue to be served and overage resolutions will be billed at $0.10 each. Consider upgrading your plan or contacting your Customer Success Manager to discuss higher-volume options."
+      "behavior": "Continue serving tickets where the account's configured overage policy allows it, and record each ticket beyond the monthly allowance. Overage is $1 per additional ticket on both plans. Notify the account admin only through alerts that are actually enabled in the workspace.",
+      "user_message": "Your plan has reached its monthly ticket allowance of {limit} tickets. Additional tickets are billed at $1 each where overage is enabled. You can review your usage and plan options in billing settings."
     },
     {
       "condition": "concurrent_session_limit",
@@ -214,24 +406,16 @@
       "scenario": "A prospect wants to compare plans but has unique needs that span multiple tiers",
       "conversation_flow": [
         {
-          "turn": 1,
-          "user": "I run a SaaS company with 15,000 monthly support tickets. We need HIPAA compliance and API integrations. Which plan?",
-          "jarvis_action": "Analyze requirements: 15K tickets → Growth plan (10K) or High plan (unlimited). HIPAA compliance → available on all plans. API integrations → Growth has basic API, High has advanced API. Recommend High plan given volume exceeds Growth limits."
+          "jarvis_action": "Clarify the monthly ticket volume and required integrations. PARWA Growth includes 2,999 tickets/month and 5 AI agents; PARWA High includes 3,999 tickets/month and 8 AI agents. Both use the same 8-node pipeline and AI capabilities. Do not promise HIPAA or other certification status without current documentation and an applicable agreement."
         },
         {
-          "turn": 2,
-          "user": "The High plan is too expensive. Can we get by with Growth?",
-          "jarvis_action": "Acknowledge budget concern. Explain that 15K tickets exceeds Growth's 10K limit, resulting in 5K overage at $0.10 each ($500/mo extra). Calculate total: $2,999 + $500 = $2,999/mo on Growth vs $3,999/mo on High. Present the trade-off: Growth saves $1,000/mo but lacks custom AI training, dedicated infrastructure, and 99.99% SLA."
+          "jarvis_action": "For 15,000 monthly tickets, explain that Growth would have 12,001 additional tickets and High would have 11,001. At $1 per additional ticket, both plans reach $15,000 total before taxes or separately agreed services. High provides more included capacity, 8 AI agents, and no preset refund or credit cap; Growth has $500 refund and $200 credit limits."
         },
         {
-          "turn": 3,
-          "user": "What if we reduce to 10K tickets by improving our self-service articles?",
-          "jarvis_action": "Encourage the strategy. Explain that improving self-service is excellent but PARWA actually helps with that — customers who use PARWA often see 20-30% fewer tickets over time as common issues are resolved before they'd normally be submitted. Suggest starting with Growth and monitoring for 60 days, then evaluating if High plan or Growth + overages is more cost-effective."
+          "jarvis_action": "Estimate the customer's total cost using their expected ticket volume, current plan allowance, and $1 overage rate. Do not promise that automation will reduce ticket volume by a fixed percentage; use measured customer data."
         },
         {
-          "turn": 4,
-          "user": "Can we start with Growth and upgrade later if needed?",
-          "jarvis_action": "Confirm yes, seamless plan upgrades with zero downtime and no migration. Prorated billing for mid-month upgrades. Offer to start onboarding with Growth plan and set volume monitoring alerts at 80% and 100% of the 10K limit. Summarize next steps."
+          "jarvis_action": "Explain that plan changes, billing proration, service continuity, and usage alerts depend on the account's current subscription terms and enabled features. Confirm these details before promising a migration timeline or zero downtime."
         }
       ],
       "key_handling_rules": [
@@ -247,29 +431,19 @@
       "scenario": "A healthcare organization needs thorough security validation before proceeding",
       "conversation_flow": [
         {
-          "turn": 1,
-          "user": "We're a hospital system. What compliance certifications do you have?",
-          "jarvis_action": "Provide comprehensive list: SOC 2 Type II, HIPAA, GDPR, PCI DSS Level 1, with ISO 27001 in progress. Offer to provide detailed reports under NDA."
+          "jarvis_action": "Acknowledge the security review and offer the current security documentation for the customer's deployment. Do not claim SOC 2, HIPAA, GDPR, PCI DSS, ISO, or other certifications unless current evidence confirms the scope."
         },
         {
-          "turn": 2,
-          "user": "How do you handle PHI? What's the data flow?",
-          "jarvis_action": "Explain PHI handling: encryption at rest (AES-256) and in transit (TLS 1.3), minimum necessary standard, access logging with full audit trails, role-based access controls, and Business Associate Agreement available. Describe the data flow: patient message → encrypted transmission → secure processing → response → encrypted delivery. No PHI stored beyond session unless required for support context."
+          "jarvis_action": "For healthcare or PHI workflows, confirm the applicable legal and security review, BAA status, configured access controls, data handling, and retention before any PHI is processed. Do not assert specific encryption algorithms or storage behavior without deployment evidence."
         },
         {
-          "turn": 3,
-          "user": "We need our data to stay in the US. Can you guarantee that?",
-          "jarvis_action": "Confirm US data residency option. Explain that data is hosted in AWS US-East and US-West regions with no cross-border processing. Provide details on the geographic data isolation architecture and compliance with HITECH Act requirements."
+          "jarvis_action": "Data residency and region availability depend on the customer's hosting configuration and agreement. Confirm the actual region and processing boundaries with the technical team; do not promise US-only or EU-only processing without evidence."
         },
         {
-          "turn": 4,
-          "user": "What happens if there's a security incident? What's your breach notification process?",
-          "jarvis_action": "Outline incident response: 5-minute initial response SLA, dedicated incident commander, customer notification within 24 hours (or as required by regulation), detailed incident report within 72 hours, root cause analysis, remediation plan, and preventive measures. Offer to share the full Incident Response Plan document under NDA."
+          "jarvis_action": "Incident response times, customer notification windows, and reporting commitments are governed by the current agreement and incident-response policy. Share only verified commitments."
         },
         {
-          "turn": 5,
-          "user": "Okay, this covers what we need. How do we start the evaluation process?",
-          "jarvis_action": "Guide through next steps: NDA signing for detailed security docs, 30-day pilot program enrollment, BAA execution before any PHI processing, security team kickoff call, and timeline for full deployment. Offer to connect with the security team directly."
+          "jarvis_action": "Arrange a security review with the appropriate team. Do not promise a 30-day pilot, a BAA, or a specific deployment schedule until each is approved and documented."
         }
       ],
       "key_handling_rules": [
@@ -285,29 +459,19 @@
       "scenario": "Prospect is actively comparing PARWA against two competitors simultaneously",
       "conversation_flow": [
         {
-          "turn": 1,
-          "user": "We're evaluating PARWA, Intercom, and Zendesk. Why should we pick PARWA?",
-          "jarvis_action": "Provide honest positioning: all three are strong platforms with different strengths. Position PARWA as the AI-native choice focused on support automation, contrasting with Intercom's marketing focus and Zendesk's helpdesk-centric design. Offer to do detailed comparisons against each."
+          "jarvis_action": "Explain that each platform has different strengths and recommend comparing the customer's required workflows, integrations, ticket volume, and service terms using current vendor documentation."
         },
         {
-          "turn": 2,
-          "user": "Intercom told us they resolve 50% of tickets with Fin AI. What's PARWA's rate?",
-          "jarvis_action": "Share PARWA's 60-70% average auto-resolution rate. Explain that the higher rate comes from AI-native architecture and industry-specific agents. Note that actual rates depend on knowledge base quality and ticket complexity. Offer to provide customer references with verified resolution rates."
+          "jarvis_action": "Do not quote a fixed PARWA auto-resolution percentage. Explain that measured results depend on the customer's ticket mix, knowledge quality, integrations, and configuration."
         },
         {
-          "turn": 3,
-          "user": "Zendesk includes a helpdesk. Do we need a separate one with PARWA?",
-          "jarvis_action": "Clarify: PARWA integrates with existing helpdesks rather than replacing them. If they don't have one, PARWA includes basic ticket management. But emphasize that most customers use PARWA alongside their preferred helpdesk, adding AI intelligence on top."
+          "jarvis_action": "Clarify which existing helpdesk and ticketing systems are supported by the customer's configured integrations. Do not promise that PARWA replaces a specific platform unless the current product scope confirms it."
         },
         {
-          "turn": 4,
-          "user": "Intercom charges per resolution. What about PARWA?",
-          "jarvis_action": "Explain PARWA's unlimited conversation model. Calculate a comparison: if they handle 10,000 monthly resolutions, Intercom Fin would cost approximately $9,900/mo on top of their platform fee, while PARWA Growth at $2,999/mo includes all resolutions."
+          "jarvis_action": "For 10,000 monthly tickets, PARWA Growth includes 2,999 and PARWA High includes 3,999; additional tickets are $1 each where overage is enabled. Compare total cost using the customer's actual volume and each competitor's current quote."
         },
         {
-          "turn": 5,
-          "user": "Can you send us a detailed side-by-side comparison?",
-          "jarvis_action": "Confirm and offer to create a customized comparison matrix tailored to their specific requirements (industry, volume, channels, integrations needed). Collect their specific evaluation criteria to make the comparison relevant rather than generic."
+          "jarvis_action": "Offer a comparison matrix based on the customer's industry, monthly ticket volume, required channels, integrations, capacity, and financial guardrails."
         }
       ],
       "key_handling_rules": [
@@ -361,29 +525,19 @@
       "scenario": "Conversation involves different concerns from CEO (ROI), CTO (security), and Head of Support (ease of use)",
       "conversation_flow": [
         {
-          "turn": 1,
-          "user": "Our CEO wants to know the ROI. Our CTO is worried about security. And I (Head of Support) just want something my team will actually use.",
-          "jarvis_action": "Address all three stakeholders systematically. Start with CEO's ROI concern since it drives the business case, then address CTO's security requirements, and finally Head of Support's usability needs. Commit to addressing each one fully."
+          "jarvis_action": "Address the CEO's ROI question using the customer's actual ticket volume, staffing costs, and workflow mix. Do not invent an automation percentage or savings figure."
         },
         {
-          "turn": 2,
-          "user": "Let's start with ROI. We spend $45K/month on a 20-person support team handling 25K tickets.",
-          "jarvis_action": "Calculate specific ROI: 25K tickets × 65% auto-resolution = 16,250 tickets automated. At $12 avg cost per human ticket = $195,000/month savings potential. PARWA High plan at $3,999/month. Net savings: $191,001/month or $2.29M/year. Note that savings come through efficiency gains (team handles remaining 8,750 tickets faster), not necessarily headcount reduction."
+          "jarvis_action": "Build a transparent estimate from verified customer inputs. Include PARWA Growth at $2,999/month for 2,999 tickets and PARWA High at $3,999/month for 3,999 tickets, with $1 per additional ticket where enabled. Explain the Growth $500 refund/$200 credit limits and High's lack of preset refund or credit caps."
         },
         {
-          "turn": 3,
-          "user": "That's compelling. Now the CTO wants to know: where does our data go? Who has access?",
-          "jarvis_action": "Provide security specifics for the CTO: data stored in customer-selected region (US/EU/APAC), AES-256 encryption at rest, TLS 1.3 in transit, full data isolation between tenants, SOC 2 Type II certified, annual penetration testing, no data sharing between customers, RBAC with SSO/SAML support, complete audit logging. Offer to send the SOC 2 report under NDA."
+          "jarvis_action": "For the CTO, provide current security documentation for the deployment. Confirm certifications, encryption, data residency, tenant isolation, and SSO/SAML scope only where verified by current evidence."
         },
         {
-          "turn": 4,
-          "user": "For me as Head of Support — how much work is this going to add to my plate?",
-          "jarvis_action": "Minimize perceived burden: PARWA is managed by our team for setup (10-14 days, customer handles 1-hour kick-off). Ongoing: 15 minutes/week for dashboard review, knowledge base updates only when products/policies change. No prompt engineering, no AI training, no technical management. Provide the team training session (2 hours) to ensure comfort with the platform. Show the agent interface and emphasize that agents give feedback with a single click."
+          "jarvis_action": "For the Head of Support, explain that implementation timing and ongoing effort depend on integrations, knowledge readiness, approvals, and training. Do not promise a fixed 10-14 day deployment or a specific weekly time commitment."
         },
         {
-          "turn": 5,
-          "user": "This addresses all our concerns. Can we set up separate demos for each stakeholder?",
-          "jarvis_action": "Offer tailored demos: ROI-focused session for CEO with financial modeling, security deep-dive for CTO with technical team, hands-on workflow demo for Head of Support. Provide an evaluation checklist for each stakeholder. Offer to schedule a joint wrap-up session where all three can discuss and align on the decision."
+          "jarvis_action": "Offer separate ROI, security, and workflow sessions with the relevant specialists. Confirm scope and availability before scheduling or promising deliverables."
         }
       ],
       "key_handling_rules": [
@@ -396,13 +550,56 @@
   ],
   "language_handling": {
     "supported_languages": [
-      "English", "Spanish (Latin America)", "Spanish (Castilian)", "French", "German", "Portuguese (Brazil)",
-      "Portuguese (European)", "Italian", "Dutch", "Chinese (Simplified)", "Chinese (Traditional)",
-      "Japanese", "Korean", "Arabic", "Hindi", "Bengali", "Turkish", "Thai", "Vietnamese",
-      "Indonesian", "Polish", "Swedish", "Danish", "Norwegian", "Finnish", "Russian", "Czech",
-      "Romanian", "Hungarian", "Greek", "Ukrainian", "Malay", "Filipino", "Hebrew", "Urdu",
-      "Tamil", "Telugu", "Marathi", "Kannada", "Gujarati", "Catalan", "Croatian", "Slovak",
-      "Slovenian", "Bulgarian", "Serbian", "Lithuanian", "Latvian", "Estonian", "Vietnamese"
+      "English",
+      "Spanish (Latin America)",
+      "Spanish (Castilian)",
+      "French",
+      "German",
+      "Portuguese (Brazil)",
+      "Portuguese (European)",
+      "Italian",
+      "Dutch",
+      "Chinese (Simplified)",
+      "Chinese (Traditional)",
+      "Japanese",
+      "Korean",
+      "Arabic",
+      "Hindi",
+      "Bengali",
+      "Turkish",
+      "Thai",
+      "Vietnamese",
+      "Indonesian",
+      "Polish",
+      "Swedish",
+      "Danish",
+      "Norwegian",
+      "Finnish",
+      "Russian",
+      "Czech",
+      "Romanian",
+      "Hungarian",
+      "Greek",
+      "Ukrainian",
+      "Malay",
+      "Filipino",
+      "Hebrew",
+      "Urdu",
+      "Tamil",
+      "Telugu",
+      "Marathi",
+      "Kannada",
+      "Gujarati",
+      "Catalan",
+      "Croatian",
+      "Slovak",
+      "Slovenian",
+      "Bulgarian",
+      "Serbian",
+      "Lithuanian",
+      "Latvian",
+      "Estonian",
+      "Vietnamese"
     ],
     "detection_method": "PARWA uses a multi-stage language detection system: First, an ML-based language identifier processes the incoming message to determine the language with 98%+ accuracy. Second, the detected language is confirmed against a confidence threshold. Third, the system checks if the detected language is in the supported list. Fourth, if the language is supported, the conversation is routed to the appropriate language model. If unsupported, the fallback protocol is triggered.",
     "language_switching": "If a customer switches languages mid-conversation, PARWA adapts within 1-2 messages. The system maintains conversation context across language switches and responds in the language of the most recent message. If the language change is ambiguous, PARWA confirms the preferred language before proceeding.",

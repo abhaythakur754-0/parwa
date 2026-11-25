@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { SignupForm, SignupFormData } from '@/components/auth/SignupForm';
 import { SocialLogin } from '@/components/auth/SocialLogin';
 import { useAuth } from '@/hooks/useAuth';
-import { getSafeRedirect } from '@/lib/auth-cookies';
+import { getSafeRedirect } from '@/lib/safe-redirect';
 
 function SignupContent() {
   const router = useRouter();

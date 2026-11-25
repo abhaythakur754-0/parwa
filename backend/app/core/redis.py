@@ -6,7 +6,7 @@ Every Redis key MUST include company_id in the namespace: parwa:{company_id}:*
 
 BC-001: No global keys — all keys are tenant-isolated.
 BC-011: Redis URL loaded from environment, never hardcoded.
-BC-012: Redis failure -> fail-open (consistent with rate_limiter design).
+BC-012: Development may use fakeredis; production requires real Redis and fails closed.
 
 Day 20: Added key validation enforcement:
 - validate_tenant_key() checks key follows parwa:{company_id}:* pattern
@@ -316,7 +316,7 @@ async def get_redis() -> aioredis.Redis:
 
     Uses connection pooling for efficient connection reuse.
     Redis URL is loaded from REDIS_URL environment variable (BC-011).
-    Falls back to fakeredis if real Redis is unavailable (BC-012).
+    Uses fakeredis only in non-production environments; production never substitutes in-memory state.
 
     Returns:
         Async Redis client connected to the pool.
@@ -352,6 +352,11 @@ async def get_redis() -> aioredis.Redis:
                     )
                     # REDIS_URL is normalized to redis:// (not rediss://) in
                     # config.py, so no SSL handling needed here.
+                    # REDIS_URL may already contain credentials (e.g. Upstash).
+                    # If a separate REDIS_PASSWORD is supplied, pass it to the
+                    # actual connection client rather than merely validating it.
+                    if settings.REDIS_PASSWORD:
+                        conn_kwargs["password"] = settings.REDIS_PASSWORD
                     client = aioredis.from_url(
                         settings.REDIS_URL,
                         **conn_kwargs,
@@ -364,11 +369,22 @@ async def get_redis() -> aioredis.Redis:
                         settings.REDIS_URL.split("@")[-1]
                         if "@" in settings.REDIS_URL else "localhost")
                 except Exception as conn_err:
-                    # BC-012: Fall back to fakeredis for development
+                    # An in-memory fallback silently loses sessions, locks,
+                    # rate limits, and revocation state across processes/restarts.
+                    # It must never be used in production.
                     global _redis_error_logged
+                    if settings.is_production:
+                        logger.error(
+                            "redis_connection_failed_in_production; refusing in-memory fallback error=%s",
+                            str(conn_err)[:200],
+                        )
+                        raise RuntimeError(
+                            "Redis is unavailable in production; refusing to start with an in-memory substitute."
+                        ) from conn_err
+
                     if not _redis_error_logged:
                         logger.warning(
-                            "redis_fallback_to_fakeredis (will not log again) error=%s",
+                            "redis_fallback_to_fakeredis (development only; will not log again) error=%s",
                             str(conn_err)[:200])
                         _redis_error_logged = True
                     try:
@@ -378,9 +394,7 @@ async def get_redis() -> aioredis.Redis:
                         )
                         logger.info("redis_fakeredis_connected")
                     except ImportError:
-                        if not _redis_error_logged:
-                            logger.error("redis_fakeredis_not_available")
-                            _redis_error_logged = True
+                        logger.error("redis_fakeredis_not_available")
                         raise conn_err
     return _redis_client
 
