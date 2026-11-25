@@ -1389,15 +1389,33 @@ async def api_analyze_integrations(
         }
         return aliases.get(slug, slug)
 
-    recommendations = [
-        {
-            "name": str(name),
-            "system_id": _system_id(str(name)),
-            "priority": "high",
-            "reason": "Recommended by CRM analysis",
-        }
-        for name in result.get("integrations", [])
-    ]
+    recommendations = []
+    database_system_ids = {"postgres", "mysql", "mongodb", "supabase-db", "snowflake", "bigquery"}
+    for item in result.get("integrations", []):
+        if isinstance(item, dict):
+            raw_name = item.get("name") or item.get("system_id") or item.get("key") or item.get("integration_key")
+            raw_system_id = item.get("system_id") or item.get("integration_key") or item.get("key")
+        else:
+            raw_name = str(item)
+            raw_system_id = None
+        if not raw_name:
+            continue
+        system_id = _system_id(str(raw_system_id or raw_name))
+        catalog_entry = get_integration_by_key(system_id)
+        display_name = catalog_entry.name if catalog_entry else str(raw_name).replace("-", " ").replace("_", " ").title()
+        category = (
+            catalog_entry.category.value
+            if catalog_entry
+            else "Database" if system_id in database_system_ids
+            else "Custom"
+        )
+        recommendations.append({
+            "name": display_name,
+            "system_id": system_id,
+            "category": category,
+            "priority": item.get("priority", "high") if isinstance(item, dict) else "high",
+            "reason": item.get("reason", "Recommended by CRM analysis") if isinstance(item, dict) else "Recommended by CRM analysis",
+        })
     recommended_agents = [
         item if isinstance(item, dict) else {"name": str(item)}
         for item in (result.get("agents") or [])
