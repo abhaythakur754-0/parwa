@@ -271,7 +271,10 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
     if not is_configured():
         return False
 
-    url, token = _get_config()
+    url, admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
+    if not url or not token:
+        return False
     actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
 
     try:
@@ -290,9 +293,9 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
         # 404 or other → tool doesn't exist
         return False
     except Exception as exc:
-        # If we can't reach Superglue, assume tool exists (don't block tickets)
-        logger.warning("verify_tool_exists_error: %s — assuming exists", str(exc)[:100])
-        return True
+        # Never mark an unverified tool as production-ready or execute it blindly.
+        logger.warning("verify_tool_exists_error: %s", str(exc)[:100])
+        return False
 
 
 async def get_tenant_tool_ids(tenant_id: Optional[str] = None) -> set:
