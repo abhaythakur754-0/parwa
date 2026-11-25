@@ -788,6 +788,12 @@ async def get_system_oauth_status(
         integration.status = "verified"
         integration.error_message = None
         integration.last_sync = datetime.now(timezone.utc)
+        mcp_connection = db.query(MCPConnection).filter(
+            MCPConnection.company_id == tenant_id,
+            MCPConnection.name == f"{integration.name} ({system_id})",
+        ).first()
+        if mcp_connection:
+            mcp_connection.status = "connected"
     elif integration.status != "verified":
         integration.status = "pending_oauth"
         integration.error_message = result.get("error")
