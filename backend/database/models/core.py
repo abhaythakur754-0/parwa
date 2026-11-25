@@ -499,6 +499,8 @@ class SuperglueCallQueue(Base):
     company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     tool_id = Column(String(255), nullable=False)
     input_data = Column(Text, nullable=False)  # encrypted JSON of tool inputs
+    idempotency_key = Column(String(512), nullable=True, index=True)
+    safety_level = Column(String(24), nullable=False, default="unknown")
     ticket_id = Column(String(128), nullable=True, index=True)
     agent_id = Column(String(36), nullable=True)
 
