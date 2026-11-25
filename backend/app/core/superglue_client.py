@@ -628,6 +628,11 @@ async def recover_stuck_superglue_calls() -> None:
             for row in stuck_rows:
                 if row.retry_count >= row.max_retries:
                     # Max retries exceeded — mark failed
+                    if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                        _db.execute(
+                            _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                            {"tenant_id": str(row.company_id)},
+                        )
                     row.status = "failed"
                     row.error_message = "max retries exceeded during recovery"
                     row.completed_at = datetime.now(timezone.utc)
@@ -648,6 +653,11 @@ async def recover_stuck_superglue_calls() -> None:
                             from shared.utils.token_encryption import encrypt_token
                             row.input_data = encrypt_token(_json.dumps(input_data))
                         except Exception:
+                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                _db.execute(
+                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                    {"tenant_id": str(row.company_id)},
+                                )
                             row.status = "failed"
                             row.error_message = "queued payload could not be decrypted"
                             row.completed_at = datetime.now(timezone.utc)
@@ -682,6 +692,11 @@ async def recover_stuck_superglue_calls() -> None:
                         _db.commit()
                         logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
                     else:
+                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            _db.execute(
+                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                {"tenant_id": str(row.company_id)},
+                            )
                         row.status = "failed"
                         row.error_message = result.get("error", "unknown")[:500]
                         row.completed_at = datetime.now(timezone.utc)
