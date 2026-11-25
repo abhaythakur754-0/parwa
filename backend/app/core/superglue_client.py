@@ -1130,6 +1130,51 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
         }
 
 
+async def delete_tenant_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
+    """Revoke only this tenant's credential connection; keep shared system definitions."""
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
+
+    headers = {"Authorization": f"Bearer {token}", **_session_headers()}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(
+                f"{url}/v1/credentials",
+                headers=headers,
+                params={"systemId": system_id},
+            )
+            if response.status_code == 404:
+                return {"success": True}
+            if response.status_code != 200:
+                return {"success": False, "error": f"Could not inspect credentials (HTTP {response.status_code})"}
+            payload = response.json()
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            connection_id = (
+                data.get("id")
+                or data.get("connectionId")
+                or (data.get("connection") or {}).get("id")
+            ) if isinstance(data, dict) else None
+            if connection_id:
+                deleted = await client.delete(
+                    f"{url}/v1/credentials/{connection_id}",
+                    headers=headers,
+                )
+            else:
+                deleted = await client.delete(
+                    f"{url}/v1/credentials",
+                    headers=headers,
+                    params={"systemId": system_id},
+                )
+            return {"success": deleted.status_code in (200, 204, 404)}
+    except Exception as exc:
+        logger.warning("superglue_tenant_credential_delete_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not revoke tenant credentials"}
+
+
 async def start_oauth_exchange(
     system_id: str,
     tenant_id: str,
