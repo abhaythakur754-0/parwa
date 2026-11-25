@@ -69,7 +69,18 @@ jobs:
           DATABASE_URL: sqlite:///./migration-ci.db
         run: |
           alembic -c database/alembic.ini upgrade head
-          python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('sqlite:///./migration-ci.db')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('Alembic schema is current and emergency pause storage exists')"
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect
+          engine = create_engine(os.environ["DATABASE_URL"])
+          inspector = inspect(engine)
+          assert inspector.has_table("emergency_states")
+          assert {"company_id", "is_paused", "paused_by", "paused_at", "reason"} <= {
+              column["name"] for column in inspector.get_columns("emergency_states")
+          }
+          assert "company_id" in {column["name"] for column in inspector.get_columns("ai_agent_assignments")}
+          print("SQLite Alembic schema is current; tenant agent-assignment column exists")
+          PY
 
       - name: Verify Alembic schema migrations on PostgreSQL
         env:
@@ -77,7 +88,28 @@ jobs:
           DATABASE_URL: postgresql+psycopg://parwa:parwa_test_password@localhost:5432/parwa_test
         run: |
           alembic -c database/alembic.ini upgrade head
-          python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('$DATABASE_URL')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('PostgreSQL Alembic schema is current and emergency pause storage exists')"
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect, text
+          engine = create_engine(os.environ["DATABASE_URL"])
+          inspector = inspect(engine)
+          assert inspector.has_table("emergency_states")
+          assert {"company_id", "is_paused", "paused_by", "paused_at", "reason"} <= {
+              column["name"] for column in inspector.get_columns("emergency_states")
+          }
+          assert "company_id" in {column["name"] for column in inspector.get_columns("ai_agent_assignments")}
+          with engine.connect() as connection:
+              rls_enabled = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'ai_agent_assignments'::regclass"
+              )).scalar_one()
+              policy_count = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'ai_agent_assignments'"
+              )).scalar_one()
+          assert rls_enabled is True
+          assert policy_count == 4
+          print("PostgreSQL Alembic schema is current; agent assignments have tenant RLS")
+          PY
 
       - name: Build Rust parwa_core (MANDATORY — fail CI if it doesn't compile)
         run: |
