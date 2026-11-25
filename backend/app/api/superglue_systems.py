@@ -882,7 +882,7 @@ async def test_system(
         if works:
             mcp_connection = db.query(MCPConnection).filter(
                 MCPConnection.company_id == tenant_id,
-                MCPConnection.name == integration.name,
+                MCPConnection.name == f"{integration.name} ({system_id})",
             ).first() if integration else None
             if mcp_connection:
                 mcp_connection.status = "connected"
