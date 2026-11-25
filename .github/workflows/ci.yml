@@ -310,6 +310,29 @@ jobs:
                   archive.write(path, path)
               archive.write("BUILD_INFO.txt", "BUILD_INFO.txt")
           PY
+          python - <<'PY'
+          from pathlib import PurePosixPath
+          from zipfile import ZipFile
+          from pathlib import Path
+
+          with ZipFile("parwa-source.zip") as archive:
+              names = archive.namelist()
+              required = {
+                  "BUILD_INFO.txt",
+                  "package.json",
+                  "backend/requirements.txt",
+                  "src/lib/variant-store.ts",
+              }
+              missing = required.difference(names)
+              if missing:
+                  raise SystemExit(f"Source archive is missing required files: {sorted(missing)}")
+              if len(names) < 1000 or Path("parwa-source.zip").stat().st_size < 1_000_000:
+                  raise SystemExit("Source archive is unexpectedly small or incomplete")
+              if archive.testzip() is not None:
+                  raise SystemExit("Source archive failed ZIP integrity verification")
+              if any(part in {"venv", ".venv", "node_modules"} for name in names for part in PurePosixPath(name).parts):
+                  raise SystemExit("Source archive unexpectedly contains generated dependency directories")
+          PY
 
       - name: Upload verified source snapshot
         uses: actions/upload-artifact@v4
