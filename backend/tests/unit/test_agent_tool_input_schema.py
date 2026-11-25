@@ -245,3 +245,24 @@ async def test_idempotency_storage_failure_blocks_external_action(monkeypatch):
     assert result["success"] is False
     assert result["guardrail_blocked"] is True
     assert calls == []
+
+
+def test_customer_reply_and_escalation_tools_are_classified_as_writes():
+    from app.core.action_safety import ActionSafetyLevel, classify_action
+
+    assert classify_action("tenant__ticket-reply-specialist").level == ActionSafetyLevel.WRITE
+    assert classify_action("tenant__ticket-escalation-specialist").level == ActionSafetyLevel.WRITE
+
+
+def test_unclassified_tool_is_blocked_by_pipeline_safety_gate():
+    from app.core.parwa_pipeline.nodes.node_5_act_verify import _run_action_safety_gate
+
+    result = _run_action_safety_gate(
+        "tenant__unfamiliar-tool",
+        "",
+        {},
+        "tenant-1",
+        "parwa",
+    )
+    assert result["blocked"] is True
+    assert result["needs_approval"] is True
