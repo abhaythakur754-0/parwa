@@ -42,3 +42,13 @@ def test_sqlite_does_not_execute_postgres_rls_context_statement():
     db = _FakeDB("sqlite")
     _set_tenant_context(db, "tenant-123")
     assert db.calls == []
+
+
+def test_superglue_call_queue_payload_encryption_round_trips():
+    import json
+    from shared.utils.token_encryption import decrypt_token, encrypt_token
+
+    payload = {"customer_email": "customer@example.com", "ticket_id": "ticket-123"}
+    encrypted = encrypt_token(json.dumps(payload))
+    assert encrypted != json.dumps(payload)
+    assert json.loads(decrypt_token(encrypted)) == payload
