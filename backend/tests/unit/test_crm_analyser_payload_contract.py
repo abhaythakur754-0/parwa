@@ -10,7 +10,8 @@ from app.core import crm_analyser_client
 
 @pytest.mark.asyncio
 async def test_external_analyser_receives_connected_integration_keys(monkeypatch):
-    captured = []\n    captured_headers = []
+    captured = []
+    captured_headers = []
 
     class Response:
         def __init__(self, body):
@@ -33,11 +34,13 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
             return None
 
         async def post(self, url, json, headers=None):
-            captured.append(json)\n            captured_headers.append(headers)
+            captured.append(json)
+            captured_headers.append(headers)
             return Response({"request_id": "req-test"})
 
         async def get(self, url, params, headers=None):
-            captured_headers.append(headers)\n            return Response({
+            captured_headers.append(headers)
+            return Response({
                 "status": {
                     "status": "completed",
                     "result": {
@@ -51,7 +54,8 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
                 },
             })
 
-    monkeypatch.setattr(crm_analyser_client, "get_crm_analyser_url", lambda: "https://analyser.test")\n    monkeypatch.setenv("CRM_ANALYSER_API_KEY", "test-analyser-key")
+    monkeypatch.setattr(crm_analyser_client, "get_crm_analyser_url", lambda: "https://analyser.test")
+    monkeypatch.setenv("CRM_ANALYSER_API_KEY", "test-analyser-key")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
     result = await crm_analyser_client.analyze_crm_external(
@@ -63,7 +67,11 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
     )
 
     assert captured[0]["data"]["connected_integrations"] == ["hubspot", "zendesk"]
-    assert result["integrations"] == ["shopify"]\n    assert captured_headers == [\n        {"Authorization": "Bearer test-analyser-key"},\n        {"Authorization": "Bearer test-analyser-key"},\n    ]
+    assert result["integrations"] == ["shopify"]
+    assert captured_headers == [
+        {"Authorization": "Bearer test-analyser-key"},
+        {"Authorization": "Bearer test-analyser-key"},
+    ]
 
 
 def test_integrations_endpoint_passes_connected_keys_to_analyser():
