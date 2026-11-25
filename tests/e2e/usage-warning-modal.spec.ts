@@ -19,6 +19,7 @@
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { SignJWT } from 'jose';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -35,8 +36,21 @@ const MOCK_USER = {
 // ── Helpers ────────────────────────────────────────────────────────────
 
 async function setAuthCookie(context: BrowserContext): Promise<void> {
+  // The app middleware enforces signed JWTs; placeholder tokens no longer
+  // reach protected dashboard routes.
+  const secret = new TextEncoder().encode(
+    process.env.JWT_SECRET_KEY || 'parwa-e2e-test-secret-minimum-32-bytes',
+  );
+  const accessToken = await new SignJWT({ type: 'access', email: MOCK_USER.email })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(MOCK_USER.id)
+    .setJti(`e2e-${MOCK_USER.id}`)
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(secret);
+
   await context.addCookies([
-    { name: 'parwa_at', value: 'mock-access-token', domain: 'localhost', path: '/' },
+    { name: 'parwa_at', value: accessToken, domain: 'localhost', path: '/' },
     { name: 'parwa_rt', value: 'mock-refresh-token', domain: 'localhost', path: '/' },
   ]);
 }
