@@ -1396,7 +1396,7 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
         db_context_lines = ["Connected databases (can query via Superglue tools):"]
         for db_info in connected_databases:
             readonly = " (read-only)" if db_info.get("readonly", True) else ""
-            db_context_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+            db_context_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly} (system_id={db_info.get('system_id', 'unknown')})")
             schema = db_info.get("schema") or {}
             if schema:
                 db_context_lines.append(
