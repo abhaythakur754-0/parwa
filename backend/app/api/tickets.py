@@ -1160,12 +1160,20 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
     except Exception:  # noqa: BLE001
         pass
 
-    # ── Compute resolution_time_hours ─────────────────────────────────
+    # ── Compute resolution_time_hours from backend lifecycle timestamps ─
     resolution_time_hours = None
-    if ticket.closed_at and ticket.created_at:
+    resolved_or_closed_at = ticket.resolved_at or ticket.closed_at
+    if resolved_or_closed_at and ticket.created_at:
         try:
-            delta = ticket.closed_at - ticket.created_at
-            resolution_time_hours = round(delta.total_seconds() / 3600.0, 2)
+            start_at = ticket.created_at
+            end_at = resolved_or_closed_at
+            if start_at.tzinfo is None:
+                start_at = start_at.replace(tzinfo=timezone.utc)
+            if end_at.tzinfo is None:
+                end_at = end_at.replace(tzinfo=timezone.utc)
+            resolution_time_hours = round(
+                max(0.0, (end_at - start_at).total_seconds() / 3600.0), 2
+            )
         except Exception:  # noqa: BLE001
             pass
 
@@ -1233,6 +1241,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         cost_per_ticket=cost_per_ticket,
         savings_per_ticket=savings_per_ticket,
         resolution_time_hours=resolution_time_hours,
+        resolved_at=ticket.resolved_at,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         closed_at=ticket.closed_at,
