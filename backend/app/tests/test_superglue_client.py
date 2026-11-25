@@ -39,6 +39,8 @@ def fake_superglue_credentials(monkeypatch):
     """Mock HTTP tests use synthetic credentials, never production secrets."""
     monkeypatch.setenv("SUPERGLUE_AUTH_TOKEN", "test-superglue-token")
     monkeypatch.setenv("SUPERGLUE_LLM_API_KEY", "test-superglue-llm-key")
+    from app.core import superglue_client
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "test-tenant-key")
 
 
 class TestGetConfig:
@@ -146,6 +148,14 @@ class TestListTools:
 
 class TestExecuteTool:
     @pytest.mark.asyncio
+    async def test_requires_tenant_context(self):
+        from app.core.superglue_client import execute_tool
+
+        result = await execute_tool("refund-tool", {"email": "a@b.com"})
+        assert result["success"] is False
+        assert "Tenant context" in result["error"]
+
+    @pytest.mark.asyncio
     async def test_success_response(self):
         # execute_tool checks res.json()["status"] == "success" to determine success
         mock_response = MagicMock()
@@ -160,7 +170,7 @@ class TestExecuteTool:
             mock_client_cls.return_value = mock_client
 
             from app.core.superglue_client import execute_tool
-            result = await execute_tool("refund-tool", {"email": "a@b.com"})
+            result = await execute_tool("refund-tool", {"email": "a@b.com"}, tenant_id="tenant-test")
             assert result["success"] is True
 
     @pytest.mark.asyncio
