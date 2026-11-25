@@ -11,8 +11,9 @@
  *          from the backend, so this phase ALWAYS produces recommendations.
  * Phase 3: Recommended Integrations — show analyser results as connectable
  *          cards below the CRM. User connects each via Superglue.
- * Phase 4: Agent build — auto-triggered in background, polled via
- *          /api/onboarding-build/status. "Continue" unlocks when all pass.
+ * Phase 4: Verify required integrations and MCP, then build tenant agents.
+ *          Poll /api/onboarding-build/status; optional starter integrations
+ *          never block onboarding.
  *
  * Replaces the old "show all 12 systems at once" grid. Makes onboarding
  * fast, guided, and simple — customer just follows instructions.
@@ -65,6 +66,7 @@ interface AnalysisRecommendation {
   auth_schema?: AuthSchemaField[];
   priority?: string;
   reason?: string;
+  required?: boolean;
 }
 
 interface AnalysisResult {
