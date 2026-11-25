@@ -1162,7 +1162,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
 
     # ── Compute resolution_time_hours from backend lifecycle timestamps ─
     resolution_time_hours = None
-    resolved_or_closed_at = ticket.resolved_at or ticket.closed_at
+    resolved_or_closed_at = ticket.closed_at or ticket.closed_at
     if resolved_or_closed_at and ticket.created_at:
         try:
             start_at = ticket.created_at
@@ -1241,7 +1241,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         cost_per_ticket=cost_per_ticket,
         savings_per_ticket=savings_per_ticket,
         resolution_time_hours=resolution_time_hours,
-        resolved_at=ticket.resolved_at,
+        resolved_at=ticket.closed_at,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         closed_at=ticket.closed_at,
