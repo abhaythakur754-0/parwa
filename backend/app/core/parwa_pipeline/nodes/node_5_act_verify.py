@@ -889,6 +889,23 @@ If no tool matches, respond with:
                             tool_id = "none"
 
                     if tool_id and tool_id != "none":
+                        # This legacy fallback has no tenant-verified agent tool
+                        # schema. A model-suggested ID/input pair is advisory
+                        # only; never execute it without an active assignment.
+                        logger.warning(
+                            "node5: refusing fallback tool without verified agent schema tenant=%s tool=%s",
+                            str(tenant_id)[:24], str(tool_id)[:80],
+                        )
+                        observation = (
+                            f"NO ACTION TAKEN: tool '{tool_id}' was suggested, but no active "
+                            "tenant agent assignment with a verified input schema is available. "
+                            "Ask for missing information or escalate; do not claim completion."
+                        )
+                        tool_executed = f"not_executed_unverified_schema:{tool_id}"
+                        state["needs_human_review"] = True
+                        tool_id = "none"
+
+                    if tool_id and tool_id != "none":
                         # Step 3: Run Action Safety Gate before execution
                         # 2026-10 FIX: classify by tool name only — the ticket's
                         # action text must not inflate a read-only tool's risk.
