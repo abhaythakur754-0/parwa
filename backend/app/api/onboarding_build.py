@@ -427,6 +427,18 @@ def _infer_capabilities(integration_name: str) -> List[str]:
     name_lower = integration_name.lower()
 
     capability_map = {
+        "refund": ["refund_processing", "billing_inquiry"],
+        "billing": ["billing_inquiry", "invoice_request"],
+        "invoice": ["invoice_request", "billing_inquiry"],
+        "order": ["order_cancellation", "shipping_delivery", "product_information"],
+        "shipping": ["shipping_delivery"],
+        "delivery": ["shipping_delivery"],
+        "product": ["product_information"],
+        "account": ["account_management"],
+        "subscription": ["subscription_management", "billing_inquiry"],
+        "technical": ["technical_support"],
+        "general": ["faq_general"],
+        "faq": ["faq_general"],
         "stripe": ["refund_processing", "billing_inquiry"],
         "razorpay": ["refund_processing", "billing_inquiry"],
         "paypal": ["refund_processing", "billing_inquiry"],
@@ -441,7 +453,6 @@ def _infer_capabilities(integration_name: str) -> List[str]:
         "github": ["technical_support"],
         "jira": ["technical_support"],
         "notion": ["faq_general"],
-        "shipping": ["shipping_delivery"],
         "shipstation": ["shipping_delivery"],
     }
 
