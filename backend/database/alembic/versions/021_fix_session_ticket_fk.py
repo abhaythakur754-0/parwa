@@ -22,8 +22,9 @@ The session_id column itself is preserved (nullable) — only the
 foreign-key constraint referencing the non-existent sessions table
 is removed.
 
-Downgrade re-creates the FK constraints (pointing at sessions.id)
-for schema-reversal completeness.
+Downgrade intentionally does not restore these invalid constraints: the
+parent `sessions` table was retired, and re-creating the references would
+make PostgreSQL downgrades fail. Earlier migrations drop the dependent tables.
 """
 
 from alembic import op
@@ -100,25 +101,6 @@ def _drop_orphan_fks(conn, tables_to_process=None):
         inspector = inspect(conn)
 
 
-def _create_session_fks(tables_to_process=None):
-    """Re-create session_id FK constraints (used by downgrade).
-
-    No try/except needed on downgrade — we assume the schema is in
-    the post-upgrade state where all 14 constraints were successfully
-    removed.
-    """
-    targets = tables_to_process if tables_to_process is not None else ORPHAN_SESSION_FKS
-
-    for table_name, fk_name in targets:
-        with op.batch_alter_table(table_name) as batch_op:
-            batch_op.create_foreign_key(
-                fk_name,
-                _SESSIONS_TABLE,
-                ["session_id"],
-                ["id"],
-            )
-
-
 # ── Alembic callbacks ────────────────────────────────────────────────
 
 def upgrade() -> None:
@@ -127,4 +109,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    _create_session_fks()
+    # These foreign keys targeted a table that no longer exists. Do not
+    # recreate them; the earlier table migrations remove the affected tables.
+    pass
