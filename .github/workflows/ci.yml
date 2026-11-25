@@ -99,6 +99,14 @@ jobs:
               column["name"] for column in inspector.get_columns("emergency_states")
           }
           assert "company_id" in {column["name"] for column in inspector.get_columns("ai_agent_assignments")}
+          vector_indexes = {index["name"] for index in inspector.get_indexes("document_chunks")}
+          assert {
+              "ix_document_chunks_embedding_vector_768",
+              "ix_document_chunks_embedding_vector_1024",
+          } <= vector_indexes, sorted({
+              "ix_document_chunks_embedding_vector_768",
+              "ix_document_chunks_embedding_vector_1024",
+          } - vector_indexes)
           with engine.connect() as connection:
               rls_enabled = connection.execute(text(
                   "SELECT relrowsecurity FROM pg_class WHERE oid = 'ai_agent_assignments'::regclass"
