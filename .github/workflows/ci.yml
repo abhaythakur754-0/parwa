@@ -105,7 +105,7 @@ jobs:
           queue_columns = {
               column["name"]: column for column in inspector.get_columns("superglue_call_queue")
           }
-          assert {"company_id", "tool_id", "input_data", "ticket_id", "status"} <= set(queue_columns)
+          assert {"company_id", "tool_id", "input_data", "idempotency_key", "safety_level", "ticket_id", "status"} <= set(queue_columns)
           assert queue_columns["tool_id"]["type"].length >= 255
           assert queue_columns["ticket_id"]["type"].length >= 128
           assert any(
