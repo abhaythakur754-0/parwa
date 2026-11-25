@@ -76,6 +76,24 @@ def _session_headers() -> dict:
     return {"x-session-id": session_id} if session_id else {}
 
 
+def _get_tenant_api_key(tenant_id: Optional[str]) -> str:
+    """Load one tenant's Superglue service-account key; never fall back to admin."""
+    if not tenant_id:
+        return ""
+    try:
+        from database.base import SessionLocal
+        from app.core.superglue_tenant_accounts import get_tenant_api_key
+
+        db = SessionLocal()
+        try:
+            return get_tenant_api_key(db, str(tenant_id)) or ""
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.error("superglue_tenant_key_lookup_failed: %s", str(exc)[:160])
+        return ""
+
+
 def _get_config() -> tuple[str, str]:
     """Get Superglue URL + token.
 
@@ -354,9 +372,13 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         - Tenant isolation: pass tenant_id from the caller's authenticated context.
           The actual tool ID sent to Superglue becomes tenant-namespaced.
     """
-    url, token = _get_config()
+    url, admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
     if not url or not token:
-        return {"success": False, "error": "Superglue not configured"}
+        return {
+            "success": False,
+            "error": "Tenant Superglue credentials are unavailable" if tenant_id else "Superglue not configured",
+        }
 
     # ── Per-tenant tool isolation (CRITICAL for multi-tenant security) ──
     # Without this, Tenant A could call Tenant B's tools by guessing the tool_id.
@@ -459,7 +481,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
             # Async accepted — run started but not yet complete. Poll for result.
             if status == "running" and run_id:
                 logger.info("superglue tool %s running async, polling run_id=%s", tool_id, run_id)
-                return await _poll_run_status(run_id, tool_id=tool_id)
+                return await _poll_run_status(run_id, tool_id=tool_id, tenant_id=tenant_id)
 
             # Failed or unknown
             return {
@@ -682,16 +704,17 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
         return {"success": False, "error": str(exc)[:200]}
 
 
-async def _poll_run_status(run_id: str, tool_id: str = "", max_polls: int = 30, interval: float = 2.0) -> Dict[str, Any]:
+async def _poll_run_status(run_id: str, tool_id: str = "", tenant_id: Optional[str] = None, max_polls: int = 30, interval: float = 2.0) -> Dict[str, Any]:
     """Poll a Superglue run until it completes (success/failed) or times out.
 
     Used for async-execution tools that return status=running.
     Returns the same shape as execute_tool():
         {success, data, error, run_id, step_results, tool_id}
     """
-    url, token = _get_config()
+    url, admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
     if not url or not token:
-        return {"success": False, "error": "Superglue not configured", "run_id": run_id, "tool_id": tool_id}
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable", "run_id": run_id, "tool_id": tool_id}
 
     import asyncio
 
@@ -838,6 +861,7 @@ async def create_system(
     metadata: Optional[Dict[str, Any]] = None,
     icon: str = "",
     specific_instructions: str = "",
+    customer_api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a system (connected app) in Superglue.
 
@@ -865,7 +889,7 @@ async def create_system(
         "url": url,
         "icon": icon,
         "specificInstructions": specific_instructions,
-        "credentials": credentials or {},
+        "credentials": {},
         "metadata": metadata or {},
     }
 
@@ -878,7 +902,37 @@ async def create_system(
             )
         if res.status_code in (200, 201):
             data = res.json()
-            return {"success": True, "data": data.get("data", data)}
+            system_data = data.get("data", data)
+            if credentials:
+                tenant_token = customer_api_key or _get_tenant_api_key(tenant_id)
+                if not tenant_token:
+                    return {
+                        "success": False,
+                        "error": "Tenant Superglue service account is unavailable; credentials were not stored",
+                    }
+                credential_response = await client.post(
+                    f"{cfg_url}/v1/credentials",
+                    headers={
+                        "Authorization": f"Bearer {tenant_token}",
+                        "Content-Type": "application/json",
+                        **_session_headers(),
+                    },
+                    json={
+                        "systemId": actual_id,
+                        "url": url,
+                        "credentials": credentials,
+                    },
+                )
+                if credential_response.status_code not in (200, 201):
+                    logger.error(
+                        "superglue_credential_store_failed system=%s status=%s",
+                        actual_id[:80], credential_response.status_code,
+                    )
+                    return {
+                        "success": False,
+                        "error": f"Could not store tenant credentials (HTTP {credential_response.status_code})",
+                    }
+            return {"success": True, "data": system_data}
         return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
     except Exception as exc:
         logger.warning("superglue_create_system error: %s", str(exc)[:200])
@@ -986,7 +1040,10 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
     if not is_configured():
         return {"success": False, "error": "Superglue not configured", "auth_type": "api_key", "fields": []}
 
-    cfg_url, token = _get_config()
+    cfg_url = _get_config()[0]
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "schema": None, "error": "Tenant Superglue credentials are unavailable"}
 
     try:
         # Ask Superglue to discover the auth schema for this platform
