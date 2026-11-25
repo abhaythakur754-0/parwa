@@ -106,8 +106,14 @@ jobs:
                   "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
                   "AND tablename = 'ai_agent_assignments'"
               )).scalar_one()
+              version_length = connection.execute(text(
+                  "SELECT character_maximum_length FROM information_schema.columns "
+                  "WHERE table_schema = current_schema() AND table_name = 'alembic_version' "
+                  "AND column_name = 'version_num'"
+              )).scalar_one()
           assert rls_enabled is True
           assert policy_count == 4
+          assert version_length >= 255
           print("PostgreSQL Alembic schema is current; agent assignments have tenant RLS")
           PY
 
