@@ -87,6 +87,29 @@ jobs:
           ENVIRONMENT: test
           DATABASE_URL: postgresql+psycopg://parwa:parwa_test_password@localhost:5432/parwa_test
         run: |
+          # Supabase defines these built-in roles; create them in the disposable
+          # PostgreSQL CI service so Supabase-specific RLS migrations can run.
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          engine = create_engine(os.environ["DATABASE_URL"])
+          with engine.begin() as connection:
+              connection.execute(text("""
+                  DO $
+                  BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+                      CREATE ROLE service_role NOLOGIN;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+                      CREATE ROLE anon NOLOGIN;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+                      CREATE ROLE authenticated NOLOGIN;
+                    END IF;
+                  END
+                  $;
+              """))
+          PY
           alembic -c database/alembic.ini upgrade head
           python - <<'PY'
           import importlib.util
