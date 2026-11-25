@@ -43,24 +43,20 @@ DEFAULT_BUILDER_URL = "https://p11668uhxhd1-d.space-z.ai"
 # ── Auth (Builder service enforces X-API-Key on ALL routes except /api/health) ──
 # Accepted header styles: X-API-Key, ?api_key=, Authorization: Bearer — we use X-API-Key.
 # NOTE: keep the GitHub repo PRIVATE while a real key sits in code.
-DEFAULT_BUILDER_API_KEY = "bld_16983ffb226ec89575dea48c5b6ee245cc56ebb649ae04b5"
+DEFAULT_BUILDER_API_KEY = ""
 
 
 def _builder_headers() -> Dict[str, str]:
     """Headers for Builder service requests.
 
-    Resolution: env var BUILDER_API_KEY wins, then the code default.
+    Resolution: BUILDER_API_KEY must be supplied through the deployment environment.
     Tenant scoping rides in the request body (tenant_id), no extra header needed.
     """
     headers = {"Content-Type": "application/json"}
-    key = os.environ.get("BUILDER_API_KEY", DEFAULT_BUILDER_API_KEY).strip()
-    if key:
-        headers["X-API-Key"] = key
-    else:
-        logger.warning(
-            "BUILDER_API_KEY not set (env) and DEFAULT_BUILDER_API_KEY empty — "
-            "Builder service will reject with 401."
-        )
+    key = os.environ.get("BUILDER_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("BUILDER_API_KEY is not configured; remote Builder calls are disabled")
+    headers["X-API-Key"] = key
     return headers
 
 
