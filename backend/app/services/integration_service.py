@@ -92,9 +92,8 @@ class IntegrationService:
             test_result = self._test_credentials(integration_type, config)
             status = STATUS_ACTIVE if test_result.get("success") else STATUS_ERROR
         else:
-            # User opted out of validation — trust the credentials and mark active.
-            # This lets users connect providers whose test endpoints are IP-restricted
-            # (e.g. Brevo IP allowlist) by skipping the test.
+            # Skipping validation must never make credentials executable.
+            # Keep the integration pending until an explicit provider test succeeds.
             status = STATUS_PENDING
 
         integration = Integration(
