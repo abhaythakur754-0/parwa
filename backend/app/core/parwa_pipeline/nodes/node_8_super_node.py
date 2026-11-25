@@ -23,6 +23,7 @@ LLM calls: 5 (Self-Consistency = 2, plus Reflexion + ToT + Reverse + CRP + CoT)
 
 from __future__ import annotations
 
+import json
 import logging
 import random
 import re
@@ -136,6 +137,96 @@ async def _push_escalation_to_crm_with_retry(
             "Node 8 could not load CRM config tenant=%s provider=%s err=%s",
             tenant_id, crm_provider, str(exc)[:200],
         )
+
+    # OAuth-backed CRM credentials remain in Superglue. Use the tenant's
+    # dedicated private-escalation tool before falling back to API-key adapters.
+    sg_handled = False
+    try:
+        from database.base import SessionLocal
+        from database.models.variant_engine import AIAgentAssignment
+
+        db_session = SessionLocal()
+        try:
+            assignment = db_session.query(AIAgentAssignment).filter(
+                AIAgentAssignment.company_id == tenant_id,
+                AIAgentAssignment.agent_name == "Ticket Escalation Specialist",
+                AIAgentAssignment.superglue_tool_status == "active",
+            ).first()
+            if assignment and assignment.superglue_tool_id:
+                sg_handled = True
+                try:
+                    tool_definition = json.loads(assignment.superglue_tool_definition or "{}")
+                except (TypeError, ValueError):
+                    tool_definition = {}
+                from app.core.parwa_pipeline.nodes.node_5_act_verify import (
+                    _extract_tool_inputs,
+                    _execute_with_idempotency,
+                )
+                private_note = (
+                    escalation_context.get("internal_note")
+                    or escalation_context.get("reason")
+                    or escalation_context.get("summary")
+                    or json.dumps(escalation_context, ensure_ascii=False)[:2000]
+                )
+                tool_input = _extract_tool_inputs(
+                    {
+                        "ticket_id": crm_ticket_id,
+                        "internal_note": private_note,
+                        "note": private_note,
+                        "message": private_note,
+                        "description": private_note,
+                        "status": "open",
+                        "public": False,
+                        "internal": True,
+                    },
+                    "create_private_escalation_note",
+                    json.dumps(escalation_context, ensure_ascii=False)[:3000],
+                    tool_definition=tool_definition,
+                    crm_data=escalation_context.get("crm_data") or {},
+                    ticket_id=crm_ticket_id,
+                )
+                escalation_hash = hashlib.sha256(
+                    str(private_note).encode("utf-8")
+                ).hexdigest()[:20]
+                sg_result = await _execute_with_idempotency(
+                    assignment.superglue_tool_id,
+                    tool_input,
+                    f"{crm_ticket_id}:private-escalation:{escalation_hash}",
+                    crm_ticket_id,
+                    "ticket_escalation",
+                    tenant_id,
+                )
+        finally:
+            db_session.close()
+    except Exception as exc:
+        logger.exception("Node 8 Superglue escalation failed")
+        sg_handled = True
+        sg_result = {"success": False, "error": str(exc)[:200]}
+
+    if sg_handled:
+        if sg_result.get("success"):
+            if metrics_enabled:
+                from app.core.metrics import record_crm_escalation_push_attempt
+                record_crm_escalation_push_attempt(
+                    crm_provider, "escalation", "success", 0.0,
+                )
+            return "success", sg_result, 0, None, None
+
+        sg_error = str(sg_result.get("error") or "Superglue escalation failed")[:200]
+        dlq_entry_id = None
+        if dlq_on_failure:
+            dlq_entry_id = _persist_crm_escalation_failure_to_dlq(
+                tenant_id=tenant_id,
+                ticket_id=ticket_id,
+                crm_provider=crm_provider,
+                crm_ticket_id=crm_ticket_id,
+                escalation_context=escalation_context,
+                error_message=f"Superglue CRM escalation failed: {sg_error}",
+            )
+            if metrics_enabled:
+                from app.core.metrics import record_crm_push_dlq
+                record_crm_push_dlq(crm_provider)
+        return "error", sg_result, 0, sg_error, dlq_entry_id
 
     if crm_config is None:
         # No active integration — short-circuit instead of making doomed retries.
