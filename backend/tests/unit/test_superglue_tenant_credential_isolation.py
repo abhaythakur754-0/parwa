@@ -70,3 +70,14 @@ async def test_customer_secrets_are_posted_with_tenant_key_not_admin_key(monkeyp
     assert credential_request["headers"]["Authorization"] == "Bearer tenant-service-account-key"
     assert credential_request["json"]["systemId"] == "hubspot"
     assert credential_request["json"]["credentials"] == {"access_token": "customer-secret"}
+
+
+def test_tool_generator_uses_canonical_system_ids_without_credentials():
+    from app.core.superglue_tool_generator import _format_integrations
+
+    systems = _format_integrations({
+        "hubspot": {"system_id": "hubspot", "status": "verified"},
+        "database:postgres": {"system_id": "postgres", "status": "verified"},
+    })
+    assert {item["id"] for item in systems} == {"hubspot", "postgres"}
+    assert all(item["credentials"] == {} for item in systems)
