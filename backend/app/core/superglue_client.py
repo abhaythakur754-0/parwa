@@ -1108,15 +1108,17 @@ async def analyze_db_schema(
             data = res.json().get("data", res.json())
             return {"success": True, "schema": data}
 
-        # If Superglue can't analyze, return a basic schema based on DB type
+        # Never report a generic fallback as a successful discovery. Agents
+        # must not treat an unknown schema as verified or invent table names.
         return {
-            "success": True,
-            "schema": _fallback_schema(db_type),
+            "success": False,
+            "schema": None,
+            "error": f"Superglue schema discovery failed (HTTP {res.status_code})",
         }
 
     except Exception as exc:
         logger.warning("superglue_analyze_db_schema error: %s", str(exc)[:200])
-        return {"success": True, "schema": _fallback_schema(db_type)}
+        return {"success": False, "schema": None, "error": str(exc)[:200]}
 
 
 def _fallback_schema(db_type: str) -> Dict[str, Any]:
