@@ -2,6 +2,8 @@
 
 from types import SimpleNamespace
 
+from sqlalchemy import UniqueConstraint
+
 from app.core.superglue_tenant_accounts import _set_tenant_context
 from database.models.integration import SuperglueTenantAccount
 
@@ -17,7 +19,11 @@ class _FakeDB:
 
 def test_service_account_model_is_unique_per_company_and_encrypted():
     assert SuperglueTenantAccount.__tablename__ == "superglue_tenant_accounts"
-    assert SuperglueTenantAccount.company_id.unique is not True
+    assert any(
+        isinstance(constraint, UniqueConstraint)
+        and list(constraint.columns.keys()) == ["company_id"]
+        for constraint in SuperglueTenantAccount.__table__.constraints
+    )
     assert SuperglueTenantAccount.api_key_encrypted.nullable is False
     assert SuperglueTenantAccount.service_account_id.unique is True
 
