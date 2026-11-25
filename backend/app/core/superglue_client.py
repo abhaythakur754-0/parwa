@@ -1118,6 +1118,99 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
         }
 
 
+async def start_oauth_exchange(
+    system_id: str,
+    tenant_id: str,
+    oauth_app_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Start Superglue-managed OAuth for one tenant connection."""
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue service account is unavailable"}
+
+    payload: Dict[str, Any] = {
+        "systemId": namespaced_tool_id(system_id, tenant_id),
+    }
+    if oauth_app_id:
+        payload["oauthAppId"] = oauth_app_id
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{url}/v1/oauth/exchanges",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    **_session_headers(),
+                },
+                json=payload,
+            )
+        if response.status_code not in (200, 201):
+            logger.warning(
+                "superglue_oauth_start_failed system=%s status=%s",
+                system_id, response.status_code,
+            )
+            return {
+                "success": False,
+                "error": f"Superglue OAuth could not start (HTTP {response.status_code})",
+            }
+        data = response.json()
+        data = data.get("data", data) if isinstance(data, dict) else {}
+        authorization_url = data.get("authorizationUrl") or data.get("authorization_url")
+        if not authorization_url:
+            return {"success": False, "error": "Superglue did not return an authorization URL"}
+        return {"success": True, "authorization_url": authorization_url}
+    except Exception as exc:
+        logger.warning("superglue_oauth_start_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not start provider authorization"}
+
+
+async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
+    """Check the tenant credential store without ever returning token values."""
+    if not is_configured():
+        return {"success": False, "connected": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "connected": False, "error": "Tenant Superglue service account is unavailable"}
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{url}/v1/credentials",
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                params={"systemId": namespaced_tool_id(system_id, tenant_id)},
+            )
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "connected": False,
+                "error": f"Could not verify provider credentials (HTTP {response.status_code})",
+            }
+        payload = response.json()
+        data = payload.get("data", payload) if isinstance(payload, dict) else {}
+        keys = data.get("credentialKeys", []) if isinstance(data, dict) else []
+        has_access_token = False
+        if isinstance(keys, dict):
+            entry = keys.get("access_token")
+            has_access_token = bool(
+                entry.get("hasValue") if isinstance(entry, dict) else entry
+            )
+        elif isinstance(keys, list):
+            has_access_token = any(
+                isinstance(entry, dict)
+                and (entry.get("key") or entry.get("name")) == "access_token"
+                and entry.get("hasValue") is True
+                for entry in keys
+            )
+        return {"success": True, "connected": has_access_token}
+    except Exception as exc:
+        logger.warning("superglue_oauth_status_error: %s", str(exc)[:160])
+        return {"success": False, "connected": False, "error": "Could not check provider authorization"}
+
+
 async def analyze_db_schema(
     db_connection_id: str,
     tenant_id: str,
