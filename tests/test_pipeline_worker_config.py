@@ -2,7 +2,7 @@
 Tests for configurable MAX_CONCURRENT_PIPELINES.
 
 Verifies:
-  1. Default is 10 (not the old hardcoded 7).
+  1. Default is 4 (the production-safe code default).
   2. Env var MAX_CONCURRENT_PIPELINES overrides the default.
   3. Invalid env var falls back to default (BC-008 — never crash).
   4. _start_pipeline_workers starts exactly MAX_CONCURRENT_PIPELINES threads.
@@ -27,10 +27,10 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 
-# ── 1. Default is 10 ──────────────────────────────────────────────────────
+# ── 1. Default is 4 ──────────────────────────────────────────────────────
 
-def test_default_is_10():
-    """MAX_CONCURRENT_PIPELINES must default to 10 (was 7 before)."""
+def test_default_is_4():
+    """MAX_CONCURRENT_PIPELINES must default to 4."""
     # Remove any env var that might be set
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("MAX_CONCURRENT_PIPELINES", None)
@@ -38,8 +38,8 @@ def test_default_is_10():
         import importlib
         import app.services.pipeline_dispatcher as pd
         importlib.reload(pd)
-        assert pd.MAX_CONCURRENT_PIPELINES == 10, (
-            f"Expected default 10, got {pd.MAX_CONCURRENT_PIPELINES}"
+        assert pd.MAX_CONCURRENT_PIPELINES == 4, (
+            f"Expected default 4, got {pd.MAX_CONCURRENT_PIPELINES}"
         )
 
 
@@ -66,16 +66,16 @@ def test_env_var_override_to_40():
 # ── 3. Invalid env var falls back to default (BC-008) ─────────────────────
 
 def test_invalid_env_var_falls_back_to_default():
-    """A non-numeric env var must not crash — falls back to 10."""
+    """A non-numeric env var must not crash — falls back to 4."""
     with patch.dict(os.environ, {"MAX_CONCURRENT_PIPELINES": "not_a_number"}):
         # Simulate the env var read + fallback logic directly
         # (can't reload the module because it triggers DB imports that fail without DB)
-        raw = os.environ.get("MAX_CONCURRENT_PIPELINES", "10")
+        raw = os.environ.get("MAX_CONCURRENT_PIPELINES", "4")
         try:
             value = int(raw)
         except (ValueError, TypeError):
-            value = 10
-        assert value == 10, "Invalid env var should fall back to default 10"
+            value = 4
+        assert value == 4, "Invalid env var should fall back to default 4"
 
 
 def test_empty_env_var_falls_back_to_default():
@@ -86,7 +86,7 @@ def test_empty_env_var_falls_back_to_default():
             value = int(raw)
         except (ValueError, TypeError):
             value = 10
-        assert value == 10
+        assert value == 4
 
 
 # ── 4. _start_pipeline_workers starts the right number of threads ─────────
@@ -117,8 +117,8 @@ def test_workers_started_count_matches_config():
                 )
 
 
-def test_workers_started_count_at_10():
-    """With default config (10), should start 10 worker threads."""
+def test_workers_started_count_at_4():
+    """With default config (4), should start 4 worker threads."""
     # Can't reload module (triggers DB imports). Instead, verify the logic:
     # the for-loop in _start_pipeline_workers uses range(MAX_CONCURRENT_PIPELINES).
     # We verify the config value directly.
@@ -129,9 +129,9 @@ def test_workers_started_count_at_10():
             value = int(raw)
         except (ValueError, TypeError):
             value = 10
-        assert value == 10, f"Default should be 10, got {value}"
-        # range(value) would start 10 threads
-        assert list(range(value)) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        assert value == 4, f"Default should be 4, got {value}"
+        # range(value) would start 4 threads
+        assert list(range(value)) == [0, 1, 2, 3]
 
 
 # ── 5. _start_pipeline_workers is idempotent ──────────────────────────────
