@@ -422,7 +422,7 @@ THE CUSTOMER'S FULL QUESTION: "{query}"
 KNOWLEDGE BASE (use specific facts, numbers, and policies from here):
 {knowledge[:3000]}
 
-CUSTOMER CONTEXT: {context[:300]}
+CUSTOMER CONTEXT: {context[:1400]}
 
 INSTRUCTIONS:
 1. Read the knowledge base carefully
@@ -1146,7 +1146,7 @@ POLICIES AND FACTS (you MUST reference these specifically — only use facts fro
 {knowledge[:2000]}
 {few_shot_block}
 
-Customer context: {context[:300]}
+Customer context: {context[:1400]}
 
 RULES:
 1. Cite SPECIFIC dollar amounts, timeframes, and policy names from the POLICIES AND FACTS section
@@ -1364,6 +1364,26 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
     customer_name = customer_ctx.get("customer_name", "the customer")
     tenant_context = f"Company: {company_name}" if company_name else ""
     context_str = f"{tenant_context}\nCustomer: {customer_name}\n{str(crm_data)}"
+
+    # The selected tenant agent's guidance must affect both the reasoning
+    # and final customer reply. Treat it as tenant configuration, never as
+    # permission to override platform safety, privacy, or approval controls.
+    agent_name = state.get("selected_agent_name", "")
+    agent_domain = state.get("selected_agent_domain", "")
+    agent_instructions = state.get("agent_instructions", "")
+    agent_restrictions = state.get("agent_restrictions", "")
+    if agent_name or agent_domain:
+        context_str += f"\nSelected tenant agent: {agent_name} ({agent_domain})"
+    if agent_instructions:
+        context_str += (
+            "\nTENANT AGENT INSTRUCTIONS (follow when consistent with platform safety):\n"
+            + str(agent_instructions)[:1600]
+        )
+    if agent_restrictions:
+        context_str += (
+            "\nTENANT AGENT RESTRICTIONS (must be respected):\n"
+            + str(agent_restrictions)[:1000]
+        )
 
     # ── Connected Database Context ────────────────────────────────
     # Inject connected database info so the LLM knows what data sources
