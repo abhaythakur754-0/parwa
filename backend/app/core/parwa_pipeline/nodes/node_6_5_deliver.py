@@ -478,6 +478,7 @@ async def _push_to_crm_via_superglue(
             crm_ticket_id,
             "ticket_reply",
             tenant_id,
+            str(tool_definition.get("description") or ""),
         )
         if result.get("needs_customer_info"):
             state["crm_delivery_needs_customer_info"] = result.get("missing_required", [])
