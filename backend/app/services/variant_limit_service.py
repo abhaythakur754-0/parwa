@@ -196,12 +196,26 @@ class VariantLimitService:
             .first()
         )
         if subscription and subscription.tier:
-            return subscription.tier.lower().strip()
+            try:
+                return _normalize_variant(subscription.tier.lower().strip())
+            except ValueError:
+                logger.warning(
+                    "unknown_subscription_variant_defaulted company_id=%s",
+                    company_id,
+                )
+                return "parwa"
 
         # Also check Company.subscription_tier field
         company = db.query(Company).filter(Company.id == company_id).first()
         if company and getattr(company, "subscription_tier", None):
-            return company.subscription_tier.lower().strip()
+            try:
+                return _normalize_variant(company.subscription_tier.lower().strip())
+            except ValueError:
+                logger.warning(
+                    "unknown_company_variant_defaulted company_id=%s",
+                    company_id,
+                )
+                return "parwa"
 
         logger.info(
             "variant_limit_default_parwa company_id=%s reason=no_subscription",
