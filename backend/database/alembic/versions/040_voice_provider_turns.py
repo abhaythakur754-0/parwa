@@ -59,12 +59,12 @@ def upgrade() -> None:
         "UPDATE voice_channel_configs SET number_source = 'bring_own' "
         "WHERE number_source <> 'bring_own'"
     )
-    op.alter_column(
-        "voice_channel_configs",
-        "number_source",
-        existing_type=sa.String(length=20),
-        server_default="bring_own",
-    )
+    with op.batch_alter_table("voice_channel_configs") as batch_op:
+        batch_op.alter_column(
+            "number_source",
+            existing_type=sa.String(length=20),
+            server_default="bring_own",
+        )
 
     # 3. per-turn transcript table
     op.create_table(
@@ -115,10 +115,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_voice_turns_call_sid", table_name="voice_call_turns")
     op.drop_table("voice_call_turns")
-    op.alter_column(
-        "voice_channel_configs",
-        "number_source",
-        existing_type=sa.String(length=20),
-        server_default="parwa_provided",
-    )
+    with op.batch_alter_table("voice_channel_configs") as batch_op:
+        batch_op.alter_column(
+            "number_source",
+            existing_type=sa.String(length=20),
+            server_default="parwa_provided",
+        )
     op.drop_column("voice_channel_configs", "provider")
