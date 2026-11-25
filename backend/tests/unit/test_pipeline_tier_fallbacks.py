@@ -71,3 +71,32 @@ def test_business_specific_questions_use_the_tenant_knowledge_path(question):
 def test_simple_question_cannot_use_a_global_canned_answer():
     with pytest.raises(ValueError, match="tenant knowledge-backed pipeline"):
         generate_instant_response(SIMPLE_QUESTION, "What are your hours?")
+
+
+@pytest.mark.asyncio
+async def test_reasoning_synthesis_receives_selected_tenant_agent_rules(monkeypatch):
+    from app.core.parwa_pipeline.nodes import node_4_reasoning_engine as node4
+
+    captured = {}
+
+    async def fake_llm_call(prompt, **kwargs):
+        captured["prompt"] = prompt
+        return "A grounded customer response with the required next steps."
+
+    monkeypatch.setattr(node4, "llm_call", fake_llm_call)
+    await node4._synthesize_final_answer(
+        query="How do I return an item?",
+        sub_problems=["What is the return window?"],
+        solutions=["The tenant policy allows returns within 30 days."],
+        knowledge="Returns are accepted within 30 days.",
+        context=(
+            "Selected tenant agent: Returns Specialist (returns)\\n"
+            "TENANT AGENT INSTRUCTIONS: Use a warm, concise tone.\\n"
+            "TENANT AGENT RESTRICTIONS: Never promise a refund before inspection."
+        ),
+        ticket_type="return",
+    )
+
+    assert "Returns Specialist" in captured["prompt"]
+    assert "Use a warm, concise tone" in captured["prompt"]
+    assert "Never promise a refund before inspection" in captured["prompt"]
