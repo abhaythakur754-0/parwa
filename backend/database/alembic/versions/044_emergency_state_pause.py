@@ -1,7 +1,11 @@
-"""Create the persisted company-wide AI emergency pause table.
+"""Ensure persisted company-wide AI pause storage exists.
 
 Revision ID: 044_emergency_state_pause
 Revises: 043_razorpay_ledger_idempotency
+
+The original emergency_states table is already created by migration 001.
+This guarded migration keeps older/partial installations compatible without
+attempting to create the table twice on databases that ran the full chain.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -13,6 +17,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if inspector.has_table("emergency_states"):
+        return
+
     op.create_table(
         "emergency_states",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -42,5 +51,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_emergency_states_company_id", table_name="emergency_states")
-    op.drop_table("emergency_states")
+    # The table predates this guarded migration (revision 001) on normal
+    # installations. Never drop pre-existing tenant emergency state here.
+    pass
