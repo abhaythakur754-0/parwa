@@ -275,20 +275,47 @@ async def create_system(
                 status_code=400,
                 detail="Database connections require host and database name; username is also required except for BigQuery service accounts.",
             )
-        # Build a connection URL for Superglue (it treats DBs as systems with a URL)
+        # Superglue resolves <<systemId_secretName>> placeholders from the
+        # tenant-owned encrypted connection. Never embed DB passwords in URLs.
         db_port = req.db_port or (443 if db_type in {"snowflake", "bigquery"} else 5432)
-        req.url = f"{db_type}://{req.db_host}:{db_port}/{req.db_name}"
-        # Store DB credentials in the credentials dict for Superglue
         db_credentials = dict(req.credentials or {})
         db_credentials.update({
             "db_type": db_type,
             "host": req.db_host,
             "port": db_port,
             "database": req.db_name,
-            "username": req.db_username,
+            "username": req.db_username or "",
             "password": req.db_password or "",
             "readonly": True,
         })
+        if db_type in {"postgres", "postgresql"}:
+            req.url = (
+                f"postgresql://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}"
+            )
+        elif db_type == "mysql":
+            req.url = (
+                f"mysql://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}"
+            )
+        elif db_type == "mongodb":
+            req.url = (
+                f"mongodb://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}?authSource=admin"
+            )
+        elif db_type == "snowflake":
+            db_credentials["account"] = req.db_host
+            db_credentials["warehouse"] = db_credentials.get("warehouse", "")
+            db_credentials["schema"] = db_credentials.get("schema", "")
+            req.url = (
+                f"snowflake://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@<<{req.system_id}_account>>/?warehouse=<<{req.system_id}_warehouse>>"
+                f"&database={req.db_name}&schema=<<{req.system_id}_schema>>"
+            )
+        elif db_type == "bigquery":
+            req.url = f"bigquery://<<{req.system_id}_project_id>>"
+        else:
+            raise HTTPException(status_code=422, detail="Unsupported database connector type")
         req.credentials = db_credentials
         # Tell Superglue this is a database — it will auto-read the schema
         if not req.metadata:
