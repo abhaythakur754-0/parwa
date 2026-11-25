@@ -102,9 +102,17 @@ jobs:
               column["name"] for column in inspector.get_columns("ticket_tool_executions")
           }
           assert inspector.has_table("superglue_call_queue")
-          assert {"company_id", "tool_id", "input_data", "ticket_id", "status"} <= {
-              column["name"] for column in inspector.get_columns("superglue_call_queue")
+          queue_columns = {
+              column["name"]: column for column in inspector.get_columns("superglue_call_queue")
           }
+          assert {"company_id", "tool_id", "input_data", "ticket_id", "status"} <= set(queue_columns)
+          assert queue_columns["tool_id"]["type"].length >= 255
+          assert queue_columns["ticket_id"]["type"].length >= 128
+          assert any(
+              fk.get("constrained_columns") == ["company_id"]
+              and fk.get("referred_table") == "companies"
+              for fk in inspector.get_foreign_keys("superglue_call_queue")
+          )
           print("SQLite Alembic schema is current; tenant agent-assignment column exists")
           PY
 
