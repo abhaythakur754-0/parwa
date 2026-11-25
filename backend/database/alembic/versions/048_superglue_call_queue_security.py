@@ -57,8 +57,62 @@ def upgrade() -> None:
                 "superglue_call_queue",
                 sa.Column("safety_level", sa.String(length=24), nullable=False, server_default="unknown"),
             )
-        if bind.dialect.name == "postgresql":
-            if "tool_id" in columns:
+        refreshed = sa.inspect(bind)
+        refreshed_columns = {
+            column["name"]: column
+            for column in refreshed.get_columns("superglue_call_queue")
+        }
+        foreign_keys = refreshed.get_foreign_keys("superglue_call_queue")
+        has_company_fk = any(
+            fk.get("constrained_columns") == ["company_id"]
+            and fk.get("referred_table") == "companies"
+            for fk in foreign_keys
+        )
+
+        if bind.dialect.name == "sqlite":
+            # SQLite cannot alter VARCHAR widths or add a table-level FK with
+            # ALTER TABLE. Alembic batch mode rebuilds the table and preserves
+            # its data, indexes, and reflected constraints.
+            needs_tool_widen = (
+                "tool_id" in refreshed_columns
+                and getattr(refreshed_columns["tool_id"]["type"], "length", None) != 255
+            )
+            needs_ticket_widen = (
+                "ticket_id" in refreshed_columns
+                and getattr(refreshed_columns["ticket_id"]["type"], "length", None) != 128
+            )
+            if needs_tool_widen or needs_ticket_widen or not has_company_fk:
+                with op.batch_alter_table(
+                    "superglue_call_queue",
+                    recreate="always",
+                ) as batch_op:
+                    if needs_tool_widen:
+                        batch_op.alter_column(
+                            "tool_id",
+                            existing_type=sa.String(length=100),
+                            type_=sa.String(length=255),
+                            existing_nullable=False,
+                        )
+                    if needs_ticket_widen:
+                        batch_op.alter_column(
+                            "ticket_id",
+                            existing_type=sa.String(length=36),
+                            type_=sa.String(length=128),
+                            existing_nullable=True,
+                        )
+                    if not has_company_fk:
+                        batch_op.create_foreign_key(
+                            "fk_superglue_call_queue_company_id_companies",
+                            "companies",
+                            ["company_id"],
+                            ["id"],
+                            ondelete="CASCADE",
+                        )
+        elif bind.dialect.name == "postgresql":
+            if (
+                "tool_id" in refreshed_columns
+                and getattr(refreshed_columns["tool_id"]["type"], "length", None) != 255
+            ):
                 op.alter_column(
                     "superglue_call_queue",
                     "tool_id",
@@ -66,7 +120,10 @@ def upgrade() -> None:
                     type_=sa.String(length=255),
                     existing_nullable=False,
                 )
-            if "ticket_id" in columns:
+            if (
+                "ticket_id" in refreshed_columns
+                and getattr(refreshed_columns["ticket_id"]["type"], "length", None) != 128
+            ):
                 op.alter_column(
                     "superglue_call_queue",
                     "ticket_id",
@@ -74,22 +131,15 @@ def upgrade() -> None:
                     type_=sa.String(length=128),
                     existing_nullable=True,
                 )
-
-    if bind.dialect.name == "postgresql":
-        foreign_keys = sa.inspect(bind).get_foreign_keys("superglue_call_queue")
-        if not any(
-            fk.get("constrained_columns") == ["company_id"]
-            and fk.get("referred_table") == "companies"
-            for fk in foreign_keys
-        ):
-            op.create_foreign_key(
-                "fk_superglue_call_queue_company_id_companies",
-                "superglue_call_queue",
-                "companies",
-                ["company_id"],
-                ["id"],
-                ondelete="CASCADE",
-            )
+            if not has_company_fk:
+                op.create_foreign_key(
+                    "fk_superglue_call_queue_company_id_companies",
+                    "superglue_call_queue",
+                    "companies",
+                    ["company_id"],
+                    ["id"],
+                    ondelete="CASCADE",
+                )
 
     indexes = {
         index.get("name") for index in sa.inspect(bind).get_indexes("superglue_call_queue")
