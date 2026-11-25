@@ -235,8 +235,9 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       category: rec.category,
     });
     setFormName(rec.name);
-    setFormUrl('');
+    setFormUrl(rec.url_hint || '');
     setFormApiKey('');
+    setFormExtraFields({});
     setFormDbType(rec.db_type || 'postgresql');
     setFormDbHost('');
     setFormDbPort('5432');
@@ -254,9 +255,21 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       toast.error('Name is required');
       return;
     }
+    const missingAuthField = selectedCRM.auth_schema?.find(
+      (field) => field.required && !formExtraFields[field.key]?.trim(),
+    );
+    if (missingAuthField) {
+      toast.error(`${missingAuthField.label} is required`);
+      return;
+    }
+    const effectiveDbHost = formDbType === 'bigquery'
+      ? (formExtraFields.project_id || formDbHost).trim()
+      : formDbType === 'snowflake'
+        ? (formExtraFields.account || formDbHost).trim()
+        : formDbHost.trim();
     if (isDbForm) {
-      if (!formDbHost.trim() || !formDbName.trim() || (formDbType !== 'bigquery' && !formDbUsername.trim())) {
-        toast.error('Host, database name, and username are required');
+      if (!effectiveDbHost || !formDbName.trim() || (formDbType !== 'bigquery' && !formDbUsername.trim())) {
+        toast.error('Host/project, database name, and required username are missing');
         return;
       }
     } else {
@@ -281,8 +294,8 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       if (isDbForm) {
         // Database connection — send DB-specific fields
         payload.db_type = formDbType;
-        payload.db_host = formDbHost.trim();
-        payload.db_port = parseInt(formDbPort) || 5432;
+        payload.db_host = effectiveDbHost;
+        payload.db_port = parseInt(formDbPort) || (['snowflake', 'bigquery'].includes(formDbType) ? 443 : 5432);
         payload.db_name = formDbName.trim();
         payload.db_username = formDbUsername.trim();
         payload.db_password = formDbPassword;
