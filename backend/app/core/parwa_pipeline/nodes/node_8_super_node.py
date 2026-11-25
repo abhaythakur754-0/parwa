@@ -201,6 +201,7 @@ async def _push_escalation_to_crm_with_retry(
                     crm_ticket_id,
                     "ticket_escalation",
                     tenant_id,
+                    str(tool_definition.get("description") or ""),
                 )
         finally:
             db_session.close()
