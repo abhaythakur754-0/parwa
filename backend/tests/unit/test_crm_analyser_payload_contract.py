@@ -184,3 +184,20 @@ async def test_analyser_does_not_send_customer_tickets_without_api_key(monkeypat
 
     assert "CRM_ANALYSER_API_KEY not configured" in result["error"]
     assert result["tickets_scanned"] == 1
+
+
+
+def test_analyser_unavailable_still_persists_starter_agent_build_context():
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
+    assert 'result = {' in source
+    assert '"error": "CRM analyser not configured with a secure HTTPS endpoint and API key"' in source
+    assert 'analysis_record = CRMAnalysisResult(' in source
+    assert '"recommended_agents": recommended_agents' in source
+
+
+def test_starter_integrations_are_optional_when_there_is_no_ticket_history():
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
+    assert '"required": False' in source
+    assert 'if not result.get("error") and (not result.get("tickets_scanned") and not recommendations)' in source
