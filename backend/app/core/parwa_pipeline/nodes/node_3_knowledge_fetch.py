@@ -2626,6 +2626,21 @@ async def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
 # ── Connected Database Discovery ──────────────────────────────────
 
 
+def _set_pipeline_tenant_context(db: Any, tenant_id: str) -> None:
+    """Set RLS context for sessions opened outside the request dependency."""
+    try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db.execute(
+                text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+    except Exception as exc:
+        db.rollback()
+        logger.error("node3_tenant_rls_context_failed: %s", str(exc)[:160])
+        raise
+
+
 def _schema_metadata_only(schema: Any) -> Dict[str, Any]:
     """Keep schema structure for agent reasoning; never pass sample row values."""
     if not isinstance(schema, dict):
@@ -2687,6 +2702,7 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
 
         db = SessionLocal()
         try:
+            _set_pipeline_tenant_context(db, tenant_id)
             connections = db.query(DBConnection).filter(
                 DBConnection.company_id == tenant_id,
                 DBConnection.status == "verified",
@@ -2743,6 +2759,7 @@ def _fetch_connected_integrations(tenant_id: str) -> Dict[str, Dict[str, Any]]:
 
         db = SessionLocal()
         try:
+            _set_pipeline_tenant_context(db, tenant_id)
             rows = db.query(Integration).filter(
                 Integration.company_id == tenant_id,
                 Integration.status.in_(["active", "verified"]),
