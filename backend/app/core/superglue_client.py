@@ -1166,7 +1166,7 @@ async def start_oauth_exchange(
     tenant_id: str,
     oauth_app_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Start Superglue-managed OAuth for one tenant connection."""
+    """Start Superglue-managed OAuth using this tenant's service account."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
     url, _ = _get_config()
@@ -1174,33 +1174,52 @@ async def start_oauth_exchange(
     if not token:
         return {"success": False, "error": "Tenant Superglue service account is unavailable"}
 
-    payload: Dict[str, Any] = {
-        "systemId": system_id,
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        **_session_headers(),
     }
-    if oauth_app_id:
-        payload["oauthAppId"] = oauth_app_id
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
+            selected_app_id = oauth_app_id
+            if not selected_app_id:
+                apps_response = await client.get(
+                    f"{url}/v1/oauth-apps",
+                    headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                    params={"systemId": system_id},
+                )
+                if apps_response.status_code == 200:
+                    apps_payload = apps_response.json()
+                    apps_data = apps_payload.get("data", apps_payload) if isinstance(apps_payload, dict) else []
+                    if isinstance(apps_data, dict):
+                        apps_data = apps_data.get("oauthApps") or apps_data.get("apps") or []
+                    if isinstance(apps_data, list):
+                        selected = next(
+                            (
+                                item for item in apps_data
+                                if isinstance(item, dict) and item.get("id")
+                            ),
+                            None,
+                        )
+                        if selected:
+                            selected_app_id = str(selected["id"])
+
+            payload: Dict[str, Any] = {"systemId": system_id}
+            if selected_app_id:
+                payload["oauthAppId"] = selected_app_id
             response = await client.post(
                 f"{url}/v1/oauth/exchanges",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                    **_session_headers(),
-                },
+                headers=headers,
                 json=payload,
             )
         if response.status_code not in (200, 201):
-            logger.warning(
-                "superglue_oauth_start_failed system=%s status=%s",
-                system_id, response.status_code,
-            )
+            logger.warning("superglue_oauth_start_failed system=%s status=%s", system_id, response.status_code)
             return {
                 "success": False,
                 "error": f"Superglue OAuth could not start (HTTP {response.status_code})",
             }
-        data = response.json()
-        data = data.get("data", data) if isinstance(data, dict) else {}
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
         authorization_url = data.get("authorizationUrl") or data.get("authorization_url")
         if not authorization_url:
             return {"success": False, "error": "Superglue did not return an authorization URL"}
@@ -1208,7 +1227,6 @@ async def start_oauth_exchange(
     except Exception as exc:
         logger.warning("superglue_oauth_start_error: %s", str(exc)[:160])
         return {"success": False, "error": "Could not start provider authorization"}
-
 
 async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
     """Check the tenant's Superglue connection without returning secret values."""
