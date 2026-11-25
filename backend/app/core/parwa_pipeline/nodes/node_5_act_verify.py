@@ -2272,13 +2272,24 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         # Step 2: For FINANCIAL actions, check tier-based guardrails
         guardrail_result = None
         if safety.level == ActionSafetyLevel.FINANCIAL:
-            amount = float(tool_input.get("amount", 0)) if isinstance(tool_input, dict) else 0.0
-            # 2026-10 FIX: tool inputs carry amounts in CENTS (Superglue
-            # convention — see _extract_tool_inputs) but PARWA_TIER_LIMITS
-            # are in DOLLARS. Without conversion a $25 refund (2500 cents)
-            # was compared as $2500 and always guardrail-blocked.
-            if amount:
-                amount = amount / 100.0
+            amount_candidates = []
+            if isinstance(tool_input, dict):
+                for key, value in tool_input.items():
+                    if "amount" in str(key).lower() and value not in (None, ""):
+                        try:
+                            amount_candidates.append(abs(float(value)))
+                        except (TypeError, ValueError):
+                            continue
+            if not amount_candidates or max(amount_candidates) <= 0:
+                return {
+                    "blocked": True,
+                    "reason": "Financial action has no verified positive amount; manual review is required",
+                    "safety_level": safety.level.value,
+                    "needs_approval": True,
+                    "guardrail_result": None,
+                }
+            # Tool inputs use cents; PARWA tier guardrails use dollars.
+            amount = max(amount_candidates) / 100.0
             gr = check_financial_guardrails(safety.level.value, amount, variant_tier, tool_id)
             guardrail_result = {"allowed": gr.allowed, "reason": gr.reason,
                                 "limit": gr.limit, "remaining": gr.remaining}
