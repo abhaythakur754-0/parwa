@@ -19,6 +19,8 @@ from typing import Optional, Dict, Any, List
 
 import httpx
 from sqlalchemy.orm import Session
+
+from shared.utils.token_encryption import encrypt_token
 from sqlalchemy import and_
 
 from app.exceptions import ValidationError
@@ -93,14 +95,14 @@ class IntegrationService:
             # User opted out of validation — trust the credentials and mark active.
             # This lets users connect providers whose test endpoints are IP-restricted
             # (e.g. Brevo IP allowlist) by skipping the test.
-            status = STATUS_ACTIVE
+            status = STATUS_PENDING
 
         integration = Integration(
             company_id=company_id,
             integration_type=integration_type,
             name=name,
             status=status,
-            credentials_encrypted=json.dumps(config),
+            credentials_encrypted=encrypt_token(json.dumps(config)),
             settings="{}",
             error_message=test_result.get("message") if test_result and not test_result.get("success") else None,
             created_at=datetime.now(timezone.utc),
@@ -198,7 +200,7 @@ class IntegrationService:
                 details={"integration_id": integration_id},
             )
 
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = self._load_credentials(integration) or {}
         result = self._test_credentials(integration.integration_type, config)
 
         # Update status on the integration record
@@ -242,8 +244,15 @@ class IntegrationService:
         allowed_fields = {"name", "status", "credentials_encrypted", "settings", "error_message"}
         for field, value in updates.items():
             if field in allowed_fields:
-                if field == "credentials_encrypted" and isinstance(value, dict):
-                    value = json.dumps(value)
+                if field == "credentials_encrypted":
+                    if isinstance(value, str):
+                        try:
+                            value = json.loads(value)
+                        except (TypeError, ValueError):
+                            raise ValidationError(message="Credentials must be supplied as a JSON object.")
+                    if not isinstance(value, dict):
+                        raise ValidationError(message="Credentials must be supplied as a JSON object.")
+                    value = encrypt_token(json.dumps(value))
                 if field == "settings" and isinstance(value, dict):
                     value = json.dumps(value)
                 setattr(integration, field, value)
@@ -343,7 +352,7 @@ class IntegrationService:
         if isinstance(settings, dict) and settings.get("auth_type") == "oauth":
             return None
 
-        credentials = self._parse_json(integration.credentials_encrypted)
+        credentials = self._load_credentials(integration)
         return credentials if isinstance(credentials, dict) and credentials else None
 
     def get_crm_config_for_tenant(
@@ -468,9 +477,28 @@ class IntegrationService:
 
     # ── Helpers ───────────────────────────────────────────────────
 
+    def _load_credentials(self, integration: Integration) -> Optional[Dict[str, Any]]:
+        """Read encrypted credentials and migrate legacy plaintext JSON on access."""
+        raw_value = integration.credentials_encrypted
+        config = self._parse_json(raw_value)
+        if config is None:
+            return None
+
+        # Older rows stored JSON directly despite the credentials_encrypted
+        # column name. Re-encrypt them on first successful read so the
+        # compatibility path is temporary and self-healing.
+        try:
+            legacy_value = json.loads(raw_value) if isinstance(raw_value, str) else None
+        except (json.JSONDecodeError, TypeError):
+            legacy_value = None
+        if isinstance(legacy_value, dict):
+            integration.credentials_encrypted = encrypt_token(json.dumps(legacy_value))
+            self.db.flush()
+        return config
+
     def _to_dict(self, integration: Integration, mask_credentials: bool = False) -> Dict[str, Any]:
         """Convert Integration ORM object to dict."""
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = self._load_credentials(integration) or {}
         settings = self._parse_json(integration.settings) or {}
 
         if mask_credentials and config:
