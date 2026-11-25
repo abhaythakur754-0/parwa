@@ -34,7 +34,7 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.core.parwa_pipeline.llm_client import llm_call
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
@@ -219,7 +219,7 @@ def _extract_tool_inputs(
                 value = details.get("description") or details.get("message") or action
             elif "currency" in norm:
                 value = details.get("currency") or _lookup(crm_data, "currency")
-            elif norm in ("limit", "pagesize", "perpage") and "required" not in schema.get("required", []):
+            elif norm in ("limit", "pagesize", "perpage") and key not in schema.get("required", []):
                 value = spec.get("default", 10)
         if value not in (None, ""):
             mapped[key] = value
