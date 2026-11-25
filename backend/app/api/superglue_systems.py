@@ -298,16 +298,27 @@ async def create_system(
         req.metadata = {}
     req.metadata["auth_type"] = auth_type
 
+    shared_system_ids = {item["id"] for item in POPULAR_SYSTEMS}
+    is_shared_system = req.system_id in shared_system_ids
+    if is_database:
+        # The shared system definition is generic; the tenant-specific URL
+        # and credentials are stored on that tenant's service-account connection.
+        definition_url = f"{req.db_type or 'postgresql'}://localhost:{req.db_port or 5432}/{req.db_name}"
+    else:
+        definition_url = system_definition.get("url_hint") or req.url
+
     result = await superglue_client.create_system(
         system_id=req.system_id,
-        name=req.name,
-        url=req.url,
-        tenant_id=tenant_id,
+        name=system_definition.get("name") or req.name,
+        url=definition_url,
+        tenant_id=None if is_shared_system else tenant_id,
         credentials=req.credentials,
         metadata=req.metadata,
-        icon=req.icon,
+        icon=req.icon or system_definition.get("icon", ""),
         specific_instructions=req.specific_instructions,
         customer_api_key=tenant_account["api_key"],
+        credential_url=req.url,
+        template_id=req.system_id if is_shared_system and auth_type in {"oauth", "api_key"} else None,
     )
     if not result.get("success"):
         raw_error = str(result.get("error", "unknown"))
