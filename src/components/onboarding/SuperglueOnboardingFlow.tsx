@@ -200,6 +200,9 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       const data: AnalysisResult = await res.json();
       if (res.ok) {
         setAnalysisResult(data);
+        // A CRM-only tenant can proceed directly to agent construction when
+        // the analyser finds no additional integrations are required.
+        setAllTested(Array.isArray(data.recommendations) && data.recommendations.length === 0);
         setPhase('recommendations');
         // Build agents only after the user has connected and verified the
         // recommended data sources; otherwise tools are generated too early.
@@ -749,7 +752,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           )}
 
           {/* Verify + Continue buttons */}
-          {connectedRecommendations.size > 0 && (
+          {analysisResult && verified && (
             <div className="mt-4 pt-3 border-t border-white/5 space-y-3">
               {/* Verify button — checks all 3 things */}
               <button
