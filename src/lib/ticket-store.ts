@@ -663,42 +663,30 @@ export const useTicketStore = create<TicketState>((set, get) => ({
    * until resumeAllAgents() is called.
    */
   stopAllAgents: () => {
-    set({ agentStopped: true });
-    const activeIds = get().tickets
-      .filter((ticket) => ['open', 'in_progress', 'processing'].includes(ticket.status))
-      .map((ticket) => ticket.id);
-    set((s) => ({
-      tickets: s.tickets.map((ticket) =>
-        activeIds.includes(ticket.id)
-          ? { ...ticket, agent_stopped: true, updated_at: new Date().toISOString() }
-          : ticket
-      ),
-    }));
-    for (const id of activeIds) {
-      void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: true })
-        .then(() => { void syncFromBackend(); });
-    }
-    toast.success(`Stopping AI processing for ${activeIds.length} active tickets`);
+    void pushToBackend('POST', '/api/v1/tickets/agents/pause').then((ok) => {
+      if (!ok) {
+        toast.error('Could not pause AI processing — the server did not confirm the change');
+        return;
+      }
+      set({ agentStopped: true });
+      toast.success('AI processing paused for this workspace');
+      void syncFromBackend();
+    });
   },
 
   /**
    * Resume all agent processing. Tickets can be processed again.
    */
   resumeAllAgents: () => {
-    set({ agentStopped: false });
-    const stoppedIds = get().tickets.filter((ticket) => ticket.agent_stopped).map((ticket) => ticket.id);
-    set((s) => ({
-      tickets: s.tickets.map((ticket) =>
-        ticket.agent_stopped
-          ? { ...ticket, agent_stopped: false, updated_at: new Date().toISOString() }
-          : ticket
-      ),
-    }));
-    for (const id of stoppedIds) {
-      void pushToBackend('PATCH', `/api/v1/tickets/${id}/controls`, { agent_stopped: false })
-        .then(() => { void syncFromBackend(); });
-    }
-    toast.success(`Resuming AI processing for ${stoppedIds.length} tickets`);
+    void pushToBackend('DELETE', '/api/v1/tickets/agents/pause').then((ok) => {
+      if (!ok) {
+        toast.error('Could not resume AI processing — the server did not confirm the change');
+        return;
+      }
+      set({ agentStopped: false });
+      toast.success('AI processing resumed for this workspace');
+      void syncFromBackend();
+    });
   },
 
   /**
@@ -902,8 +890,26 @@ export async function syncFromBackend(): Promise<void> {
 
     const normalized: Ticket[] = items.map(normalizeBackendTicket);
 
-    // Update store — sync succeeded, clear any previous error flag
-    useTicketStore.setState({ tickets: normalized, initialized: true, agentStopped: normalized.some((ticket) => ticket.agent_stopped), lastSyncError: null });
+    // Fetch the persisted workspace-wide pause flag separately from
+    // per-ticket pause flags. A ticket-level pause must not pause the whole
+    // workspace, and a workspace pause must survive page reloads.
+    let workspacePaused = normalized.some((ticket) => ticket.agent_stopped);
+    try {
+      const pauseResponse = await fetch('/api/v1/tickets/agents/pause', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (pauseResponse.ok) {
+        const pauseState = await pauseResponse.json();
+        workspacePaused = pauseState?.is_paused === true;
+      }
+    } catch {
+      // Keep the ticket-derived fallback if the pause endpoint is unavailable.
+    }
+
+    // Update store — sync succeeded, clear any previous error flag.
+    useTicketStore.setState({ tickets: normalized, initialized: true, agentStopped: workspacePaused, lastSyncError: null });
 
     // Persist to localStorage so next page load is instant from cache
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
