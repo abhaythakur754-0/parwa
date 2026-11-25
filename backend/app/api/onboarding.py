@@ -144,7 +144,7 @@ def api_industry_variant(
         try:
             from database.models.core import Company
             from database.models.variant_engine import VariantInstance
-            from app.core.pricing_config import normalize_variant_name, VariantType
+            from app.core.pricing_config import normalize_variant_name
             from app.core.variant_tier_mapper import variant_instance_name
 
             company = db.query(Company).filter(Company.id == user.company_id).first()
