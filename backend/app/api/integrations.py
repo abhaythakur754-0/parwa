@@ -1351,7 +1351,7 @@ async def api_analyze_integrations(
     try:
         connected_rows = db.query(Integration).filter(
             Integration.company_id == str(user.company_id),
-            Integration.status.in_(["active", "connected", "verified"]),
+            Integration.status.in_(["active", "verified"]),
         ).all()
     except Exception as exc:
         import logging
