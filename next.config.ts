@@ -18,9 +18,7 @@ const nextConfig: NextConfig = {
     ];
   },
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // Keep production builds type-safe; CI also runs the standalone type-check.
   reactStrictMode: false,
 };
 
