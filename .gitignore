@@ -76,3 +76,6 @@ local_smoke.db
 # verification screenshots & runtime artifacts (day 6 merge cleanup)
 verify-*.png
 preview-*.png
+
+# Local authentication tokens must never be committed
+pw-token.txt
