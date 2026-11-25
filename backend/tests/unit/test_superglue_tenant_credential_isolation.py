@@ -245,3 +245,13 @@ def test_recovery_only_replays_read_only_calls_automatically():
     assert _can_safely_recover_tool_call("sensitive_pii") is True
     for safety_level in ("write", "financial", "destructive", "unknown", None):
         assert _can_safely_recover_tool_call(safety_level) is False
+
+
+
+def test_mcp_connection_stays_pending_until_provider_verification():
+    from pathlib import Path
+
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/superglue_systems.py").read_text(encoding="utf-8")
+    assert 'status="pending_oauth" if auth_type == "oauth" else "pending"' in source
+    assert '_set_mcp_connection_status(db, integration, system_id, "connected" if works else "error")' in source
