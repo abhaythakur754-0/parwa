@@ -32,7 +32,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("is_paused", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("paused_channels", sa.Text(), nullable=False, server_default=""),
+        sa.Column("paused_channels", sa.Text(), nullable=False, server_default=sa.text("''")),
         sa.Column(
             "paused_by",
             sa.String(36),
