@@ -188,6 +188,17 @@ async function installAuthMocks(
     });
   });
 
+  // Mock the subscription endpoint used by the current login redirect flow.
+  await page.route('**/api/billing/razorpay/subscriptions', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        hasSubscription ? [{ id: 'sub-1', status: 'active' }] : [],
+      ),
+    });
+  });
+
   // Mock /api/ai/instances — the subscription check endpoint
   await page.route('**/api/ai/instances', async (route) => {
     const items = hasSubscription ? [MOCK_VARIANT_ITEM] : [];
