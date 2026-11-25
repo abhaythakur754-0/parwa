@@ -42,6 +42,7 @@ Total: 7 LLM calls per ticket (same as Phase 4/5/6 — all new techniques are no
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import time
@@ -1396,8 +1397,30 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
         for db_info in connected_databases:
             readonly = " (read-only)" if db_info.get("readonly", True) else ""
             db_context_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+            schema = db_info.get("schema") or {}
+            if schema:
+                db_context_lines.append(
+                    "    discovered schema (metadata only): "
+                    + json.dumps(schema, ensure_ascii=False)[:3000]
+                )
+            else:
+                db_context_lines.append(
+                    "    schema not verified; do not invent table or column names"
+                )
         db_context_str = "\n".join(db_context_lines)
         context_str += f"\n{db_context_str}"
+
+    tenant_integrations = state.get("tenant_integrations", {})
+    if tenant_integrations:
+        integration_lines = ["Tenant-connected integrations:"]
+        for integration_type, info in list(tenant_integrations.items())[:40]:
+            if not isinstance(info, dict):
+                continue
+            integration_lines.append(
+                f"  - {integration_type}: {info.get('name', integration_type)} "
+                f"(status={info.get('status', 'unknown')})"
+            )
+        context_str += "\n" + "\n".join(integration_lines)
         logs.append({
             "node": 4, "technique": "ConnectedDBContext",
             "duration_ms": 0,
