@@ -209,7 +209,7 @@ async def list_systems(
         is_shared = row.integration_type in shared_ids
         result = await superglue_client.get_system(
             row.integration_type,
-            tenant_id=None if is_shared else tenant_id,
+            tenant_id=tenant_id,
         )
         data = result.get("data", {}) if result.get("success") else {}
         metadata = dict(data.get("metadata") or {})
@@ -323,7 +323,7 @@ async def create_system(
         system_id=req.system_id,
         name=system_definition.get("name") or req.name,
         url=definition_url,
-        tenant_id=None if is_shared_system else tenant_id,
+        tenant_id=tenant_id,
         credentials=req.credentials,
         metadata=req.metadata,
         icon=req.icon or system_definition.get("icon", ""),
@@ -430,7 +430,7 @@ async def get_system(
     is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
     result = await superglue_client.get_system(
         system_id,
-        tenant_id=None if is_shared else tenant_id,
+        tenant_id=tenant_id,
     )
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "System not found"))
