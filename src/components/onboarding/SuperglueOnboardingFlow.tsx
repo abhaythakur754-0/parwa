@@ -410,7 +410,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       const connected = Array.from(connectedRecommendations);
       const integrationsOk = connected.every((name) => {
         const rec = analysisResult?.recommendations.find((item) => item.name === name);
-        const id = rec?.system_id || name.toLowerCase().replace(/\\s+/g, '-');
+        const id = rec?.system_id || name.toLowerCase().replace(/\s+/g, '-');
         return testResults[id]?.works === true;
       });
       const apiKeysOk = integrationsOk;
