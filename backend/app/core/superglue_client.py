@@ -862,6 +862,8 @@ async def create_system(
     icon: str = "",
     specific_instructions: str = "",
     customer_api_key: Optional[str] = None,
+    credential_url: Optional[str] = None,
+    template_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a system (connected app) in Superglue.
 
@@ -892,6 +894,8 @@ async def create_system(
         "credentials": {},
         "metadata": metadata or {},
     }
+    if template_id:
+        payload["template"] = template_id
 
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
@@ -903,7 +907,20 @@ async def create_system(
         if res.status_code in (200, 201):
             data = res.json()
             system_data = data.get("data", data)
-            if credentials:
+        elif res.status_code == 409:
+            # Shared provider system definitions are created once per org.
+            existing_response = await client.get(
+                f"{cfg_url}/v1/systems/{actual_id}",
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+            )
+            if existing_response.status_code != 200:
+                return {"success": False, "error": f"System definition conflict (HTTP {res.status_code})"}
+            existing_payload = existing_response.json()
+            system_data = existing_payload.get("data", existing_payload)
+        else:
+            return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
+
+        if credentials:
                 tenant_token = customer_api_key or _get_tenant_api_key(tenant_id)
                 if not tenant_token:
                     return {
@@ -919,7 +936,7 @@ async def create_system(
                     },
                     json={
                         "systemId": actual_id,
-                        "url": url,
+                        "url": credential_url or url,
                         "credentials": credentials,
                     },
                 )
@@ -932,8 +949,7 @@ async def create_system(
                         "success": False,
                         "error": f"Could not store tenant credentials (HTTP {credential_response.status_code})",
                     }
-            return {"success": True, "data": system_data}
-        return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
+        return {"success": True, "data": system_data}
     except Exception as exc:
         logger.warning("superglue_create_system error: %s", str(exc)[:200])
         return {"success": False, "error": str(exc)[:200]}
@@ -1132,7 +1148,7 @@ async def start_oauth_exchange(
         return {"success": False, "error": "Tenant Superglue service account is unavailable"}
 
     payload: Dict[str, Any] = {
-        "systemId": namespaced_tool_id(system_id, tenant_id),
+        "systemId": system_id,
     }
     if oauth_app_id:
         payload["oauthAppId"] = oauth_app_id
@@ -1181,7 +1197,7 @@ async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, A
             response = await client.get(
                 f"{url}/v1/credentials",
                 headers={"Authorization": f"Bearer {token}", **_session_headers()},
-                params={"systemId": namespaced_tool_id(system_id, tenant_id)},
+                params={"systemId": system_id},
             )
         if response.status_code != 200:
             return {
@@ -1248,7 +1264,7 @@ async def analyze_db_schema(
                 f"{cfg_url}/v1/discover/db-schema",
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
                 json={
-                    "connection_id": namespaced_tool_id(db_connection_id, tenant_id),
+                    "connection_id": db_connection_id,
                     "db_type": db_type,
                     "connection_config": connection_config,
                 },
