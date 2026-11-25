@@ -272,6 +272,27 @@ jobs:
       - name: Run Frontend Unit Suite (required)
         run: npx jest --passWithNoTests
 
+      # Run actual browser navigation against a live Next.js dev server.
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run real-browser smoke tests
+        run: bunx playwright test tests/e2e/ci-smoke.spec.ts --project=chromium
+        env:
+          NEXT_PUBLIC_API_URL: https://fake
+          DATABASE_URL: file:./test.db
+
+      - name: Upload browser screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parwa-browser-smoke-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Frontend Test Summary
         if: always()
         run: echo "Frontend tests completed"
