@@ -57,7 +57,13 @@ services:
       - key: DATA_ENCRYPTION_KEY
         sync: false
       # External agent-building and tool-execution credentials (environment-only).
+      - key: BUILDER_API_URL
+        sync: false
       - key: BUILDER_API_KEY
+        sync: false
+      - key: CRM_ANALYSER_URL
+        sync: false
+      - key: CRM_ANALYSER_API_KEY
         sync: false
       - key: SUPERGLUE_API_URL
         sync: false
