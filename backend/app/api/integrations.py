@@ -1448,13 +1448,14 @@ async def api_analyze_integrations(
 
     from app.api.onboarding_build import STARTER_AGENT_PACK
     starter_integrations = ("Stripe", "Shopify", "Gmail", "Slack")
-    if result.get("error") or (not result.get("tickets_scanned") and not recommendations):
+    if not result.get("error") and (not result.get("tickets_scanned") and not recommendations):
         recommendations = [
             {
                 "name": name,
                 "system_id": _system_id(name),
                 "priority": "medium",
-                "reason": "Starter integration — connect only if your business uses it",
+                "required": False,
+                "reason": "Optional starter integration — connect only if your business uses it",
             }
             for name in starter_integrations
             if _system_id(name) not in connected_keys
@@ -1467,8 +1468,8 @@ async def api_analyze_integrations(
 
     if result.get("error"):
         analysis_summary = (
-            "CRM Analyser unavailable — showing starter integration and support-agent suggestions. "
-            "Re-run analysis after your first tickets arrive."
+            "CRM Analyser unavailable — showing starter support-agent suggestions. "
+            "Configure the secure analyser to receive personalized integration recommendations."
         )
     elif not result.get("tickets_scanned"):
         analysis_summary = (
