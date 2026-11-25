@@ -455,6 +455,10 @@ class TicketResponse(BaseModel):
         default=None,
         description="Last update timestamp",
     )
+    resolved_at: Optional[datetime] = Field(
+        default=None,
+        description="Resolution timestamp set by the backend",
+    )
     closed_at: Optional[datetime] = Field(
         default=None,
         description="Closure timestamp",
