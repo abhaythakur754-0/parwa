@@ -47,7 +47,7 @@ logger = get_logger("superglue_systems_api")
 # also connect ANY custom system via the POST endpoint with a custom URL.
 #
 # Auth types:
-#   "oauth"    → Show "Connect with X" button (Superglue handles OAuth redirect)
+#   "oauth"    → Require a provider-issued access token until the OAuth callback is implemented.
 #   "api_key"  → Show URL + API Key form (+ optional extra_fields per system)
 #   "database" → Show host/port/db/user/pass form (+ optional extra_fields for Snowflake/BigQuery)
 #   "smtp"     → Show SMTP form (host + port + user + pass for custom email)
@@ -234,6 +234,17 @@ async def create_system(
 
     tenant_id = str(user.company_id)
     is_database = req.system_id in DATABASE_SYSTEM_IDS
+
+    # Do not create a false "connected" system with empty OAuth/API credentials.
+    # This deployment uses provider-issued tokens; the OAuth redirect/callback
+    # flow is not yet available in the Superglue adapter.
+    if not is_database and not any(
+        str(value).strip() for value in (req.credentials or {}).values() if value is not None
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Provider credentials are required. Complete the provider authorization or paste a valid access token/API key.",
+        )
 
     # For databases, build the URL + credentials from the DB-specific fields
     if is_database:
