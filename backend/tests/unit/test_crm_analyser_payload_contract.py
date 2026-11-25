@@ -10,7 +10,7 @@ from app.core import crm_analyser_client
 
 @pytest.mark.asyncio
 async def test_external_analyser_receives_connected_integration_keys(monkeypatch):
-    captured = []
+    captured = []\n    captured_headers = []
 
     class Response:
         def __init__(self, body):
@@ -32,12 +32,12 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
         async def __aexit__(self, *args):
             return None
 
-        async def post(self, url, json):
-            captured.append(json)
+        async def post(self, url, json, headers=None):
+            captured.append(json)\n            captured_headers.append(headers)
             return Response({"request_id": "req-test"})
 
-        async def get(self, url, params):
-            return Response({
+        async def get(self, url, params, headers=None):
+            captured_headers.append(headers)\n            return Response({
                 "status": {
                     "status": "completed",
                     "result": {
@@ -51,7 +51,7 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
                 },
             })
 
-    monkeypatch.setattr(crm_analyser_client, "get_crm_analyser_url", lambda: "https://analyser.test")
+    monkeypatch.setattr(crm_analyser_client, "get_crm_analyser_url", lambda: "https://analyser.test")\n    monkeypatch.setenv("CRM_ANALYSER_API_KEY", "test-analyser-key")
     monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
 
     result = await crm_analyser_client.analyze_crm_external(
@@ -63,7 +63,7 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
     )
 
     assert captured[0]["data"]["connected_integrations"] == ["hubspot", "zendesk"]
-    assert result["integrations"] == ["shopify"]
+    assert result["integrations"] == ["shopify"]\n    assert captured_headers == [\n        {"Authorization": "Bearer test-analyser-key"},\n        {"Authorization": "Bearer test-analyser-key"},\n    ]
 
 
 def test_integrations_endpoint_passes_connected_keys_to_analyser():
@@ -156,3 +156,23 @@ def test_crm_analyser_requires_explicit_https_endpoint(monkeypatch):
 
     monkeypatch.setenv("CRM_ANALYSER_URL", "https://analyser.example/")
     assert crm_analyser_client.get_crm_analyser_url() == "https://analyser.example"
+
+
+
+@pytest.mark.asyncio
+async def test_analyser_does_not_send_customer_tickets_without_api_key(monkeypatch):
+    monkeypatch.setattr(crm_analyser_client, "get_crm_analyser_url", lambda: "https://analyser.test")
+    monkeypatch.setenv("CRM_ANALYSER_API_KEY", "")
+
+    def unexpected_client(*args, **kwargs):
+        raise AssertionError("analyser network call must not happen without authentication")
+
+    monkeypatch.setattr(httpx, "AsyncClient", unexpected_client)
+    result = await crm_analyser_client.analyze_crm_external(
+        tickets=[{"subject": "private customer issue"}],
+        poll_interval=0,
+        max_poll_attempts=1,
+    )
+
+    assert "CRM_ANALYSER_API_KEY not configured" in result["error"]
+    assert result["tickets_scanned"] == 1
