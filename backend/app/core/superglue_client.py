@@ -375,13 +375,12 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         - Tenant isolation: pass tenant_id from the caller's authenticated context.
           The actual tool ID sent to Superglue becomes tenant-namespaced.
     """
-    url, admin_token = _get_config()
-    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
+    url, _admin_token = _get_config()
+    if not tenant_id:
+        return {"success": False, "error": "Tenant context is required for tool execution"}
+    token = _get_tenant_api_key(tenant_id)
     if not url or not token:
-        return {
-            "success": False,
-            "error": "Tenant Superglue credentials are unavailable" if tenant_id else "Superglue not configured",
-        }
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
 
     # ── Per-tenant tool isolation (CRITICAL for multi-tenant security) ──
     # Without this, Tenant A could call Tenant B's tools by guessing the tool_id.
