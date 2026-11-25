@@ -2,6 +2,9 @@
 
 import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import NavigationBar from '@/components/landing/NavigationBar';
+import Footer from '@/components/landing/Footer';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 
 /**
@@ -61,6 +64,31 @@ function JarvisPageInner() {
     setEntrySource(entrySourceParam || 'jarvis_chat');
     setEntryParams(params);
   }, [searchParams]);
+
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#2C2C31]">
+        <NavigationBar />
+        <main className="flex-1 flex items-center justify-center px-6 py-16">
+          <section className="max-w-xl text-center">
+            <h1 className="text-3xl font-bold text-white mb-4">Jarvis guest demo is unavailable</h1>
+            <p className="text-gray-300 mb-8">
+              Public guest sessions are temporary and are disabled in production. Create an account to use persistent Jarvis and secure onboarding.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/signup" className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-[#2C2C31]">
+                Create account
+              </Link>
+              <Link href="/login" className="rounded-xl border border-white/20 px-6 py-3 font-semibold text-white">
+                Sign in
+              </Link>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <JarvisChat
