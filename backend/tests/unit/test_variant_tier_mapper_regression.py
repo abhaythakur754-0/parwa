@@ -1,7 +1,6 @@
 """Regression tests for onboarding variant resolution and display metadata."""
 
-from app.api.onboarding import _variant_instance_name
-from app.core.variant_tier_mapper import resolve_tier_from_context
+from app.core.variant_tier_mapper import resolve_tier_from_context, variant_instance_name
 
 
 def test_selected_variant_list_ranks_each_internal_tier():
@@ -31,5 +30,5 @@ def test_direct_variant_id_keeps_priority_over_selected_variants():
 
 
 def test_instance_display_name_uses_canonical_variant():
-    assert _variant_instance_name("parwa") == "Parwa"
+    assert variant_instance_name("parwa") == "Parwa"
     assert _variant_instance_name("high") == "High Parwa"
