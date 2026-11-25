@@ -102,21 +102,13 @@ jobs:
           from sqlalchemy import create_engine, text
           engine = create_engine(os.environ["DATABASE_URL"])
           with engine.begin() as connection:
-              connection.execute(text("""
-                  DO $
-                  BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
-                      EXECUTE 'CREATE ROLE service_role NOLOGIN';
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-                      EXECUTE 'CREATE ROLE anon NOLOGIN';
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-                      EXECUTE 'CREATE ROLE authenticated NOLOGIN';
-                    END IF;
-                  END
-                  $;
-              """))
+              for role in ("service_role", "anon", "authenticated"):
+                  exists = connection.execute(
+                      text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+                      {"role": role},
+                  ).first()
+                  if not exists:
+                      connection.exec_driver_sql(f"CREATE ROLE {role} NOLOGIN")
           PY
           alembic -c database/alembic.ini upgrade head
           python - <<'PY'
