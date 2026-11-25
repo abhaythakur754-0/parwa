@@ -929,7 +929,13 @@ If no tool matches, respond with:
                             # Step 4: Execute the tool via Superglue
                             # 2026-09: tenant-scoped on this path — the namespaced
                             # id must match how the tool was SAVED.
-                            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+                            result = await execute_tool(
+            tool_id,
+            tool_input,
+            tenant_id=tenant_id,
+            idempotency_key=scoped_key,
+            safety_level=safety.get("safety_level", "unknown"),
+        )
 
                             if result.get("success"):
                                 observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
