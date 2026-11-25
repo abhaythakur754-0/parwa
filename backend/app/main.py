@@ -740,7 +740,7 @@ async def lifespan(app: FastAPI):
                     action VARCHAR(100),
                     status VARCHAR(24) NOT NULL DEFAULT 'completed',
                     error_message TEXT,
-                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     executed_at TIMESTAMP NULL
                 )
             """))
