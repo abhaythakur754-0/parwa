@@ -144,3 +144,15 @@ def test_escalation_tool_requires_private_note_and_status():
         }
     }
     assert _validate_platform_tool_schema("Ticket Escalation Specialist", valid) is None
+
+
+
+def test_crm_analyser_requires_explicit_https_endpoint(monkeypatch):
+    monkeypatch.setenv("CRM_ANALYSER_URL", "")
+    assert crm_analyser_client.get_crm_analyser_url() == ""
+
+    monkeypatch.setenv("CRM_ANALYSER_URL", "http://public-analyser.example")
+    assert crm_analyser_client.get_crm_analyser_url() == ""
+
+    monkeypatch.setenv("CRM_ANALYSER_URL", "https://analyser.example/")
+    assert crm_analyser_client.get_crm_analyser_url() == "https://analyser.example"
