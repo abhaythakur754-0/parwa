@@ -331,7 +331,20 @@ class IntegrationService:
         )
         if not integration:
             return None
-        return self._parse_json(integration.credentials_encrypted) or {}
+
+        # OAuth tokens live only in the tenant's Superglue service-account
+        # connection. Never pretend local metadata fields are provider auth.
+        settings = integration.settings or {}
+        if isinstance(settings, str):
+            try:
+                settings = json.loads(settings)
+            except (TypeError, ValueError):
+                settings = {}
+        if isinstance(settings, dict) and settings.get("auth_type") == "oauth":
+            return None
+
+        credentials = self._parse_json(integration.credentials_encrypted)
+        return credentials if isinstance(credentials, dict) and credentials else None
 
     def get_crm_config_for_tenant(
         self,
