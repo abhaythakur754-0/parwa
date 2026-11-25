@@ -538,6 +538,7 @@ THOUGHT:"""
                     try:
                         _f_agent = _f_db.query(_ForgeAgent).filter(
                             _ForgeAgent.id == routed_agent_id,
+                            _ForgeAgent.company_id == tenant_id,
                         ).first()
                         if _f_agent and (not _f_agent.superglue_tool_id or _f_agent.superglue_tool_status != "active"):
                             from app.core.superglue_tool_generator import generate_tool_for_agent
