@@ -2461,9 +2461,17 @@ async def _execute_with_idempotency(
         ).fetchone()
         if existing:
             status = existing[0]
+            if status == "completed":
+                # A previous attempt (including the durable recovery worker)
+                # already completed this exact idempotent action. Treat it as
+                # success so the pipeline can finish without repeating the side effect.
+                return {
+                    "success": True,
+                    "already_executed": True,
+                    "execution_status": "completed",
+                }
             message = (
-                "already_executed" if status == "completed"
-                else "previous_attempt_failed" if status == "failed"
+                "previous_attempt_failed" if status == "failed"
                 else "execution_in_progress"
             )
             logger.warning(
