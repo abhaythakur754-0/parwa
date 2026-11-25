@@ -103,6 +103,18 @@ def test_variant_limit_service_uses_safe_parwa_default_for_unknown_tier():
     assert limits["ai_agents"] == 5
 
 
+def test_variant_limit_service_canonicalizes_legacy_company_subscription_tiers():
+    from unittest.mock import MagicMock
+    from app.services.variant_limit_service import VariantLimitService
+
+    subscription = MagicMock()
+    subscription.tier = "growth"
+    db = MagicMock()
+    db.query.return_value.filter.return_value.order_by.return_value.first.return_value = subscription
+
+    assert VariantLimitService()._get_company_variant(db, "company-123") == "parwa"
+
+
 def test_variant_limit_service_reads_price_monthly_from_db_fallback():
     from unittest.mock import MagicMock, patch
     from app.services import variant_limit_service
