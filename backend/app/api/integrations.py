@@ -1389,6 +1389,8 @@ async def api_analyze_integrations(
         }
         return aliases.get(slug, slug)
 
+    from app.api.superglue_systems import POPULAR_SYSTEMS
+    popular_systems = {item["id"]: item for item in POPULAR_SYSTEMS}
     recommendations = []
     database_system_ids = {"postgres", "mysql", "mongodb", "supabase-db", "snowflake", "bigquery"}
     for item in result.get("integrations", []):
@@ -1402,18 +1404,22 @@ async def api_analyze_integrations(
             continue
         system_id = _system_id(str(raw_system_id or raw_name))
         catalog_entry = get_integration_by_key(system_id)
-        display_name = catalog_entry.name if catalog_entry else str(raw_name).replace("-", " ").replace("_", " ").title()
+        superglue_entry = popular_systems.get(system_id, {})
+        display_name = (
+            catalog_entry.name if catalog_entry
+            else superglue_entry.get("name")
+            or str(raw_name).replace("-", " ").replace("_", " ").title()
+        )
         category = (
-            catalog_entry.category.value
-            if catalog_entry
-            else "Database" if system_id in database_system_ids
-            else "Custom"
+            catalog_entry.category.value if catalog_entry
+            else superglue_entry.get("category")
+            or ("Database" if system_id in database_system_ids else "Custom")
         )
         recommendations.append({
             "name": display_name,
             "system_id": system_id,
             "category": category,
-            "db_type": {
+            "db_type": superglue_entry.get("db_type") or {
                 "postgres": "postgresql",
                 "supabase-db": "postgresql",
                 "mysql": "mysql",
@@ -1421,6 +1427,10 @@ async def api_analyze_integrations(
                 "snowflake": "snowflake",
                 "bigquery": "bigquery",
             }.get(system_id),
+            "auth_type": superglue_entry.get("auth_type"),
+            "auth_schema": superglue_entry.get("auth_schema", []),
+            "url_hint": superglue_entry.get("url_hint", ""),
+            "icon": superglue_entry.get("icon", "🔌"),
             "priority": item.get("priority", "high") if isinstance(item, dict) else "high",
             "reason": item.get("reason", "Recommended by CRM analysis") if isinstance(item, dict) else "Recommended by CRM analysis",
         })
