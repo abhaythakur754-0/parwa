@@ -314,7 +314,7 @@ async def create_system(
             company_id=tenant_id,
             name=req.name,
             server_url=req.url,
-            auth_token=req.credentials.get("api_key") if req.credentials else None,
+            auth_token=(req.credentials.get("api_key") or req.credentials.get("access_token") or req.credentials.get("token")) if req.credentials else None,
             system_id=req.system_id,
         )
 
@@ -977,6 +977,44 @@ def _upsert_db_connection(
     return db_conn
 
 
+def _sanitize_schema_metadata(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist table/column structure only; never cache customer sample rows."""
+    safe: Dict[str, Any] = {}
+    for key in ("summary", "database_type", "analyzed_at", "source"):
+        value = schema.get(key)
+        if isinstance(value, (str, int, float, bool)):
+            safe[key] = str(value)[:500] if isinstance(value, str) else value
+    for collection_key in ("tables", "collections", "schemas"):
+        items = schema.get(collection_key)
+        if not isinstance(items, list):
+            continue
+        safe_items = []
+        for item in items[:200]:
+            if isinstance(item, str):
+                safe_items.append({"name": item[:200]})
+                continue
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name") or item.get("table_name") or item.get("collection_name")
+            entry: Dict[str, Any] = {"name": str(name or "unknown")[:200]}
+            columns = item.get("columns") or item.get("fields")
+            if isinstance(columns, list):
+                entry["columns"] = []
+                for column in columns[:200]:
+                    if isinstance(column, str):
+                        entry["columns"].append({"name": column[:200]})
+                    elif isinstance(column, dict):
+                        col_name = column.get("name") or column.get("column_name") or column.get("field")
+                        col_type = column.get("type") or column.get("data_type")
+                        entry["columns"].append({
+                            "name": str(col_name or "unknown")[:200],
+                            "type": str(col_type or "unknown")[:100],
+                        })
+            safe_items.append(entry)
+        safe[collection_key] = safe_items
+    return safe
+
+
 async def _discover_db_schema_for_connection(
     db: Session,
     db_conn: DBConnection,
@@ -1021,19 +1059,38 @@ async def _discover_db_schema_for_connection(
         db.commit()
         return {"success": False, "schema": None, "error": "Database connection config is unavailable"}
 
+    # Superglue's connection namespace is the integration system ID, not
+    # PARWA's local DBConnection row UUID.
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.name == db_conn.name,
+    ).first()
+    superglue_system_id = integration.integration_type if integration else db_conn.name
+
     result = await superglue_client.analyze_db_schema(
-        db_connection_id=str(db_conn.id),
+        db_connection_id=superglue_system_id,
         tenant_id=tenant_id,
         db_type=db_conn.db_type,
         connection_config=config,
     )
     schema = result.get("schema")
-    if result.get("success") and isinstance(schema, dict) and schema.get("source") != "fallback":
-        db_conn.schema_analysis = json.dumps(schema)
+    has_discovered_objects = isinstance(schema, dict) and any(
+        isinstance(schema.get(key), list) and len(schema[key]) > 0
+        for key in ("tables", "collections", "schemas")
+    )
+    if result.get("success") and has_discovered_objects and schema.get("source") != "fallback":
+        # Store structural metadata only. Sample rows and values belong in
+        # live Superglue tool results, not a long-lived schema cache.
+        safe_schema = _sanitize_schema_metadata(schema)
+        db_conn.schema_analysis = json.dumps(safe_schema)
         db_conn.status = "verified"
         db_conn.updated_at = datetime.now(timezone.utc)
+        if integration:
+            integration.status = "verified"
+            integration.error_message = None
+            integration.last_sync = datetime.now(timezone.utc)
         db.commit()
-        return {"success": True, "schema": schema}
+        return {"success": True, "schema": safe_schema}
 
     db_conn.status = "schema_pending"
     db.commit()
