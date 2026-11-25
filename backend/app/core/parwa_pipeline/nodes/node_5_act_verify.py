@@ -591,7 +591,17 @@ THOUGHT:"""
                             # If approval was required by agent config, observation is already set — skip result check
                             # If safety gate blocked or requires approval, handle specially
                             if not state.get("pending_approval"):
-                                if result.get("guardrail_blocked"):
+                                if result.get("needs_customer_info"):
+                                    state["needs_customer_info"] = True
+                                    state["missing_tool_inputs"] = result.get("missing_required", [])
+                                    observation = (
+                                        f"NO ACTION TAKEN. The agent tool requires additional customer information: "
+                                        f"{', '.join(result.get('missing_required', []))}. Ask the customer for these details; "
+                                        "do not claim that the requested action was completed."
+                                    )
+                                    tool_executed = f"not_executed_missing_inputs:agent:{routed_agent_id}:{_tool_id}"
+                                    logs.append(f"node5: required agent tool inputs missing: {result.get('missing_required', [])}")
+                                elif result.get("guardrail_blocked"):
                                     observation = (
                                         f"ACTION BLOCKED by safety guardrails: {result.get('error', '')}. "
                                         f"Agent '{_agent.agent_name}' tool '{_tool_id}' not executed."
@@ -707,7 +717,15 @@ THOUGHT:"""
                                         f"{_forge_ticket}:{_forge_tool_id}:{action}",
                                         _forge_ticket, action, tenant_id,
                                     )
-                                if _forge_result and _forge_result.get("guardrail_blocked"):
+                                if _forge_result and _forge_result.get("needs_customer_info"):
+                                    state["needs_customer_info"] = True
+                                    state["missing_tool_inputs"] = _forge_result.get("missing_required", [])
+                                    observation = (
+                                        "NO ACTION TAKEN. The newly generated tool requires additional customer information: "
+                                        f"{', '.join(_forge_result.get('missing_required', []))}. Ask the customer for these details."
+                                    )
+                                    tool_executed = f"not_executed_missing_inputs:agent:{routed_agent_id}:{_forge_tool_id}"
+                                elif _forge_result and _forge_result.get("guardrail_blocked"):
                                     observation = (
                                         f"ACTION BLOCKED by safety guardrails after tool-forge: "
                                         f"{_forge_result.get('error', '')}. Tool '{_forge_tool_id}' not executed."
