@@ -111,6 +111,37 @@ async def test_oauth_connection_status_uses_tenant_connections_endpoint(monkeypa
 
 
 
+@pytest.mark.asyncio
+async def test_oauth_exchange_uses_tenant_service_account_and_configured_app(monkeypatch):
+    calls = []
+
+    class OAuthStartClient(_Client):
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url, kwargs))
+            return _Response(200, {"data": [{"id": "oauth-app-1", "systemId": "hubspot"}]})
+
+        async def post(self, url, **kwargs):
+            calls.append(("POST", url, kwargs))
+            return _Response(201, {"data": {"authorizationUrl": "https://provider.example/authorize"}})
+
+    monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
+    monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "admin-secret"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-key")
+    monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
+    monkeypatch.setattr(superglue_client.httpx, "AsyncClient", lambda **kwargs: OAuthStartClient(calls))
+
+    result = await superglue_client.start_oauth_exchange("hubspot", "tenant-1")
+
+    assert result == {"success": True, "authorization_url": "https://provider.example/authorize"}
+    assert calls[0][0] == "GET"
+    assert calls[0][1].endswith("/v1/oauth-apps")
+    assert calls[0][2]["headers"]["Authorization"] == "Bearer tenant-key"
+    assert calls[1][0] == "POST"
+    assert calls[1][1].endswith("/v1/oauth/exchanges")
+    assert calls[1][2]["headers"]["Authorization"] == "Bearer tenant-key"
+    assert calls[1][2]["json"] == {"systemId": "hubspot", "oauthAppId": "oauth-app-1"}
+
+
 def test_tool_generator_uses_canonical_system_ids_without_credentials():
     from app.core.superglue_tool_generator import _format_integrations
 
