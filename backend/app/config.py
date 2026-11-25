@@ -507,13 +507,26 @@ class Settings(BaseSettings):
 
     @field_validator("MCP_AUTH_TOKEN")
     @classmethod
-    def validate_mcp_auth_token(cls, v: str) -> str:
-        """C-11 FIX: MCP_AUTH_TOKEN should be set in production."""
+    def validate_mcp_auth_token(
+        cls, v: str, info: ValidationInfo = None
+    ) -> str:
+        """Require a strong shared secret for MCP connections in production."""
+        env = _configured_environment(info)
         if not v:
+            if env == "production":
+                raise ValueError(
+                    "SECURITY CRITICAL: MCP_AUTH_TOKEN must be configured in production."
+                )
             warnings.warn(
                 "MCP_AUTH_TOKEN is empty — MCP server connections are unauthenticated. "
                 "Set MCP_AUTH_TOKEN before deploying!",
                 stacklevel=2,
+            )
+            return v
+        if env == "production" and (_is_placeholder_secret(v) or len(v) < 32):
+            raise ValueError(
+                "SECURITY CRITICAL: MCP_AUTH_TOKEN must be a non-placeholder "
+                "random value of at least 32 characters in production."
             )
         return v
 
