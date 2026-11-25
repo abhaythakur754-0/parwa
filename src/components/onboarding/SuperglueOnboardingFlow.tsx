@@ -455,7 +455,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       setAllTested(false);
       return;
     }
-    const allTestedNow = analysisResult.recommendations.every((rec) => {
+    const allTestedNow = analysisResult.recommendations.filter((rec) => rec.required !== false).every((rec) => {
       const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
       return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
     });
@@ -479,7 +479,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setVerifyStep(1);
 
     try {
-      const expectedIntegrations = analysisResult?.recommendations || [];
+      const expectedIntegrations = (analysisResult?.recommendations || []).filter((rec) => rec.required !== false);
       const integrationsOk = expectedIntegrations.every((rec) => {
         const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
         return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
@@ -538,7 +538,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         agents_ok: agentsOk,
         all_passed: allPassed,
         message: allPassed
-          ? '✓ All integrations and agent tools are verified — ready to continue!'
+          ? '✓ All required integrations and agent tools are verified — ready to continue!'
           : `✗ Pending: ${failures.join(', ')}`,
       });
     } catch (error) {
