@@ -1363,27 +1363,29 @@ async def node_4_reasoning_engine(state: PipelineV2State) -> dict:
     company_name = customer_ctx.get("company", "")
     customer_name = customer_ctx.get("customer_name", "the customer")
     tenant_context = f"Company: {company_name}" if company_name else ""
-    context_str = f"{tenant_context}\nCustomer: {customer_name}\n{str(crm_data)}"
-
-    # The selected tenant agent's guidance must affect both the reasoning
-    # and final customer reply. Treat it as tenant configuration, never as
-    # permission to override platform safety, privacy, or approval controls.
+    # Keep the selected agent's tenant-owned rules at the front of the
+    # bounded context so every reasoning prompt receives them, even when CRM
+    # context is large. Platform safety and approval controls always win.
+    agent_context_parts = []
     agent_name = state.get("selected_agent_name", "")
     agent_domain = state.get("selected_agent_domain", "")
-    agent_instructions = state.get("agent_instructions", "")
-    agent_restrictions = state.get("agent_restrictions", "")
+    agent_instructions = str(state.get("agent_instructions", "") or "")[:700]
+    agent_restrictions = str(state.get("agent_restrictions", "") or "")[:500]
     if agent_name or agent_domain:
-        context_str += f"\nSelected tenant agent: {agent_name} ({agent_domain})"
+        agent_context_parts.append(f"Selected tenant agent: {agent_name} ({agent_domain})")
     if agent_instructions:
-        context_str += (
-            "\nTENANT AGENT INSTRUCTIONS (follow when consistent with platform safety):\n"
-            + str(agent_instructions)[:1600]
+        agent_context_parts.append(
+            "TENANT AGENT INSTRUCTIONS (follow when consistent with platform safety):\n"
+            + agent_instructions
         )
     if agent_restrictions:
-        context_str += (
-            "\nTENANT AGENT RESTRICTIONS (must be respected):\n"
-            + str(agent_restrictions)[:1000]
+        agent_context_parts.append(
+            "TENANT AGENT RESTRICTIONS (must be respected):\n"
+            + agent_restrictions
         )
+    context_str = "\n".join(
+        agent_context_parts + [tenant_context, f"Customer: {customer_name}", str(crm_data)]
+    )
 
     # ── Connected Database Context ────────────────────────────────
     # Inject connected database info so the LLM knows what data sources
