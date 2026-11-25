@@ -56,6 +56,15 @@ services:
         sync: false
       - key: DATA_ENCRYPTION_KEY
         sync: false
+      # External agent-building and tool-execution credentials (environment-only).
+      - key: BUILDER_API_KEY
+        sync: false
+      - key: SUPERGLUE_AUTH_TOKEN
+        sync: false
+      - key: SUPERGLUE_LLM_API_KEY
+        sync: false
+      - key: SUPERGLUE_SESSION_ID
+        sync: false
       - key: PRICING_SIGNING_KEY
         sync: false
       - key: REFRESH_TOKEN_PEPPER
