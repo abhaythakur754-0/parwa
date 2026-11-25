@@ -101,6 +101,10 @@ jobs:
           assert {"company_id", "status", "error_message", "created_at", "executed_at"} <= {
               column["name"] for column in inspector.get_columns("ticket_tool_executions")
           }
+          assert inspector.has_table("superglue_call_queue")
+          assert {"company_id", "tool_id", "input_data", "ticket_id", "status"} <= {
+              column["name"] for column in inspector.get_columns("superglue_call_queue")
+          }
           print("SQLite Alembic schema is current; tenant agent-assignment column exists")
           PY
 
@@ -162,6 +166,13 @@ jobs:
                   "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
                   "AND tablename = 'ticket_tool_executions'"
               )).scalar_one()
+              call_queue_rls = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'superglue_call_queue'::regclass"
+              )).scalar_one()
+              call_queue_policies = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'superglue_call_queue'"
+              )).scalar_one()
               policy_count = connection.execute(text(
                   "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
                   "AND tablename = 'ai_agent_assignments'"
@@ -190,6 +201,8 @@ jobs:
           assert tenant_accounts_policies == 4
           assert tool_execution_rls is True
           assert tool_execution_policies == 4
+          assert call_queue_rls is True
+          assert call_queue_policies == 4
           assert policy_count == 4
           assert version_length >= 255
           spec = importlib.util.spec_from_file_location(
@@ -206,7 +219,7 @@ jobs:
           }
           missing_policies = required_policies - existing_policies
           assert not missing_policies, sorted(missing_policies)
-          print("PostgreSQL schema, long Alembic IDs, tenant service accounts, atomic tool idempotency, and RLS policies are verified")
+          print("PostgreSQL schema, long Alembic IDs, tenant service accounts, encrypted call queue, atomic tool idempotency, and RLS policies are verified")
           PY
 
       - name: Build Rust parwa_core (MANDATORY — fail CI if it doesn't compile)
