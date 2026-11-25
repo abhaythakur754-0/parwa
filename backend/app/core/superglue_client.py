@@ -1105,8 +1105,21 @@ async def analyze_db_schema(
             )
 
         if res.status_code == 200:
-            data = res.json().get("data", res.json())
-            return {"success": True, "schema": data}
+            payload = res.json()
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            if isinstance(data, dict) and isinstance(data.get("schema"), dict):
+                data = data["schema"]
+            has_objects = isinstance(data, dict) and any(
+                isinstance(data.get(key), list) and len(data[key]) > 0
+                for key in ("tables", "collections", "schemas")
+            )
+            if has_objects and data.get("source") != "fallback":
+                return {"success": True, "schema": data}
+            return {
+                "success": False,
+                "schema": None,
+                "error": "Superglue returned no verified tables, collections, or schemas",
+            }
 
         # Never report a generic fallback as a successful discovery. Agents
         # must not treat an unknown schema as verified or invent table names.
