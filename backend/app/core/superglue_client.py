@@ -1141,11 +1141,18 @@ async def delete_tenant_credentials(system_id: str, tenant_id: str) -> Dict[str,
             data = payload.get("data", payload) if isinstance(payload, dict) else {}
             if isinstance(data, list):
                 connection = next(
-                    (item for item in data if item.get("systemId") == system_id),
+                    (item for item in data if isinstance(item, dict) and item.get("systemId") == system_id),
                     None,
                 )
             elif isinstance(data, dict):
-                connection = data.get("connection") or data
+                connections = data.get("connections")
+                if isinstance(connections, list):
+                    connection = next(
+                        (item for item in connections if isinstance(item, dict) and item.get("systemId") == system_id),
+                        None,
+                    )
+                else:
+                    connection = data.get("connection") or data
             else:
                 connection = None
             connection_id = connection.get("id") if isinstance(connection, dict) else None
