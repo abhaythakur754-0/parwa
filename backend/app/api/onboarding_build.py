@@ -195,9 +195,9 @@ async def trigger_build(
     # These two platform agents are required infrastructure for a human-grade
     # ticket lifecycle: customer-facing CRM replies and private escalations.
     if any(item.integration_type in CRM_PROVIDER_IDS for item in connected_integrations):
-        existing_names = {
-            str(item.get("name") or item.get("agent_name") or "").strip().lower()
-            for item in recommendations if isinstance(item, dict)
+        existing_by_name = {
+            str(item.get("name") or item.get("agent_name") or "").strip().lower(): index
+            for index, item in enumerate(recommendations) if isinstance(item, dict)
         }
         mandatory_crm_agents = [
             {
@@ -216,8 +216,20 @@ async def trigger_build(
             },
         ]
         for mandatory_agent in mandatory_crm_agents:
-            if mandatory_agent["name"].lower() not in existing_names:
+            existing_index = existing_by_name.get(mandatory_agent["name"].lower())
+            if existing_index is None:
                 recommendations.append(mandatory_agent)
+                continue
+            existing_recommendation = recommendations[existing_index]
+            current_capabilities = existing_recommendation.get("capabilities") or []
+            if not isinstance(current_capabilities, list):
+                current_capabilities = [str(current_capabilities)]
+            existing_recommendation["capabilities"] = sorted(
+                {str(value) for value in current_capabilities}
+                | set(mandatory_agent["capabilities"])
+            )
+            existing_recommendation["role"] = mandatory_agent["role"]
+            existing_recommendation["reason"] = mandatory_agent["reason"]
 
     tenant_integrations_ctx = {
         i.integration_type: {
