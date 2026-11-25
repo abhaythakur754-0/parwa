@@ -5,20 +5,39 @@
  * message handling, statistics, and edge cases.
  */
 
-import { useTicketStore, autoAssignVariant, computeStats, ALL_STATUSES, ALL_PRIORITIES, ALL_CHANNELS, ALL_CATEGORIES, VARIANT_COST, TicketCategory, TicketPriority, TicketChannel } from '@/lib/ticket-store';
+import { useTicketStore, autoAssignVariant, computeStats, ALL_STATUSES, EDITABLE_STATUSES, ALL_PRIORITIES, ALL_CHANNELS, ALL_CATEGORIES, VARIANT_COST, normalizeBackendTicket, TicketCategory, TicketPriority, TicketChannel } from '@/lib/ticket-store';
 
 // ── Constants Validation ────────────────────────────────────────────
 
 describe('Ticket Store Constants', () => {
-  it('has 6 statuses', () => {
-    expect(ALL_STATUSES).toHaveLength(6);
+  it('includes the full backend lifecycle while keeping worker states read-only', () => {
+    expect(ALL_STATUSES).toHaveLength(14);
     expect(ALL_STATUSES).toContain('open');
     expect(ALL_STATUSES).toContain('in_progress');
     expect(ALL_STATUSES).toContain('resolved');
     expect(ALL_STATUSES).toContain('closed');
     expect(ALL_STATUSES).toContain('awaiting_client');
     expect(ALL_STATUSES).toContain('crm_pending');
+    expect(ALL_STATUSES).toContain('processing');
+    expect(ALL_STATUSES).toContain('queued');
+    expect(ALL_STATUSES).toContain('assigned');
+    expect(ALL_STATUSES).toContain('review_needed');
+    expect(EDITABLE_STATUSES).not.toContain('processing');
+    expect(EDITABLE_STATUSES).not.toContain('queued');
   });
+
+  it.each(['processing', 'queued', 'assigned', 'review_needed', 'crm_pending'])(
+    'preserves backend status %s when normalizing a ticket', (status) => {
+      const ticket = normalizeBackendTicket({
+        id: 'ticket-1', ticket_number: 'TKT-1', subject: 'Status mapping',
+        description: 'Test', category: 'billing_payments', priority: 'medium',
+        status, channel: 'email', customer_name: 'Test Customer',
+        customer_email: 'test@example.com', created_at: '2026-11-25T00:00:00Z',
+        updated_at: '2026-11-25T00:00:00Z',
+      });
+      expect(ticket.status).toBe(status);
+    },
+  );
 
   it('has 4 priorities', () => {
     expect(ALL_PRIORITIES).toHaveLength(4);
