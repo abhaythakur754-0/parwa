@@ -765,9 +765,13 @@ async def _poll_run_status(run_id: str, tool_id: str = "", tenant_id: Optional[s
         {success, data, error, run_id, step_results, tool_id}
     """
     url, admin_token = _get_config()
-    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
-    if not url or not token:
-        return {"success": False, "error": "Tenant Superglue credentials are unavailable", "run_id": run_id, "tool_id": tool_id}
+    # Superglue service accounts can execute tools but cannot read run history.
+    # This run_id is returned by the immediately preceding tenant-authenticated
+    # execute request, never supplied by a user; use the server admin key only
+    # to retrieve that single run's completion result.
+    if not url or not admin_token:
+        return {"success": False, "error": "Superglue run status is unavailable", "run_id": run_id, "tool_id": tool_id}
+    token = admin_token
 
     import asyncio
 
