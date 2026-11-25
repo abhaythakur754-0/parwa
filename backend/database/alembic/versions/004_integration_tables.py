@@ -87,7 +87,7 @@ def upgrade() -> None:
         'event_buffer',
         sa.Column('id', sa.String(36), primary_key=True),
         sa.Column('company_id', sa.String(36), sa.ForeignKey('companies.id', ondelete='CASCADE'), nullable=False, index=True),
-        sa.Column('session_id', sa.String(36), sa.ForeignKey('sessions.id')),
+        sa.Column('session_id', sa.String(36)),
         sa.Column('event_type', sa.String(100), nullable=False),
         sa.Column('event_data', sa.Text),
         sa.Column('ttl_seconds', sa.Integer, server_default='86400'),
