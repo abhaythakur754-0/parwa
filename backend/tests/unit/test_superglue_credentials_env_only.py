@@ -88,3 +88,28 @@ def test_production_e2e_uses_explicit_authenticated_endpoints_and_mutation_opt_i
     source = (_SCRIPTS_DIR / "production_e2e_test.py").read_text(encoding="utf-8")
     assert "preview-chat-" not in source
     assert 'headers={"Authorization": f"Bearer {CRM_ANALYSER_API_KEY}"}' in source
+
+
+
+def test_production_e2e_read_only_health_phase_does_not_require_mutation_opt_in(monkeypatch):
+    import production_e2e_test
+
+    script = importlib.reload(production_e2e_test)
+    monkeypatch.setattr(script, "ALLOW_MUTATIONS", False)
+    monkeypatch.setattr(script, "PHASES", [lambda: True])
+    monkeypatch.setattr(sys, "argv", ["production_e2e_test.py", "--phase", "0"])
+
+    with pytest.raises(SystemExit) as result:
+        script.main()
+    assert result.value.code == 0
+
+
+def test_production_e2e_mutating_phases_require_explicit_opt_in(monkeypatch):
+    import production_e2e_test
+
+    script = importlib.reload(production_e2e_test)
+    monkeypatch.setattr(script, "ALLOW_MUTATIONS", False)
+    monkeypatch.setattr(sys, "argv", ["production_e2e_test.py", "--phase", "1"])
+
+    with pytest.raises(SystemExit, match="Refusing to mutate external test tenants"):
+        script.main()
