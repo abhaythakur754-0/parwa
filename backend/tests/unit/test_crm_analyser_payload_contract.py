@@ -23,6 +23,9 @@ async def test_external_analyser_receives_connected_integration_keys(monkeypatch
             return self.body
 
     class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
         async def __aenter__(self):
             return self
 
