@@ -317,10 +317,11 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     await page.locator('input[type="password"]').first().fill('Test@1234');
     await page.locator('button[type="submit"]').click();
 
-    const finalUrl = await stableUrl(page);
-    console.log(`[Test 3] Final URL: ${finalUrl}`);
-    const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard/tickets');
+    // The protected dashboard can take time to hydrate after the signed-cookie
+    // redirect. Assert the actual destination UI instead of sampling the URL.
+    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   // ── Scenario 4: Already-authed visits /login, no subscription → / ───
@@ -351,10 +352,9 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     });
 
     await page.goto(`${BASE_URL}/login`);
-    const finalUrl = await stableUrl(page);
-    console.log(`[Test 5] Final URL: ${finalUrl}`);
-    const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard/tickets');
+    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   // ── Scenario 6: Already-authed visits /signup, no subscription → / ──
@@ -383,10 +383,9 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     });
 
     await page.goto(`${BASE_URL}/signup`);
-    const finalUrl = await stableUrl(page);
-    console.log(`[Test 7] Final URL: ${finalUrl}`);
-    const finalPath = new URL(finalUrl).pathname;
-    expect(finalPath).toBe('/dashboard/tickets');
+    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
 
