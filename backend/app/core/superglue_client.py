@@ -1248,30 +1248,60 @@ async def start_oauth_exchange(
 
 
 async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
-    """Check the tenant credential store without ever returning token values."""
+    """Check the tenant's Superglue connection without returning secret values."""
     if not is_configured():
         return {"success": False, "connected": False, "error": "Superglue not configured"}
     url, _ = _get_config()
     token = _get_tenant_api_key(tenant_id)
     if not token:
-        return {"success": False, "connected": False, "error": "Tenant Superglue service account is unavailable"}
+        return {
+            "success": False,
+            "connected": False,
+            "error": "Tenant Superglue service account is unavailable",
+        }
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
-                f"{url}/v1/credentials",
+                f"{url}/v1/connections",
                 headers={"Authorization": f"Bearer {token}", **_session_headers()},
                 params={"systemId": system_id},
             )
+        if response.status_code == 404:
+            return {"success": True, "connected": False}
         if response.status_code != 200:
             return {
                 "success": False,
                 "connected": False,
-                "error": f"Could not verify provider credentials (HTTP {response.status_code})",
+                "error": f"Could not verify provider connection (HTTP {response.status_code})",
             }
+
         payload = response.json()
         data = payload.get("data", payload) if isinstance(payload, dict) else {}
-        keys = data.get("credentialKeys", []) if isinstance(data, dict) else []
+        if isinstance(data, list):
+            connection = next(
+                (
+                    item for item in data
+                    if isinstance(item, dict) and item.get("systemId") == system_id
+                ),
+                None,
+            )
+        elif isinstance(data, dict):
+            connections = data.get("connections")
+            if isinstance(connections, list):
+                connection = next(
+                    (
+                        item for item in connections
+                        if isinstance(item, dict) and item.get("systemId") == system_id
+                    ),
+                    None,
+                )
+            else:
+                connection = data.get("connection") or data
+        else:
+            connection = None
+
+        keys = connection.get("credentialKeys", []) if isinstance(connection, dict) else []
         has_access_token = False
         if isinstance(keys, dict):
             entry = keys.get("access_token")
@@ -1288,8 +1318,11 @@ async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, A
         return {"success": True, "connected": has_access_token}
     except Exception as exc:
         logger.warning("superglue_oauth_status_error: %s", str(exc)[:160])
-        return {"success": False, "connected": False, "error": "Could not check provider authorization"}
-
+        return {
+            "success": False,
+            "connected": False,
+            "error": "Could not check provider authorization",
+        }
 
 async def analyze_db_schema(
     db_connection_id: str,
