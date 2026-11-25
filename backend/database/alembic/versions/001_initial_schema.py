@@ -53,7 +53,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_index('ix_users_company_id', 'users', ['company_id'])
+    # company_id has index=True above; SQLAlchemy creates ix_users_company_id automatically.
     op.create_index('ix_users_email', 'users', ['email'])
 
     op.create_table(
