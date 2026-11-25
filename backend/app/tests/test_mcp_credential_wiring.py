@@ -710,8 +710,8 @@ if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v", "--noconftest"]))
 
 
-def test_get_credential_config_decrypts_superglue_credentials_and_accepts_connected_status():
-    """Superglue records are Fernet-encrypted and use status='connected'."""
+def test_get_credential_config_decrypts_superglue_credentials_and_accepts_verified_status():
+    """Superglue records are Fernet-encrypted and become usable after status='verified'."""
     import json
     from shared.utils.token_encryption import encrypt_token
 
@@ -732,5 +732,5 @@ def test_get_credential_config_decrypts_superglue_credentials_and_accepts_connec
     assert config == {"access_token": "superglue-real-token"}
     filter_expression = db.query.return_value.filter.call_args.args[0]
     assert " IN " in str(filter_expression), (
-        "Credential lookup must accept active, connected, and verified statuses"
+        "Credential lookup must accept active and verified statuses"
     )
