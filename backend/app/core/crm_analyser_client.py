@@ -87,12 +87,23 @@ async def analyze_crm_external(
     base_url = get_crm_analyser_url()
     if not base_url:
         return {
-            "error": "CRM_ANALYSER_URL not configured",
+            "error": "CRM_ANALYSER_URL not configured with a secure HTTPS endpoint",
             "integrations": [],
             "agents": [],
             "tools": [],
             "tickets_scanned": 0,
         }
+
+    api_key = os.environ.get("CRM_ANALYSER_API_KEY", "").strip()
+    if not api_key:
+        return {
+            "error": "CRM_ANALYSER_API_KEY not configured; customer ticket data was not sent",
+            "integrations": [],
+            "agents": [],
+            "tools": [],
+            "tickets_scanned": 0,
+        }
+    auth_headers = {"Authorization": f"Bearer {api_key}"}
 
     # Build the CRMSnapshot (matching the format the service expects)
     snapshot = {
@@ -130,6 +141,7 @@ async def analyze_crm_external(
             r = await client.post(
                 f"{base_url}/api/crm-analyser/analyze",
                 json={"source": "upload", "data": snapshot},
+                headers=auth_headers,
             )
             r.raise_for_status()
             enqueue_resp = r.json()
@@ -164,6 +176,7 @@ async def analyze_crm_external(
                 r = await client.get(
                     f"{base_url}/api/crm-analyser/analyze",
                     params={"id": request_id},
+                    headers=auth_headers,
                 )
                 r.raise_for_status()
                 status_resp = r.json()
