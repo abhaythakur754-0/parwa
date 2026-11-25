@@ -43,7 +43,14 @@ router = APIRouter(prefix="/api/onboarding-build", tags=["onboarding-build"])
 # integrations yet means the analyser has nothing to learn from. Without a
 # fallback, zero agents get built and /status can never report all_ready=True
 # — onboarding deadlocks at verify. This guarantees the build always runs.
-STARTER_AGENT_PACK = ("Stripe", "Shopify", "Gmail", "Slack")
+STARTER_AGENT_PACK = {
+    "Refund Specialist": ["refund_processing", "billing_inquiry"],
+    "Order & Shipping Specialist": ["order_cancellation", "shipping_delivery", "product_information"],
+    "Billing Specialist": ["billing_inquiry", "invoice_request"],
+    "Account Support Specialist": ["account_management", "subscription_management"],
+    "Technical Support Specialist": ["technical_support"],
+    "General Support Specialist": ["faq_general"],
+}
 
 
 # ── Models ────────────────────────────────────────────────────────────
@@ -113,29 +120,35 @@ async def trigger_build(
     if not analysis:
         raise HTTPException(status_code=404, detail="No CRM analysis found. Run analysis first.")
 
-    # 2. Extract agents from recommendations
-    # The analyser returns integrations as a list of names; we derive agents from them
-    # Each integration becomes an agent specialized for that system
-    recommendations = analysis.recommendations or []
+    # CRM analysis stores integration recommendations separately from the
+    # support agents required to handle ticket capabilities.
+    recommendations = (analysis.data_profile or {}).get("recommended_agents") or []
+    if not isinstance(recommendations, list) or not recommendations:
+        recommendations = [
+            {"name": name, "capabilities": capabilities, "priority": "medium"}
+            for name, capabilities in STARTER_AGENT_PACK.items()
+        ]
+
     agent_statuses: List[AgentBuildStatus] = []
     created = 0
     skipped = 0
     failed = 0
 
-    # Get tenant's connected integrations for tool generation context
-    # Status vocab: Superglue flow writes "connected", manual flow writes
-    # "active" — read BOTH or one flow is invisible to the other.
+    # Tools are generated against this tenant's VERIFIED data sources only.
     from database.models.integration import Integration, DBConnection
     connected_integrations = db.query(Integration).filter(
         Integration.company_id == tenant_id,
         Integration.status.in_(["verified", "active"]),
     ).all()
     tenant_integrations_ctx = {
-        i.integration_type: {"name": i.name, "status": i.status, "system_id": i.integration_type}
+        i.integration_type: {
+            "name": i.name,
+            "status": i.status,
+            "system_id": i.integration_type,
+        }
         for i in connected_integrations
     }
 
-    # Add verified database schemas without exposing credentials or sample rows.
     connected_databases = db.query(DBConnection).filter(
         DBConnection.company_id == tenant_id,
         DBConnection.status == "verified",
@@ -146,54 +159,63 @@ async def trigger_build(
         except (json.JSONDecodeError, TypeError):
             schema = None
         if schema and schema.get("source") != "fallback":
-            tenant_integrations_ctx[f"database:{db_conn.id}"] = {
+            db_integration = next(
+                (item for item in connected_integrations if item.name == db_conn.name),
+                None,
+            )
+            db_system_id = db_integration.integration_type if db_integration else db_conn.name
+            tenant_integrations_ctx[f"database:{db_system_id}"] = {
                 "name": db_conn.name,
                 "status": db_conn.status,
-                "system_id": str(db_conn.id),
+                "system_id": db_system_id,
                 "db_type": db_conn.db_type,
                 "readonly": True,
                 "schema": schema,
                 "schema_ready": True,
             }
 
-    # Agent tools are built ONLY for systems this tenant actually connected.
-    # The starter pack remains a recommendation list, not fake connected agents.
-    available_names = [
-        i.integration_type.replace("-", " ").replace("_", " ").title()
-        for i in connected_integrations
-    ] + [db_conn.name for db_conn in connected_databases
-         if f"database:{db_conn.id}" in tenant_integrations_ctx]
-    if not available_names:
+    if not tenant_integrations_ctx:
         raise HTTPException(
             status_code=409,
             detail="Connect and verify at least one integration or database before building agents.",
         )
 
-    def _normalise(value: str) -> str:
-        return "".join(ch for ch in value.lower() if ch.isalnum())
-
-    available_keys = {_normalise(name) for name in available_names}
-    filtered_recommendations = []
-    for recommendation in recommendations:
-        rec_name = recommendation.get("name", "") if isinstance(recommendation, dict) else str(recommendation)
-        rec_key = _normalise(rec_name)
-        if rec_key and any(rec_key in key or key in rec_key for key in available_keys):
-            filtered_recommendations.append(recommendation)
-
-    recommendations = filtered_recommendations or [
-        {"name": name, "priority": "high",
-         "reason": "Auto-generated from a system connected to your tenant"}
-        for name in available_names
-    ]
     logger.info(
-        "onboarding_build_scope tenant=%s connected=%d agents=%d",
-        tenant_id, len(available_names), len(recommendations),
+        "onboarding_build_scope tenant=%s verified_sources=%d agents=%d",
+        tenant_id, len(tenant_integrations_ctx), len(recommendations),
     )
 
     for rec in recommendations:
-        agent_name = rec.get("name", "Unknown") if isinstance(rec, dict) else str(rec)
-        agent_role = f"{agent_name} Specialist"
-        capabilities = _infer_capabilities(agent_name)
+        if isinstance(rec, dict):
+            raw_name = (
+                rec.get("name")
+                or rec.get("agent_name")
+                or rec.get("key")
+                or rec.get("capability")
+                or "General Support Specialist"
+            )
+            agent_name = str(raw_name).replace("_", " ").strip().title()
+            agent_role = str(rec.get("role") or agent_name)
+            raw_capabilities = rec.get("capabilities")
+            if isinstance(raw_capabilities, list):
+                capabilities = [str(item) for item in raw_capabilities if str(item).strip()]
+            elif rec.get("capability"):
+                capabilities = [str(rec["capability"])]
+            else:
+                capabilities = _infer_capabilities(agent_name)
+            agent_reason = str(rec.get("reason") or "")
+            agent_instructions = str(
+                rec.get("instructions")
+                or f"Handle {agent_name}-related customer tickets. {agent_reason}".strip()
+            )
+        else:
+            agent_name = str(rec).replace("_", " ").strip().title()
+            agent_role = agent_name
+            capabilities = _infer_capabilities(agent_name)
+            agent_instructions = f"Handle {agent_name}-related customer tickets."
+
+        if not agent_name:
+            continue
 
         # 3. Dedup check — does this agent already exist for this tenant?
         existing = db.query(AIAgentAssignment).filter(
@@ -235,7 +257,7 @@ async def trigger_build(
                 agent_role=agent_role,
                 domain=agent_name,
                 capabilities=json.dumps(capabilities),
-                instructions=f"Handle {agent_name}-related customer tickets.",
+                instructions=agent_instructions,
                 restrictions="Only use approved Superglue tools. Follow tier guardrails.",
                 feature_ids="[]",
                 task_ids="[]",
@@ -275,7 +297,7 @@ async def trigger_build(
                     db.commit()
                     result = await generate_tool_for_agent(
                         agent_name=agent_name,
-                        agent_instructions=f"Handle {agent_name}-related customer tickets.",
+                        agent_instructions=agent_instructions,
                         agent_capabilities=", ".join(capabilities),
                         sample_ticket=None,
                         tenant_integrations=tenant_integrations_ctx,
