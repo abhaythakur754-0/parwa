@@ -893,7 +893,7 @@ export async function syncFromBackend(): Promise<void> {
     // Fetch the persisted workspace-wide pause flag separately from
     // per-ticket pause flags. A ticket-level pause must not pause the whole
     // workspace, and a workspace pause must survive page reloads.
-    let workspacePaused = normalized.some((ticket) => ticket.agent_stopped);
+    let workspacePaused = useTicketStore.getState().agentStopped;
     try {
       const pauseResponse = await fetch('/api/v1/tickets/agents/pause', {
         method: 'GET',
