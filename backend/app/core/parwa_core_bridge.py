@@ -37,9 +37,12 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import secrets
+import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Set
 from urllib.parse import urlparse
@@ -198,6 +201,8 @@ class _RateLimiterBridge:
     def __init__(self):
         self._rust: Optional[Any] = None
         self._python_failures: Dict[str, dict] = {}  # fallback store
+        self._python_windows: Dict[str, Any] = {}
+        self._python_lock = threading.Lock()
         if _RUST_AVAILABLE:
             try:
                 self._rust = _RustRateLimiter()
@@ -271,9 +276,9 @@ class _RateLimiterBridge:
                 rust_result = self._rust.check_rate_limit(category, identifier)
                 # Rust returns a dict with keys:
                 #   allowed, remaining, limit, reset_at, retry_after
-                if isinstance(rust_result, dict):
+                if isinstance(rust_result, dict) and isinstance(rust_result.get("allowed"), bool):
                     return RateLimitResult(
-                        allowed=bool(rust_result.get("allowed", True)),
+                        allowed=rust_result["allowed"],
                         remaining=int(rust_result.get("remaining", limit)),
                         limit=int(rust_result.get("limit", limit)),
                         reset_at=float(rust_result.get("reset_at", time.time() + window)),
@@ -282,15 +287,34 @@ class _RateLimiterBridge:
             except Exception:
                 logger.warning("rate_limiter_rust_check_failed_fallback")
 
-        # Pure-Python fallback: allow everything with default headers
-        # (the middleware fails CLOSED on Redis errors, so this fallback
-        # should rarely be hit — it's here for BC-008 safety)
-        return RateLimitResult(
-            allowed=True,
-            remaining=limit,
-            limit=limit,
-            reset_at=time.time() + window,
-        )
+        # Match the Rust bridge's per-process sliding-window behaviour when
+        # native extensions are disabled (for example SKIP_RUST_BUILD=true).
+        key = self._make_rate_key(category, identifier)
+        now = time.time()
+        with self._python_lock:
+            timestamps = self._python_windows.setdefault(key, deque())
+            window_start = now - window
+            while timestamps and timestamps[0] <= window_start:
+                timestamps.popleft()
+
+            count = len(timestamps)
+            reset_at = timestamps[0] + window if timestamps else now + window
+            if count >= limit:
+                return RateLimitResult(
+                    allowed=False,
+                    remaining=0,
+                    limit=limit,
+                    reset_at=reset_at,
+                    retry_after=max(1, math.ceil(reset_at - now)),
+                )
+
+            timestamps.append(now)
+            return RateLimitResult(
+                allowed=True,
+                remaining=max(0, limit - count - 1),
+                limit=limit,
+                reset_at=reset_at,
+            )
 
     # ── record_failure ─────────────────────────────────────────────
 
@@ -318,23 +342,24 @@ class _RateLimiterBridge:
         backoffs = config["backoff_seconds"]
         fail_key = self._make_failure_key(category, identifier)
         now = time.time()
-        info = self._python_failures.get(fail_key, {})
-        count = info.get("count", 0)
-        first_fail = info.get("first_fail", now)
-        if now - first_fail > 3600:
-            count = 0
-        count += 1
-        self._python_failures[fail_key] = {
-            "count": count,
-            "first_fail": first_fail,
-            "last_fail": now,
-            "locked_at": None,
-        }
-        if count < len(backoffs):
-            return backoffs[count]
-        lockout_dur = config["lockout_duration"]
-        self._python_failures[fail_key]["locked_at"] = now
-        return lockout_dur
+        with self._python_lock:
+            info = self._python_failures.get(fail_key, {})
+            count = info.get("count", 0)
+            first_fail = info.get("first_fail", now)
+            if now - first_fail > 3600:
+                count = 0
+            count += 1
+            self._python_failures[fail_key] = {
+                "count": count,
+                "first_fail": first_fail,
+                "last_fail": now,
+                "locked_at": None,
+            }
+            if count < len(backoffs):
+                return backoffs[count]
+            lockout_dur = config["lockout_duration"]
+            self._python_failures[fail_key]["locked_at"] = now
+            return lockout_dur
 
     # ── is_locked_out ───────────────────────────────────────────────
 
@@ -353,11 +378,12 @@ class _RateLimiterBridge:
         # Python fallback
         config = self.get_category_config(category)
         fail_key = self._make_failure_key(category, identifier)
-        info = self._python_failures.get(fail_key)
-        if not info or info.get("locked_at") is None:
-            return False
-        lockout_dur = config["lockout_duration"]
-        return (time.time() - info["locked_at"]) < lockout_dur
+        with self._python_lock:
+            info = self._python_failures.get(fail_key)
+            if not info or info.get("locked_at") is None:
+                return False
+            lockout_dur = config["lockout_duration"]
+            return (time.time() - info["locked_at"]) < lockout_dur
 
     # ── reset ──────────────────────────────────────────────────────
 
@@ -376,7 +402,10 @@ class _RateLimiterBridge:
 
         # Python fallback
         fail_key = self._make_failure_key(category, identifier)
-        self._python_failures.pop(fail_key, None)
+        rate_key = self._make_rate_key(category, identifier)
+        with self._python_lock:
+            self._python_failures.pop(fail_key, None)
+            self._python_windows.pop(rate_key, None)
 
     # ── get_category_config ────────────────────────────────────────
 
@@ -429,6 +458,12 @@ class _RateLimiterBridge:
         raw = f"{category}\x00{identifier}"
         hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
         return f"bridge:rl:fail:{hash_part}"
+
+    @staticmethod
+    def _make_rate_key(category: str, identifier: str) -> str:
+        raw = f"{category}\x00{identifier}"
+        hash_part = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+        return f"bridge:rl:request:{hash_part}"
 
     @staticmethod
     async def _extract_email(request: Any) -> str:
