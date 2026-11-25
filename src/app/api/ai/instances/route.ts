@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth';
 
 /**
  * /api/ai/instances — Variant instances endpoint
@@ -27,16 +28,6 @@ function getAccessTokenFromCookie(cookieHeader: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function extractCompanyIdFromToken(token: string): string | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    return payload.company_id || payload.companyId || null;
-  } catch {
-    return null;
-  }
-}
 
 // ── In-memory variant instance store ──────────────────────────────────
 
@@ -101,17 +92,18 @@ function readLocalInstances(companyId: string): Record<string, unknown>[] {
 }
 
 export async function GET(request: NextRequest) {
-  const cookie = request.headers.get('cookie') || '';
-  const accessToken = getAccessTokenFromCookie(cookie);
-
-  let companyId = accessToken
-    ? extractCompanyIdFromToken(accessToken)
-    : null;
-
-  const url = new URL(request.url);
-  if (!companyId) {
-    companyId = url.searchParams.get('company_id');
+  // Never trust a decoded JWT payload or caller-supplied company_id.
+  const user = await verifyAuth(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
+  const companyId = user.company_id;
+  if (!companyId) {
+    return NextResponse.json({ error: 'User is not associated with a company' }, { status: 403 });
+  }
+
+  const cookie = request.headers.get('cookie') || '';
+  const accessToken = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || getAccessTokenFromCookie(cookie);
 
   // Try backend first
   try {
@@ -149,11 +141,33 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ items: data, total: data.length });
       }
     }
+
+    // A backend auth denial is authoritative. Never fall back to cached
+    // company data when the current token is revoked or the account disabled.
+    if (res.status === 401 || res.status === 403) {
+      return NextResponse.json(
+        { error: 'Authentication or authorization failed' },
+        { status: res.status, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Backend unavailable' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
   } catch (err) {
-    console.warn('[instances-route] Backend failed, using local:', err);
+    console.warn('[instances-route] Backend failed:', err);
   }
 
-  // Fallback: in-memory store
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Backend unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
+    );
+  }
+
+  // Development-only fallback: in-memory store
   if (companyId) {
     const localInstances = readLocalInstances(companyId);
     if (localInstances.length > 0) {

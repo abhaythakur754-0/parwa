@@ -142,11 +142,11 @@ describe('FlexPay Integration Tests', () => {
       expect(progress.currentDay).toBeGreaterThan(0);
     });
 
-    it('should handle parwa tier full collection (~10 days)', async () => {
+    it('should collect the Parwa subscription across the 30-day cycle', async () => {
       const plan = createFullPlan(TEST_COMPANIES[1], 'parwa');
       
       expect(plan.totalAmount).toBe(TIER_PRICES.parwa);
-      expect(plan.schedule.length).toBeLessThanOrEqual(12); // Should be ~10 days
+      expect(plan.schedule.length).toBe(30); // Subscription cycle is exactly 30 days
       
       // Simulate processing all days
       for (let day = 1; day <= plan.schedule.length; day++) {
@@ -169,13 +169,13 @@ describe('FlexPay Integration Tests', () => {
       expect(progress.percentageComplete).toBe(100);
     });
 
-    it('should handle parwa tier full collection (~25 days)', () => {
+    it('should allocate the exact Parwa total across its 30 daily installments', () => {
       const plan = createFullPlan(TEST_COMPANIES[2], 'parwa');
       
       expect(plan.totalAmount).toBe(TIER_PRICES.parwa);
-      // Shobh tier ($2,499) at $100/day + extra every 3rd day = ~19-25 days
-      expect(plan.schedule.length).toBeGreaterThanOrEqual(18);
-      expect(plan.schedule.length).toBeLessThanOrEqual(35);
+      // Parwa uses one charge per day; only High uses the double-charge cadence.
+      expect(plan.schedule.length).toBe(30);
+      expect(plan.schedule.every(day => !day.isDoubleChargeDay)).toBe(true);
       
       // Verify schedule sums correctly
       const totalFromSchedule = plan.schedule.reduce((sum, s) => sum + s.totalForDay, 0);
@@ -359,8 +359,7 @@ describe('FlexPay Integration Tests', () => {
 
   describe('Multi-Tier Validation', () => {
 
-    it('should correctly handle all three tiers simultaneously', async () => {
-      const miniPlan = createFullPlan('multi_tier_parwa_1', 'parwa');
+    it('should correctly handle both current tiers simultaneously', async () => {
       const parwaPlan = createFullPlan('multi_tier_parwa', 'parwa');
       const highPlan = createFullPlan('multi_tier_high', 'high');
       
@@ -369,24 +368,25 @@ describe('FlexPay Integration Tests', () => {
       const result = await processAllPlans({}, new Date());
       
       // All tiers processed successfully
-      expect(result.totalPlans).toBe(3);
+      expect(result.totalPlans).toBe(2);
       expect(result.failedPlans).toBe(0);
       
       // Verify each has correct structure
-      expect(miniPlan.totalAmount).toBe(TIER_PRICES.parwa);
       expect(parwaPlan.totalAmount).toBe(TIER_PRICES.parwa);
       expect(highPlan.totalAmount).toBe(TIER_PRICES.high);
       
-      // Verify different durations
-      expect(miniPlan.totalDays).toBeLessThan(parwaPlan.totalDays);
-      expect(parwaPlan.totalDays).toBeLessThanOrEqual(highPlan.totalDays);
+      // Both tiers share the 30-day collection window; High uses double-charge days.
+      expect(parwaPlan.totalDays).toBe(30);
+      expect(highPlan.totalDays).toBe(30);
+      expect(parwaPlan.schedule.some(day => day.isDoubleChargeDay)).toBe(false);
+      expect(highPlan.schedule.some(day => day.isDoubleChargeDay)).toBe(true);
     });
 
     it('should maintain tier-specific pricing throughout lifecycle', () => {
-      const tiers: VariantTier[] = ['parwa', 'parwa', 'high'];
+      const tiers: VariantTier[] = ['parwa', 'high'];
       
-      for (const tier of tiers) {
-        const plan = createFullPlan(`tier_validation_${tier}`, tier);
+      for (const [index, tier] of tiers.entries()) {
+        const plan = createFullPlan(`tier_validation_${tier}_${index}`, tier);
         
         // Verify creation
         expect(plan.tier).toBe(tier);
@@ -398,7 +398,7 @@ describe('FlexPay Integration Tests', () => {
         
         // Verify summary includes correct info
         const summary = generateScheduleSummary(plan);
-        // Summary uses formatted numbers with commas (e.g., "$2,499")
+        // Summary uses formatted numbers with commas (e.g., "$2,999")
         const formattedPrice = TIER_PRICES[tier].toLocaleString();
         expect(summary).toContain(`$${formattedPrice}`);
         expect(summary).toContain(tier.toUpperCase());

@@ -39,7 +39,7 @@ function MFASetupContent() {
   // Initiate setup on mount
   useEffect(() => {
     if (!setupData) initiateSetup();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const setDigit = useCallback((index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -53,7 +53,7 @@ function MFASetupContent() {
     }
   }, []);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     setLocalError(null);
     resetError();
     if (code.length !== OTP_LENGTH) {
@@ -64,7 +64,7 @@ function MFASetupContent() {
     if (ok) {
       // Success — show backup codes
     }
-  };
+  }, [code, resetError, verifyAndEnroll]);
 
   const handleKeyDown = useCallback(
     (index: number, e: KeyboardEvent<HTMLInputElement>) => {
@@ -80,7 +80,7 @@ function MFASetupContent() {
         handleVerify();
       }
     },
-    [digits, code] // eslint-disable-line react-hooks/exhaustive-deps
+    [digits, code, handleVerify]
   );
 
   const handlePaste = useCallback((e: ClipboardEvent<HTMLInputElement>) => {

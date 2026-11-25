@@ -8,7 +8,7 @@
       "id": "obj-001",
       "objection": "PARWA is too expensive for us.",
       "response_strategy": "Reframe cost as investment with ROI breakdown",
-      "jarvis_response": "I completely understand that cost is a key consideration. Let me frame it in terms of what PARWA actually delivers. Our Starter plan at $999/month resolves an average of 60-70% of your incoming support tickets autonomously. For a typical team handling 2,000 tickets per month, that means PARWA handles 1,200-1,400 tickets that would otherwise cost $8-12 per ticket with human agents — that's $9,600-$16,800 in monthly savings. In most cases, PARWA pays for itself within the first 2-3 weeks. Additionally, consider the hidden costs you're already paying: agent turnover (50-60% annual in support), training expenses, overtime during peak seasons, and the revenue lost from slow response times. PARWA eliminates or dramatically reduces all of these. We also offer flexible annual billing with a 20% discount, bringing the effective monthly cost down further.",
+      "jarvis_response": "I understand that price matters. PARWA has two plans: Growth is $2,999/month for 2,999 tickets and 5 AI agents; High is $3,999/month for 3,999 tickets and 8 AI agents. Both use the same 8-node pipeline and AI capabilities. Growth has a $500 refund limit and a $200 credit limit; High has no preset refund or credit cap. Rather than promise a fixed saving, I can estimate the return using your real ticket volume and support costs.",
       "follow_up": "Would it help if I ran a quick ROI calculation based on your current ticket volume and average cost per resolution?",
       "supporting_data": [
         "Average cost per human support ticket: $8-12",
@@ -125,14 +125,13 @@
       "id": "obj-009",
       "objection": "We're too small for PARWA. We only get 200 tickets a month.",
       "response_strategy": "Highlight scalability and appropriate tier fit",
-      "jarvis_response": "Actually, PARWA's Starter plan at $999/month is specifically designed for businesses at your scale, and it might be more relevant than you think. Here's why: with 200 tickets per month, you're likely spending 3-5 hours per day on support. That's 15-25 hours per week that could be redirected to growth activities — sales, product development, marketing. Even at your volume, PARWA can automate 60-70% of those tickets, giving you back 10-17 hours per week. Plus, here's the strategic consideration: if you're growing (and I hope you are!), your ticket volume will increase. Every time you add 50 tickets per month, you'd need to hire or allocate more support resources. With PARWA, you can scale to 2,000+ tickets per month on the same plan without adding headcount. It's not just about handling today's volume — it's about being ready for tomorrow's growth. And if 200 tickets is truly all you'll ever have, we also have a Pay-Per-Resolution model that might be a better fit.",
+      "jarvis_response": "For a business handling around 200 tickets a month, PARWA Growth is the entry plan at $2,999/month and includes capacity for 2,999 tickets plus 5 AI agents. It may be more capacity than you need today, so the right decision depends on the value of automation, your current staffing costs, and expected growth. I can help compare those numbers without assuming a guaranteed saving.",
       "follow_up": "Would you like me to model out what your support costs would look like at 500 and 1,000 tickets per month with and without PARWA?",
       "supporting_data": [
-        "Starter plan handles up to 2,000 automated resolutions per month",
-        "Pay-Per-Resolution option available for low-volume businesses",
-        "60-70% auto-resolution rate regardless of volume",
-        "15-25 hours per week saved on 200 monthly tickets",
-        "Scale to 5x volume without adding support headcount"
+        "PARWA Growth includes 2,999 tickets per month and 5 AI agents",
+        "PARWA High includes 3,999 tickets per month and 8 AI agents",
+        "Both plans use the same 8-node pipeline and AI capabilities",
+        "Estimate ROI from the customer's real ticket volume and labor costs"
       ]
     },
     {
@@ -168,7 +167,7 @@
       "id": "obj-012",
       "objection": "What's the ROI? How do you measure success?",
       "response_strategy": "Quantifiable metrics framework with industry benchmarks",
-      "jarvis_response": "Great question — ROI should never be vague. Here's exactly how PARWA's ROI is measured, with specific metrics our analytics dashboard tracks in real-time: Direct Cost Savings — tickets resolved by AI multiplied by your cost per ticket. If AI resolves 1,000 tickets at $10 each, that's $10,000/month in direct savings. Efficiency Gains — reduced average handle time for human agents (typically 35-40% faster with AI-assisted responses). Revenue Impact — faster first response time (from hours to seconds) directly correlates to higher conversion rates and lower cart abandonment. Our e-commerce customers see an average 8-12% increase in conversion from chat interactions. Customer Satisfaction — CSAT and NPS scores typically improve by 15-25 points within 90 days. Operational Metrics — first response time (target: under 30 seconds), resolution time (target: under 5 minutes for simple queries), and escalation rate (target: under 35%). Our Growth plan customers see an average 8x ROI within the first 6 months, and our High-tier customers see 12x+.",
+      "jarvis_response": "ROI should be measurable, not a vague promise. We calculate it from the tickets PARWA handles, the time your team saves, and your actual fully loaded support labor costs. The plan prices are $2,999/month for Growth and $3,999/month for High; both use the same 8-node AI pipeline. If you share your monthly ticket volume, number of agents, and average monthly cost per agent, I can build a transparent estimate. I won't invent a fixed savings percentage or payback period.",
       "follow_up": "What metrics matter most to your leadership team? I can customize the ROI model to match your reporting framework.",
       "supporting_data": [
         "Average 8x ROI on Growth plan within 6 months",
@@ -213,15 +212,13 @@
       "id": "obj-015",
       "objection": "What if we outgrow PARWA? Will we need to switch platforms?",
       "response_strategy": "Showcase scalability and enterprise capabilities",
-      "jarvis_response": "PARWA is designed to grow with you from startup to enterprise, and switching platforms is something you should never need to do. Here's how our architecture supports growth: Tier Flexibility — our three plans (Starter, Growth, High) are designed to support you at every stage. You can upgrade seamlessly as your needs evolve, with zero downtime and no data migration. Volume Scalability — the Starter plan handles up to 2,000 automated resolutions per month, Growth handles up to 10,000, and High is unlimited. But more importantly, the AI itself scales — it gets smarter as you generate more data, so resolution rates actually improve as you grow. Enterprise Features — when you're ready for advanced capabilities like custom AI model training, dedicated infrastructure, SLA guarantees, advanced analytics, and multi-brand/multi-region support, our High plan and custom Enterprise plans provide everything you need. Advanced Integrations — as your tech stack grows more complex, PARWA's API and 100+ integrations scale with you. We integrate with everything from Shopify to Salesforce to custom internal APIs. Customer Proof — some of our customers have grown 10x since joining PARWA, and not one has outgrown the platform. The largest organizations on PARWA handle millions of conversations per month across dozens of brands.",
+      "jarvis_response": "You do not need a separate AI pipeline as you grow. PARWA has two plans that use the same 8-node customer-care pipeline and AI capabilities: Growth includes 2,999 tickets, 5 AI agents, 10 team members, 500 knowledge documents, and 2 voice slots; High includes 3,999 tickets, 8 AI agents, 25 team members, 2,000 knowledge documents, and 5 voice slots. Growth has $500 refund and $200 credit limits; High has no preset cap for those actions. Choose based on the capacity and guardrails your business needs.",
       "follow_up": "Where do you see your business in 12-18 months? I can map out the growth path on PARWA to match.",
       "supporting_data": [
-        "Seamless tier upgrades with zero downtime and no migration",
-        "Starter: 2,000 resolutions/mo, Growth: 10,000/mo, High: unlimited",
-        "Custom Enterprise plans available for organizations needing dedicated infrastructure",
-        "100+ native integrations with scalable API for custom connections",
-        "Multiple customers have grown 10x on PARWA without platform change",
-        "Multi-brand and multi-region support on Growth and High plans"
+        "PARWA Growth: 2,999 tickets/month, 5 AI agents, 10 team members, 500 knowledge documents, 2 voice slots",
+        "PARWA High: 3,999 tickets/month, 8 AI agents, 25 team members, 2,000 knowledge documents, 5 voice slots",
+        "Both tiers use the same unified 8-node customer-care pipeline and AI capabilities",
+        "Legacy Mini and Starter names normalize to PARWA Growth"
       ]
     },
     {

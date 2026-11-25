@@ -47,6 +47,9 @@ services:
           name: parwa-redis
           type: pserv
           property: connectionstring
+      # Set the same high-entropy password on the Redis service and both clients.
+      - key: REDIS_PASSWORD
+        sync: false
       - key: SECRET_KEY
         sync: false
       - key: JWT_SECRET_KEY
@@ -138,7 +141,14 @@ services:
           name: parwa-redis
           type: pserv
           property: connectionstring
+      - key: REDIS_PASSWORD
+        sync: false
       - key: CELERY_BROKER_URL
+        fromService:
+          name: parwa-redis
+          type: pserv
+          property: connectionstring
+      - key: CELERY_RESULT_BACKEND
         fromService:
           name: parwa-redis
           type: pserv
@@ -176,6 +186,9 @@ services:
     buildContext: .
     plan: starter
     region: oregon
+    envVars:
+      - key: REDIS_PASSWORD
+        sync: false
 
 # NOTE: Render internal PostgreSQL (parwa-db) has been REMOVED.
 # PARWA now uses Supabase for PostgreSQL. Set DATABASE_URL env var

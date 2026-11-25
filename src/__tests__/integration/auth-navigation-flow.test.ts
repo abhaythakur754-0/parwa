@@ -158,7 +158,7 @@ describe('Integration: Auth + App Store Navigation Flow', () => {
   });
 
   describe('Auth + variant store coordination', () => {
-    it('logging out resets variant store to mini', () => {
+    it('logging out resets variant store to the current default tier', () => {
       // User logs in as pro
       useAppStore.getState().setAuth(true, {
         email: 'test@example.com',
@@ -173,7 +173,7 @@ describe('Integration: Auth + App Store Navigation Flow', () => {
       useVariantStore.getState().reset();
 
       expect(useAppStore.getState().isAuthenticated).toBe(false);
-      expect(useVariantStore.getState().tier).toBe('mini');
+      expect(useVariantStore.getState().tier).toBe('parwa');
     });
   });
 

@@ -44,6 +44,28 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
+  // React Compiler guidance is not a correctness gate for this app: these
+  // patterns are used for hydration and external-system synchronization.
+  rules: {
+    "react-hooks/set-state-in-effect": "off",
+    "react-hooks/incompatible-library": "off",
+  },
+}, {
+  // CommonJS is intentional in Node scripts, optional runtime adapters, and
+  // Jest module-isolation tests; keep the rule active for normal app modules.
+  files: [
+    "scripts/**/*.{js,ts}",
+    "mini-services/**/*.{js,ts}",
+    "src/**/__tests__/**/*.{js,jsx,ts,tsx}",
+    "src/lib/flexpay/core.ts",
+    "src/lib/typing-store.ts",
+    "src/lib/email-brevo.ts",
+  ],
+  rules: {
+    "@typescript-eslint/no-require-imports": "off",
+    "react-hooks/refs": "off",
+  },
+}, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
 }];
 

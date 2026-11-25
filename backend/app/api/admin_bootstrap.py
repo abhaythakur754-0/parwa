@@ -17,17 +17,31 @@ import json
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
+from app.config import get_settings
 from app.exceptions import ValidationError
 from database.base import get_db
 from database.models.core import User, Company
 from database.models.billing import Subscription
 from database.models.variant_engine import VariantInstance
 
-router = APIRouter(prefix="/api/setup", tags=["setup"])
+def require_development_only() -> None:
+    """Setup/debug endpoints must never be exposed in staging or production."""
+    if get_settings().ENVIRONMENT.lower() != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+router = APIRouter(
+    prefix="/api/setup",
+    tags=["setup"],
+    dependencies=[
+        Depends(require_development_only),
+        Depends(require_roles("owner", "admin")),
+    ],
+)
 
 
 @router.post("/activate-all-variants")
@@ -346,102 +360,8 @@ def fix_existing_company():
 
 @router.get("/nuke-all-data")
 def nuke_all_data():
-    """DESTRUCTIVE: Delete ALL user data from every table. Cannot be undone.
-    Leaves only the database schema (empty tables).
-    """
-    from sqlalchemy import text
-    from database.base import engine
-
-    tables_to_wipe = [
-        "ticket_feedbacks",
-        "ticket_messages",
-        "ticket_attachments",
-        "ticket_internal_notes",
-        "ticket_status_changes",
-        "ticket_assignments",
-        "ticket_collisions",
-        "ticket_intents",
-        "ticket_merges",
-        "ticket_triggers",
-        "tickets",
-        "subscriptions",
-        "invoices",
-        "transactions",
-        "overage_charges",
-        "cancellation_requests",
-        "variant_instances",
-        "variant_workload_distribution",
-        "variant_ai_capabilities",
-        "ai_agent_assignments",
-        "onboarding_sessions",
-        "first_victories",
-        "knowledge_documents",
-        "document_chunks",
-        "customers",
-        "customer_channels",
-        "customer_merge_audits",
-        "approval_queues",
-        "auto_approve_rules",
-        "executed_actions",
-        "notifications",
-        "notification_preferences",
-        "notification_logs",
-        "activity_log",
-        "jarvis_activity_events",
-        "jarvis_sessions",
-        "jarvis_messages",
-        "jarvis_knowledge_used",
-        "jarvis_awareness_snapshots",
-        "jarvis_commands",
-        "jarvis_proactive_alerts",
-        "demo_sessions",
-        "audit_trail",
-        "webhook_events",
-        "webhook_sequences",
-        "idempotency_keys",
-        "proration_audits",
-        "payment_failures",
-        "payment_methods",
-        "usage_records",
-        "client_refunds",
-        "refresh_tokens",
-        "mfa_secrets",
-        "backup_codes",
-        "phone_otps",
-        "business_email_otps",
-        "verification_tokens",
-        "password_reset_tokens",
-        "oauth_accounts",
-        "api_keys",
-        "api_key_audit_log",
-        "agents",
-        "emergency_states",
-        "company_settings",
-        "rate_limit_events",
-        "users",
-        "companies",
-    ]
-
-    try:
-        with engine.connect() as conn:
-            deleted_counts = {}
-            for table in tables_to_wipe:
-                try:
-                    result = conn.execute(text(f"DELETE FROM {table}"))
-                    deleted_counts[table] = result.rowcount if result.rowcount and result.rowcount > 0 else 0
-                except Exception:
-                    # Table might not exist — skip
-                    deleted_counts[table] = "skipped"
-            conn.commit()
-
-        return {
-            "status": "ok",
-            "message": "ALL data deleted. Database is now empty.",
-            "deleted_counts": deleted_counts,
-        }
-    except Exception as e:
-        import traceback
-        return {"status": "error", "message": str(e), "trace": traceback.format_exc()[:500]}
+    """Permanently disabled: a public API must never wipe every tenant."""
+    raise HTTPException(status_code=410, detail="The database wipe endpoint has been permanently disabled.")
 
 
 @router.get("/debug-onboarding")

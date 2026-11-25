@@ -32,6 +32,7 @@ Queues:
 
 import logging
 import json
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from celery import Celery
 from kombu import Queue, Exchange
@@ -138,13 +139,41 @@ class LazySettings:
         return getattr(self._settings, name)
 
 
+def _apply_redis_password(redis_url: str, password: str) -> str:
+    """Add the configured Redis password to a URL that has no credentials."""
+    if not redis_url or not password:
+        return redis_url
+    parsed = urlsplit(redis_url)
+    if not parsed.hostname or parsed.password:
+        return redis_url
+
+    username = quote(parsed.username, safe="") if parsed.username else ""
+    encoded_password = quote(password, safe="")
+    userinfo = f"{username}:{encoded_password}" if username else f":{encoded_password}"
+    host = parsed.hostname
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    netloc = f"{userinfo}@{host}"
+    if parsed.port:
+        netloc += f":{parsed.port}"
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+
+
 def _build_config() -> dict:
     """Build Celery configuration dict from PARWA settings."""
     settings = LazySettings()
+    broker_url = _apply_redis_password(
+        settings.CELERY_BROKER_URL,
+        settings.REDIS_PASSWORD,
+    )
+    result_backend = _apply_redis_password(
+        settings.CELERY_RESULT_BACKEND,
+        settings.REDIS_PASSWORD,
+    )
     return {
         # Broker and results
-        "broker_url": settings.CELERY_BROKER_URL,
-        "result_backend": settings.CELERY_RESULT_BACKEND,
+        "broker_url": broker_url,
+        "result_backend": result_backend,
         # Fail fast when Redis is unavailable — instead of retrying 20 times
         # (which blocks the calling request for ~20s), give up after 1 retry
         # and let the caller fall back to sync execution. In production with

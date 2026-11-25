@@ -177,6 +177,7 @@ def verify_otp(
             email=body.email,
             otp_code=body.otp_code,
             company_id=user.company_id,
+            user_id=str(user.id),
         )
         return VerifyOTPResponse(**result)
     except ValidationError:
@@ -216,6 +217,7 @@ def get_verification_status(
         db=db,
         email=email,
         company_id=user.company_id,
+        user_id=str(user.id),
     )
     
     return VerificationStatusResponse(

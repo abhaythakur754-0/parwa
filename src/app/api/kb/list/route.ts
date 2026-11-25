@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUserId } from '@/lib/authenticated-user';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 import { getKnowledgeBases, connectExistingKB } from '@/lib/supabase-db';
 
 // Mock CRM knowledge bases that can be connected

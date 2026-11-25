@@ -1,191 +1,132 @@
-/**
- * FlexPay Plan Management API Endpoint
- * ═══════════════════════════════════════════════════════════════════
- *
- * GET    /api/flexpay/plan/[planId]     - Get plan details & progress
- * POST   /api/flexpay/plan/[planId]     - Update plan (pause/resume)
- * DELETE /api/flexpay/plan/[planId]     - Cancel plan
- *
- * Plan Operations:
- * - pause: Temporarily stop installment processing
- * - resume: Restart processing after pause
- * - cancel: Permanently stop and unregister plan
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getPlan, 
-  pausePlan, 
-  resumePlan, 
-  cancelPlan,
-  getCompletedDayNumbers,
-  calculatePlanProgress,
-  generateScheduleSummary
-} from '@/lib/flexpay/core';
-import { 
-  getPlan as getSchedulerPlan,
-  getInstallmentStatus,
-  getSchedulerStats 
-} from '@/lib/flexpay/scheduler';
+import { verifyAuth } from '@/lib/auth';
+import { getAccessTokenFromCookies } from '@/lib/auth-cookies';
+import { getBackendUrl } from '@/lib/backend-url';
 
 interface RouteContext {
   params: Promise<{ planId: string }>;
 }
 
-// ── GET: Plan Details ──────────────────────────────────────────────
+async function getAuth(req: NextRequest) {
+  const user = await verifyAuth(req);
+  if (!user) {
+    return { response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }) };
+  }
+  if (!user.company_id) {
+    return { response: NextResponse.json({ success: false, error: 'User is not associated with a company' }, { status: 403 }) };
+  }
+  const token =
+    req.headers.get('authorization')?.replace(/^Bearer\\s+/i, '') ||
+    getAccessTokenFromCookies(req as unknown as Request);
+  if (!token) {
+    return { response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }) };
+  }
+  return { user, token };
+}
+
+function backendError(status: number, data: Record<string, unknown>) {
+  return NextResponse.json(
+    { success: false, error: data.detail || data.error || 'FlexPay request failed' },
+    { status, headers: { 'Cache-Control': 'no-store' } }
+  );
+}
 
 export async function GET(req: NextRequest, context: RouteContext) {
+  const auth = await getAuth(req);
+  if ('response' in auth) return auth.response;
+  const { planId } = await context.params;
+
   try {
-    const { planId } = await context.params;
-
-    // Get plan from scheduler store
-    const plan = getSchedulerPlan(planId);
-    
-    if (!plan) {
-      return NextResponse.json(
-        { success: false, error: 'Plan not found' },
-        { status: 404 }
-      );
-    }
-
-    // Calculate current progress
-    const completedDays = getCompletedDayNumbers(planId);
-    const progress = calculatePlanProgress(plan, completedDays.size);
-
-    // Get recent installment history (last 10)
-    const recentInstallments: Array<{
-      dayNumber: number;
-      amount: number | undefined;
-      status: string;
-      processedAt: string | undefined;
-      hasSecondaryCharge: boolean;
-    }> = [];
-    for (let day = Math.max(1, progress.daysCompleted - 9); day <= progress.daysCompleted; day++) {
-      const status = getInstallmentStatus(planId, day);
-      if (status) {
-        recentInstallments.push({
-          dayNumber: status.dayNumber,
-          amount: status.primaryChargedAmount,
-          status: status.primaryStatus,
-          processedAt: status.primaryProcessedAt?.toISOString(),
-          hasSecondaryCharge: status.secondaryStatus !== undefined && status.secondaryStatus !== 'not_applicable',
-        });
+    const response = await fetch(
+      `${getBackendUrl()}/api/flexpay/${encodeURIComponent(planId)}/status`,
+      {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
       }
-    }
-
-    return NextResponse.json({
-      success: true,
-      plan: {
-        id: plan.id,
-        companyId: plan.companyId,
-        tier: plan.tier,
-        status: plan.status,
-        totalAmount: plan.totalAmount,
-        totalDays: plan.totalDays,
-        baseAmount: plan.baseAmount,
-        startDate: plan.startDate.toISOString(),
-        expectedCompletionDate: plan.expectedCompletionDate.toISOString(),
-        createdAt: plan.createdAt.toISOString(),
-      },
-      progress: {
-        ...progress,
-        currentDayLabel: `Day ${progress.currentDay} of ${progress.totalDays}`,
-      },
-      recentInstallments,
-      scheduleSummary: generateScheduleSummary(plan),
-    });
-
-  } catch (error) {
-    console.error('[FlexPay/API] Error getting plan:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get plan details' },
-      { status: 500 }
     );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return backendError(response.status, data);
+    return NextResponse.json({ success: true, plan: data }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[FlexPay/API] Backend status request failed:', error);
+    return NextResponse.json({ success: false, error: 'FlexPay backend is unavailable' }, { status: 503 });
   }
 }
-
-// ── POST: Pause/Resume ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const auth = await getAuth(req);
+  if ('response' in auth) return auth.response;
+  if (!['owner', 'admin'].includes(auth.user.role || '')) {
+    return NextResponse.json({ success: false, error: 'Owner or admin role required' }, { status: 403 });
+  }
+
+  const { planId } = await context.params;
+  let body: { action?: string; reason?: string; notes?: string };
   try {
-    const { planId } = await context.params;
-    
-    // Parse action from body
-    let body: { action?: string };
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
-        { status: 400 }
-      );
-    }
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid JSON in request body' }, { status: 400 });
+  }
 
-    const action = body.action;
+  if (body.action !== 'pause' && body.action !== 'resume') {
+    return NextResponse.json({ success: false, error: 'Action must be pause or resume' }, { status: 400 });
+  }
 
-    if (!action || !['pause', 'resume'].includes(action)) {
-      return NextResponse.json(
-        { success: false, error: 'Action must be either "pause" or "resume"' },
-        { status: 400 }
-      );
-    }
+  const endpoint = body.action === 'pause' ? 'pause' : 'resume';
+  const payload = body.action === 'pause'
+    ? { reason: typeof body.reason === 'string' ? body.reason.slice(0, 500) : 'Plan paused by owner' }
+    : { notes: typeof body.notes === 'string' ? body.notes.slice(0, 500) : 'Plan resumed by owner' };
 
-    // Execute action
-    const result = action === 'pause' ? pausePlan(planId) : resumePlan(planId);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.message },
-        { status: 400 }
-      );
-    }
-
-    // Get updated plan
-    const updatedPlan = getSchedulerPlan(planId);
-
-    return NextResponse.json({
-      success: true,
-      message: result.message,
-      plan: updatedPlan ? {
-        id: updatedPlan.id,
-        status: updatedPlan.status,
-      } : null,
-    });
-
-  } catch (error) {
-    console.error('[FlexPay/API] Error updating plan:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update plan' },
-      { status: 500 }
+  try {
+    const response = await fetch(
+      `${getBackendUrl()}/api/flexpay/${encodeURIComponent(planId)}/${endpoint}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15000),
+      }
     );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return backendError(response.status, data);
+    return NextResponse.json({ success: true, ...data }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[FlexPay/API] Backend plan update failed:', error);
+    return NextResponse.json({ success: false, error: 'FlexPay backend is unavailable' }, { status: 503 });
   }
 }
 
-// ── DELETE: Cancel Plan ────────────────────────────────────────────
+export async function DELETE(req: NextRequest, context: RouteContext) {
+  const auth = await getAuth(req);
+  if ('response' in auth) return auth.response;
+  if (!['owner', 'admin'].includes(auth.user.role || '')) {
+    return NextResponse.json({ success: false, error: 'Owner or admin role required' }, { status: 403 });
+  }
 
-export async function DELETE(_req: NextRequest, context: RouteContext) {
+  const { planId } = await context.params;
+  const reason = req.nextUrl.searchParams.get('reason') || 'Customer requested cancellation';
+  const query = new URLSearchParams({ reason: reason.slice(0, 500) });
+
   try {
-    const { planId } = await context.params;
-
-    const result = cancelPlan(planId);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: result.message },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: result.message,
-    });
-
-  } catch (error) {
-    console.error('[FlexPay/API] Error cancelling plan:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to cancel plan' },
-      { status: 500 }
+    const response = await fetch(
+      `${getBackendUrl()}/api/flexpay/${encodeURIComponent(planId)}/cancel?${query.toString()}`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.token}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15000),
+      }
     );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return backendError(response.status, data);
+    return NextResponse.json({ success: true, ...data }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    console.error('[FlexPay/API] Backend plan cancellation failed:', error);
+    return NextResponse.json({ success: false, error: 'FlexPay backend is unavailable' }, { status: 503 });
   }
 }

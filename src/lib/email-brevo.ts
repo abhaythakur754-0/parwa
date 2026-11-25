@@ -378,4 +378,5 @@ function stripHtml(html: string): string {
 }
 
 // Legacy compatibility - export as default too
-export default { sendEmail, sendOtpEmail, sendWelcomeEmail, sendPaymentReceipt };
+const emailBrevo = { sendEmail, sendOtpEmail, sendWelcomeEmail, sendPaymentReceipt };
+export default emailBrevo;

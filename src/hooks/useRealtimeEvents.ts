@@ -1109,7 +1109,6 @@ export function useRealtimeEvents(): void {
     };
     // We intentionally only run this effect once on mount.
     // The callbacks are stable (useCallback with []) so they won't change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 

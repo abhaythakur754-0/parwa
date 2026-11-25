@@ -27,6 +27,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
+import { isLegacyJarvisGuestFlowEnabled } from '@/lib/jarvis/legacy-guest-guard';
 
 // ── Vercel function duration ─────────────────────────────────────────
 // The AI pipeline (LangGraph 13-stage + RAG + LLM) can take 30–60s on a
@@ -38,6 +40,19 @@ export const maxDuration = 60;
 // ── Backend Proxy Configuration ─────────────────────────────────
 import { getBackendUrl } from '@/lib/backend-url';
 const BACKEND_URL = getBackendUrl();
+
+function legacyGuestFlowDisabledResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'legacy_guest_flow_disabled',
+        message: 'The legacy guest Jarvis flow is disabled in production. Use authenticated Customer Care Jarvis instead.',
+        details: null,
+      },
+    },
+    { status: 410, headers: { 'Cache-Control': 'no-store' } }
+  );
+}
 
 /**
  * Try to proxy a request to the backend FastAPI server.
@@ -134,7 +149,11 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]): Pro
     // For /cc/* paths (handled by my proxy-first check), return the actual
     // error response instead of falling back to local handlers. The backend
     // 401/403/500 should be visible to the client.
-    if (pathSegments[0] === 'cc') {
+    if (
+      pathSegments[0] === 'cc' ||
+      pathSegments.join('/') === 'handoff' ||
+      pathSegments.join('/') === 'handoff/status'
+    ) {
       const text = await response.text();
       try {
         const data = JSON.parse(text);
@@ -561,9 +580,39 @@ ${getStageInstructions(session.detected_stage || session.context?.detected_stage
 // ── In-Memory Stores ──────────────────────────────────────────────
 
 const sessions = new Map();
+const MAX_GUEST_SESSIONS = 1000;
+const GUEST_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * The legacy guest assistant is intentionally ephemeral. Bound its
+ * process-local store so anonymous traffic cannot grow memory forever.
+ * Persistent customer-care sessions live in the authenticated backend.
+ */
+function pruneGuestSessions(): void {
+  const now = Date.now();
+  for (const [id, session] of sessions.entries()) {
+    const lastActivity = Date.parse(session.updated_at || session.created_at || '');
+    if (!Number.isFinite(lastActivity) || now - lastActivity > GUEST_SESSION_TTL_MS) {
+      sessions.delete(id);
+    }
+  }
+
+  if (sessions.size > MAX_GUEST_SESSIONS) {
+    const oldestFirst = Array.from(sessions.entries()).sort((a, b) => {
+      const aTime = Date.parse(a[1].updated_at || a[1].created_at || '') || 0;
+      const bTime = Date.parse(b[1].updated_at || b[1].created_at || '') || 0;
+      return aTime - bTime;
+    });
+    for (const [id] of oldestFirst.slice(0, sessions.size - MAX_GUEST_SESSIONS)) {
+      sessions.delete(id);
+    }
+  }
+}
 
 function generateId(): string {
-  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  // Session IDs are bearer capabilities for the legacy guest flow; use
+  // cryptographically secure 122-bit UUIDs, never timestamps/Math.random.
+  return randomUUID();
 }
 
 function generateTicketId(): string {
@@ -773,6 +822,7 @@ function createDefaultSession(entrySource?: string, entryParams?: Record<string,
     },
     messages: [],
     message_count_today: 0,
+    message_count_date: new Date().toISOString().slice(0, 10),
     total_message_count: 0,
     remaining_today: 20,
     pack_type: 'free',
@@ -1203,10 +1253,35 @@ function detectStage(message: string, session: any): string {
 // ── Route Handler ─────────────────────────────────────────────────
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
 
   try {
+    // The old local onboarding/payment endpoints are demonstrations only.
+    // They are not connected to an email provider or a payment processor.
+    // Fail closed rather than expose OTPs or manufacture successful payments.
+    const disabledDemoEndpoints = new Set([
+      'verify/send-otp',
+      'verify/verify-otp',
+      'demo-pack/purchase',
+      'payment/create',
+      'payment/webhook',
+      'demo-call/initiate',
+    ]);
+    if (disabledDemoEndpoints.has(endpoint)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'disabled_legacy_demo_endpoint',
+            message: 'This legacy demo endpoint is disabled. Use the authenticated verification or billing integration.',
+            details: null,
+          },
+        },
+        { status: 410, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     // ── PROXY FIRST: any /cc/* path goes to backend jarvis_cc router ──
     // The backend has /api/jarvis/cc/* mounted (jarvis_cc.py). The local
     // in-memory handlers below were built for the older /api/jarvis/session
@@ -1219,6 +1294,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { error: { code: 'backend_unavailable', message: 'Jarvis CC backend is unavailable. Please retry.', details: null } },
         { status: 502 }
       );
+    }
+
+    // Handoff must be completed by the authenticated persistent backend.
+    if (endpoint === 'handoff') {
+      const { response: proxyResponse } = await proxyToBackend(request, path);
+      if (proxyResponse) return proxyResponse;
+      return NextResponse.json(
+        { error: { code: 'backend_unavailable', message: 'Handoff could not be completed. Please retry.', details: null } },
+        { status: 502 }
+      );
+    }
+
+    // The legacy guest flow uses process-local memory and is not safe for
+    // multi-instance production. Keep it available for local development
+    // while requiring persistent authenticated Customer Care routes in prod.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
     }
 
     // ── POST /session — Create Session ──────────────────────────
@@ -1262,6 +1354,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const { content, session_id, context: incomingContext } = body;
 
       let session = session_id ? sessions.get(session_id) : undefined;
+      if (session_id && !session) {
+        return NextResponse.json(
+          { error: { code: 'not_found', message: 'Session not found', details: null } },
+          { status: 404, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
       if (!session) {
         session = createDefaultSession('direct');
         sessions.set(session.id, session);
@@ -1269,9 +1367,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       // ── Merge incoming context from frontend BEFORE building AI response ──
       // This is how Jarvis "knows" what the user did on other pages (ROI, models, etc.)
-      if (incomingContext && typeof incomingContext === 'object') {
+      if (incomingContext && typeof incomingContext === 'object' && !Array.isArray(incomingContext)) {
+        const allowedContextKeys = new Set([
+          'industry', 'referral_source', 'utm_medium', 'referrer',
+          'entry_source', 'entry_params', 'selected_variants',
+          'selected_plan', 'roi_result', 'pages_visited',
+        ]);
         for (const [key, value] of Object.entries(incomingContext)) {
-          if (value !== null && value !== undefined) {
+          if (allowedContextKeys.has(key) && value !== null && value !== undefined) {
             session.context[key] = value;
           }
         }
@@ -1279,12 +1382,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         sessions.set(session.id, session);
       }
 
-      if (!content || typeof content !== 'string') {
+      if (typeof content !== 'string' || !content.trim()) {
         return NextResponse.json({ error: { code: 'bad_request', message: 'Message content is required', details: null } }, { status: 400 });
       }
+      if (content.length > 4000) {
+        return NextResponse.json({ error: { code: 'message_too_large', message: 'Messages must be 4,000 characters or fewer.', details: null } }, { status: 413 });
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      if (session.message_count_date !== today) {
+        session.message_count_date = today;
+        session.message_count_today = 0;
+        session.remaining_today = 20;
+      }
+      if (session.message_count_today >= 20) {
+        return NextResponse.json(
+          { error: { code: 'daily_message_limit', message: 'The guest session has reached its 20-message daily limit.', details: null } },
+          { status: 429, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+
+      const normalizedContent = content.trim();
 
       // Auto-extract demo_topics and concerns from user message
-      const lower = content.toLowerCase();
+      const lower = normalizedContent.toLowerCase();
       const topicKeywords = { pricing: ['price', 'pricing', 'plan', 'cost', 'how much'], features: ['feature', 'capability', 'what can'], demo: ['demo', 'try', 'show me', 'test'], roi: ['roi', 'savings', 'save', 'return'], integrations: ['integration', 'connect', 'shopify', 'slack'] };
       for (const [topic, keywords] of Object.entries(topicKeywords)) {
         if (keywords.some(kw => lower.includes(kw)) && !(session.context.demo_topics || []).includes(topic)) {
@@ -1304,7 +1425,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         id: `user_${Date.now()}`,
         session_id: session.id,
         role: 'user',
-        content: content.trim(),
+        content: normalizedContent,
         message_type: 'text',
         metadata: {},
         timestamp: new Date().toISOString(),
@@ -1313,7 +1434,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       session.message_count_today++;
       session.total_message_count++;
       session.remaining_today = Math.max(0, 20 - session.message_count_today);
-      const newStage = detectStage(content, session);
+      const newStage = detectStage(normalizedContent, session);
       session.detected_stage = newStage;
       session.context.detected_stage = newStage;
 
@@ -1322,7 +1443,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         session.stage_history.push(newStage);
       }
 
-      const aiContent = await getAIResponse(content, session);
+      const aiContent = await getAIResponse(normalizedContent, session);
 
       const aiMsg = {
         id: `jarvis_${Date.now()}`,
@@ -1353,8 +1474,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         }
       }
 
+      // Bound per-session history so a long-running guest chat cannot
+      // grow process memory without limit.
+      if (session.messages.length > 100) {
+        session.messages.splice(0, session.messages.length - 100);
+      }
+      if (session.stage_history?.length > 50) {
+        session.stage_history.splice(0, session.stage_history.length - 50);
+      }
       sessions.set(session.id, session);
-      return NextResponse.json(aiMsg);
+      return NextResponse.json(aiMsg, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // ── POST /context — Update Context ─────────────────────────
@@ -1366,7 +1495,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const body = await request.json();
       const session = sessions.get(sessionId);
-      session.context = { ...session.context, ...body };
+      const allowedContextKeys = new Set([
+        'industry', 'referral_source', 'utm_medium', 'referrer',
+        'entry_source', 'entry_params', 'selected_variants',
+        'selected_plan', 'roi_result', 'pages_visited',
+      ]);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid context payload', details: null } }, { status: 400 });
+      }
+      for (const [key, value] of Object.entries(body)) {
+        if (allowedContextKeys.has(key) && value !== undefined) session.context[key] = value;
+      }
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
       return NextResponse.json(session);
@@ -1720,6 +1859,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
   const url = new URL(request.url);
@@ -1733,6 +1873,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         { error: { code: 'backend_unavailable', message: 'Jarvis CC backend is unavailable. Please retry.', details: null } },
         { status: 502 }
       );
+    }
+
+    // Handoff changes customer-care state and must never use a local fake fallback.
+    if (endpoint === 'handoff/status') {
+      const { response: proxyResponse } = await proxyToBackend(request, path);
+      if (proxyResponse) return proxyResponse;
+      return NextResponse.json(
+        { error: { code: 'backend_unavailable', message: 'Handoff status is unavailable. Please retry.', details: null } },
+        { status: 502 }
+      );
+    }
+
+    // Do not serve process-local guest sessions from production instances.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
     }
 
     // ── GET /session ──────────────────────────────────────────
@@ -1836,6 +1991,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  pruneGuestSessions();
   const { path } = await params;
   const endpoint = path.join('/');
   const url = new URL(request.url);
@@ -1851,6 +2007,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
+    // Do not mutate process-local guest sessions in production.
+    if (!isLegacyJarvisGuestFlowEnabled()) {
+      return legacyGuestFlowDisabledResponse();
+    }
+
     // ── PATCH /context ────────────────────────────────────────
     if (endpoint === 'context') {
       const sessionId = url.searchParams.get('session_id');
@@ -1858,11 +2019,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return NextResponse.json({ error: { code: 'bad_request', message: 'Invalid context payload', details: null } }, { status: 400 });
+      }
       const session = sessions.get(sessionId)!;
-      session.context = { ...session.context, ...body };
+      const allowedContextKeys = new Set([
+        'industry', 'referral_source', 'utm_medium', 'referrer',
+        'entry_source', 'entry_params', 'selected_variants',
+        'selected_plan', 'roi_result', 'pages_visited',
+      ]);
+      for (const [key, value] of Object.entries(body)) {
+        if (allowedContextKeys.has(key) && value !== undefined) session.context[key] = value;
+      }
       session.updated_at = new Date().toISOString();
       sessions.set(sessionId, session);
-      return NextResponse.json(session);
+      return NextResponse.json(session, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // ── PATCH /tickets/:id/status — Update Ticket Status ────────
@@ -1874,6 +2045,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return NextResponse.json({ error: { code: 'not_found', message: 'Session not found', details: null } }, { status: 404 });
       }
       const body = await request.json();
+      if (!body || !['pending', 'in_progress'].includes(body.status)) {
+        return NextResponse.json(
+          { error: { code: 'invalid_status', message: 'Clients may only set tickets to pending or in_progress', details: null } },
+          { status: 400 }
+        );
+      }
       const session = sessions.get(sessionId)!;
       const updated = updateActionTicket(session, ticketId, { status: body.status, metadata: body.metadata });
       if (!updated) {

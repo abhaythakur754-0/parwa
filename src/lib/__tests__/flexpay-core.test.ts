@@ -66,43 +66,22 @@ describe('FlexPay Core Algorithm', () => {
 
   describe('calculateInstallmentSchedule', () => {
 
-    describe('Mini SHOBH Tier ($999)', () => {
-      it('should generate correct schedule for $999 tier', () => {
-        const schedule = calculateInstallmentSchedule(999, 'mini');
+    describe('Parwa Tier ($2,999)', () => {
+      it('should generate correct schedule for $2,999 tier', () => {
+        const schedule = calculateInstallmentSchedule(2999, 'parwa');
         
         expect(schedule.length).toBeGreaterThan(0);
         expect(schedule.length).toBeLessThanOrEqual(COLLECTION_WINDOW_DAYS);
         
         const total = sumSchedule(schedule);
-        expect(total).toBe(999);
+        expect(total).toBe(2999);
       });
 
-      it('should complete $999 in approximately 10 days', () => {
-        const schedule = calculateInstallmentSchedule(999, 'mini');
+      it('should complete $2,999 in the 30-day collection window', () => {
+        const schedule = calculateInstallmentSchedule(2999, 'parwa');
         
-        // At $100/day + double charges every 3rd day (~$133 avg), should be ~10 days
-        expect(schedule.length).toBeGreaterThanOrEqual(8);
-        expect(schedule.length).toBeLessThanOrEqual(12);
-      });
-    });
-
-    describe('SHOBH Tier ($2,499)', () => {
-      it('should generate correct schedule for $2,499 tier', () => {
-        const schedule = calculateInstallmentSchedule(2499, 'parwa');
-        
-        expect(schedule.length).toBeGreaterThan(0);
-        expect(schedule.length).toBeLessThanOrEqual(COLLECTION_WINDOW_DAYS);
-        
-        const total = sumSchedule(schedule);
-        expect(total).toBe(2499);
-      });
-
-      it('should complete $2,499 in approximately 25 days', () => {
-        const schedule = calculateInstallmentSchedule(2499, 'parwa');
-        
-        // Should take around 19-27 days at ~$100-133/day average
-        expect(schedule.length).toBeGreaterThanOrEqual(19);
-        expect(schedule.length).toBeLessThanOrEqual(28);
+        // Parwa uses one $100-or-less charge per day across the 30-day cycle.
+        expect(schedule.length).toBe(COLLECTION_WINDOW_DAYS);
       });
     });
 
@@ -195,8 +174,7 @@ describe('FlexPay Core Algorithm', () => {
     describe('Total Amount Accuracy', () => {
       it('should exactly match total amount for all tiers', () => {
         const testCases: [number, VariantTier][] = [
-          [999, 'mini'],
-          [2499, 'parwa'],
+          [2999, 'parwa'],
           [3999, 'high'],
         ];
 
@@ -209,7 +187,7 @@ describe('FlexPay Core Algorithm', () => {
 
       it('should handle edge case amounts correctly', () => {
         // Test amounts that don't divide evenly
-        const schedule = calculateInstallmentSchedule(1001, 'mini'); // Just over 10 days
+        const schedule = calculateInstallmentSchedule(1001, 'parwa'); // Just over 10 days
         const total = sumSchedule(schedule);
         expect(total).toBe(1001);
       });
@@ -234,7 +212,7 @@ describe('FlexPay Core Algorithm', () => {
     });
 
     it('should set expected completion date correctly', () => {
-      const plan = createTestPlan('mini');
+      const plan = createTestPlan('parwa');
       
       const expectedEnd = new Date(TEST_START_DATE);
       expectedEnd.setDate(expectedEnd.getDate() + plan.totalDays);
@@ -248,7 +226,7 @@ describe('FlexPay Core Algorithm', () => {
         id: TEST_PLAN_ID,
         companyId: TEST_COMPANY_ID,
         tier: 'parwa',
-        totalAmount: 2499,
+        totalAmount: 2999,
         startDate: customDate,
       });
 
@@ -260,8 +238,8 @@ describe('FlexPay Core Algorithm', () => {
       const plan = createFlexPayPlan({
         id: TEST_PLAN_ID,
         companyId: TEST_COMPANY_ID,
-        tier: 'mini',
-        totalAmount: 999,
+        tier: 'parwa',
+        totalAmount: TIER_PRICES.parwa,
       });
       const afterCreation = new Date();
 
@@ -439,7 +417,7 @@ describe('FlexPay Core Algorithm', () => {
     });
 
     it('should handle completed days exceeding total', () => {
-      const plan = createTestPlan('mini');
+      const plan = createTestPlan('parwa');
       const progress = calculatePlanProgress(plan, 100); // Way more than needed
       
       expect(progress.daysCompleted).toBe(plan.totalDays);
@@ -494,7 +472,7 @@ describe('FlexPay Core Algorithm', () => {
     });
 
     it('should return null when all completed', () => {
-      const plan = createTestPlan('mini');
+      const plan = createTestPlan('parwa');
       const completed = new Set(plan.schedule.map(s => s.day));
       const next = getNextPendingInstallment(plan, completed);
       
@@ -523,7 +501,7 @@ describe('FlexPay Core Algorithm', () => {
       const statuses: Array<FlexPayPlan['status']> = ['completed', 'cancelled', 'failed'];
       
       for (const status of statuses) {
-        const plan = createTestPlan('mini');
+        const plan = createTestPlan('parwa');
         plan.status = status;
         
         expect(canPausePlan(plan)).toBe(false);
@@ -558,17 +536,17 @@ describe('FlexPay Core Algorithm', () => {
 
   describe('Error Handling', () => {
     it('should throw error for zero or negative amounts', () => {
-      expect(() => calculateInstallmentSchedule(0, 'mini')).toThrow(
+      expect(() => calculateInstallmentSchedule(0, 'parwa')).toThrow(
         'Total amount must be greater than zero'
       );
-      expect(() => calculateInstallmentSchedule(-100, 'mini')).toThrow(
+      expect(() => calculateInstallmentSchedule(-100, 'parwa')).toThrow(
         'Total amount must be greater than zero'
       );
     });
 
     it('should throw error for invalid tier', () => {
       expect(() => 
-        calculateInstallmentSchedule(999, 'invalid' as VariantTier)
+        calculateInstallmentSchedule(2999, 'invalid' as VariantTier)
       ).toThrow(/Invalid tier/);
     });
 
@@ -576,7 +554,7 @@ describe('FlexPay Core Algorithm', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
       
       // This should work but log a warning
-      const schedule = calculateInstallmentSchedule(1500, 'mini'); // Not standard mini price
+      const schedule = calculateInstallmentSchedule(1500, 'parwa'); // Deliberately differs from the Parwa price
       
       expect(schedule).toBeDefined();
       expect(warnSpy).toHaveBeenCalled();
@@ -606,9 +584,7 @@ describe('FlexPay Core Algorithm', () => {
     });
 
     it('should have correct tier prices', () => {
-      expect(TIER_PRICES.mini).toBe(999);
-      expect(TIER_PRICES.parwa).toBe(2499);
-      expect(TIER_PRICES.high).toBe(3999);
+      expect(TIER_PRICES).toEqual({ parwa: 2999, high: 3999 });
     });
   });
 });

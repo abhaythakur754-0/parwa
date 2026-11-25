@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUserId } from '@/lib/authenticated-user';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 import { connectExistingKB, createKnowledgeBase } from '@/lib/supabase-db';
 
 export async function POST(request: NextRequest) {
@@ -59,10 +59,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[KB Connect Error]:', error);
-    
     return NextResponse.json(
-      { error: 'internal_error', message: 'Could not persist the knowledge-base connection' },
-      { status: 500 },
+      { error: 'internal_error', message: 'Unable to connect knowledge base' },
+      { status: 500 }
     );
   }
 }

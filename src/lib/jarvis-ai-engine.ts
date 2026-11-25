@@ -1,5 +1,5 @@
 /**
- * SHOBH Jarvis AI Engine — Knowledge-Based Conversational Intelligence
+ * PARWA Jarvis AI Engine — Knowledge-Based Conversational Intelligence
  *
  * When external AI providers (z-ai-sdk, Google, Cerebras, Groq) are unavailable,
  * this engine generates intelligent, contextual responses using the 10-file
@@ -19,7 +19,7 @@ interface VariantEntry { id: string; name: string; industry: string; description
 interface IndustryGroup { name: string; description: string; variants: VariantEntry[] }
 interface ScenarioEntry { id: string; industry: string; title: string; difficulty: string; customer_message: string; expected_jarvis_behavior: string[]; talking_points: string[] }
 interface EdgeCaseEntry { query_type: string; detection_keywords: string[]; response_template: string }
-interface TierEntry { name: string; monthly_price: number; annual_price: number; ai_agents: number; tickets_per_month: number; channels: string[]; features: string[]; support: string; overage_per_ticket: number; voice_support: boolean }
+interface TierEntry { name: string; monthly_price: number; annual_price: number; ai_agents: number; tickets_per_month: number; channels: string[]; features: string[]; support: string; overage_per_ticket: number; voice_support: boolean; refund_limit?: number | null; credit_limit?: number | null }
 
 interface KnowledgeBase {
   pricing: { tiers: TierEntry[]; billing: any; variant_pricing: any; sales_talking_points: any };
@@ -108,10 +108,19 @@ export class JarvisAIEngine {
 
   private async _loadAll(): Promise<void> {
     try {
-      const kbDir = path.join(process.cwd(), '..', '..', 'backend', 'app', 'data', 'jarvis_knowledge');
-      const fallbackDir = '/home/z/my-project/parwa/backend/app/data/jarvis_knowledge';
-
-      const baseDir = fs.existsSync(kbDir) ? kbDir : fallbackDir;
+      const candidates = [
+        path.join(process.cwd(), 'backend', 'app', 'data', 'jarvis_knowledge'),
+        path.join(process.cwd(), '..', 'backend', 'app', 'data', 'jarvis_knowledge'),
+        path.join(process.cwd(), '..', '..', 'backend', 'app', 'data', 'jarvis_knowledge'),
+      ];
+      const baseDir = candidates.find((dir) =>
+        fs.existsSync(path.join(dir, '01_pricing_tiers.json'))
+      );
+      if (!baseDir) {
+        throw new Error(
+          `PARWA knowledge base not found. Searched: ${candidates.join(', ')}`
+        );
+      }
 
       const files: Record<string, string> = {
         pricing: '01_pricing_tiers.json',
@@ -130,17 +139,31 @@ export class JarvisAIEngine {
         const filePath = path.join(baseDir, filename);
         try {
           const raw = fs.readFileSync(filePath, 'utf-8');
-          this.kb[key as keyof KnowledgeBase] = JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          if (key === 'pricing' && (!Array.isArray(parsed.tiers) || parsed.tiers.length !== 2)) {
+            throw new Error('Pricing knowledge must contain exactly the two supported plans');
+          }
+          this.kb[key as keyof KnowledgeBase] = parsed;
         } catch (err) {
-          console.error(`[JarvisEngine] Failed to load ${filename}:`, (err as Error).message);
+          if (key === 'pricing' || key === 'industries') {
+            throw new Error(`Required knowledge file ${filename} failed: ${(err as Error).message}`);
+          }
+          console.error(`[JarvisEngine] Failed to load optional ${filename}:`, (err as Error).message);
         }
+      }
+
+      if (!this.kb.pricing || !this.kb.industries) {
+        throw new Error('Required PARWA pricing or industry knowledge is missing');
       }
 
       this._loaded = true;
       const loadedKeys = Object.keys(this.kb).filter(k => this.kb[k as keyof KnowledgeBase] != null);
-      console.log(`[JarvisEngine] Knowledge base loaded. Keys: ${loadedKeys.join(', ')}`);
+      console.log(`[JarvisEngine] Knowledge base loaded from ${baseDir}. Keys: ${loadedKeys.join(', ')}`);
     } catch (err) {
+      this._loaded = false;
+      this._loadPromise = null;
       console.error('[JarvisEngine] Load failed:', (err as Error).message);
+      throw err;
     }
   }
 
@@ -180,7 +203,7 @@ export class JarvisAIEngine {
         return this.avoidRepetition(response, session);
       }
       // Generic competitor response
-      response = "Great question! SHOBH is built differently from other support platforms:\n\n- **Industry-specific AI agents** — not generic chatbots\n- **70%+ auto-resolution** (vs 30-40% for most competitors)\n- **85-92% cost savings** vs hiring human agents\n- **10-14 day deployment** (vs 4-8 weeks for most)\n\nWhich competitor are you currently evaluating? I can give you a detailed comparison.";
+      response = "Great question! PARWA is built differently from other support platforms:\n\n- **Industry-specific AI agents** — not generic chatbots\n- **70%+ auto-resolution** (vs 30-40% for most competitors)\n- **85-92% cost savings** vs hiring human agents\n- **10-14 day deployment** (vs 4-8 weeks for most)\n\nWhich competitor are you currently evaluating? I can give you a detailed comparison.";
       return this.avoidRepetition(response, session);
     }
 
@@ -457,7 +480,7 @@ export class JarvisAIEngine {
       const roi = ctx.roi_result as Record<string, unknown>;
       const savingsPct = roi.savings_pct as string | undefined;
       if (savingsPct) {
-        return `Based on your ROI calculation, you could save up to **${savingsPct}%**! I'm **Jarvis** — your control from here.\n\nI can show you exactly how SHOBH delivers those savings. Want to see it in action?`;
+        return `Based on your ROI calculation, you could save up to **${savingsPct}%**! I'm **Jarvis** — your control from here.\n\nI can show you exactly how PARWA delivers those savings. Want to see it in action?`;
       }
     }
 
@@ -472,45 +495,64 @@ export class JarvisAIEngine {
     const ctx = session.context || {};
 
     if (ctx.selected_variants && ctx.selected_variants.length > 0) {
-      return `Thanks for chatting! Quick recap: you were looking at ${ctx.selected_variants.length} variant(s) for your ${ctx.industry ? this.formatIndustry(ctx.industry) : 'business'}.\n\nFeel free to come back anytime — I'll remember our conversation. You can also:\n- Ask me more questions about features or pricing\n- Try a demo scenario to see SHOBH in action\n- Get started with a plan when you're ready\n\nHave a great day!`;
+      return `Thanks for chatting! Quick recap: you were looking at ${ctx.selected_variants.length} variant(s) for your ${ctx.industry ? this.formatIndustry(ctx.industry) : 'business'}.
+
+Feel free to come back anytime. You can ask me about PARWA Growth, PARWA High, features, or a demo scenario.
+
+Have a great day!`;
     }
 
-    return `Thanks for chatting with me! Here's a quick summary:\n\n- **2 plans**: SHOBH ($2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution), SHOBH High ($3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution)\n- **4 industries**: E-commerce, SaaS, Logistics, Healthcare\n- **$1 = 1 ticket** — what you pay is what you get\n- **85-92% cost savings** vs hiring human agents\n\nCome back anytime — I'll be here! Have a great day!`;
+    return `Thanks for chatting with me! Here's a quick summary:
+
+- **PARWA Growth**: $2,999/month, 2,999 tickets/month, 5 AI agents
+- **PARWA High**: $3,999/month, 3,999 tickets/month, 8 AI agents
+- Both plans use the same 8-node customer-care pipeline and AI capabilities
+- Growth financial guardrails: $500 refund / $200 credit limits; High has no preset refund or credit cap
+- Annual billing is 12 × monthly; overage is $1 per ticket
+
+Come back anytime — I'll be here!`;
   }
 
   private buildPricingResponse(session: SessionLike): string {
     const tiers = this.kb.pricing?.tiers;
     if (!tiers || tiers.length === 0) {
-      return "SHOBH offers two plans: **SHOBH** ($2,999/mo — 2,999 tickets, 5 AI agents, 80% auto-resolution) and **SHOBH High** ($3,999/mo — 3,999 tickets, 8 AI agents, 92% auto-resolution). Both have the same AI — only ticket volume differs. FlexPay available ($100/day). Would you like me to compare them in detail for your industry?";
+      return "PARWA has two plans: **PARWA Growth** ($2,999/month for 2,999 tickets and 5 AI agents) and **PARWA High** ($3,999/month for 3,999 tickets and 8 AI agents). Both use the same 8-node pipeline and AI capabilities. Growth has $500 refund and $200 credit limits; High has no preset refund or credit cap. Annual billing is 12 × monthly with no discount. Overage is $1 per ticket.";
     }
 
     const ctx = session.context || {};
     const variants = ctx.selected_variants || [];
-
-    let response = "Here are SHOBH's two plans:\n\n";
+    let response = "PARWA has two subscription plans:\n\n";
 
     for (const tier of tiers) {
-      response += `**${tier.name} — $${tier.monthly_price.toLocaleString()}/mo**\n`;
-      response += `- ${tier.ai_agents} AI agents | ${tier.tickets_per_month.toLocaleString()} tickets/mo | ${tier.channels.join(', ')}\n`;
-      if (tier.voice_support) response += `- Voice support included\n`;
-      response += `- Overage: $${tier.overage_per_ticket}/ticket\n\n`;
+      response += `**${tier.name} — $${tier.monthly_price.toLocaleString()}/month**\n`;
+      response += `- ${tier.ai_agents} AI agents | ${tier.tickets_per_month.toLocaleString()} tickets/month | ${tier.channels.join(', ')}\n`;
+      response += `- Annual: $${tier.annual_price.toLocaleString()}/year (12 × monthly; no discount)\n`;
+      response += `- Overage: $${tier.overage_per_ticket}/ticket\n`;
+      if (tier.refund_limit == null && tier.credit_limit == null) {
+        response += "- No preset refund or credit cap\n\n";
+      } else {
+        response += `- Refund limit: $${tier.refund_limit}; credit limit: $${tier.credit_limit}\n\n`;
+      }
     }
 
-    response += `**Annual billing** saves 15% on all plans.\n`;
-    response += `**No long-term contracts** — cancel anytime with 30 days notice.\n`;
+    response += "Both plans use the same 8-node customer-care pipeline and AI capabilities.\n";
 
     if (variants.length > 0) {
       response += `\nYou've selected ${variants.length} variant(s). Want me to show you a bill summary with the total?`;
     } else {
-      response += `\nWhich plan sounds like the right fit for your business? I can also calculate your specific ROI.`;
+      response += "\nWhich plan best matches your ticket volume and financial guardrail needs?";
     }
 
     return response;
   }
 
+  private buildROIResponse(session: SessionLike): string {
+    return "Let's estimate PARWA's return using your real workload rather than promising a fixed savings figure. PARWA Growth is $2,999/month for 2,999 tickets and 5 AI agents; PARWA High is $3,999/month for 3,999 tickets and 8 AI agents. Both use the same 8-node AI pipeline. Growth has $500 refund and $200 credit limits; High has no preset refund or credit cap. Tell me your monthly ticket volume, number of support agents, and average fully loaded monthly cost per agent, and I'll calculate a transparent estimate.";
+  }
+
   private buildIndustryResponse(industry: string, session: SessionLike): string {
     const industries = this.kb.industries?.industries;
-    if (!industries) return `I'd love to tell you about our ${industry} solutions! SHOBH offers industry-specific AI agents that automate the most common support tickets. What specific aspect interests you?`;
+    if (!industries) return `I'd love to tell you about our ${industry} solutions! PARWA offers industry-specific AI agents that automate the most common support tickets. What specific aspect interests you?`;
 
     const industryKey = industry === 'ecommerce' ? 'ecommerce' :
                         industry === 'saas' ? 'saas' :
@@ -524,14 +566,14 @@ export class JarvisAIEngine {
           return this.formatIndustryResponse(group, session);
         }
       }
-      return `SHOBH supports 4 industries: **E-commerce, SaaS, Logistics, and Healthcare**. Each has 5 specialized AI agent variants. Which industry are you in? I'll show you the perfect setup.`;
+      return `PARWA supports 4 industries: **E-commerce, SaaS, Logistics, and Healthcare**. Each has 5 specialized AI agent variants. Which industry are you in? I'll show you the perfect setup.`;
     }
 
     return this.formatIndustryResponse(industries[industryKey], session);
   }
 
   private formatIndustryResponse(group: IndustryGroup, session: SessionLike): string {
-    let response = `**${group.name}** is one of SHOBH's strongest verticals! Here are the 5 AI agents available:\n\n`;
+    let response = `**${group.name}** is one of PARWA's strongest verticals! Here are the 5 AI agents available:\n\n`;
 
     for (const v of group.variants) {
       response += `- **${v.name}** ($${v.price_per_unit}/mo) — ${v.description}\n`;
@@ -615,11 +657,11 @@ export class JarvisAIEngine {
   private buildFeaturesResponse(session: SessionLike): string {
     const caps = this.kb.capabilities;
     if (!caps) {
-      return `SHOBH is a complete AI customer support platform. Key capabilities:\n\n- **24/7 automated ticket handling** across email, chat, phone, SMS\n- **Self-learning knowledge base** that gets smarter over time\n- **Smart escalation** to human agents when needed\n- **Multi-language support** (50+ languages)\n- **Advanced analytics** with real-time dashboards\n- **17+ integrations** with popular tools\n\nWant to know more about any specific feature?`;
+      return `PARWA is a complete AI customer support platform. Key capabilities:\n\n- **24/7 automated ticket handling** across email, chat, phone, SMS\n- **Self-learning knowledge base** that gets smarter over time\n- **Smart escalation** to human agents when needed\n- **Multi-language support** (50+ languages)\n- **Advanced analytics** with real-time dashboards\n- **17+ integrations** with popular tools\n\nWant to know more about any specific feature?`;
     }
 
     const coreCaps = caps.core_capabilities || [];
-    let response = "Here's what SHOBH can do for your business:\n\n";
+    let response = "Here's what PARWA can do for your business:\n\n";
 
     for (const cap of coreCaps.slice(0, 6)) {
       const name = cap.name || cap.capability || '';
@@ -629,7 +671,7 @@ export class JarvisAIEngine {
 
     const aiEngine = caps.ai_engine_details;
     if (aiEngine) {
-      response += `\nSHOBH uses a sophisticated AI engine with **${aiEngine.techniques?.length || 14} techniques** including NLP, sentiment analysis, intent classification (95%+ accuracy), and confidence scoring to ensure quality.\n`;
+      response += `\nPARWA uses a sophisticated AI engine with **${aiEngine.techniques?.length || 14} techniques** including NLP, sentiment analysis, intent classification (95%+ accuracy), and confidence scoring to ensure quality.\n`;
     }
 
     response += `\nWhich capability interests you most? Or want to see a live demo?`;
@@ -639,11 +681,11 @@ export class JarvisAIEngine {
   private buildIntegrationsResponse(session: SessionLike): string {
     const integrations = this.kb.integrations;
     if (!integrations) {
-      return "SHOBH integrates with popular platforms:\n\n- **E-commerce**: Shopify, WooCommerce, Magento, BigCommerce\n- **Help Desk**: Zendesk, Freshdesk, Intercom, Help Scout\n- **Communication**: Slack, Email, WhatsApp\n- **Payment**: Stripe, Razorpay\n- **Custom**: REST API, Webhooks, SDKs\n\nSetup takes 10-45 minutes depending on complexity. Which integrations do you use?";
+      return "PARWA integrates with popular platforms:\n\n- **E-commerce**: Shopify, WooCommerce, Magento, BigCommerce\n- **Help Desk**: Zendesk, Freshdesk, Intercom, Help Scout\n- **Communication**: Slack, Email, WhatsApp\n- **Payment**: Stripe, Razorpay\n- **Custom**: REST API, Webhooks, SDKs\n\nSetup takes 10-45 minutes depending on complexity. Which integrations do you use?";
     }
 
     const categories = integrations.integration_categories || [];
-    let response = "SHOBH integrates with your existing tools seamlessly:\n\n";
+    let response = "PARWA integrates with your existing tools seamlessly:\n\n";
 
     for (const cat of categories.slice(0, 4)) {
       const items = cat.integrations || [];
@@ -658,42 +700,13 @@ export class JarvisAIEngine {
   }
 
   private buildSecurityResponse(): string {
-    return "Data security is SHOBH's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
-  }
-
-  private buildROIResponse(session: SessionLike): string {
-    const ctx = session.context || {};
-    const talkingPoints = this.kb.pricing?.sales_talking_points;
-
-    let response = "Here's the bottom line on SHOBH's ROI:\n\n";
-
-    response += "**Cost Comparison:**\n";
-    response += "- Human support agent: **$8-12 per ticket** (salary + benefits + training)\n";
-    response += "- SHOBH AI: **under $1 per ticket** (SHOBH tier)\n\n";
-
-    response += "**Plan-specific savings:**\n";
-    response += "- **SHOBH ($2,999/mo)** vs 4 juniors ($18K/mo) = **$186K/year saved**\n";
-    response += "- **SHOBH High ($3,999/mo)** vs 5 seniors ($28K/mo) = **$288K/year saved**\n\n";
-
-    response += "**Key metrics:**\n";
-    response += "- **70% cost reduction** in support operations\n";
-    response += "- **50% faster** average resolution time\n";
-    response += "- **95%+ CSAT** score (AI responses)\n";
-    response += "- ROI typically achieved within **30 days**\n\n";
-
-    if (talkingPoints) {
-      response += "Want me to calculate your specific savings? Just tell me:\n1. How many support agents do you have?\n2. What's your average ticket volume per month?";
-    } else {
-      response += "Want me to run a personalized ROI calculation for your business?";
-    }
-
-    return response;
+    return "Data security is PARWA's top priority:\n\n- **Encryption**: AES-256 at rest, TLS 1.3 in transit\n- **Compliance**: GDPR, HIPAA ready, PCI DSS\n- **Data isolation**: Per-tenant isolation at app, DB, and infrastructure layers\n- **Audit trail**: Comprehensive logs with 24-month retention\n- **Access control**: RBAC with 2FA enforcement\n- **Vulnerability management**: Continuous monitoring with SLA-backed response times\n- **Data residency**: US, EU, and APAC options\n\nYour customer data is never used to train models for other clients. Every tenant is completely isolated. Want details on any specific security area?";
   }
 
   private buildDemoResponse(industry: string | null, session: SessionLike): string {
     const scenarios = this.kb.demoScenarios?.scenarios;
     if (!scenarios || scenarios.length === 0) {
-      return `Absolutely! I **am** the demo. Ask me anything your customers would ask, and I'll show you exactly how SHOBH handles it.\n\nFor example:\n- "Where's my order #12345?"\n- "How do I reset my password?"\n- "Track my shipment"\n\nOr unlock the **$1 Demo Pack** for 500 messages + a 3-minute AI voice call!`;
+      return `Absolutely! I **am** the demo. Ask me anything your customers would ask, and I'll show you exactly how PARWA handles it.\n\nFor example:\n- "Where's my order #12345?"\n- "How do I reset my password?"\n- "Track my shipment"\n\nOr unlock the **$1 Demo Pack** for 500 messages + a 3-minute AI voice call!`;
     }
 
     const industryScenarios = industry
@@ -701,7 +714,7 @@ export class JarvisAIEngine {
       : scenarios.slice(0, 5);
 
     if (industryScenarios.length === 0) {
-      let demoList = `Absolutely! I'd love to show you SHOBH in action. Here are some demo scenarios I can roleplay:\n\n`;
+      let demoList = `Absolutely! I'd love to show you PARWA in action. Here are some demo scenarios I can roleplay:\n\n`;
 
       // Show one from each industry
       const sampleScenarios = [0, 5, 10, 15].map(i => scenarios[i]).filter(Boolean);
@@ -728,8 +741,8 @@ export class JarvisAIEngine {
   }
 
   private buildCompetitorResponse(competitor: CompetitorEntry, session: SessionLike): string {
-    let response = `Here's how SHOBH compares to **${competitor.competitor_name}**:\n\n`;
-    response += `**SHOBH's advantage:** ${competitor.our_advantage}\n\n`;
+    let response = `Here's how PARWA compares to **${competitor.competitor_name}**:\n\n`;
+    response += `**PARWA's advantage:** ${competitor.our_advantage}\n\n`;
 
     if (competitor.key_differentiators && competitor.key_differentiators.length > 0) {
       response += "**Key differences:**\n";
@@ -737,7 +750,7 @@ export class JarvisAIEngine {
         const feature = diff.feature || '';
         const parwa = diff.parwa || diff.advantage || '';
         const them = diff.competitor || diff.disadvantage || '';
-        response += `- **${feature}**: SHOBH ${parwa} vs ${competitor.competitor_name} ${them}\n`;
+        response += `- **${feature}**: PARWA ${parwa} vs ${competitor.competitor_name} ${them}\n`;
       }
       response += '\n';
     }
@@ -746,26 +759,26 @@ export class JarvisAIEngine {
       response += `**Bottom line:** ${competitor.winning_argument}\n\n`;
     }
 
-    response += "Want to explore other comparisons or see SHOBH in action?";
+    response += "Want to explore other comparisons or see PARWA in action?";
     return response;
   }
 
   private buildHowItWorksResponse(session: SessionLike): string {
-    return "Here's how SHOBH works — it's simpler than you'd think:\n\n**1. Upload your knowledge base** (PDFs, docs, FAQs) — Jarvis learns from your content\n**2. Connect your channels** (email, chat, phone, SMS, social media)\n**3. AI starts handling tickets** immediately, 24/7\n\n**Under the hood:**\n- SHOBH uses advanced AI to understand customer intent with **95%+ accuracy**\n- Each query is matched against your knowledge base and handled automatically\n- When confidence is low or the issue is complex, it **escalates to a human** with full context\n- Every resolved ticket makes the system smarter through **continuous auto-learning**\n\n**Setup takes 10-14 days** — most businesses are 90% operational within 2 weeks.\n\nWant to see it in action with a demo?";
+    return "Here's how PARWA works — it's simpler than you'd think:\n\n**1. Upload your knowledge base** (PDFs, docs, FAQs) — Jarvis learns from your content\n**2. Connect your channels** (email, chat, phone, SMS, social media)\n**3. AI starts handling tickets** immediately, 24/7\n\n**Under the hood:**\n- PARWA uses advanced AI to understand customer intent with **95%+ accuracy**\n- Each query is matched against your knowledge base and handled automatically\n- When confidence is low or the issue is complex, it **escalates to a human** with full context\n- Every resolved ticket makes the system smarter through **continuous auto-learning**\n\n**Setup takes 10-14 days** — most businesses are 90% operational within 2 weeks.\n\nWant to see it in action with a demo?";
   }
 
   private buildBuyResponse(session: SessionLike): string {
-    return "Getting started is easy!\n\n**Three steps:**\n1. **Choose your plan** — SHOBH ($2,999/mo) or SHOBH High ($3,999/mo)\n2. **Add industry variants** — Pick the AI agents for your support needs\n3. **Go live** — Upload your KB, connect channels, and start!\n\n**No long-term contracts** — monthly billing or FlexPay ($100/day), cancel anytime.\n\nReady to pick a plan? I can show you the best fit for your business. Just tell me your industry and daily ticket volume!";
+    return "Getting started is easy!\n\n**Three steps:**\n1. **Choose your plan** — PARWA ($2,999/mo) or PARWA High ($3,999/mo)\n2. **Add industry variants** — Pick the AI agents for your support needs\n3. **Go live** — Upload your KB, connect channels, and start!\n\n**No long-term contracts** — monthly billing or FlexPay ($100/day), cancel anytime.\n\nReady to pick a plan? I can show you the best fit for your business. Just tell me your industry and daily ticket volume!";
   }
 
   private buildEdgeCaseResponse(type: string): string {
     if (type === 'legal') {
-      return "I appreciate the question, but I'm not able to provide legal advice. For legal matters, I'd recommend consulting with a qualified attorney.\n\nWhat I *can* help with is showing you how SHOBH's AI can streamline your customer support operations. Would you like to explore that?";
+      return "I appreciate the question, but I'm not able to provide legal advice. For legal matters, I'd recommend consulting with a qualified attorney.\n\nWhat I *can* help with is showing you how PARWA's AI can streamline your customer support operations. Would you like to explore that?";
     }
     if (type === 'medical') {
-      return "I'm not able to provide medical advice — that should always come from a qualified healthcare professional.\n\nHowever, if you're in the **healthcare industry**, SHOBH offers HIPAA-compliant AI agents that handle appointment scheduling, insurance verification, prescription refills, and patient inquiries. Want to learn more?";
+      return "I'm not able to provide medical advice — that should always come from a qualified healthcare professional.\n\nHowever, if you're in the **healthcare industry**, PARWA offers HIPAA-compliant AI agents that handle appointment scheduling, insurance verification, prescription refills, and patient inquiries. Want to learn more?";
     }
-    return "That's outside my area of expertise, but I'd love to help you with anything related to SHOBH's AI customer support platform! What would you like to know?";
+    return "That's outside my area of expertise, but I'd love to help you with anything related to PARWA's AI customer support platform! What would you like to know?";
   }
 
   private buildContextualResponse(msg: string, intent: IntentResult, session: SessionLike): string {
@@ -776,8 +789,8 @@ export class JarvisAIEngine {
     if (industry && intent.entities.length === 0) {
       const industryName = this.formatIndustry(industry);
       const responses = [
-        `Good question! Since you're in the **${industryName}** space, let me share what's most relevant.\n\nSHOBH has 5 specialized AI agents for ${industryName} that handle the most common support tickets automatically — everything from ${industry === 'ecommerce' ? 'order tracking to returns and refunds' : industry === 'saas' ? 'technical support to billing questions' : industry === 'logistics' ? 'shipment tracking to delivery issues' : 'appointment scheduling to insurance verification'}.\n\nMost ${industryName} businesses start with our **SHOBH plan ($2,999/mo)** for the best value. Want specifics?`,
-        `That's a great point. In the **${industryName}** industry, SHOBH's AI agents typically resolve **${industry === 'ecommerce' ? '88-94%' : '85-95%'}** of support tickets automatically, saving your team ${industry === 'ecommerce' ? '30-40 hours per week' : '25-35 hours per week'}.\n\nWhat specific challenge are you facing with your current support setup?`,
+        `Good question! Since you're in the **${industryName}** space, let me share what's most relevant.\n\nPARWA has 5 specialized AI agents for ${industryName} that handle the most common support tickets automatically — everything from ${industry === 'ecommerce' ? 'order tracking to returns and refunds' : industry === 'saas' ? 'technical support to billing questions' : industry === 'logistics' ? 'shipment tracking to delivery issues' : 'appointment scheduling to insurance verification'}.\n\nMost ${industryName} businesses start with our **PARWA plan ($2,999/mo)** for the best value. Want specifics?`,
+        `That's a great point. In the **${industryName}** industry, PARWA's AI agents typically resolve **${industry === 'ecommerce' ? '88-94%' : '85-95%'}** of support tickets automatically, saving your team ${industry === 'ecommerce' ? '30-40 hours per week' : '25-35 hours per week'}.\n\nWhat specific challenge are you facing with your current support setup?`,
         `Interesting! For **${industryName}** businesses like yours, here's what I'd recommend:\n\n1. Start with the most painful ticket type (what takes the most time?)\n2. Deploy 1-2 AI agents for that specific area\n3. Expand as you see results — most clients add more agents within 30 days\n\nWhat's the #1 support issue you want to solve?`,
       ];
       return this.pickRandom(responses, session);
@@ -787,22 +800,22 @@ export class JarvisAIEngine {
     const stage = session.detected_stage || ctx.detected_stage || 'discovery';
 
     if (stage === 'welcome' || stage === 'discovery') {
-      return `I'd love to help! To give you the most relevant answer, could you tell me:\n\n1. **What industry** is your business in?\n2. **How many support tickets** do you handle per day?\n3. **What's the biggest pain point** with your current support?\n\nSHOBH works across **E-commerce, SaaS, Logistics, and Healthcare** — each with specialized AI agents tailored to that industry.`;
+      return `I'd love to help! To give you the most relevant answer, could you tell me:\n\n1. **What industry** is your business in?\n2. **How many support tickets** do you handle per day?\n3. **What's the biggest pain point** with your current support?\n\nPARWA works across **E-commerce, SaaS, Logistics, and Healthcare** — each with specialized AI agents tailored to that industry.`;
     }
 
     if (stage === 'pricing') {
-      return `Good question! SHOBH's plans range from **$2,999/mo** to **$3,999/mo**, with the sweet spot for most businesses being **SHOBH at $2,999/mo**.\n\nWant a detailed plan comparison, or should I calculate the ROI for your specific situation?`;
+      return `Good question! PARWA's plans range from **$2,999/mo** to **$3,999/mo**, with the sweet spot for most businesses being **PARWA at $2,999/mo**.\n\nWant a detailed plan comparison, or should I calculate the ROI for your specific situation?`;
     }
 
     if (stage === 'demo') {
-      return `Sure thing! I can show you exactly how SHOBH works. Just ask me anything your customers would ask — like "where's my order?", "how do I reset my password?", or "track my shipment" — and I'll demonstrate how the AI handles it in real time.\n\nWhat would you like to try?`;
+      return `Sure thing! I can show you exactly how PARWA works. Just ask me anything your customers would ask — like "where's my order?", "how do I reset my password?", or "track my shipment" — and I'll demonstrate how the AI handles it in real time.\n\nWhat would you like to try?`;
     }
 
     // Final generic fallback
     const genericResponses = [
-      `That's a great question! SHOBH is an AI-powered customer support platform that handles tickets 24/7 across email, chat, phone, and SMS. We serve **4 industries** with **20 specialized AI agents**.\n\nTo give you the most helpful answer, could you share what industry you're in and what support challenges you're facing?`,
-      `I appreciate the question! Let me help you find the right answer. SHOBH automates customer support with AI that:\n\n- Resolves **60-70%** of tickets automatically\n- Responds in **2-5 seconds** average\n- Learns from your knowledge base continuously\n- Costs **85-92% less** than human agents\n\nWhat specific aspect would you like to dive deeper into?`,
-      `Great question! I want to make sure I give you the most relevant information. SHOBH has a lot to offer across different industries and use cases.\n\nCould you tell me a bit about your business? Specifically:\n- Your industry\n- Your daily ticket volume\n- Your current support setup\n\nThat way I can tailor my answer to exactly what you need.`,
+      `That's a great question! PARWA is an AI-powered customer support platform that handles tickets 24/7 across email, chat, phone, and SMS. We serve **4 industries** with **20 specialized AI agents**.\n\nTo give you the most helpful answer, could you share what industry you're in and what support challenges you're facing?`,
+      `I appreciate the question! Let me help you find the right answer. PARWA automates customer support with AI that:\n\n- Resolves **60-70%** of tickets automatically\n- Responds in **2-5 seconds** average\n- Learns from your knowledge base continuously\n- Costs **85-92% less** than human agents\n\nWhat specific aspect would you like to dive deeper into?`,
+      `Great question! I want to make sure I give you the most relevant information. PARWA has a lot to offer across different industries and use cases.\n\nCould you tell me a bit about your business? Specifically:\n- Your industry\n- Your daily ticket volume\n- Your current support setup\n\nThat way I can tailor my answer to exactly what you need.`,
     ];
     return this.pickRandom(genericResponses, session);
   }

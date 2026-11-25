@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # H-18: Auth dependency for admin-only chat endpoints
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, optional_user
 from database.models.core import User
 from app.schemas.chat_widget import (
     ChatSessionCreateResponse,
@@ -360,33 +360,31 @@ async def close_session(request: Request, session_id: str, current_user: User = 
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ChatMessageSendResponse)
-async def send_chat_message(body: SendMessageRequest, request: Request, session_id: str):
+async def send_chat_message(
+    body: SendMessageRequest,
+    request: Request,
+    session_id: str,
+    current_user: Optional[User] = Depends(optional_user),
+):
     """Send a message in a chat session.
 
     Visitors can send messages using their HMAC visitor_token.
     Agents use JWT authentication.
     """
-    # BC-011: Determine company_id from JWT auth or verify visitor token
-    company_id = getattr(request.state, "company_id", None)
+    # Visitor tokens are always verified, even if the request also carries
+    # an authenticated staff token. Never let an invalid visitor token fall
+    # through to the staff tenant context.
     visitor_token = body.visitor_token
-
-    if not company_id and visitor_token:
-        # Verify HMAC visitor token (BC-011)
+    company_id = None
+    if visitor_token:
         try:
+            if not body.company_id:
+                raise ValueError("company_id is required with visitor_token")
             db_tmp = _get_db(request)
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(db_tmp)
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(
-                    status_code=401,
-                    content={
-                        "error": {
-                            "code": "AUTHENTICATION_ERROR",
-                            "message": "Invalid visitor token",
-                            "details": None,
-                        }
-                    },
-                )
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id, visitor_token):
+                raise ValueError("invalid visitor token")
             company_id = body.company_id
         except Exception:
             return JSONResponse(
@@ -394,11 +392,36 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
                 content={
                     "error": {
                         "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
+                        "message": "Invalid visitor token",
                         "details": None,
                     }
                 },
             )
+
+    else:
+        if not current_user:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authenticated staff identity required",
+                        "details": None,
+                    }
+                },
+            )
+        if current_user.role not in ("owner", "admin", "agent"):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "AUTHORIZATION_ERROR",
+                        "message": "Insufficient permissions",
+                        "details": None,
+                    }
+                },
+            )
+        company_id = current_user.company_id
 
     if not company_id:
         return JSONResponse(
@@ -406,16 +429,24 @@ async def send_chat_message(body: SendMessageRequest, request: Request, session_
             content={
                 "error": {
                     "code": "AUTHORIZATION_ERROR",
-                    "message": "Authentication required (JWT or visitor token)",
+                    "message": "Tenant identification required",
                     "details": None,
                 }
             },
         )
 
     content = body.content
-    role = body.role
-    sender_id = body.sender_id or getattr(request.state, "user_id", None)
-    sender_name = body.sender_name
+    # Never trust role or sender identity supplied by the browser. A valid
+    # visitor token can only create visitor messages; authenticated staff
+    # identity comes from verified request state, not request JSON.
+    if visitor_token:
+        role = "visitor"
+        sender_id = None
+        sender_name = None
+    else:
+        role = "agent"
+        sender_id = str(current_user.id)
+        sender_name = current_user.full_name
     message_type = body.message_type
 
     try:
@@ -478,7 +509,7 @@ async def get_chat_messages(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """Get messages for a chat session with pagination."""
-    company_id = getattr(request.state, "company_id", None)
+    company_id = current_user.company_id
     if not company_id:
         return JSONResponse(
             status_code=403,
@@ -523,17 +554,24 @@ async def get_chat_messages(
 
 
 @router.post("/sessions/{session_id}/typing", response_model=ChatTypingResponse)
-async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, session_id: str):
+async def send_typing_indicator(
+    body: TypingIndicatorRequest,
+    request: Request,
+    session_id: str,
+    current_user: Optional[User] = Depends(optional_user),
+):
     """Emit a typing indicator via Socket.io (BC-005, BC-011)."""
-    # BC-011: Verify visitor token if no JWT auth
-    company_id = getattr(request.state, "company_id", None)
+    # Visitor tokens are always verified and cannot supply agent identity.
+    company_id = None
     visitor_token = body.visitor_token
-    if not company_id and visitor_token:
+    if visitor_token:
         try:
+            if not body.company_id:
+                raise ValueError("company_id is required with visitor_token")
             from app.services.chat_widget_service import ChatWidgetService
             tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
+            if not tmp_svc.verify_visitor_token(session_id, body.company_id, visitor_token):
+                raise ValueError("invalid visitor token")
             company_id = body.company_id
         except Exception:
             return JSONResponse(
@@ -541,11 +579,39 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
                 content={
                     "error": {
                         "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
+                        "message": "Invalid visitor token",
                         "details": None,
                     }
                 },
             )
+        typing_role = "visitor"
+        typing_user_id = None
+    else:
+        if not current_user:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authenticated staff identity required",
+                        "details": None,
+                    }
+                },
+            )
+        if current_user.role not in ("owner", "admin", "agent"):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "AUTHORIZATION_ERROR",
+                        "message": "Insufficient permissions",
+                        "details": None,
+                    }
+                },
+            )
+        company_id = current_user.company_id
+        typing_user_id = str(current_user.id)
+        typing_role = "agent"
 
     if not company_id:
         return JSONResponse(
@@ -566,8 +632,8 @@ async def send_typing_indicator(body: TypingIndicatorRequest, request: Request, 
         return service.send_typing_indicator(
             session_id=session_id,
             company_id=company_id,
-            user_id=body.user_id or getattr(request.state, "user_id", None),
-            role=body.role,
+            user_id=typing_user_id,
+            role=typing_role,
             is_typing=body.is_typing,
         )
     except Exception as exc:
@@ -630,36 +696,14 @@ async def mark_messages_read(request: Request, session_id: str, current_user: Us
 
 @router.post("/sessions/{session_id}/rate", response_model=ChatCSATResponse)
 async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_id: str):
-    """Submit a CSAT rating for a chat session (BC-011)."""
-    # BC-011: Verify visitor token if no JWT auth
-    company_id = getattr(request.state, "company_id", None)
-    visitor_token = body.visitor_token
-    if not company_id and visitor_token:
-        try:
-            from app.services.chat_widget_service import ChatWidgetService
-            tmp_svc = ChatWidgetService(_get_db(request))
-            if not tmp_svc.verify_visitor_token(session_id, body.company_id or "", visitor_token):
-                return JSONResponse(status_code=401, content={"error": {"code": "AUTHENTICATION_ERROR", "message": "Invalid visitor token", "details": None}})
-            company_id = body.company_id
-        except Exception:
-            return JSONResponse(
-                status_code=401,
-                content={
-                    "error": {
-                        "code": "AUTHENTICATION_ERROR",
-                        "message": "Visitor token verification failed",
-                        "details": None,
-                    }
-                },
-            )
-
-    if not company_id:
+    """Submit a visitor CSAT rating using the session-bound visitor token."""
+    if not body.visitor_token or not body.company_id:
         return JSONResponse(
-            status_code=403,
+            status_code=401,
             content={
                 "error": {
-                    "code": "AUTHORIZATION_ERROR",
-                    "message": "Authentication required (JWT or visitor token)",
+                    "code": "AUTHENTICATION_ERROR",
+                    "message": "A valid visitor token is required",
                     "details": None,
                 }
             },
@@ -668,10 +712,23 @@ async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_
     try:
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
-        service = ChatWidgetService(db, company_id)
+        service = ChatWidgetService(db, body.company_id)
+        if not service.verify_visitor_token(
+            session_id, body.company_id, body.visitor_token
+        ):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Invalid visitor token",
+                        "details": None,
+                    }
+                },
+            )
         result = service.submit_csat_rating(
             session_id=session_id,
-            company_id=company_id,
+            company_id=body.company_id,
             rating=body.rating,
             comment=body.comment,
         )
@@ -691,7 +748,7 @@ async def submit_csat_rating(body: CSATRatingRequest, request: Request, session_
         logger.error(
             "chat_csat_error",
             extra={
-                "company_id": company_id,
+                "company_id": body.company_id,
                 "session_id": session_id,
                 "error": str(exc)[:200],
             },
@@ -740,7 +797,18 @@ async def get_widget_config(request: Request):
         db = _get_db(request)
         from app.services.chat_widget_service import ChatWidgetService
         service = ChatWidgetService(db, company_id)
-        config = service.get_or_create_widget_config(company_id)
+        config = service.get_widget_config(company_id)
+        if not config:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Chat widget is not configured",
+                        "details": None,
+                    }
+                },
+            )
         return config.to_dict()
     except Exception as exc:
         logger.error(

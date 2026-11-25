@@ -1,5 +1,5 @@
 /**
- * SHOBH Variant Store
+ * PARWA Variant Store
  *
  * Zustand store for multi-tenant variant (tier) management.
  * Tracks the company's current subscription tier, feature availability,
@@ -8,7 +8,7 @@
  * Tiers: parwa ($2,999/mo) | high ($3,999/mo)
  * Pricing model: $1 = 1 ticket
  * All variants have the SAME AI capabilities — only ticket volume differs.
- * Mini SHOBH was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.
+ * Mini PARWA was removed 2026-07-26. Legacy mini values auto-upgrade to parwa.
  * Prices sourced from: /src/lib/pricing-config.ts (matches backend SSOT)
  */
 
@@ -16,8 +16,7 @@ import { create } from 'zustand';
 import {
   VARIANT_PRICES,
   VARIANT_DISPLAY_NAMES,
-  VARIANT_TIER_ORDER,
-  type VariantTier as CanonicalTier,
+  VARIANT_LIMITS,
 } from './pricing-config';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -106,16 +105,16 @@ const ALL_FEATURES: FeatureMap = {
 
 const TIER_LIMITS: Record<VariantTier, Omit<FeatureMap, keyof typeof ALL_FEATURES>> = {
   parwa: {
-    maxAgents: 5,
-    maxKnowledgeDocs: 500,
+    maxAgents: VARIANT_LIMITS.parwa.aiAgents,
+    maxKnowledgeDocs: VARIANT_LIMITS.parwa.kbDocs,
     maxApiKeys: 5,
-    maxTeamMembers: 10,
+    maxTeamMembers: VARIANT_LIMITS.parwa.teamMembers,
   },
   high: {
-    maxAgents: 8,       // 8 base, +$3/agent overage
-    maxKnowledgeDocs: -1, // unlimited
-    maxApiKeys: -1,       // unlimited
-    maxTeamMembers: -1,   // unlimited
+    maxAgents: VARIANT_LIMITS.high.aiAgents,
+    maxKnowledgeDocs: VARIANT_LIMITS.high.kbDocs,
+    maxApiKeys: -1, // No High API-key cap is defined in the pricing contract.
+    maxTeamMembers: VARIANT_LIMITS.high.teamMembers,
   },
 };
 
@@ -135,11 +134,7 @@ export function isTierAtLeast(current: VariantTier, required: VariantTier): bool
 }
 
 export function getTierLabel(tier: VariantTier): string {
-  const labels: Record<VariantTier, string> = {
-    parwa: 'SHOBH',
-    high: 'SHOBH High',
-  };
-  return labels[tier];
+  return VARIANT_DISPLAY_NAMES[tier];
 }
 
 export function getTierPrice(tier: VariantTier): string {

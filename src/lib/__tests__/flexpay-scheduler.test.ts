@@ -304,7 +304,7 @@ describe('FlexPay Scheduler', () => {
     });
 
     it('should process multiple plans in parallel', async () => {
-      const plan1 = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
+      const plan1 = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
       const plan2 = createAndRegisterPlan(TEST_COMPANY_2, 'parwa');
       const plan3 = createAndRegisterPlan(TEST_COMPANY_3, 'high');
       
@@ -319,7 +319,7 @@ describe('FlexPay Scheduler', () => {
     it('should handle payment failures gracefully', async () => {
       setPaymentProcessor(createFailureProcessor());
       
-      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
+      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
       
       const result = await processAllPlans({}, plan.startDate);
       
@@ -330,8 +330,8 @@ describe('FlexPay Scheduler', () => {
     });
 
     it('should skip non-active plans', async () => {
-      const activePlan = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
-      const pausedPlan = createAndRegisterPlan(TEST_COMPANY_2, 'mini');
+      const activePlan = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
+      const pausedPlan = createAndRegisterPlan(TEST_COMPANY_2, 'parwa');
       pausedPlan.status = 'paused';
       
       const result = await processAllPlans({}, new Date());
@@ -483,7 +483,7 @@ describe('FlexPay Scheduler', () => {
     });
 
     it('should retry failed installments successfully', async () => {
-      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
+      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
       
       // Record initial failure
       recordInstallmentStatus({
@@ -509,7 +509,7 @@ describe('FlexPay Scheduler', () => {
     });
 
     it('should handle retries that still fail', async () => {
-      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
+      const plan = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
       
       // Record failure
       recordInstallmentStatus({
@@ -601,7 +601,7 @@ describe('FlexPay Scheduler', () => {
       
       // Register many customers
       for (let i = 0; i < numCustomers; i++) {
-        const plan = createAndRegisterPlan(`company_${i}`, 'mini');
+        const plan = createAndRegisterPlan(`company_${i}`, 'parwa');
         plans.push(plan);
       }
       
@@ -624,8 +624,8 @@ describe('FlexPay Scheduler', () => {
         return callCount > 2;
       }));
       
-      const plan1 = createAndRegisterPlan(TEST_COMPANY_1, 'mini');
-      const plan2 = createAndRegisterPlan(TEST_COMPANY_2, 'mini');
+      const plan1 = createAndRegisterPlan(TEST_COMPANY_1, 'parwa');
+      const plan2 = createAndRegisterPlan(TEST_COMPANY_2, 'parwa');
       
       const result = await processAllPlans({}, new Date());
       
@@ -660,7 +660,7 @@ describe('FlexPay Scheduler', () => {
 
     it('should respect custom concurrency limits', async () => {
       for (let i = 0; i < 20; i++) {
-        createAndRegisterPlan(`company_concurrent_${i}`, 'mini');
+        createAndRegisterPlan(`company_concurrent_${i}`, 'parwa');
       }
       
       const result = await processAllPlans({

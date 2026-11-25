@@ -1,29 +1,25 @@
 /** @jest-environment jsdom */
 /**
- * SHOBH Integration Test: Billing + Variant Sync
- *
- * Tests that billing plan changes propagate correctly
- * to the variant store, updating feature availability.
+ * Integration coverage for the current two-tier billing model.
+ * Billing state and feature-capacity state are synchronized explicitly;
+ * both tiers share the same AI capabilities.
  */
 
-import { act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react';
-import { useVariantStore } from '@/lib/variant-store';
+import { useVariantStore, isTierAtLeast } from '@/lib/variant-store';
 import { useBillingStore } from '@/lib/billing-store';
-import { useVariant } from '@/hooks/useVariant';
 
 describe('Integration: Billing + Variant Sync', () => {
   beforeEach(() => {
     useVariantStore.getState().reset();
     useBillingStore.setState({
       currentTier: 'parwa',
-      currentPrice: 999,
+      currentPrice: 2999,
       renewalDate: null,
       invoices: [],
       paymentMethods: [],
       usage: {
         ticketsUsed: 0,
-        ticketsLimit: 1000,
+        ticketsLimit: 2999,
         messagesUsed: 0,
         messagesLimit: 10000,
         storageUsed: 0,
@@ -34,182 +30,160 @@ describe('Integration: Billing + Variant Sync', () => {
       isLoading: false,
       error: null,
     });
-  });
-
-  describe('Plan upgrade flow', () => {
-    it('upgrading plan in billing store should be reflected in variant store', async () => {
-      // Both start at mini
-      expect(useVariantStore.getState().tier).toBe('parwa');
-      expect(useBillingStore.getState().currentTier).toBe('parwa');
-
-      // Simulate plan upgrade via billing API
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ variant_tier: 'parwa' }),
-      });
-
-      await useBillingStore.getState().changePlan('parwa');
-
-      expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
-
-      // Sync: variant store should also be updated
-      // In a real app, this would happen via Socket.io event or explicit sync
-      // Here we test the sync mechanism
-      useVariantStore.getState().setTier('parwa');
-      expect(useVariantStore.getState().tier).toBe('parwa');
-      expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
-    });
-
-    it('upgrading to high unlocks all features', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ variant_tier: 'high' }),
-      });
-
-      await useBillingStore.getState().changePlan('high');
-      useVariantStore.getState().setTier('high');
-
-      const { result } = renderHook(() => useVariant());
-
-      expect(result.current.isFeatureAvailable('videoChannel')).toBe(true);
-      expect(result.current.isFeatureAvailable('fraudDetection')).toBe(true);
-      expect(result.current.isFeatureAvailable('qualityCoach')).toBe(true);
-      expect(result.current.isFeatureAvailable('churnPrediction')).toBe(true);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({}),
     });
   });
 
-  describe('Plan downgrade flow', () => {
-    it('canceling subscription resets to mini', async () => {
-      // Start at pro
-      useVariantStore.getState().setTier('parwa');
-      useBillingStore.setState({ currentTier: 'parwa', currentPrice: 2499, renewalDate: '2026-12-31' });
+  it('updates billing and variant stores when selecting the High plan', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
 
-      expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
+    await useBillingStore.getState().changePlan('high');
 
-      // Cancel subscription
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}),
-      });
+    expect(useBillingStore.getState().currentTier).toBe('high');
+    expect(useBillingStore.getState().currentPrice).toBe(3999);
 
-      await useBillingStore.getState().cancelSubscription();
-
-      expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(999);
-      expect(useBillingStore.getState().renewalDate).toBeNull();
-
-      // Sync variant store
-      useVariantStore.getState().setTier('parwa');
-
-      expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(false);
-      expect(useVariantStore.getState().isFeatureAvailable('voiceChannel')).toBe(false);
-    });
+    // The application sync boundary updates the feature store from verified billing state.
+    useVariantStore.getState().setTier(useBillingStore.getState().currentTier);
+    expect(useVariantStore.getState().tier).toBe('high');
+    expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
   });
 
-  describe('Usage limits across tiers', () => {
-    it('usage that exceeds mini limits is fine on pro', () => {
-      // Set usage that exceeds mini but not pro limits
-      useVariantStore.getState().setTier('parwa');
-      useVariantStore.setState({
-        usage: {
-          agentsUsed: 10, // mini limit is 5
-          docsUsed: 200,  // mini limit is 50
-          apiKeysUsed: 3, // mini limit is 1
-          teamMembersUsed: 3, // mini limit is 1
-          ticketsThisMonth: 0,
-          messagesThisMonth: 0,
-        },
-      });
+  it('keeps the same AI capabilities on Parwa and High', () => {
+    const parwaFeatures = useVariantStore.getState().getFeatureMap();
+    const parwaCapabilities = Object.fromEntries(
+      Object.entries(parwaFeatures).filter(([, value]) => typeof value === 'boolean')
+    );
 
-      expect(useVariantStore.getState().isAtLimit('agents')).toBe(true);
-      expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+    useVariantStore.getState().setTier('high');
+    const highFeatures = useVariantStore.getState().getFeatureMap();
+    const highCapabilities = Object.fromEntries(
+      Object.entries(highFeatures).filter(([, value]) => typeof value === 'boolean')
+    );
 
-      // Upgrade to pro (15 agents, 500 docs)
-      useVariantStore.getState().setTier('parwa');
-
-      expect(useVariantStore.getState().isAtLimit('agents')).toBe(false); // 10 < 15
-      expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);   // 200 < 500
-      expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false); // 3 < 5
-      expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false); // 3 < 5
-    });
-
-    it('unlimited resources on high tier never show at limit', () => {
-      useVariantStore.getState().setTier('high');
-      useVariantStore.setState({
-        usage: {
-          agentsUsed: 50,
-          docsUsed: 10000,
-          apiKeysUsed: 500,
-          teamMembersUsed: 200,
-          ticketsThisMonth: 0,
-          messagesThisMonth: 0,
-        },
-      });
-
-      // docs, apiKeys, teamMembers are unlimited (-1) on high
-      expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
-      expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
-      expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
-
-      // agents still has a limit (50)
-      expect(useVariantStore.getState().isAtLimit('agents')).toBe(true);
-    });
+    expect(highCapabilities).toEqual(parwaCapabilities);
   });
 
-  describe('Billing fetch updates both stores', () => {
-    it('fetchBilling updates billing state from API', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          variant_tier: 'parwa',
-          renewal_date: '2026-06-14',
-        }),
-      });
+  it('cancels a subscription to the Parwa entry tier without disabling shared capabilities', async () => {
+    useVariantStore.getState().setTier('high');
+    useBillingStore.setState({ currentTier: 'high', currentPrice: 3999, renewalDate: '2026-12-31' });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
 
-      await useBillingStore.getState().fetchBilling();
+    await useBillingStore.getState().cancelSubscription();
 
-      expect(useBillingStore.getState().currentTier).toBe('parwa');
-      expect(useBillingStore.getState().currentPrice).toBe(2499);
-      expect(useBillingStore.getState().renewalDate).toBe('2026-06-14');
-    });
+    expect(useBillingStore.getState().currentTier).toBe('parwa');
+    expect(useBillingStore.getState().currentPrice).toBe(2999);
+    expect(useBillingStore.getState().renewalDate).toBeNull();
 
-    it('fetchUsage updates billing usage from API', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          tickets_used: 500,
-          tickets_limit: 1000,
-          messages_used: 3000,
-          messages_limit: 10000,
-          storage_used: 250,
-          storage_limit: 500,
-          api_calls_used: 1000,
-          api_calls_limit: 5000,
-        }),
-      });
-
-      await useBillingStore.getState().fetchUsage();
-
-      const usage = useBillingStore.getState().usage;
-      expect(usage.ticketsUsed).toBe(500);
-      expect(usage.messagesUsed).toBe(3000);
-      expect(usage.apiCallsUsed).toBe(1000);
-    });
+    useVariantStore.getState().setTier('parwa');
+    expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
+    expect(useVariantStore.getState().isFeatureAvailable('voiceChannel')).toBe(true);
   });
 
-  describe('Edge case: API inconsistency', () => {
-    it('billing says pro but variant says mini — variant wins for feature gating', () => {
-      // Simulate API returning different tiers (race condition)
-      useBillingStore.setState({ currentTier: 'parwa', currentPrice: 2499 });
-      useVariantStore.getState().setTier('parwa');
-
-      // Feature gating should follow variant store
-      expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(false);
-
-      // After sync, both agree
-      useVariantStore.getState().setTier('parwa');
-      expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
+  it('enforces Parwa capacity limits and lifts them on High', () => {
+    useVariantStore.setState({
+      usage: {
+        agentsUsed: 7,
+        docsUsed: 600,
+        apiKeysUsed: 6,
+        teamMembersUsed: 11,
+        ticketsThisMonth: 0,
+        messagesThisMonth: 0,
+      },
     });
+
+    expect(useVariantStore.getState().isAtLimit('agents')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
+
+    useVariantStore.getState().setTier('high');
+
+    expect(useVariantStore.getState().isAtLimit('agents')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
+  });
+
+  it('enforces High knowledge and team-member capacity while allowing its configured API-key allowance', () => {
+    useVariantStore.getState().setTier('high');
+    useVariantStore.setState({
+      usage: {
+        agentsUsed: 50,
+        docsUsed: 1999,
+        apiKeysUsed: 500,
+        teamMembersUsed: 24,
+        ticketsThisMonth: 0,
+        messagesThisMonth: 0,
+      },
+    });
+
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
+    expect(useVariantStore.getState().isAtLimit('agents')).toBe(true);
+
+    useVariantStore.setState({
+      usage: {
+        agentsUsed: 0,
+        docsUsed: 2000,
+        apiKeysUsed: 0,
+        teamMembersUsed: 25,
+        ticketsThisMonth: 0,
+        messagesThisMonth: 0,
+      },
+    });
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
+  });
+
+  it('loads canonical Parwa pricing and renewal data from billing API', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ variant_tier: 'parwa', renewal_date: '2026-06-14' }),
+    });
+
+    await useBillingStore.getState().fetchBilling();
+
+    expect(useBillingStore.getState().currentTier).toBe('parwa');
+    expect(useBillingStore.getState().currentPrice).toBe(2999);
+    expect(useBillingStore.getState().renewalDate).toBe('2026-06-14');
+  });
+
+  it('loads usage metrics from billing API', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        tickets_used: 500,
+        tickets_limit: 2999,
+        messages_used: 3000,
+        messages_limit: 10000,
+        storage_used: 250,
+        storage_limit: 500,
+        api_calls_used: 1000,
+        api_calls_limit: 5000,
+      }),
+    });
+
+    await useBillingStore.getState().fetchUsage();
+
+    const usage = useBillingStore.getState().usage;
+    expect(usage.ticketsUsed).toBe(500);
+    expect(usage.messagesUsed).toBe(3000);
+    expect(usage.apiCallsUsed).toBe(1000);
+  });
+
+  it('uses the variant store for capacity gating when billing and variant state disagree', () => {
+    useBillingStore.setState({ currentTier: 'high', currentPrice: 3999 });
+    useVariantStore.getState().setTier('parwa');
+
+    expect(isTierAtLeast(useVariantStore.getState().tier, 'high')).toBe(false);
+    expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
+
+    useVariantStore.getState().setTier('high');
+    expect(isTierAtLeast(useVariantStore.getState().tier, 'high')).toBe(true);
+    expect(useVariantStore.getState().isFeatureAvailable('smsChannel')).toBe(true);
   });
 });

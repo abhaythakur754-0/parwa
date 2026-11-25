@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.clients.razorpay_client import RazorpayClient, RazorpayError, get_razorpay_client
 from app.core.pricing_config import VariantType, VARIANT_PRICES
 from database.models.billing import Subscription, Invoice, Transaction
@@ -183,11 +184,22 @@ async def _handle_charged(db, payload):
     if sub.get("current_start"): row.current_period_start = datetime.fromtimestamp(sub["current_start"], tz=timezone.utc)
     if sub.get("current_end"): row.current_period_end = datetime.fromtimestamp(sub["current_end"], tz=timezone.utc)
     row.status = "active"
-    db.add(Invoice(company_id=row.company_id, paddle_invoice_id=payment_id, amount=amount_usd, currency="USD", status="paid", invoice_date=datetime.now(timezone.utc), paid_at=datetime.now(timezone.utc)))
-    db.add(Transaction(company_id=row.company_id, paddle_transaction_id=payment_id, amount=amount_usd, currency="USD", status="completed", transaction_type="subscription_charge", description=f"Subscription charge for {row.tier} variant"))
+    if payment_id and not db.query(Invoice).filter(Invoice.paddle_invoice_id == payment_id).first():
+        db.add(Invoice(company_id=row.company_id, paddle_invoice_id=payment_id, amount=amount_usd, currency="USD", status="paid", invoice_date=datetime.now(timezone.utc), paid_at=datetime.now(timezone.utc)))
+    if payment_id and not db.query(Transaction).filter(Transaction.paddle_transaction_id == payment_id).first():
+        db.add(Transaction(company_id=row.company_id, paddle_transaction_id=payment_id, amount=amount_usd, currency="USD", status="completed", transaction_type="subscription_charge", description=f"Subscription charge for {row.tier} variant"))
     # End the free trial for this company — they've now paid.
     _end_company_trial(db, row.company_id, paid_variant=row.tier)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent webhook deliveries can both observe no ledger row. The
+        # unique provider-ID indexes make the losing transaction roll back.
+        db.rollback()
+        invoice_exists = bool(payment_id and db.query(Invoice).filter(Invoice.paddle_invoice_id == payment_id).first())
+        transaction_exists = bool(payment_id and db.query(Transaction).filter(Transaction.paddle_transaction_id == payment_id).first())
+        if not (invoice_exists and transaction_exists):
+            raise
     return {"status": "charged", "subscription_id": rzp_id, "amount": str(amount_usd)}
 
 
@@ -317,18 +329,19 @@ async def _handle_payment_captured(db, payload: Dict[str, Any]) -> Dict[str, Any
             company_id = row.company_id
             variant = row.tier
             row.status = "active"
-            db.add(Invoice(
-                company_id=row.company_id,
-                paddle_invoice_id=payment_id,
-                amount=amount,
-                currency=currency,
-                status="paid",
-                invoice_date=datetime.now(timezone.utc),
-                paid_at=datetime.now(timezone.utc),
-            ))
+            if payment_id and not db.query(Invoice).filter(Invoice.paddle_invoice_id == payment_id).first():
+                db.add(Invoice(
+                    company_id=row.company_id,
+                    paddle_invoice_id=payment_id,
+                    amount=amount,
+                    currency=currency,
+                    status="paid",
+                    invoice_date=datetime.now(timezone.utc),
+                    paid_at=datetime.now(timezone.utc),
+                ))
 
     # Always record a Transaction (even if we couldn't link to a subscription)
-    if company_id:
+    if company_id and payment_id and not db.query(Transaction).filter(Transaction.paddle_transaction_id == payment_id).first():
         db.add(Transaction(
             company_id=company_id,
             paddle_transaction_id=payment_id,
@@ -339,7 +352,14 @@ async def _handle_payment_captured(db, payload: Dict[str, Any]) -> Dict[str, Any
             description=f"Payment captured for {variant} variant (Standard Checkout)",
         ))
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        invoice_exists = bool(payment_id and db.query(Invoice).filter(Invoice.paddle_invoice_id == payment_id).first())
+        transaction_exists = bool(company_id and payment_id and db.query(Transaction).filter(Transaction.paddle_transaction_id == payment_id).first())
+        if not (transaction_exists and (not company_id or invoice_exists)):
+            raise
     logger.info(
         "payment.captured: payment_id=%s amount=%s %s company=%s variant=%s",
         payment_id, amount, currency, company_id, variant,
@@ -378,20 +398,30 @@ async def _handle_refund_processed(db, payload: Dict[str, Any]) -> Dict[str, Any
     currency = (refund.get("currency") or "USD").upper()
     amount = Decimal(amount_raw) / Decimal(100)
 
+    # Duplicate refund notifications must not create a second ledger entry.
+    if refund_id and db.query(Transaction).filter(Transaction.paddle_transaction_id == refund_id).first():
+        return {"status": "already_processed", "refund_id": refund_id, "payment_id": payment_id}
+
     # Find invoice by payment_id and mark as refunded
     inv = db.query(Invoice).filter(Invoice.paddle_invoice_id == payment_id).first()
     if inv:
         inv.status = "refunded"
-        db.add(Transaction(
-            company_id=inv.company_id,
-            paddle_transaction_id=refund_id,
-            amount=-amount,  # negative to indicate outflow
-            currency=currency,
-            status="completed",
-            transaction_type="refund_processed",
-            description=f"Refund processed for payment {payment_id}",
-        ))
-        db.commit()
+        if refund_id:
+            db.add(Transaction(
+                company_id=inv.company_id,
+                paddle_transaction_id=refund_id,
+                amount=-amount,  # negative to indicate outflow
+                currency=currency,
+                status="completed",
+                transaction_type="refund_processed",
+                description=f"Refund processed for payment {payment_id}",
+            ))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            if not (refund_id and db.query(Transaction).filter(Transaction.paddle_transaction_id == refund_id).first()):
+                raise
         logger.info("refund.processed: refund_id=%s payment_id=%s amount=%s",
                     refund_id, payment_id, amount)
         return {"status": "refunded", "refund_id": refund_id, "payment_id": payment_id}

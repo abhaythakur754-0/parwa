@@ -113,7 +113,6 @@ export default function AgentSetupPage() {
   const handleCreateAll = async () => {
     for (let i = 0; i < suggestions.length; i++) {
       if (!createdIdxs.has(i)) {
-        // eslint-disable-next-line no-await-in-loop
         await handleCreateOne(i);
       }
     }

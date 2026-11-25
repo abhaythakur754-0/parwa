@@ -30,66 +30,37 @@ MAX_COMPANY_ID_LENGTH = 128
 
 # Import JWT verification lazily to avoid circular imports.
 def _extract_company_id_from_jwt(request: Request) -> str | None:
-    """Extract company_id from JWT Authorization header.
+    """Extract tenant identity only from an algorithm-pinned verified JWT.
 
-    This is a fallback for when the APIKeyAuthMiddleware has not
-    already set request.state.company_id (i.e., JWT auth path).
-
-    Security (BC-011): Only reads the JWT; does NOT validate
-    revocation — that is the route-level dependency's job.
-    The middleware only needs company_id for tenant scoping.
-
-    Returns:
-        company_id string or None if not found/invalid.
+    Tenant middleware is not the final route authorization check, but it must
+    never accept a tenant claim from a token signed with a different algorithm
+    or a development/legacy fallback secret.
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
 
-    token = auth_header[7:]
-    # Skip API-key tokens — those are handled by APIKeyAuthMiddleware
+    token = auth_header[7:].strip()
+    # Skip API-key tokens — those are handled by APIKeyAuthMiddleware.
     if token.startswith("parwa_live_") or token.startswith("parwa_test_"):
         return None
 
     try:
-        from app.core.parwa_core_bridge import parwa_verify_access_token
-        from app.config import get_settings
-        settings = get_settings()
-        payload = parwa_verify_access_token(token, settings.JWT_SECRET_KEY)
-        return payload.get("company_id")
-    except Exception as exc:
-        # 2026-09-26: NEVER silent again. Live testing showed intermittent
-        # 403 "Tenant identification required" right after re-login; the
-        # bare `except: return None` made the cause invisible in Render
-        # logs. Log the failure class (never the token itself).
-        logger.warning(
-            "tenant_jwt_verify_failed err=%s tok_prefix=%s...",
-            type(exc).__name__,
-            token[:12],
-        )
-        # Claim-only recovery with small leeway. The middleware does NOT
-        # authenticate (route-level deps do that strictly) — it only needs
-        # the tenant claim for scoping. jose's default zero leeway rejects
-        # tokens whose nbf/iat sits a few seconds in the future (clock skew
-        # between the issuing and verifying code path) → spurious 403s.
-        try:
-            from jose import jwt as _jose_jwt
-            from app.config import get_settings as _gs
-            claims = _jose_jwt.decode(
-                token,
-                _gs().JWT_SECRET_KEY,
-                algorithms=["HS256"],
-                leeway=10,
-                options={"verify_exp": True, "verify_nbf": True},
-            )
-            cid = claims.get("company_id")
-            if cid:
-                logger.warning("tenant_jwt_claim_recovered_with_leeway")
-                return cid
-        except Exception:
-            pass
-        return None
+        from app.core.jwt_auth import verify_access_token
 
+        payload = verify_access_token(token)
+        company_id = payload.get("company_id")
+        if not isinstance(company_id, str) or not company_id.strip():
+            return None
+        return company_id
+    except Exception as exc:
+        # Do not attempt claim-only recovery or an HS256 downgrade. A token
+        # that fails the configured verifier must never establish tenant scope.
+        logger.warning(
+            "tenant_jwt_verification_failed error_type=%s",
+            type(exc).__name__,
+        )
+        return None
 
 class TenantMiddleware(BaseHTTPMiddleware):
     """Middleware that extracts and validates company_id from JWT."""
@@ -157,13 +128,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Skip tenant check for public/health/auth endpoints
         if path in self.PUBLIC_PATHS:
             return await call_next(request)
-        # The DB-backed onboarding router handles sensitive session, email,
-        # and payment state, so it must pass tenant middleware even though the
-        # legacy /api/jarvis sales endpoints remain public.
-        if not path.startswith("/api/jarvis/onboarding"):
-            for prefix in self.PUBLIC_PREFIXES:
-                if path.startswith(prefix):
-                    return await call_next(request)
+        for prefix in self.PUBLIC_PREFIXES:
+            if path.startswith(prefix):
+                return await call_next(request)
 
         # Extract company_id from request state.
         # APIKeyAuthMiddleware may have already set this.

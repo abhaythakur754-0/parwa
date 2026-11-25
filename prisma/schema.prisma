@@ -203,6 +203,8 @@ model Subscription {
   startDate       DateTime  @default(now()) @map("start_date")
   endDate         DateTime? @map("end_date")
   trialEndsAt     DateTime? @map("trial_ends_at")
+  // Provider order ID is globally unique and makes payment verification idempotent.
+  razorpayOrderId String?   @unique @map("razorpay_order_id")
   kbIncluded      Boolean   @default(true) @map("kb_included")
   maxDocuments    Int       @default(100) @map("max_documents")
   currentPeriodStart DateTime @default(now()) @map("current_period_start")

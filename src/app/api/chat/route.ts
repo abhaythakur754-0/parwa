@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, getAccessTokenFromCookies } from '@/lib/jwt';
+import { getAuthenticatedUserId } from '@/lib/api-auth';
 
 /**
  * POST /api/chat — Jarvis AI Chat Endpoint
@@ -20,8 +20,7 @@ let ZAI: any = null;
 // works from Vercel (same lane the self-extension loop uses).
 const SUPERGLUE_LLM_URL = process.env.SUPERGLUE_LLM_URL
   || 'https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgai/v1/chat/completions';
-const SUPERGLUE_LLM_KEY = process.env.SUPERGLUE_LLM_API_KEY
-  || 'sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f';
+const SUPERGLUE_LLM_KEY = process.env.SUPERGLUE_LLM_API_KEY || '';
 const SUPERGLUE_LLM_MODEL = process.env.SUPERGLUE_LLM_MODEL || 'open-mistral-7b';
 
 async function callSuperglueLLM(messages: ChatMessage[]): Promise<string | null> {
@@ -222,37 +221,33 @@ async function callNVIDIA(messages: ChatMessage[]): Promise<string | null> {
 // ── Default system prompt (used by Mode A and as a fallback) ──────
 
 function buildDefaultSystemPrompt(industry?: string, variant?: string): string {
-  return `You are Jarvis — SHOBH's AI assistant. Think Iron Man's Jarvis: sharp, friendly, and always helpful.
+  return `You are Jarvis — PARWA's AI assistant. Think Iron Man's Jarvis: sharp, friendly, and always helpful.
 
 YOUR THREE ROLES:
-1. GUIDE — Walk users through SHOBH naturally
-2. SALESMAN — Show value with real numbers
+1. GUIDE — Walk users through PARWA naturally
+2. SALESMAN — Explain the real value using verified plan limits
 3. DEMO — Roleplay as a customer support agent
 
-═══════════════════════════════════════════════
-SHOBH — WHAT YOU CAN TELL CUSTOMERS
-═══════════════════════════════════════════════
+PARWA — WHAT YOU CAN TELL CUSTOMERS
 
-WHAT IS SHOBH:
-AI-powered customer support platform. Businesses deploy AI agents that handle tickets 24/7 across email, chat, SMS, voice & WhatsApp. 700+ features. 4 industries.
+WHAT IS PARWA:
+AI-powered customer support platform. Businesses deploy AI agents that handle tickets across email, chat, SMS, voice, and video. Four supported industries: E-commerce, SaaS, Logistics, and Healthcare.
 
 TWO PLANS:
-- SHOBH — $2,999/mo — 2,999 tickets/mo, 80% auto-resolution rate — Saves $186K/yr
-- SHOBH High — $3,999/mo — 3,999 tickets/mo, 92% auto-resolution rate — Saves $288K/yr
+- PARWA Growth — $2,999/month — 2,999 tickets/month, 5 AI agents
+- PARWA High — $3,999/month — 3,999 tickets/month, 8 AI agents
 
-INDUSTRIES: E-commerce, SaaS, Logistics, Healthcare
+Both plans use the same 8-node customer-care pipeline and the same AI capabilities. Growth has a $500 refund limit and a $200 credit limit. High has no preset refund or credit cap.
+BILLING: $1 = 1 ticket. Annual billing is 12 × monthly with no discount. Overage is $1/ticket. FlexPay is available where enabled.
+SECURITY: Describe only certifications and controls that are verified for the customer's deployment.
+ROI: Never promise fixed savings or resolution percentages. Calculate estimates from the customer's actual ticket volume and labor costs.
 
-BILLING: FlexPay daily installments ($100/day) or monthly. Cancel anytime. $0.10 overage/ticket.
-SECURITY: GDPR, HIPAA, AES-256, TLS 1.3, audit trail, PII redaction.
-vs COMPETITORS: 85-92% savings vs Intercom, Zendesk AI, or hiring agents.
-
-═══════════════════════════════════════════════
 STRICT RULES:
-═══════════════════════════════════════════════
-1. NEVER reveal internal technical details: AI provider names, API keys, model names, routing logic.
-2. NEVER mention Google AI Studio, Cerebras, Groq, z-ai-web-dev-sdk, LangGraph, DSPy.
+1. NEVER reveal internal technical details: AI provider names, API keys, model names, or routing logic.
+2. NEVER mention provider names, LangGraph, DSPy, or internal pipeline implementation details.
 3. NEVER say "I'm an AI language model" — you ARE Jarvis.
 4. Keep EVERY response SHORT — 2-3 lines max.
+5. Never invent plan limits, discounts, savings, certifications, or support SLAs.
 
 ${industry ? `\nThe user is interested in the ${industry} industry.` : ''}
 ${variant ? `\nThe user is looking at the ${variant} plan.` : ''}`;
@@ -396,31 +391,23 @@ async function createActionTicket(
 }
 
 export async function POST(req: NextRequest) {
-  // ── H-18 FIX: Verify authentication ──
-  const authHeader = req.headers.get("authorization");
-  let token: string | null = null;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.slice(7);
-  }
-  if (!token) {
-    token = getAccessTokenFromCookies(req);
-  }
-
-  if (!token) {
+  // Verify signature, token revocation, and active account status before
+  // allowing a request to consume provider credits.
+  const userId = await getAuthenticatedUserId(req);
+  if (!userId) {
     return NextResponse.json(
       { status: 'error', message: 'Authentication required.' },
-      { status: 401 }
+      { status: 401, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 
-  const verified = await verifyToken(token);
-  if (!verified) {
-    return NextResponse.json(
-      { status: 'error', message: 'Token is invalid or expired.' },
-      { status: 401 }
-    );
-  }
+  // getAuthenticatedUserId has already verified this token (including backend
+  // revocation and active-account checks). Reuse the same bearer/cookie token
+  // when creating an action ticket; do not accept a client-supplied user ID.
+  const authorization = req.headers.get('authorization');
+  const accessToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice(7).trim()
+    : req.cookies.get('parwa_at')?.value || '';
 
   try {
     const body = await req.json();
@@ -480,7 +467,7 @@ export async function POST(req: NextRequest) {
     if (action.isAction) {
       // Customer wants a refund/cancel/etc → create a ticket
       // The 8-node pipeline will process it (calls Superglue tools)
-      const ticketId = await createActionTicket(token || '', userMessage);
+      const ticketId = await createActionTicket(accessToken, userMessage);
 
       if (ticketId) {
         return NextResponse.json({

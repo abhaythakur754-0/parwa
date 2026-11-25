@@ -2,16 +2,16 @@
 Variant Limit Service (F-021, F-024, BC-001, BC-002, BC-007)
 
 Handles subscription variant limit enforcement:
-- Get variant limits (Parwa / High; legacy Mini aliases upgrade to Parwa)
+- Get variant limits (parwa / high)
 - Check ticket, team member, AI agent, voice slot, and KB doc limits
 - Enforce limits by blocking operations when exceeded
 - Provide current usage counts against plan limits
 
-Locked Variant Limits:
-  | Variant | Tickets | AI Agents | Team | Voice | KB Docs | Price     |
-  |---------|---------|-----------|------|-------|---------|-----------|
-  | Parwa   | 2,499   | 3         | 10   | 2     | 500     | $2,499.00 |
-  | High    | 3,999   | ∞         | 25   | 5     | 2,000   | $3,999.00 |
+Locked Variant Limits (source: app.core.pricing_config):
+  | Variant     | Tickets | AI Agents | Team | Voice | KB Docs | Price    |
+  |-------------|---------|-----------|------|-------|---------|----------|
+  | PARWA Growth| 2,999   | 5         | 10   | 2     | 500     | $2,999.00|
+  | PARWA High  | 3,999   | 8         | 25   | 5     | 2,000   | $3,999.00|
 
 BC-001: All methods validate company_id
 BC-002: All money calculations use Decimal
@@ -183,7 +183,7 @@ class VariantLimitService:
     def _get_company_variant(self, db: Session, company_id: str) -> str:
         """Look up the subscription tier for a company.
 
-        Falls back to ``"starter"`` when the company has no active
+        Falls back to PARWA Growth when the company has no active
         subscription (new / trial accounts).
         """
         subscription = (
@@ -196,12 +196,26 @@ class VariantLimitService:
             .first()
         )
         if subscription and subscription.tier:
-            return subscription.tier.lower().strip()
+            try:
+                return _normalize_variant(subscription.tier.lower().strip())
+            except ValueError:
+                logger.warning(
+                    "unknown_subscription_variant_defaulted company_id=%s",
+                    company_id,
+                )
+                return "parwa"
 
         # Also check Company.subscription_tier field
         company = db.query(Company).filter(Company.id == company_id).first()
         if company and getattr(company, "subscription_tier", None):
-            return company.subscription_tier.lower().strip()
+            try:
+                return _normalize_variant(company.subscription_tier.lower().strip())
+            except ValueError:
+                logger.warning(
+                    "unknown_company_variant_defaulted company_id=%s",
+                    company_id,
+                )
+                return "parwa"
 
         logger.info(
             "variant_limit_default_parwa company_id=%s reason=no_subscription",
@@ -218,11 +232,12 @@ class VariantLimitService:
         Fallback: direct query of the ``VariantLimit`` DB table, then
         hardcoded defaults.
         """
-        # Normalize legacy Mini aliases to the active Parwa tier.
+        # Legacy names normalize to PARWA Growth; unknown values use the safe
+        # canonical default rather than querying arbitrary DB rows.
         try:
             variant_key = _normalize_variant(variant.lower().strip())
         except ValueError:
-            variant_key = variant.lower().strip()
+            variant_key = "parwa"
 
         # Primary — billing_extended helper
         limits = get_variant_limits(variant_key)
@@ -257,7 +272,7 @@ class VariantLimitService:
                     "team_members": row.team_members,
                     "voice_slots": row.voice_slots,
                     "kb_docs": row.kb_docs,
-                    "price": str(row.price) if row.price else "0",
+                    "price": str(row.price_monthly) if row.price_monthly else "0",
                 }
                 logger.info(
                     "variant_limits_loaded variant=%s source=db_table",

@@ -17,7 +17,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
 from sqlalchemy.orm import Session
 
 from app.tasks.celery_app import app as celery_app
@@ -115,11 +114,22 @@ def dispatch_outbound_webhook(
                 "X-Parwa-Delivery": str(uuid.uuid4()),
             }
 
-            with httpx.Client(timeout=10.0) as client:
-                resp = client.post(webhook.url, content=payload_str, headers=headers)
+            # Re-resolve and validate immediately before every delivery. Do not
+            # follow redirects: a public URL must not redirect to a private host.
+            from app.security.outbound_url import (
+                post_public_https_url,
+                validate_public_https_url,
+            )
+            safe_url = validate_public_https_url(webhook.url)
+            status_code, _response_body = post_public_https_url(
+                safe_url,
+                payload_str,
+                headers,
+                timeout=10.0,
+            )
 
-            if 200 <= resp.status_code < 300:
-                dispatched.append({"webhook_id": webhook.id, "status_code": resp.status_code})
+            if 200 <= status_code < 300:
+                dispatched.append({"webhook_id": webhook.id, "status_code": status_code})
                 # Reset failure count on success
                 with get_db_context() as db:
                     db_wh = db.query(OutboundWebhook).filter(OutboundWebhook.id == webhook.id).first()
@@ -129,8 +139,8 @@ def dispatch_outbound_webhook(
                         db_wh.last_error = None
                         db.commit()
             else:
-                failed.append({"webhook_id": webhook.id, "status_code": resp.status_code})
-                _record_failure(webhook.id, f"Endpoint returned {resp.status_code}")
+                failed.append({"webhook_id": webhook.id, "status_code": status_code})
+                _record_failure(webhook.id, f"Endpoint returned {status_code}")
 
         except Exception as e:
             failed.append({"webhook_id": webhook.id, "error": str(e)[:200]})

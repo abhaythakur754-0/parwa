@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAuth } from "@/lib/auth";
 
 /**
  * SHOBH — Next.js Middleware (SIMPLIFIED)
@@ -33,30 +34,17 @@ const PUBLIC_PATHS = [
   // API routes that must work without auth
   "/api/auth",
   "/api/health",
+  "/api/billing/razorpay/pricing",
+  "/api/billing/razorpay/webhook",
   "/api/demo",
-  "/api/v1",
-  "/api/billing",
   "/api/jarvis",
-  "/api/chat",
   "/api/book-demo",
-  "/api/onboarding",
-  "/api/user",
-  "/api/integrations",
   "/api/public",
   "/api/pricing",
-  "/api/send-email",
-  "/api/send-sms",
-  "/api/verification",
   "/api/forgot-password",
   "/api/channel-status",
-  "/api/ticket-solve",
-  "/api/analytics",
   "/api/voice",
-  "/api/kb",
-  "/api/mfa",
-  "/api/ai",
-  "/api/admin",
-  "/api/razorpay",
+  "/api/mfa", // MFA login/verification uses a short-lived challenge token before access-token issuance
   // Test page (still requires backend auth via cookie, but page itself is public)
   "/test-razorpay",
   // Static assets
@@ -83,49 +71,25 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/static/") ||
-    pathname.includes(".")
+    (pathname.includes(".") && !pathname.startsWith("/api/"))
   ) {
     return NextResponse.next();
   }
 
-  // Extract token from cookie
-  let token: string | null = null;
-  const cookieHeader = request.headers.get("cookie");
-  if (cookieHeader) {
-    const cookies = Object.fromEntries(
-      cookieHeader.split(";").map((c) => {
-        const [key, ...val] = c.trim().split("=");
-        return [key, val.join("=")];
-      })
-    );
-    token = cookies["parwa_at"] || null;
-  }
-
-  // Also check Authorization header
-  if (!token) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice(7);
-    }
-  }
-
-  if (!token) {
-    // For API routes, return 401
+  // Verify the access token cryptographically; token presence alone is not auth.
+  const user = await verifyAuth(request);
+  if (!user || typeof user.sub !== "string" || !user.sub) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { status: "error", message: "Authentication required." },
         { status: 401 }
       );
     }
-    // For page routes, redirect to login
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Token exists — let it through. The backend will verify the token
-  // on actual API calls. This avoids JWT verification issues in middleware
-  // (secret key mismatch, algorithm differences, etc.)
   return NextResponse.next();
 }
 
