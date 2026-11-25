@@ -52,11 +52,6 @@ from database.models.core import User
 
 router = APIRouter(prefix="/api/onboarding", tags=["Onboarding"])
 
-def _variant_instance_name(canonical_variant: str) -> str:
-    """Return a display name for the canonical subscription variant."""
-    return "High Parwa" if canonical_variant == "high" else "Parwa"
-
-
 
 # ── Get Onboarding State ───────────────────────────────────────────
 
@@ -150,6 +145,7 @@ def api_industry_variant(
             from database.models.core import Company
             from database.models.variant_engine import VariantInstance
             from app.core.pricing_config import normalize_variant_name, VariantType
+            from app.core.variant_tier_mapper import variant_instance_name
 
             company = db.query(Company).filter(Company.id == user.company_id).first()
             if company:
@@ -191,7 +187,7 @@ def api_industry_variant(
                 if not existing_instance:
                     new_instance = VariantInstance(
                         company_id=str(user.company_id),
-                        instance_name=_variant_instance_name(canonical_variant),
+                        instance_name=variant_instance_name(canonical_variant),
                         variant_type=canonical_variant,
                         status="active",
                         channel_assignment='["chat"]',
