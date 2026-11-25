@@ -86,6 +86,22 @@ def upgrade() -> None:
             )
 
     if bind.dialect.name == "postgresql":
+        refreshed = sa.inspect(bind)
+        foreign_keys = refreshed.get_foreign_keys("ticket_tool_executions")
+        if not any(
+            fk.get("constrained_columns") == ["company_id"]
+            and fk.get("referred_table") == "companies"
+            for fk in foreign_keys
+        ):
+            op.create_foreign_key(
+                "fk_ticket_tool_executions_company_id_companies",
+                "ticket_tool_executions",
+                "companies",
+                ["company_id"],
+                ["id"],
+                ondelete="CASCADE",
+            )
+
         # Backfill tenant ownership from the namespaced tool ID where possible.
         op.execute(
             """
@@ -95,18 +111,21 @@ def upgrade() -> None:
               AND tool_id LIKE 'tenant_%__%'
             """
         )
-        op.create_index(
-            "ix_ticket_tool_executions_company_id",
-            "ticket_tool_executions",
-            ["company_id"],
-            if_not_exists=True,
-        )
-        op.create_index(
-            "ix_ticket_tool_executions_ticket_id",
-            "ticket_tool_executions",
-            ["ticket_id"],
-            if_not_exists=True,
-        )
+        existing_indexes = {
+            index.get("name") for index in sa.inspect(bind).get_indexes("ticket_tool_executions")
+        }
+        if "ix_ticket_tool_executions_company_id" not in existing_indexes:
+            op.create_index(
+                "ix_ticket_tool_executions_company_id",
+                "ticket_tool_executions",
+                ["company_id"],
+            )
+        if "ix_ticket_tool_executions_ticket_id" not in existing_indexes:
+            op.create_index(
+                "ix_ticket_tool_executions_ticket_id",
+                "ticket_tool_executions",
+                ["ticket_id"],
+            )
         op.execute("ALTER TABLE ticket_tool_executions ENABLE ROW LEVEL SECURITY")
         op.execute(
             """
