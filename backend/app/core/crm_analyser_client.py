@@ -28,9 +28,9 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("parwa.crm_analyser_client")
 
-# Hardcoded URL — the CRM Analyser service (no env var needed).
-# Uses NVIDIA llama-3.1-8b-instruct for deep analysis (25-30 LLM calls).
-# Render does NOT use its own LLM — just calls this API.
+# Configure CRM_ANALYSER_URL per environment. Never default to a preview service.
+# The external analyser performs deep analysis; PARWA only sends a bounded
+# tenant ticket snapshot over HTTPS.
 DEFAULT_CRM_ANALYSER_URL = ""  # Never send customer tickets to a preview endpoint by default.
 
 
