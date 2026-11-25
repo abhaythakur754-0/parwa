@@ -405,7 +405,7 @@ async def create_system(
             name=req.name,
             db_type=req.db_type or "postgresql",
             db_host=req.db_host,
-            db_port=req.db_port or 5432,
+            db_port=db_port,
             db_name=req.db_name,
             db_username=req.db_username,
             db_password=req.db_password,
