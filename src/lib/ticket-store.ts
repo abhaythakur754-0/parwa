@@ -714,7 +714,8 @@ export const useTicketStore = create<TicketState>((set, get) => ({
    * These are: open/in_progress + not skipped + not stopped + KB matched OR simple categories.
    */
   getAutoSolvableTickets: () => {
-    const { tickets } = get();
+    const { tickets, agentStopped } = get();
+    if (agentStopped) return [];
     return tickets.filter((t) => {
       if (t.skipped || t.agent_stopped) return false;
       if (t.status === 'resolved' || t.status === 'closed') return false;
