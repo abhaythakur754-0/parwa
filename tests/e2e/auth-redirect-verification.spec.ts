@@ -319,7 +319,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
 
     // The protected dashboard can take time to hydrate after the signed-cookie
     // redirect. Assert the actual destination UI instead of sampling the URL.
-    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Tickets' }).first()).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -352,7 +352,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     });
 
     await page.goto(`${BASE_URL}/login`);
-    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Tickets' }).first()).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -383,7 +383,7 @@ test.describe('Auth Redirect Rule: dashboard ONLY if user has a variant subscrip
     });
 
     await page.goto(`${BASE_URL}/signup`);
-    await expect(page.getByRole('heading', { name: 'Tickets' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Tickets' }).first()).toBeVisible({
       timeout: 15_000,
     });
   });
