@@ -448,22 +448,15 @@ async def verify_system(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> VerifyResponse:
-    """Verify a system is connected + MCPConnection is registered.
+    """Check Superglue registration AND previously verified provider access.
 
-    Checks:
-    1. System exists in Superglue (GET /v1/systems/{id} returns 200)
-    2. If CRM: MCPConnection record exists in PARWA DB
-
-    Used by onboarding Step 2 "Connect & Verify" button to confirm the
-    CRM is actually reachable before triggering the CRM Analyser.
+    A Superglue system record alone is not proof that provider credentials work.
+    The /test endpoint performs the real provider/database check and marks the
+    local Integration/DBConnection record verified.
     """
     tenant_id = str(user.company_id)
-
-    # 1. Check Superglue
     sg_result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
-    superglue_ok = sg_result.get("success", False)
-
-    if not superglue_ok:
+    if not sg_result.get("success"):
         return VerifyResponse(
             verified=False,
             superglue_ok=False,
@@ -471,42 +464,72 @@ async def verify_system(
             system_id=system_id,
             name="",
             url="",
-            message=f"Superglue verification failed: {sg_result.get('error', 'system not found')}",
+            message=f"System not found in Superglue: {sg_result.get('error', 'unknown')}",
         )
 
     data = sg_result.get("data", {})
     name = data.get("name", system_id)
     url = data.get("url", "")
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
 
-    # 2. Check MCPConnection (only for CRM systems)
+    if system_id in DATABASE_SYSTEM_IDS:
+        db_conn = db.query(DBConnection).filter(
+            DBConnection.company_id == tenant_id,
+            DBConnection.name == (integration.name if integration else ""),
+        ).first()
+        provider_verified = bool(db_conn and db_conn.status == "verified" and db_conn.schema_analysis)
+    else:
+        provider_verified = bool(
+            integration and integration.status in ("active", "verified")
+        )
+
     is_crm = system_id in CRM_SYSTEM_IDS
     mcp_registered = False
-    if is_crm:
+    if is_crm and provider_verified:
         mcp = db.query(MCPConnection).filter(
             MCPConnection.company_id == tenant_id,
             MCPConnection.name.like(f"%({system_id})"),
         ).first()
-        mcp_registered = mcp is not None
-        if not mcp_registered:
-            # Auto-create the MCPConnection if missing (self-healing)
+        if not mcp:
+            credentials = IntegrationService._parse_json(
+                integration.credentials_encrypted if integration else None
+            ) or {}
+            auth_token = (
+                credentials.get("api_key")
+                or credentials.get("access_token")
+                or credentials.get("token")
+            )
             _upsert_mcp_connection(
                 db=db,
                 company_id=tenant_id,
                 name=name,
                 server_url=url,
-                auth_token=None,
+                auth_token=auth_token,
                 system_id=system_id,
             )
-            mcp_registered = True
+            mcp = db.query(MCPConnection).filter(
+                MCPConnection.company_id == tenant_id,
+                MCPConnection.name.like(f"%({system_id})"),
+            ).first()
+        mcp_registered = mcp is not None
 
+    verified = bool(provider_verified and (not is_crm or mcp_registered))
+    message = (
+        "Provider credentials and local connection records are verified."
+        if verified else
+        "System exists in Superglue, but provider credentials or database schema have not been verified. Run the connection test first."
+    )
     return VerifyResponse(
-        verified=True,
+        verified=verified,
         superglue_ok=True,
         mcp_registered=mcp_registered,
         system_id=system_id,
         name=name,
         url=url,
-        message="CRM verified — connected to Superglue" + (" + registered with MCP" if mcp_registered else ""),
+        message=message,
     )
 
 
@@ -969,8 +992,26 @@ async def _discover_db_schema_for_connection(
     if not config and db_conn.connection_string_encrypted:
         try:
             from shared.utils.token_encryption import decrypt_token
+            from urllib.parse import unquote, urlsplit
+
             decrypted = decrypt_token(db_conn.connection_string_encrypted)
-            config = json.loads(decrypted) if decrypted else {}
+            if decrypted:
+                try:
+                    parsed_config = json.loads(decrypted)
+                    config = parsed_config if isinstance(parsed_config, dict) else {}
+                except (json.JSONDecodeError, TypeError):
+                    # Backward compatibility for older rows that encrypted a
+                    # URI rather than the structured config used by new rows.
+                    parsed = urlsplit(decrypted)
+                    config = {
+                        "db_type": parsed.scheme or db_conn.db_type,
+                        "host": parsed.hostname or "",
+                        "port": parsed.port,
+                        "database": parsed.path.lstrip("/"),
+                        "username": unquote(parsed.username or ""),
+                        "password": unquote(parsed.password or ""),
+                        "readonly": True,
+                    }
         except Exception as exc:
             logger.warning("db_schema_config_decrypt_failed: %s", str(exc)[:160])
             config = {}
