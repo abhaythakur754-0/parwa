@@ -31,6 +31,36 @@ from app.core.superglue_client import (
 )
 
 
+class _QueueQuery:
+    def filter(self, *args, **kwargs):
+        return self
+
+    def delete(self):
+        return 0
+
+    def first(self):
+        return None
+
+
+class _QueueDB:
+    bind = None
+
+    def add(self, row):
+        self.row = row
+
+    def query(self, model):
+        return _QueueQuery()
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        pass
+
+
 # ── Config ──
 
 
@@ -39,8 +69,11 @@ def fake_superglue_credentials(monkeypatch):
     """Mock HTTP tests use synthetic credentials, never production secrets."""
     monkeypatch.setenv("SUPERGLUE_AUTH_TOKEN", "test-superglue-token")
     monkeypatch.setenv("SUPERGLUE_LLM_API_KEY", "test-superglue-llm-key")
+    monkeypatch.setenv("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
     from app.core import superglue_client
+    from database import base
     monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "test-tenant-key")
+    monkeypatch.setattr(base, "SessionLocal", lambda: _QueueDB())
 
 
 class TestGetConfig:
