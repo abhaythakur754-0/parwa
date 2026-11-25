@@ -19,22 +19,22 @@ depends_on = None
 
 def upgrade() -> None:
     # 1. Update the CHECK constraint for event_category to include new categories
-    op.drop_constraint("ck_jarvis_act_category", "jarvis_activity_events", type_="check")
-    op.create_check_constraint(
-        "ck_jarvis_act_category",
-        "jarvis_activity_events",
-        sa.column("event_category").in_(
-            [
-                "ui", "subscription", "payment", "refund", "channel_email",
-                "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
-                "config", "security", "integration", "cron", "agent",
-                "sla", "escalation", "quality", "training",
-                # New categories
-                "shadow_mode", "dashboard", "variant_ops", "knowledge_ops",
-                "onboarding", "notification", "approval_flow",
-            ]
-        ),
-    )
+    with op.batch_alter_table("jarvis_activity_events") as batch_op:
+        batch_op.drop_constraint("ck_jarvis_act_category", type_="check")
+        batch_op.create_check_constraint(
+            "ck_jarvis_act_category",
+            sa.column("event_category").in_(
+                [
+                    "ui", "subscription", "payment", "refund", "channel_email",
+                    "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
+                    "config", "security", "integration", "cron", "agent",
+                    "sla", "escalation", "quality", "training",
+                    # New categories
+                    "shadow_mode", "dashboard", "variant_ops", "knowledge_ops",
+                    "onboarding", "notification", "approval_flow",
+                ]
+            ),
+        )
 
     # 2. Add shadow_mode columns to awareness snapshots
     op.add_column(
@@ -130,16 +130,16 @@ def downgrade() -> None:
     op.drop_column("jarvis_awareness_snapshots", "shadow_mode_active")
 
     # Revert CHECK constraint
-    op.drop_constraint("ck_jarvis_act_category", "jarvis_activity_events", type_="check")
-    op.create_check_constraint(
-        "ck_jarvis_act_category",
-        "jarvis_activity_events",
-        sa.column("event_category").in_(
-            [
-                "ui", "subscription", "payment", "refund", "channel_email",
-                "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
-                "config", "security", "integration", "cron", "agent",
-                "sla", "escalation", "quality", "training",
-            ]
-        ),
-    )
+    with op.batch_alter_table("jarvis_activity_events") as batch_op:
+        batch_op.drop_constraint("ck_jarvis_act_category", type_="check")
+        batch_op.create_check_constraint(
+            "ck_jarvis_act_category",
+            sa.column("event_category").in_(
+                [
+                    "ui", "subscription", "payment", "refund", "channel_email",
+                    "channel_sms", "channel_voice", "channel_chat", "channel_webhook",
+                    "config", "security", "integration", "cron", "agent",
+                    "sla", "escalation", "quality", "training",
+                ]
+            ),
+        )
