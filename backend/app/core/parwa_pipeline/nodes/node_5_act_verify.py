@@ -929,13 +929,15 @@ If no tool matches, respond with:
                             # Step 4: Execute the tool via Superglue
                             # 2026-09: tenant-scoped on this path — the namespaced
                             # id must match how the tool was SAVED.
-                            result = await execute_tool(
-            tool_id,
-            tool_input,
-            tenant_id=tenant_id,
-            idempotency_key=scoped_key,
-            safety_level=safety.get("safety_level", "unknown"),
-        )
+                            result = await _execute_with_idempotency(
+                                tool_id,
+                                tool_input,
+                                f"{tenant_id}:{state.get('ticket_id', '')}:fallback:{tool_id}:{action}",
+                                str(state.get("ticket_id", "")),
+                                action,
+                                tenant_id,
+                                str(decision.get("description") or decision.get("reasoning") or ""),
+                            )
 
                             if result.get("success"):
                                 observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
@@ -2490,7 +2492,13 @@ async def _execute_with_idempotency(
 
     # The reservation is durable before the external request begins.
     try:
-        result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+        result = await execute_tool(
+            tool_id,
+            tool_input,
+            tenant_id=tenant_id,
+            idempotency_key=scoped_key,
+            safety_level=safety.get("safety_level", "unknown"),
+        )
         if not isinstance(result, dict):
             result = {"success": False, "error": "Superglue returned an invalid tool result"}
     except Exception as exc:
