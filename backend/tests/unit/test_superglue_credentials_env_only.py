@@ -67,3 +67,24 @@ def test_production_e2e_script_reads_builder_key_from_environment(monkeypatch):
 
     script = importlib.reload(production_e2e_test)
     assert script.BUILDER_KEY == ""
+
+
+
+def test_production_e2e_uses_explicit_authenticated_endpoints_and_mutation_opt_in(monkeypatch):
+    monkeypatch.setenv("BUILDER_API_URL", "https://builder.sandbox.example")
+    monkeypatch.setenv("BUILDER_API_KEY", "test-builder-key")
+    monkeypatch.setenv("CRM_ANALYSER_URL", "https://crm.sandbox.example")
+    monkeypatch.setenv("CRM_ANALYSER_API_KEY", "test-crm-key")
+    monkeypatch.setenv("PARWA_E2E_ALLOW_MUTATIONS", "true")
+
+    import production_e2e_test
+
+    script = importlib.reload(production_e2e_test)
+    assert script.BUILDER_URL == "https://builder.sandbox.example"
+    assert script.BUILDER_KEY == "test-builder-key"
+    assert script.CRM_URL == "https://crm.sandbox.example"
+    assert script.CRM_ANALYSER_API_KEY == "test-crm-key"
+    assert script.ALLOW_MUTATIONS is True
+    source = (_SCRIPTS_DIR / "production_e2e_test.py").read_text(encoding="utf-8")
+    assert "preview-chat-" not in source
+    assert 'headers={"Authorization": f"Bearer {CRM_ANALYSER_API_KEY}"}' in source
