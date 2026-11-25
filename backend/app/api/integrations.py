@@ -1413,6 +1413,14 @@ async def api_analyze_integrations(
             "name": display_name,
             "system_id": system_id,
             "category": category,
+            "db_type": {
+                "postgres": "postgresql",
+                "supabase-db": "postgresql",
+                "mysql": "mysql",
+                "mongodb": "mongodb",
+                "snowflake": "snowflake",
+                "bigquery": "bigquery",
+            }.get(system_id),
             "priority": item.get("priority", "high") if isinstance(item, dict) else "high",
             "reason": item.get("reason", "Recommended by CRM analysis") if isinstance(item, dict) else "Recommended by CRM analysis",
         })
