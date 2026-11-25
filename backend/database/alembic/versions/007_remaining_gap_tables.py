@@ -161,9 +161,8 @@ def upgrade() -> None:
         sa.Column('created_by', sa.String(36), sa.ForeignKey('users.id')),
         sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime, server_default=sa.func.now()),
+        sa.UniqueConstraint('company_id', 'flag_key', name='uq_feature_flags_company_key'),
     )
-
-    op.create_unique_constraint('uq_feature_flags_company_key', 'feature_flags', ['company_id', 'flag_key'])
 
     op.create_table(
         'classification_log',
