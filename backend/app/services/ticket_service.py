@@ -526,13 +526,15 @@ class TicketService:
             # Backend-owned lifecycle timestamps must be set here, not
             # fabricated by the browser. This keeps reports and SLA metrics
             # consistent across API clients and dashboard refreshes.
-            if status == TicketStatus.resolved.value and not ticket.resolved_at:
-                resolved_at = datetime.now(timezone.utc)
-                ticket.resolved_at = resolved_at
+            if status == TicketStatus.resolved.value and not ticket.closed_at:
+                # The ticket schema's mapped lifecycle timestamp is closed_at;
+                # the API exposes it as resolved_at for resolved tickets.
+                ticket.closed_at = datetime.now(timezone.utc)
             elif status == TicketStatus.closed.value:
                 ticket.closed_at = datetime.now(timezone.utc)
             elif status == TicketStatus.reopened.value:
                 ticket.reopen_count = (ticket.reopen_count or 0) + 1
+                ticket.closed_at = None
                 ticket.resolved_at = None
 
         if assigned_to is not None:
