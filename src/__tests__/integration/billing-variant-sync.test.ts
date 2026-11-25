@@ -102,9 +102,9 @@ describe('Integration: Billing + Variant Sync', () => {
     useVariantStore.getState().setTier('high');
 
     expect(useVariantStore.getState().isAtLimit('agents')).toBe(false);
-    expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(false);
     expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
-    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
   });
 
   it('enforces High knowledge and team-member capacity while allowing its configured API-key allowance', () => {
@@ -112,9 +112,9 @@ describe('Integration: Billing + Variant Sync', () => {
     useVariantStore.setState({
       usage: {
         agentsUsed: 50,
-        docsUsed: 2000,
+        docsUsed: 1999,
         apiKeysUsed: 500,
-        teamMembersUsed: 25,
+        teamMembersUsed: 24,
         ticketsThisMonth: 0,
         messagesThisMonth: 0,
       },
@@ -124,6 +124,19 @@ describe('Integration: Billing + Variant Sync', () => {
     expect(useVariantStore.getState().isAtLimit('apiKeys')).toBe(false);
     expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(false);
     expect(useVariantStore.getState().isAtLimit('agents')).toBe(true);
+
+    useVariantStore.setState({
+      usage: {
+        agentsUsed: 0,
+        docsUsed: 2000,
+        apiKeysUsed: 0,
+        teamMembersUsed: 25,
+        ticketsThisMonth: 0,
+        messagesThisMonth: 0,
+      },
+    });
+    expect(useVariantStore.getState().isAtLimit('docs')).toBe(true);
+    expect(useVariantStore.getState().isAtLimit('teamMembers')).toBe(true);
   });
 
   it('loads canonical Parwa pricing and renewal data from billing API', async () => {
