@@ -1343,11 +1343,33 @@ async def api_analyze_integrations(
             analysis_summary="CRM analyser not configured.",
         )
 
-    # Collect tickets + send to external analyser
+    # Load this tenant's connected systems BEFORE analysis so the external
+    # analyser can distinguish existing connections from missing capabilities.
+    from database.models.integration import Integration
+
+    connected_rows = []
+    try:
+        connected_rows = db.query(Integration).filter(
+            Integration.company_id == str(user.company_id),
+            Integration.status.in_(["active", "connected", "verified"]),
+        ).all()
+    except Exception as exc:
+        import logging
+        logging.getLogger("parwa.integrations").warning(
+            "Failed to load connected integrations for CRM analysis: %s",
+            str(exc)[:200],
+        )
+
+    connected_keys = sorted({
+        row.integration_type for row in connected_rows if row.integration_type
+    })
+
+    # Collect ticket history and include the real connected-system inventory.
     tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
     result = await analyze_crm_external(
         tickets=tickets,
         company_name=getattr(user, "company_name", "Unknown"),
+        connected_integrations=connected_keys,
     )
 
     # Build the response
@@ -1382,24 +1404,11 @@ async def api_analyze_integrations(
     else:
         analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
 
-    # Include the tenant's actually-connected integrations. Both flows write
-    # here: the Superglue flow upserts "connected", the manual flow "active".
-    connected_list: list = []
-    try:
-        from database.models.integration import Integration
-        connected_rows = db.query(Integration).filter(
-            Integration.company_id == str(user.company_id),
-            Integration.status.in_(["active", "connected", "verified"]),
-        ).all()
-        connected_list = [
-            {"type": r.integration_type, "name": r.name, "status": r.status}
-            for r in connected_rows
-        ]
-    except Exception as exc:
-        import logging
-        logging.getLogger("parwa.integrations").warning(
-            "Failed to load connected integrations: %s", str(exc)[:200]
-        )
+    # Include the same tenant-scoped inventory that was sent to the analyser.
+    connected_list = [
+        {"type": r.integration_type, "name": r.name, "status": r.status}
+        for r in connected_rows
+    ]
 
     data_profile = {"total_tickets": result.get("tickets_scanned", 0)}
 
