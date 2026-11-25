@@ -39,6 +39,21 @@ describe('Ticket Store Constants', () => {
     },
   );
 
+  it('restores persisted skip and knowledge controls from the backend', () => {
+    const ticket = normalizeBackendTicket({
+      id: 'ticket-controls', ticket_number: 'TKT-CONTROL',
+      subject: 'Persisted controls', description: 'Test',
+      category: 'billing_payments', priority: 'medium', status: 'open',
+      channel: 'email', customer_name: 'Test Customer',
+      customer_email: 'test@example.com', created_at: '2026-11-25T00:00:00Z',
+      updated_at: '2026-11-25T00:00:00Z',
+      skipped: true, kb_matched: true, kb_article_id: 'kb-article-1',
+    });
+    expect(ticket.skipped).toBe(true);
+    expect(ticket.kb_matched).toBe(true);
+    expect(ticket.kb_article_id).toBe('kb-article-1');
+  });
+
   it('has 4 priorities', () => {
     expect(ALL_PRIORITIES).toHaveLength(4);
     expect(ALL_PRIORITIES).toEqual(['low', 'medium', 'high', 'critical']);
