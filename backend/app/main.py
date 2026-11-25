@@ -246,15 +246,21 @@ async def lifespan(app: FastAPI):
                 logger.info("alembic_migrations_completed")
             else:
                 logger = get_logger("lifespan")
-                logger.warning(
+                logger.error(
                     "alembic_migrations_failed returncode=%s stdout=%s stderr=%s",
-                    result.returncode, result.stdout[:500] if result.stdout else "", result.stderr[:500] if result.stderr else "")
+                    result.returncode,
+                    result.stdout[:500] if result.stdout else "",
+                    result.stderr[:500] if result.stderr else "",
+                )
+                raise RuntimeError("Database migrations failed; refusing to start")
         else:
             logger = get_logger("lifespan")
-            logger.warning("alembic_skipped_database_dir_not_found")
+            logger.error("alembic_database_dir_not_found")
+            raise RuntimeError("Database migration directory not found; refusing to start")
     except Exception as exc:
         logger = get_logger("lifespan")
-        logger.warning("alembic_migrations_error: %s", str(exc))
+        logger.exception("alembic_migrations_error: %s", str(exc))
+        raise RuntimeError("Database migrations failed; refusing to start") from exc
 
     # ── Direct SQL fallback for trial columns ──
     # If alembic failed to run migration 032 (e.g., due to PATH issues
