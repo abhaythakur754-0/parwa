@@ -130,6 +130,20 @@ def main() -> int:
     check("generic integration row inserted", bool(company_id),
           f"company={company_id[:8]}")
 
+    print("── 2b. verify persisted workspace AI pause controls ──")
+    s, pause = call("GET", "/api/v1/tickets/agents/pause", token=token)
+    check("workspace pause defaults to false", s == 200 and pause.get("is_paused") is False,
+          f"http={s} {str(pause)[:120]}")
+    s, pause = call("POST", "/api/v1/tickets/agents/pause", {}, token)
+    check("workspace pause accepted", s == 200 and pause.get("is_paused") is True,
+          f"http={s} {str(pause)[:120]}")
+    s, pause = call("GET", "/api/v1/tickets/agents/pause", token=token)
+    check("workspace pause persisted", s == 200 and pause.get("is_paused") is True,
+          f"http={s} {str(pause)[:120]}")
+    s, pause = call("DELETE", "/api/v1/tickets/agents/pause", token=token)
+    check("workspace resume accepted", s == 200 and pause.get("is_paused") is False,
+          f"http={s} {str(pause)[:120]}")
+
     print("── 3. create ticket (real API, real dispatch) ──")
     s, t = call("POST", "/api/v1/tickets", {
         "subject": "[E2E] Refund stuck — escalate to CRM",
