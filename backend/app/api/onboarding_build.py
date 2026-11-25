@@ -43,6 +43,10 @@ router = APIRouter(prefix="/api/onboarding-build", tags=["onboarding-build"])
 # integrations yet means the analyser has nothing to learn from. Without a
 # fallback, zero agents get built and /status can never report all_ready=True
 # — onboarding deadlocks at verify. This guarantees the build always runs.
+CRM_PROVIDER_IDS = {
+    "hubspot", "zendesk", "salesforce", "freshdesk", "zoho", "pipedrive",
+}
+
 STARTER_AGENT_PACK = {
     "Refund Specialist": ["refund_processing", "billing_inquiry"],
     "Order & Shipping Specialist": ["order_cancellation", "shipping_delivery", "product_information"],
@@ -140,6 +144,34 @@ async def trigger_build(
         Integration.company_id == tenant_id,
         Integration.status.in_(["verified", "active"]),
     ).all()
+
+    # These two platform agents are required infrastructure for a human-grade
+    # ticket lifecycle: customer-facing CRM replies and private escalations.
+    if any(item.integration_type in CRM_PROVIDER_IDS for item in connected_integrations):
+        existing_names = {
+            str(item.get("name") or item.get("agent_name") or "").strip().lower()
+            for item in recommendations if isinstance(item, dict)
+        }
+        mandatory_crm_agents = [
+            {
+                "name": "Ticket Reply Specialist",
+                "role": "Customer-facing CRM response",
+                "capabilities": ["ticket_reply"],
+                "priority": "critical",
+                "reason": "Required to post the resolved response back to the source CRM ticket",
+            },
+            {
+                "name": "Ticket Escalation Specialist",
+                "role": "Private CRM escalation and handoff",
+                "capabilities": ["ticket_escalation", "ticket_status_update"],
+                "priority": "high",
+                "reason": "Required to create private escalation notes and update ticket status",
+            },
+        ]
+        for mandatory_agent in mandatory_crm_agents:
+            if mandatory_agent["name"].lower() not in existing_names:
+                recommendations.append(mandatory_agent)
+
     tenant_integrations_ctx = {
         i.integration_type: {
             "name": i.name,
