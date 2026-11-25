@@ -90,6 +90,53 @@ class BuildStatusResponse(BaseModel):
     agents: List[AgentBuildStatus]
 
 
+def _validate_platform_tool_schema(agent_name: str, tool_definition: Any) -> Optional[str]:
+    """Require the critical input contract for CRM reply/escalation tools."""
+    if agent_name not in {"Ticket Reply Specialist", "Ticket Escalation Specialist"}:
+        return None
+    if isinstance(tool_definition, str):
+        try:
+            tool_definition = json.loads(tool_definition)
+        except (TypeError, ValueError):
+            return "Generated platform tool definition is not valid JSON"
+    if not isinstance(tool_definition, dict):
+        return "Generated platform tool has no structured definition"
+
+    schema = (
+        tool_definition.get("inputSchema")
+        or tool_definition.get("input_schema")
+        or tool_definition.get("parameters")
+    )
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return "Generated platform tool has no input schema"
+
+    def normalise(value: Any) -> str:
+        return "".join(char for char in str(value).lower() if char.isalnum())
+
+    properties = {normalise(key) for key in schema["properties"]}
+    required = {normalise(key) for key in schema.get("required", [])}
+    has_ticket_id = any("ticket" in key and "id" in key for key in properties)
+    has_required_ticket_id = any("ticket" in key and "id" in key for key in required)
+    if not has_ticket_id or not has_required_ticket_id:
+        return "Platform tool must require the original CRM ticket ID"
+
+    if agent_name == "Ticket Reply Specialist":
+        reply_words = ("response", "reply", "comment", "body", "message")
+        has_reply = any(any(word in key for word in reply_words) for key in properties)
+        has_required_reply = any(any(word in key for word in reply_words) for key in required)
+        if not has_reply or not has_required_reply:
+            return "Ticket reply tool must require a customer-facing response body"
+    else:
+        note_words = ("internalnote", "privatenote", "note", "comment")
+        has_note = any(any(word in key for word in note_words) for key in properties)
+        has_required_note = any(any(word in key for word in note_words) for key in required)
+        has_status = any("status" in key for key in properties)
+        has_required_status = any("status" in key for key in required)
+        if not has_note or not has_required_note or not has_status or not has_required_status:
+            return "Escalation tool must require a private note and escalation status"
+    return None
+
+
 # ── Trigger endpoint ──────────────────────────────────────────────────
 
 @router.post("/trigger", response_model=TriggerBuildResponse)
@@ -256,8 +303,14 @@ async def trigger_build(
         ).first()
 
         if existing and existing.superglue_tool_status == "active":
+            try:
+                existing_definition = json.loads(existing.superglue_tool_definition or "{}")
+            except (TypeError, ValueError):
+                existing_definition = {}
+            schema_error = _validate_platform_tool_schema(agent_name, existing_definition)
             existing_tool_ok = bool(
-                existing.superglue_tool_id
+                not schema_error
+                and existing.superglue_tool_id
                 and await superglue_client.verify_tool_exists(
                     existing.superglue_tool_id, tenant_id=tenant_id
                 )
@@ -336,6 +389,13 @@ async def trigger_build(
                         tenant_integrations=tenant_integrations_ctx,
                         tenant_id=tenant_id,
                     )
+
+            if result.get("success"):
+                schema_error = _validate_platform_tool_schema(
+                    agent_name, result.get("tool_definition")
+                )
+                if schema_error:
+                    result = {"success": False, "error": schema_error}
 
             if result.get("success"):
                 generated_tool_id = result.get("tool_id")
