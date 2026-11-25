@@ -1001,6 +1001,11 @@ def _build_tool_instruction(
         for integration_id, details in tenant_integrations.items():
             if not isinstance(details, dict):
                 continue
+            system_id = details.get("system_id") or integration_id
+            parts.append(
+                f"Connected system mapping: {integration_id} uses Superglue system_id={system_id} "
+                f"(status={details.get('status', 'unknown')})."
+            )
             schema = details.get("schema")
             if schema and details.get("schema_ready", True):
                 # Schema metadata is filtered to table/column names upstream;
@@ -1137,7 +1142,10 @@ async def _generate_tool_via_parwa_llm(
     # Build prompt for NVIDIA to generate tool JSON
     integ_text = ""
     if tenant_integrations:
-        integ_text = "\nConnected integrations: " + ", ".join(tenant_integrations.keys())
+        integ_text = "\nConnected integrations and Superglue system IDs: " + "; ".join(
+            f"{key}={value.get('system_id', key) if isinstance(value, dict) else key}"
+            for key, value in tenant_integrations.items()
+        )
 
     prompt = f"""You are designing a Superglue multi-step tool for an AI agent.
 
