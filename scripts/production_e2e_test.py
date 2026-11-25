@@ -56,7 +56,7 @@ except Exception:  # noqa: BLE001
     register_tool = None
 
 BUILDER_URL = "https://p11668uhxhd1-d.space-z.ai"
-BUILDER_KEY = "bld_16983ffb226ec89575dea48c5b6ee245cc56ebb649ae04b5"
+BUILDER_KEY = os.environ.get("BUILDER_API_KEY", "").strip()
 CRM_URL = "https://preview-chat-448c1694-61bf-48c8-bac4-d207abd37b73.space-z.ai"
 
 TENANT_A = "acme-payments-demo"   # payments business — preset tools
@@ -98,6 +98,8 @@ def phase0_health() -> bool:
         ok_all = False
     # Builder
     try:
+        if not BUILDER_KEY:
+            raise RuntimeError("BUILDER_API_KEY is required for the Builder integration test")
         st, body = http_json(f"{BUILDER_URL}/api/health", headers={"X-API-Key": BUILDER_KEY})
         llm_ok = body.get("llm_ready") is True
         print(f"  ✓ Builder Agent     — status={body.get('status')}, llm_ready={body.get('llm_ready')}")
@@ -261,6 +263,8 @@ def phase3_builder() -> bool:
         "capability": "warranty_and_order_support",
     }
     try:
+        if not BUILDER_KEY:
+            raise RuntimeError("BUILDER_API_KEY is required for the Builder integration test")
         st, resp = http_json(
             f"{BUILDER_URL}/api/build",
             method="POST",
