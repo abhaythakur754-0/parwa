@@ -763,6 +763,7 @@ async def update_ticket_status(
 class TicketControlUpdate(BaseModel):
     """Persist dashboard-only agent controls in existing ticket metadata."""
     skipped: Optional[bool] = None
+    agent_stopped: Optional[bool] = None
     kb_matched: Optional[bool] = None
     kb_article_id: Optional[str] = Field(default=None, max_length=255)
 
@@ -802,6 +803,7 @@ async def update_ticket_controls(
     return {
         "ticket_id": ticket.id,
         "skipped": bool(metadata.get("skipped", False)),
+        "agent_stopped": bool(metadata.get("agent_stopped", False)),
         "kb_matched": bool(metadata.get("kb_matched", False)),
         "kb_article_id": metadata.get("kb_article_id"),
     }
@@ -1146,6 +1148,7 @@ def _ticket_to_response(ticket: Any) -> TicketResponse:
         classification_type=ticket.classification_type,
         metadata_json=metadata_json,
         skipped=bool(metadata_json.get("skipped", False)),
+        agent_stopped=bool(metadata_json.get("agent_stopped", False)),
         kb_matched=bool(metadata_json.get("kb_matched", False)),
         kb_article_id=metadata_json.get("kb_article_id"),
         reopen_count=ticket.reopen_count or 0,
