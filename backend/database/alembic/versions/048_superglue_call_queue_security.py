@@ -27,6 +27,8 @@ def upgrade() -> None:
             ),
             sa.Column("tool_id", sa.String(length=255), nullable=False),
             sa.Column("input_data", sa.Text(), nullable=False),
+            sa.Column("idempotency_key", sa.String(length=512), nullable=True),
+            sa.Column("safety_level", sa.String(length=24), nullable=False, server_default="unknown"),
             sa.Column("ticket_id", sa.String(length=128), nullable=True),
             sa.Column("agent_id", sa.String(length=36), nullable=True),
             sa.Column("status", sa.String(length=20), nullable=False, server_default="pending"),
@@ -44,6 +46,16 @@ def upgrade() -> None:
             op.add_column(
                 "superglue_call_queue",
                 sa.Column("company_id", sa.String(length=36), nullable=True),
+            )
+        if "idempotency_key" not in columns:
+            op.add_column(
+                "superglue_call_queue",
+                sa.Column("idempotency_key", sa.String(length=512), nullable=True),
+            )
+        if "safety_level" not in columns:
+            op.add_column(
+                "superglue_call_queue",
+                sa.Column("safety_level", sa.String(length=24), nullable=False, server_default="unknown"),
             )
         if bind.dialect.name == "postgresql":
             if "tool_id" in columns:
@@ -86,6 +98,7 @@ def upgrade() -> None:
         ("ix_superglue_call_queue_company_id", "company_id"),
         ("ix_superglue_call_queue_ticket_id", "ticket_id"),
         ("ix_superglue_call_queue_status", "status"),
+        ("ix_superglue_call_queue_idempotency_key", "idempotency_key"),
     ):
         if name not in indexes:
             op.create_index(name, "superglue_call_queue", [column])
