@@ -40,11 +40,11 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_unique_constraint(
-        'uq_technique_config_company',
-        'technique_configurations',
-        ['company_id', 'technique_id'],
-    )
+    with op.batch_alter_table('technique_configurations') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_technique_config_company',
+            ['company_id', 'technique_id'],
+        )
 
     op.create_index(
         'ix_tech_config_company_tier',
@@ -131,11 +131,11 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime, server_default=sa.func.now()),
     )
 
-    op.create_unique_constraint(
-        'uq_technique_version',
-        'technique_versions',
-        ['company_id', 'technique_id', 'version'],
-    )
+    with op.batch_alter_table('technique_versions') as batch_op:
+        batch_op.create_unique_constraint(
+            'uq_technique_version',
+            ['company_id', 'technique_id', 'version'],
+        )
 
     op.create_index(
         'ix_tech_ver_company_tech',
