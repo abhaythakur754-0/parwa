@@ -8,6 +8,9 @@ const isProduction = process.env.NODE_ENV === "production";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/api/chat": ["./backend/app/data/jarvis_knowledge/*.json"],
+  },
   // FIX (live UI test 2026-10-29): stale links/bookmarks to bare paths
   // landed on 404 — the real pages live under /dashboard/*.
   async redirects() {
@@ -20,9 +23,7 @@ const nextConfig = {
       { source: "/tickets", destination: "/dashboard/tickets", permanent: false },
     ];
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // TypeScript errors must fail the production build.
   reactStrictMode: false,
   allowedDevOrigins: ['127.0.0.1', 'localhost', '*.space-z.ai', 'space-z.ai'],
   turbopack: {
