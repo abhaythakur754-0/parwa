@@ -566,6 +566,11 @@ def _delete_superglue_call_row(call_id: str, tenant_id: Optional[str] = None) ->
         logger.warning("superglue_call_delete_failed: %s", str(exc)[:200])
 
 
+def _can_safely_recover_tool_call(safety_level: Optional[str]) -> bool:
+    """Only retry operations whose replay cannot create external side effects."""
+    return safety_level in {"read", "sensitive_pii"}
+
+
 def _sync_ticket_tool_execution_status(
     db,
     company_id: Optional[str],
@@ -643,7 +648,8 @@ async def recover_stuck_superglue_calls() -> None:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
         import json as _json
-        from sqlalchemy import text as _sql_text
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import and_, or_, text as _sql_text
 
         from app.core.tenant_context import tenant_bypass
         with tenant_bypass(reason="Superglue queue recovery worker"):
@@ -663,17 +669,39 @@ async def recover_stuck_superglue_calls() -> None:
                         return  # Table doesn't exist yet — silent skip
                     raise  # Different error — re-raise
 
-                stuck_rows = _db.query(SuperglueCallQueue).filter(
-                    SuperglueCallQueue.status == "in_progress"
-                ).limit(5).all()  # cap at 5 per cycle
+                # Never replay a call that may still be executing in a live API
+                # worker. The normal HTTP + async-poll path completes within 3
+                # minutes; a 5-minute lease marks genuinely abandoned calls.
+                stale_before = datetime.now(timezone.utc) - timedelta(minutes=5)
+                recovery_query = _db.query(SuperglueCallQueue).filter(
+                    SuperglueCallQueue.status.in_(["in_progress", "recovering"]),
+                    or_(
+                        SuperglueCallQueue.updated_at < stale_before,
+                        and_(
+                            SuperglueCallQueue.updated_at.is_(None),
+                            SuperglueCallQueue.created_at < stale_before,
+                        ),
+                    ),
+                ).order_by(SuperglueCallQueue.created_at.asc()).limit(5)
+                if _db.bind and _db.bind.dialect.name == "postgresql":
+                    recovery_query = recovery_query.with_for_update(skip_locked=True)
+                stuck_rows = recovery_query.all()
 
                 if not stuck_rows:
                     return
 
+                # Claim the batch before any network calls. A second worker
+                # will see a fresh lease and cannot replay the same operation.
+                claimed_at = datetime.now(timezone.utc)
+                for row in stuck_rows:
+                    row.status = "recovering"
+                    row.updated_at = claimed_at
+                _db.commit()
+
                 # Table exists now — reset the warned flag
                 _superglue_queue_table_missing_warned = False
 
-                logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
+                logger.info("superglue_call_recovery: found %d stale calls", len(stuck_rows))
 
                 for row in stuck_rows:
                     if row.retry_count >= row.max_retries:
@@ -685,6 +713,23 @@ async def recover_stuck_superglue_calls() -> None:
                             )
                         row.status = "failed"
                         row.error_message = "max retries exceeded during recovery"
+                        row.completed_at = datetime.now(timezone.utc)
+                        _sync_ticket_tool_execution_status(
+                            _db, row.company_id, row.idempotency_key, "failed",
+                            row.error_message,
+                        )
+                        _db.commit()
+                        continue
+
+                    # A process may have died after the provider accepted a write
+                    # but before PARWA recorded the result. Replaying an ambiguous
+                    # write could double-refund or duplicate a CRM comment. Only
+                    # read-only calls are safe to replay automatically.
+                    if not _can_safely_recover_tool_call(row.safety_level):
+                        row.status = "failed"
+                        row.error_message = (
+                            "Interrupted write has an ambiguous outcome; manual reconciliation required"
+                        )
                         row.completed_at = datetime.now(timezone.utc)
                         _sync_ticket_tool_execution_status(
                             _db, row.company_id, row.idempotency_key, "failed",
@@ -758,13 +803,18 @@ async def recover_stuck_superglue_calls() -> None:
                                     _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
                                     {"tenant_id": str(row.company_id)},
                                 )
-                            row.status = "failed"
                             row.error_message = result.get("error", "unknown")[:500]
-                            row.completed_at = datetime.now(timezone.utc)
-                            _sync_ticket_tool_execution_status(
-                                _db, row.company_id, row.idempotency_key, "failed",
-                                row.error_message,
-                            )
+                            if (row.retry_count or 0) < (row.max_retries or 0):
+                                # Read-only calls may be retried again after a fresh lease.
+                                row.status = "in_progress"
+                                row.updated_at = datetime.now(timezone.utc)
+                            else:
+                                row.status = "failed"
+                                row.completed_at = datetime.now(timezone.utc)
+                                _sync_ticket_tool_execution_status(
+                                    _db, row.company_id, row.idempotency_key, "failed",
+                                    row.error_message,
+                                )
                             _db.commit()
                     except Exception as retry_exc:
                         logger.warning(
