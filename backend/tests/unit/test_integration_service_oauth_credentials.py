@@ -126,3 +126,12 @@ def test_skipping_validation_keeps_integration_pending(monkeypatch):
     assert "secret" not in db.added.credentials_encrypted
     assert db.execute_count == 0
     assert db.commit_count == 0
+
+
+
+def test_unverified_integration_does_not_trigger_escalation_auto_retry():
+    from pathlib import Path
+
+    backend_root = Path(__file__).resolve().parents[2]
+    source = (backend_root / "app/api/integrations.py").read_text(encoding="utf-8")
+    assert 'if integration.get("status") in {"active", "verified"}:' in source
