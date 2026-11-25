@@ -130,6 +130,9 @@ jobs:
           # Run Rust-core activation tests FIRST (fast, catches build regressions)
           python -m pytest ../tests/test_parwa_core_rust.py -v --tb=short --noconftest
 
+          # Keep retired-tier aliases and safe defaults aligned with the pricing contract.
+          python -m pytest ../tests/test_mini_removal.py -v --tb=short --noconftest
+
           # Run unit tests — DB-dependent tests are excluded (they need Docker services).
           # NO `|| true` — real failures now fail the build.
           python -m pytest tests/unit/ -v --tb=short -x \
