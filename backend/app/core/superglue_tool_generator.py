@@ -992,6 +992,26 @@ def _build_tool_instruction(
     if agent_instructions:
         parts.append(f"Agent context: {agent_instructions[:500]}")
 
+    capability_tokens = {
+        token.strip().lower()
+        for token in (agent_capabilities or "").replace(";", ",").split(",")
+        if token.strip()
+    }
+    if "ticket_reply" in capability_tokens:
+        parts.append(
+            "This is the dedicated customer-facing CRM reply tool. It MUST accept the source "
+            "ticket ID and the exact response body as required inputs, create a PUBLIC reply/comment "
+            "on that existing ticket, and return the created reply/comment ID plus resulting ticket status. "
+            "Do not create a new ticket, do not send an email separately, and do not mark a ticket resolved "
+            "unless the caller explicitly supplies that status."
+        )
+    if "ticket_escalation" in capability_tokens or "ticket_status_update" in capability_tokens:
+        parts.append(
+            "This is the private CRM escalation tool. It MUST accept the source ticket ID and an internal "
+            "note as required inputs, add the note as PRIVATE/INTERNAL (never public), and update the ticket "
+            "to the supplied escalation status. Return the note ID and resulting ticket status."
+        )
+
     if sample_ticket:
         parts.append(f"Sample ticket this agent needs to handle: {sample_ticket[:500]}")
 
