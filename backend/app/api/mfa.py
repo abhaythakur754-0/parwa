@@ -157,10 +157,15 @@ async def _retrieve_mfa_session(token: str) -> dict | None:
         return None
     except Exception as exc:
         logger.error(
-            "mfa_session_redis_retrieve_failed error=%s — falling back to in-memory",
+            "mfa_session_redis_retrieve_failed error=%s",
             str(exc)[:200],
         )
-        # Fall back to in-memory (non-production only)
+        # Never use process-local MFA state in production. Redis is the
+        # shared, one-time session authority across workers and instances.
+        from app.config import get_settings
+        if get_settings().is_production:
+            return None
+
         session = _mfa_pending_sessions.pop(token, None)
         if session and datetime.now(timezone.utc) <= session["expires_at"]:
             return session
@@ -216,7 +221,22 @@ async def create_mfa_session_token(
     stored = await _store_mfa_session(token, session_data)
 
     if not stored:
-        # Redis failed — store in-memory as fallback (non-prod only)
+        # A process-local fallback cannot provide reliable one-time MFA
+        # semantics across production workers. Fail closed rather than
+        # issuing a token whose storage is not shared and durable.
+        from app.config import get_settings
+        if get_settings().is_production:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": {
+                        "code": "MFA_SESSION_STORE_UNAVAILABLE",
+                        "message": "MFA is temporarily unavailable. Please try again.",
+                        "details": None,
+                    }
+                },
+            )
+
         _mfa_pending_sessions[token] = {
             "user_id": user_id,
             "company_id": company_id,
@@ -227,7 +247,7 @@ async def create_mfa_session_token(
         }
         logger.warning(
             "mfa_session_stored_in_memory_fallback token=%s... "
-            "This is NOT safe for production",
+            "This fallback is restricted to non-production environments",
             token[:8],
         )
 

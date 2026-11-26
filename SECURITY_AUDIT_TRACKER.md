@@ -11,7 +11,7 @@
 | Stage | Scope | Status |
 |---|---|---|
 | 1 | Audit baseline, prior-work inventory, scope and CI reconciliation | COMPLETE |
-| 2 | Critical findings: verify current exposure, fix confirmed open items, add regression tests | NOT STARTED |
+| 2 | Critical findings: verify current exposure, fix confirmed open items, add regression tests | IN PROGRESS |
 | 3 | High findings: verify and remediate confirmed open items | NOT STARTED |
 | 4 | Medium findings: verify and remediate confirmed open items | NOT STARTED |
 | 5 | Low findings: verify and remediate confirmed open items | NOT STARTED |
@@ -69,6 +69,13 @@ These commits are inventory evidence, not automatic proof that every related his
 ### Stage 1 outcome
 
 **Stage 1 is complete:** the baseline commit, CI result, historical finding counts, previously completed checks, recent security commits, and audit scope gap are recorded. Severity stages 2–5 will now perform the detailed current-code classification and remediation. No historical finding is counted as currently open without revalidation.
+
+## Stage 2 — Critical findings (in progress)
+
+- **MFA temporary-session storage outage behavior:** confirmed code contradicted its own comment: process-local fallback was used even in production if Redis storage or retrieval failed. Updated `backend/app/api/mfa.py` to fail closed with HTTP 503 when creating a pre-auth MFA session cannot be stored in Redis, and to reject retrieval during Redis failure in production. Non-production fallback remains available.
+- Added `backend/tests/unit/test_mfa_session_storage_security.py` with three regression guards for production store failure, production read failure, and non-production fallback preservation.
+- Local targeted test: `PYTHONPATH=backend python -m pytest backend/tests/unit/test_mfa_session_storage_security.py -q --tb=short --noconftest` — **3 passed** in the isolated source snapshot. The normal repository conftest path was not used because this container lacks the repository's full dependency environment; the focused tests themselves require only the installed pytest runtime.
+- Historical C-09 is not yet signed off: the code has a dedicated pre-auth temporary-session route, but the entire password → MFA challenge → token issuance path still needs end-to-end verification.
 
 ## Required workflow for every finding
 
