@@ -45,10 +45,29 @@ def test_sqlite_does_not_execute_postgres_rls_context_statement():
 
 
 def test_superglue_call_queue_payload_encryption_round_trips():
+    import importlib.util
     import json
-    from shared.utils.token_encryption import decrypt_token, encrypt_token
+    from pathlib import Path
+
+    # backend/tests/conftest.py stubs shared.utils.token_encryption for most
+    # tests. Load the actual source module here so this security contract
+    # exercises Fernet rather than the "encrypted-mock" fixture.
+    module_path = (
+        Path(__file__).resolve().parents[2]
+        / "shared"
+        / "utils"
+        / "token_encryption.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "_parwa_real_token_encryption", module_path
+    )
+    assert spec is not None and spec.loader is not None
+    token_encryption = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(token_encryption)
 
     payload = {"customer_email": "customer@example.com", "ticket_id": "ticket-123"}
-    encrypted = encrypt_token(json.dumps(payload))
-    assert encrypted != json.dumps(payload)
-    assert json.loads(decrypt_token(encrypted)) == payload
+    serialized = json.dumps(payload)
+    encrypted = token_encryption.encrypt_token(serialized)
+    assert encrypted
+    assert encrypted != serialized
+    assert json.loads(token_encryption.decrypt_token(encrypted)) == payload
