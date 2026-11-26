@@ -217,23 +217,18 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     });
   });
 
-  it('Phase 3: Verify button is disabled until all integrations tested', async () => {
+  it('Phase 3: Verify button becomes available after connect flow tests the integration', async () => {
     await completePhase1And2();
-    // Click Connect (opens form modal)
     fireEvent.click(screen.getAllByText('Connect')[0]);
     await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
-    // Fill the URL + submit
     fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
-    // API key is REQUIRED now — empty-credential connects were a bug
     fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'sk_test_123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
-    // Wait for Test button to appear (means connected)
-    await waitFor(() => expect(screen.getByText('Test')).toBeInTheDocument());
-    // Verify button should be disabled (not all tested yet)
-    const verifyBtn = screen.getByText('Verify All Connections').closest('button');
-    expect(verifyBtn).toBeDisabled();
-    // Should show the "test first" warning
-    expect(screen.getByText(/Test all integrations first/i)).toBeInTheDocument();
+
+    // handleConnect performs a real test request before marking the integration verified.
+    await waitFor(() => expect(screen.getByText('✓ Verified')).toBeInTheDocument());
+    expect(screen.getByText('Verify All Connections').closest('button')).toBeEnabled();
+    expect(screen.queryByText(/Test all integrations first/i)).not.toBeInTheDocument();
   });
 
   it('Phase 3: clicking Verify shows progressive loading (3 checks one by one)', async () => {
@@ -288,8 +283,8 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     }, { timeout: 5000 });
   });
 
-  it('Phase 3: Verify shows failure when agents not ready', async () => {
-    // Override: status always returns "building" (never ready)
+  it('Phase 3: Verify shows failure when agent tool creation fails', async () => {
+    // A terminal failed state should stop polling and keep Continue disabled.
     fetchMock.mockImplementation((url: string, opts?: any) => {
       if (url.includes('/oauth/start') && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
@@ -313,7 +308,10 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_TRIGGER) });
       }
       if (url === '/api/onboarding-build/status') {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_STATUS_BUILDING) });
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ ...MOCK_STATUS_BUILDING, failed: 1, pending: 0, all_ready: false }),
+        });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
@@ -323,7 +321,7 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     fireEvent.click(screen.getByText('Verify All Connections'));
     // Should show failure (agents not ready)
     await waitFor(() => {
-      expect(screen.getByText(/Pending.*agents building/i)).toBeInTheDocument();
+      expect(screen.getByText(/Pending.*agent tool.*failed/i)).toBeInTheDocument();
     });
     // Continue should stay disabled
     expect(screen.getByText('Continue to Next Step').closest('button')).toBeDisabled();
