@@ -23,6 +23,7 @@ LLM calls: 5 (Self-Consistency = 2, plus Reflexion + ToT + Reverse + CRP + CoT)
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import random
