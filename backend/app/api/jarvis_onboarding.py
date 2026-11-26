@@ -548,7 +548,7 @@ def get_onboarding_awareness(
 
         awareness = get_onboarding_awareness(
             db=db,
-            company_id=company_id,
+            company_id=_require_company_id(current_user),
             hours=hours,
         )
 
