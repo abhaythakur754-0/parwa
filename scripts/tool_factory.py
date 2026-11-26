@@ -51,16 +51,15 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-# ── Config (env wins; defaults mirror superglue_client.py) ──────────────────
+# ── Config (credentials are environment-only) ───────────────────────────────
 DEFAULT_SUPERGLUE_URL = (
     "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi"
 )
-DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
 
 SUPERGLUE_URL = os.environ.get(
     "SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL
 ).rstrip("/")
-SUPERGLUE_TOKEN = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN)
+SUPERGLUE_TOKEN = os.environ.get("SUPERGLUE_AUTH_TOKEN", "").strip()
 
 HTTP_TIMEOUT = 45.0
 RETRIES = 2
@@ -76,6 +75,8 @@ DUMMY_PAYMENT_ID = "pay_DUMMYFACTORY000"
 # ════════════════════════════════════════════════════════════════════════════
 def api_request(method: str, path: str, body: dict = None, timeout: float = HTTP_TIMEOUT) -> dict:
     """One Superglue API call with retries. Returns {'status': int, 'json': ...}."""
+    if not SUPERGLUE_TOKEN:
+        raise RuntimeError("SUPERGLUE_AUTH_TOKEN is required; Superglue calls are disabled.")
     url = f"{SUPERGLUE_URL}{path}"
     data = json.dumps(body).encode() if body is not None else None
     last_err = None

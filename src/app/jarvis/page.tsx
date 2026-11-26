@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { JarvisChat } from '@/components/jarvis/JarvisChat';
 
 /**
@@ -62,12 +63,34 @@ function JarvisPageInner() {
     setEntryParams(params);
   }, [searchParams]);
 
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#2C2C31] px-6 py-16">
+          <section className="max-w-xl text-center">
+            <h1 className="text-3xl font-bold text-white mb-4">Jarvis guest demo is unavailable</h1>
+            <p className="text-gray-300 mb-8">
+              Public guest sessions are temporary and are disabled in production. Create an account to use persistent Jarvis and secure onboarding.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link href="/signup" className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-[#2C2C31]">
+                Create account
+              </Link>
+              <Link href="/login" className="rounded-xl border border-white/20 px-6 py-3 font-semibold text-white">
+                Sign in
+              </Link>
+            </div>
+          </section>
+        </main>
+    );
+  }
+
   return (
     <JarvisChat
       isOpen={isOpen}
       onClose={() => window.history.back()}
       entrySource={entrySource}
       entryParams={entryParams}
+      isGuestDemo
     />
   );
 }

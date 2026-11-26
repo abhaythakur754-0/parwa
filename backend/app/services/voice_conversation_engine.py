@@ -206,9 +206,22 @@ class VoiceConversationEngine:
                     llm_turns_used=1,
                 )
 
-            ok, result_payload, tool_status = await self._execute_tool_safe(
-                tool_id, tool_input, company_id
+            tool_agent = next(
+                (agent for agent in agents if agent.get("superglue_tool_id") == tool_id),
+                None,
             )
+            if not tool_agent:
+                ok, result_payload, tool_status = False, {
+                    "error": "Tool is not linked to an active tenant agent",
+                }, "failed"
+            else:
+                ok, result_payload, tool_status = await self._execute_tool_safe(
+                    tool_id,
+                    tool_input,
+                    company_id,
+                    call_sid,
+                    tool_agent.get("superglue_tool_definition") or {},
+                )
 
             # Record the tool attempt, then let the LLM speak the REAL result.
             self._persist_turn(
@@ -563,24 +576,59 @@ class VoiceConversationEngine:
         tool_id: str,
         tool_input: Dict[str, Any],
         tenant_id: str,
+        call_sid: str,
+        tool_definition: Optional[Dict[str, Any]] = None,
     ) -> tuple:
-        """Run a SuperGlue tool with a hard timeout.
-
-        Returns (ok, result_payload, tool_status).
-        """
+        """Execute only a verified tenant tool with schema, safety and idempotency gates."""
         try:
+            from app.core.superglue_client import verify_tool_exists
+            if not await verify_tool_exists(tool_id, tenant_id=tenant_id):
+                return False, {"error": "Tenant tool could not be verified"}, "failed"
+
+            from app.core.parwa_pipeline.nodes.node_5_act_verify import (
+                _extract_tool_inputs,
+                _execute_with_idempotency,
+            )
+            definition = tool_definition if isinstance(tool_definition, dict) else {}
+            description = str(definition.get("description") or "")
+            mapped_input = _extract_tool_inputs(
+                tool_input if isinstance(tool_input, dict) else {},
+                tool_id,
+                "",
+                tool_definition=definition,
+                crm_data={},
+            )
+            if mapped_input.get("_missing_required"):
+                return False, {
+                    "needs_customer_info": True,
+                    "missing_required": mapped_input["_missing_required"],
+                    "error": "The caller must provide required information before this action",
+                }, "needs_customer_info"
+
+            import hashlib
+            stable_input = json.dumps(mapped_input, sort_keys=True, default=str)
+            idempotency_key = (
+                f"voice:{call_sid}:{tool_id}:"
+                + hashlib.sha256(stable_input.encode("utf-8")).hexdigest()[:24]
+            )
             result = await asyncio.wait_for(
-                _execute_tool(tool_id, tool_input, tenant_id=tenant_id),
+                _execute_with_idempotency(
+                    tool_id,
+                    mapped_input,
+                    idempotency_key,
+                    call_sid,
+                    "voice_tool_action",
+                    tenant_id,
+                    description,
+                ),
                 timeout=TOOL_TIMEOUT_SECONDS,
             )
-            payload = (
-                result if isinstance(result, dict)
-                else {"raw": str(result)[:1000]}
-            )
-            ok = bool(
-                payload.get("success")
-                or payload.get("status") in ("success", "completed", "ok")
-            )
+            payload = result if isinstance(result, dict) else {"raw": str(result)[:1000]}
+            if payload.get("needs_customer_info"):
+                return False, payload, "needs_customer_info"
+            if payload.get("safety_approval_required"):
+                return False, payload, "needs_approval"
+            ok = payload.get("success") is True
             return ok, payload, ("ok" if ok else "failed")
         except asyncio.TimeoutError:
             logger.warning("voice_tool_timeout tool=%s", tool_id[:60])
@@ -590,6 +638,7 @@ class VoiceConversationEngine:
                 "voice_tool_error tool=%s error=%s", tool_id[:60], str(exc)[:200]
             )
             return False, {"error": str(exc)[:500], "tool_id": tool_id}, "failed"
+
 
     # ═══════════════════════════════════════════════════════════
     # Parsing / persistence / tenant context
@@ -731,6 +780,12 @@ class VoiceConversationEngine:
                     "agent_name": a.agent_name,
                     "capabilities": caps,
                     "instructions": a.instructions or "",
+                    "superglue_tool_definition": (
+                        json.loads(a.superglue_tool_definition)
+                        if a.superglue_tool_definition
+                        and isinstance(a.superglue_tool_definition, str)
+                        else (a.superglue_tool_definition or {})
+                    ),
                     "superglue_tool_id": (
                         a.superglue_tool_id
                         if a.superglue_tool_id
@@ -750,21 +805,25 @@ class VoiceConversationEngine:
             if not tool_id or tool_id in seen:
                 continue
             seen.add(tool_id)
+            definition = a.get("superglue_tool_definition") or {}
+            if not isinstance(definition, dict):
+                definition = {}
+            input_schema = definition.get("inputSchema") or definition.get("input_schema") or {}
             catalog.append(
                 {
                     "tool_id": tool_id,
                     "description": (
-                        f"Action tool for the '{a['agent_name']}' agent "
-                        f"(handles: {', '.join(a['capabilities'][:4])}). "
-                        + a["instructions"][:200]
-                    ).strip(),
-                    # Input schema unknown at this layer — the tool's own
-                    # definition is authoritative; the LLM asks the caller
-                    # for missing values and passes what it has.
+                        str(definition.get("description") or "").strip()
+                        or (
+                            f"Action tool for the '{a['agent_name']}' agent "
+                            f"(handles: {', '.join(a['capabilities'][:4])}). "
+                            + a["instructions"][:200]
+                        ).strip()
+                    ),
+                    "input_schema": input_schema,
                     "input_hint": (
-                        "pass the values the caller gave you as JSON fields "
-                        "(order id, amount, email, phone etc. — only what "
-                        "they actually provided)"
+                        "Use the exact input_schema. Never invent missing IDs, "
+                        "amounts, email addresses or phone numbers; ask the caller."
                     ),
                 }
             )

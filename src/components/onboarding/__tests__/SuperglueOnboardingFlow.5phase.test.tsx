@@ -24,11 +24,11 @@ const MOCK_VERIFY = {
 };
 
 const MOCK_ANALYSIS = {
-  company_id: 'test', analyzed_at: '2026-08-18T00:00:00Z',
+  company_id: 'test', analysis_id: 'analysis-1', analyzed_at: '2026-08-18T00:00:00Z',
   connected_integrations: [], data_profile: { total_tickets: 50 },
   detected_gaps: [],
   recommendations: [
-    { name: 'Stripe', priority: 'high', reason: 'Process refunds' },
+    { name: 'Stripe', priority: 'high', reason: 'Process refunds', required: true },
   ],
   analysis_summary: 'Analyzed 50 tickets. Found 1 integration needed.',
 };
@@ -58,10 +58,17 @@ let statusCallCount = 0;
 
 beforeEach(() => {
   statusCallCount = 0;
+  jest.spyOn(window, 'open').mockReturnValue({ location: { href: '' }, closed: false, close: jest.fn() } as any);
   fetchMock = jest.fn();
   global.fetch = fetchMock as unknown as typeof global.fetch;
 
   fetchMock.mockImplementation((url: string, opts?: any) => {
+    if (url.includes('/oauth/start') && opts?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+    }
+    if (url.includes('/oauth/status')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+    }
     if (url === '/api/superglue/systems' && opts?.method === 'POST') {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'x', name: 'x', url: '', icon: '', credentials: {}, metadata: {} }) });
     }
@@ -93,16 +100,18 @@ afterEach(() => {
 });
 
 // Helper: complete Phase 1 + 2 (connect CRM → analysis → recommendations appear)
-async function completePhase1And2() {
+async function completePhase1And2(expectRecommendation = true) {
   render(<SuperglueOnboardingFlow />);
   fireEvent.click(screen.getByText('HubSpot'));
   await waitFor(() => expect(screen.getByText(/Connect HubSpot/)).toBeInTheDocument());
   fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
   fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
-  // API key is REQUIRED now — empty-credential connects were a bug
-  fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
   fireEvent.click(screen.getByText('Connect & Verify'));
-  await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
+  if (expectRecommendation) {
+    await waitFor(() => expect(screen.getByText('Stripe')).toBeInTheDocument());
+  } else {
+    await waitFor(() => expect(screen.getByText(MOCK_ANALYSIS.analysis_summary)).toBeInTheDocument());
+  }
 }
 
 // Helper: connect + test a recommendation
@@ -129,20 +138,67 @@ async function connectAndTestRecommendation() {
 
 describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
 
-  it('Phase 2→3: agent build auto-triggers when analysis returns (no button click)', async () => {
-    await completePhase1And2();
-    // The build should have been triggered automatically — check the trigger was called
-    await waitFor(() => {
-      const triggerCalls = fetchMock.mock.calls.filter(
-        ([url, opts]: any) => url === '/api/onboarding-build/trigger' && opts?.method === 'POST'
-      );
-      expect(triggerCalls.length).toBeGreaterThan(0);
-    });
+  it('does not block agent provisioning on optional starter integrations', async () => {
+    const originalRecommendations = MOCK_ANALYSIS.recommendations;
+    MOCK_ANALYSIS.recommendations = [{ ...originalRecommendations[0], required: false }];
+    try {
+      await completePhase1And2();
+      const verifyButton = screen.getByText('Verify All Connections');
+      expect(verifyButton).toBeEnabled();
+      fireEvent.click(verifyButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/onboarding-build/trigger',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByText('Continue to Next Step')).toBeEnabled();
+      }, { timeout: 7000 });
+    } finally {
+      MOCK_ANALYSIS.recommendations = originalRecommendations;
+    }
   });
 
-  it('Phase 3: shows background build status indicator', async () => {
+  it('allows CRM-only onboarding when analysis recommends no additional integrations', async () => {
+    const originalRecommendations = MOCK_ANALYSIS.recommendations;
+    MOCK_ANALYSIS.recommendations = [];
+    try {
+      await completePhase1And2(false);
+      const verifyButton = screen.getByText('Verify All Connections');
+      expect(verifyButton).toBeEnabled();
+      fireEvent.click(verifyButton);
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/onboarding-build/trigger',
+          expect.objectContaining({ method: 'POST' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByText('Continue to Next Step')).toBeEnabled();
+      }, { timeout: 7000 });
+    } finally {
+      MOCK_ANALYSIS.recommendations = originalRecommendations;
+    }
+  });
+
+  it('Phase 2→3: agent build waits until required integrations are verified', async () => {
     await completePhase1And2();
-    // Should show the background build status (after status poll returns)
+    // Do not provision tenant-specific tools from unverified credentials.
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/onboarding-build/trigger',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('Phase 3: shows background build status after verification starts provisioning', async () => {
+    await connectAndTestRecommendation();
+    await waitFor(() => {
+      expect(screen.getByText('Verify All Connections')).toBeEnabled();
+    });
+    fireEvent.click(screen.getByText('Verify All Connections'));
     await waitFor(() => {
       expect(screen.getByText(/AI Agents \(building in background\)/i)).toBeInTheDocument();
     }, { timeout: 5000 });
@@ -161,23 +217,18 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     });
   });
 
-  it('Phase 3: Verify button is disabled until all integrations tested', async () => {
+  it('Phase 3: Verify button becomes available after connect flow tests the integration', async () => {
     await completePhase1And2();
-    // Click Connect (opens form modal)
     fireEvent.click(screen.getAllByText('Connect')[0]);
     await waitFor(() => expect(screen.getByText(/Connect Stripe/)).toBeInTheDocument());
-    // Fill the URL + submit
     fireEvent.change(screen.getByPlaceholderText('https://api.yourcrm.com'), { target: { value: 'https://api.stripe.com' } });
-    // API key is REQUIRED now — empty-credential connects were a bug
     fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'sk_test_123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
-    // Wait for Test button to appear (means connected)
-    await waitFor(() => expect(screen.getByText('Test')).toBeInTheDocument());
-    // Verify button should be disabled (not all tested yet)
-    const verifyBtn = screen.getByText('Verify All Connections').closest('button');
-    expect(verifyBtn).toBeDisabled();
-    // Should show the "test first" warning
-    expect(screen.getByText(/Test all integrations first/i)).toBeInTheDocument();
+
+    // handleConnect performs a real test request before marking the integration verified.
+    await waitFor(() => expect(screen.getByText('✓ Verified')).toBeInTheDocument());
+    expect(screen.getByText('Verify All Connections').closest('button')).toBeEnabled();
+    expect(screen.queryByText(/Test all integrations first/i)).not.toBeInTheDocument();
   });
 
   it('Phase 3: clicking Verify shows progressive loading (3 checks one by one)', async () => {
@@ -210,7 +261,7 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     }, { timeout: 5000 });
     // Should show success message
     await waitFor(() => {
-      expect(screen.getByText(/All checks passed/i)).toBeInTheDocument();
+      expect(screen.getByText(/All checks passed — required integrations and agent tools are verified/i)).toBeInTheDocument();
     });
     // Continue button should now be enabled
     expect(screen.getByText('Continue to Next Step').closest('button')).not.toBeDisabled();
@@ -232,9 +283,15 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     }, { timeout: 5000 });
   });
 
-  it('Phase 3: Verify shows failure when agents not ready', async () => {
-    // Override: status always returns "building" (never ready)
+  it('Phase 3: Verify shows failure when agent tool creation fails', async () => {
+    // A terminal failed state should stop polling and keep Continue disabled.
     fetchMock.mockImplementation((url: string, opts?: any) => {
+      if (url.includes('/oauth/start') && opts?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+      }
+      if (url.includes('/oauth/status')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+      }
       if (url === '/api/superglue/systems' && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'x', name: 'x', url: '', icon: '', credentials: {}, metadata: {} }) });
       }
@@ -251,7 +308,10 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_TRIGGER) });
       }
       if (url === '/api/onboarding-build/status') {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_STATUS_BUILDING) });
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ ...MOCK_STATUS_BUILDING, failed: 1, pending: 0, all_ready: false }),
+        });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     });
@@ -261,7 +321,7 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     fireEvent.click(screen.getByText('Verify All Connections'));
     // Should show failure (agents not ready)
     await waitFor(() => {
-      expect(screen.getByText(/Pending.*agents building/i)).toBeInTheDocument();
+      expect(screen.getByText(/Pending.*agent tool.*failed/i)).toBeInTheDocument();
     });
     // Continue should stay disabled
     expect(screen.getByText('Continue to Next Step').closest('button')).toBeDisabled();

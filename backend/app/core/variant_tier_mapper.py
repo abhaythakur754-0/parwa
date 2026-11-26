@@ -187,6 +187,17 @@ def industry_label_to_enum(industry_label: str) -> str:
         return "general"
 
 
+def variant_instance_name(canonical_variant: str) -> str:
+    """Map a normalized subscription variant to its onboarding display name.
+
+    Retired Mini/Starter aliases normalize to the standard Parwa subscription.
+    """
+    normalized = str(canonical_variant or "").strip().lower()
+    if normalized in {"high", "parwa_high"}:
+        return "High Parwa"
+    return "Parwa"
+
+
 def tier_to_variant_id(tier: str) -> str:
     """Map a backend pipeline tier to a frontend variant_id.
 
@@ -247,22 +258,24 @@ def resolve_tier_from_context(
                 )
                 return tier
 
-        # Priority 3: Highest from selected_variants list
+        # Priority 3: Highest from selected_variants list.
+        # Keep all three internal pipeline tiers distinct: starter -> mini_parwa,
+        # growth -> parwa, and high -> parwa_high.
         if selected_variants and isinstance(selected_variants, list):
-            highest_tier = "parwa"
-            tier_priority = {"parwa": 1, "parwa": 2, "parwa_high": 3}
+            tier_priority = {"mini_parwa": 1, "parwa": 2, "parwa_high": 3}
+            selected_tiers = []
 
             for sel in selected_variants:
                 if not isinstance(sel, dict):
                     continue
-                # Try variant_id key
                 vid = sel.get("variant_id") or sel.get("id") or sel.get("plan", "")
                 if vid:
-                    t = variant_id_to_tier(str(vid))
-                    if tier_priority.get(t, 0) > tier_priority.get(highest_tier, 0):
-                        highest_tier = t
+                    tier = variant_id_to_tier(str(vid))
+                    if tier in tier_priority:
+                        selected_tiers.append(tier)
 
-            if highest_tier != "parwa" or len(selected_variants) > 0:
+            if selected_tiers:
+                highest_tier = max(selected_tiers, key=tier_priority.__getitem__)
                 logger.info(
                     "resolve_tier_from_context: selected_variants → tier=%s",
                     highest_tier,

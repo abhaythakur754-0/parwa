@@ -19,6 +19,8 @@ from typing import Optional, Dict, Any, List
 
 import httpx
 from sqlalchemy.orm import Session
+
+from shared.utils.token_encryption import encrypt_token
 from sqlalchemy import and_
 
 from app.exceptions import ValidationError
@@ -38,6 +40,9 @@ STATUS_PENDING = "pending"
 STATUS_ACTIVE = "active"
 STATUS_ERROR = "error"
 STATUS_DISCONNECTED = "disconnected"
+STATUS_CONNECTED = "connected"
+STATUS_VERIFIED = "verified"
+CONNECTED_STATUSES = (STATUS_ACTIVE, STATUS_VERIFIED)
 
 
 class IntegrationService:
@@ -87,48 +92,24 @@ class IntegrationService:
             test_result = self._test_credentials(integration_type, config)
             status = STATUS_ACTIVE if test_result.get("success") else STATUS_ERROR
         else:
-            # User opted out of validation — trust the credentials and mark active.
-            # This lets users connect providers whose test endpoints are IP-restricted
-            # (e.g. Brevo IP allowlist) by skipping the test.
-            status = STATUS_ACTIVE
+            # Skipping validation must never make credentials executable.
+            # Keep the integration pending until an explicit provider test succeeds.
+            status = STATUS_PENDING
 
         integration = Integration(
             company_id=company_id,
             integration_type=integration_type,
             name=name,
             status=status,
-            credentials_encrypted=json.dumps(config),
+            credentials_encrypted=encrypt_token(json.dumps(config)),
             settings="{}",
             error_message=test_result.get("message") if test_result and not test_result.get("success") else None,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
 
-        # Ensure table exists (Alembic may have failed on Render)
-        try:
-            from sqlalchemy import text as _ensure_text
-            self.db.execute(_ensure_text("""
-                CREATE TABLE IF NOT EXISTS integrations (
-                    id VARCHAR(36) PRIMARY KEY,
-                    company_id VARCHAR(36) NOT NULL,
-                    integration_type VARCHAR(100) NOT NULL,
-                    name VARCHAR(255),
-                    status VARCHAR(50) DEFAULT 'disconnected',
-                    credentials_encrypted TEXT,
-                    settings TEXT DEFAULT '{}',
-                    last_sync TIMESTAMP WITH TIME ZONE,
-                    error_message TEXT,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-            self.db.execute(_ensure_text(
-                "CREATE INDEX IF NOT EXISTS ix_integrations_company_id ON integrations (company_id)"
-            ))
-            self.db.commit()
-        except Exception:
-            pass  # Table may already exist
-
+        # Schema lifecycle is owned by Alembic; never perform DDL or commit
+        # unrelated caller work from a service method.
         self.db.add(integration)
         self.db.flush()
 
@@ -156,7 +137,7 @@ class IntegrationService:
             query = query.filter(Integration.integration_type == integration_type.lower())
 
         if active_only:
-            query = query.filter(Integration.status == STATUS_ACTIVE)
+            query = query.filter(Integration.status.in_(CONNECTED_STATUSES))
 
         integrations = query.order_by(Integration.created_at.desc()).all()
 
@@ -195,7 +176,7 @@ class IntegrationService:
                 details={"integration_id": integration_id},
             )
 
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = self._load_credentials(integration) or {}
         result = self._test_credentials(integration.integration_type, config)
 
         # Update status on the integration record
@@ -239,8 +220,15 @@ class IntegrationService:
         allowed_fields = {"name", "status", "credentials_encrypted", "settings", "error_message"}
         for field, value in updates.items():
             if field in allowed_fields:
-                if field == "credentials_encrypted" and isinstance(value, dict):
-                    value = json.dumps(value)
+                if field == "credentials_encrypted":
+                    if isinstance(value, str):
+                        try:
+                            value = json.loads(value)
+                        except (TypeError, ValueError):
+                            raise ValidationError(message="Credentials must be supplied as a JSON object.")
+                    if not isinstance(value, dict):
+                        raise ValidationError(message="Credentials must be supplied as a JSON object.")
+                    value = encrypt_token(json.dumps(value))
                 if field == "settings" and isinstance(value, dict):
                     value = json.dumps(value)
                 setattr(integration, field, value)
@@ -277,8 +265,8 @@ class IntegrationService:
         return True
 
     def get_active_integrations(self, company_id: str) -> List[Dict[str, Any]]:
-        """Get all active integrations for a company."""
-        return self.get_integrations(company_id, status=STATUS_ACTIVE)
+        """Get all connected, verified, or active integrations for a company."""
+        return self.get_integrations(company_id, active_only=True)
 
     def get_integrations_by_type(self, company_id: str, integration_type: str) -> List[Dict[str, Any]]:
         """Get integrations filtered by type."""
@@ -300,9 +288,10 @@ class IntegrationService:
         calling the provider API.
 
         Lookup rules:
-          - Scope by company_id + integration_type + status=active
-          - If multiple active rows exist (rare), return the most recently updated
-          - Returns None if no active integration is found
+          - Scope by company_id + integration_type + connected status
+          - Accept only "active"/"verified" rows; "connected" is not tested yet
+          - If multiple rows exist, return the most recently updated
+          - Returns None if no connected integration is found
           - NEVER expose this via a public API endpoint — internal callers only
 
         Args:
@@ -319,7 +308,7 @@ class IntegrationService:
                 and_(
                     Integration.company_id == company_id,
                     Integration.integration_type == integration_type,
-                    Integration.status == STATUS_ACTIVE,
+                    Integration.status.in_(CONNECTED_STATUSES),
                 )
             )
             .order_by(Integration.updated_at.desc())
@@ -327,7 +316,20 @@ class IntegrationService:
         )
         if not integration:
             return None
-        return self._parse_json(integration.credentials_encrypted) or {}
+
+        # OAuth tokens live only in the tenant's Superglue service-account
+        # connection. Never pretend local metadata fields are provider auth.
+        settings = integration.settings or {}
+        if isinstance(settings, str):
+            try:
+                settings = json.loads(settings)
+            except (TypeError, ValueError):
+                settings = {}
+        if isinstance(settings, dict) and settings.get("auth_type") == "oauth":
+            return None
+
+        credentials = self._load_credentials(integration)
+        return credentials if isinstance(credentials, dict) and credentials else None
 
     def get_crm_config_for_tenant(
         self,
@@ -451,9 +453,28 @@ class IntegrationService:
 
     # ── Helpers ───────────────────────────────────────────────────
 
+    def _load_credentials(self, integration: Integration) -> Optional[Dict[str, Any]]:
+        """Read encrypted credentials and migrate legacy plaintext JSON on access."""
+        raw_value = integration.credentials_encrypted
+        config = self._parse_json(raw_value)
+        if config is None:
+            return None
+
+        # Older rows stored JSON directly despite the credentials_encrypted
+        # column name. Re-encrypt them on first successful read so the
+        # compatibility path is temporary and self-healing.
+        try:
+            legacy_value = json.loads(raw_value) if isinstance(raw_value, str) else None
+        except (json.JSONDecodeError, TypeError):
+            legacy_value = None
+        if isinstance(legacy_value, dict):
+            integration.credentials_encrypted = encrypt_token(json.dumps(legacy_value))
+            self.db.flush()
+        return config
+
     def _to_dict(self, integration: Integration, mask_credentials: bool = False) -> Dict[str, Any]:
         """Convert Integration ORM object to dict."""
-        config = self._parse_json(integration.credentials_encrypted) or {}
+        config = self._load_credentials(integration) or {}
         settings = self._parse_json(integration.settings) or {}
 
         if mask_credentials and config:
@@ -477,12 +498,29 @@ class IntegrationService:
 
     @staticmethod
     def _parse_json(text_field: Optional[str]) -> Optional[Dict[str, Any]]:
-        """Safely parse a JSON text field."""
+        """Parse legacy JSON or decrypt Fernet-encrypted integration credentials.
+
+        Older IntegrationService rows store JSON directly. Superglue-created
+        rows store the serialized credentials encrypted with token_encryption.
+        Support both formats so all internal integration consumers use the
+        same tenant-scoped credential lookup.
+        """
         if not text_field:
             return None
         try:
-            return json.loads(text_field)
+            value = json.loads(text_field)
+            return value if isinstance(value, dict) else None
         except (json.JSONDecodeError, TypeError):
+            pass
+
+        try:
+            from shared.utils.token_encryption import decrypt_token
+
+            decrypted = decrypt_token(text_field)
+            value = json.loads(decrypted) if decrypted else None
+            return value if isinstance(value, dict) else None
+        except Exception:
+            logger.warning("integration_credentials_decrypt_failed")
             return None
 
 

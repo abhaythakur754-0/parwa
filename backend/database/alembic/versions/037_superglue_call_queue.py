@@ -33,6 +33,7 @@ def upgrade():
         sa.Column("input_data", sa.Text, nullable=False),  # JSON of inputs
         sa.Column("ticket_id", sa.String(36), nullable=True, index=True),
         sa.Column("agent_id", sa.String(36), nullable=True),
+        # index=True creates ix_superglue_call_queue_status automatically.
         sa.Column("status", sa.String(20), nullable=False, server_default="pending", index=True),
         # pending: queued
         # in_progress: HTTP call in flight
@@ -45,12 +46,6 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-    )
-
-    op.create_index(
-        "ix_superglue_call_queue_status",
-        "superglue_call_queue",
-        ["status"],
     )
 
 

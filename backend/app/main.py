@@ -733,15 +733,24 @@ async def lifespan(app: FastAPI):
         try:
             _db.execute(_sql_text("""
                 CREATE TABLE IF NOT EXISTS ticket_tool_executions (
-                    idempotency_key VARCHAR(200) PRIMARY KEY,
-                    ticket_id VARCHAR(36) NOT NULL,
-                    tool_id VARCHAR(200) NOT NULL,
+                    idempotency_key VARCHAR(512) PRIMARY KEY,
+                    company_id VARCHAR(36) REFERENCES companies(id) ON DELETE CASCADE,
+                    ticket_id VARCHAR(128) NOT NULL,
+                    tool_id VARCHAR(255) NOT NULL,
                     action VARCHAR(100),
-                    executed_at TIMESTAMP DEFAULT NOW()
+                    status VARCHAR(24) NOT NULL DEFAULT 'completed',
+                    error_message TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP NULL
                 )
             """))
             _db.execute(_sql_text(
-                "CREATE INDEX IF NOT EXISTS ix_tte_ticket_id ON ticket_tool_executions (ticket_id)"
+                "CREATE INDEX IF NOT EXISTS ix_ticket_tool_executions_company_id "
+                "ON ticket_tool_executions (company_id)"
+            ))
+            _db.execute(_sql_text(
+                "CREATE INDEX IF NOT EXISTS ix_ticket_tool_executions_ticket_id "
+                "ON ticket_tool_executions (ticket_id)"
             ))
             _db.commit()
             _lg.info("ticket_tool_executions_table_ensured (idempotency protection)")

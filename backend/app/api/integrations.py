@@ -14,6 +14,7 @@ BC-001: All operations scoped to authenticated user's company_id.
 """
 
 import uuid
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -171,30 +172,31 @@ def api_create_integration(
     except Exception:
         pass  # BC-012: Audit logging must not break the main operation
 
-    # Phase 3: auto-retry escalated tickets that were waiting for THIS
-    # connection. Non-blocking, non-fatal — a sweep hiccup never fails
-    # the connect call.
-    try:
-        from app.services.auto_retry_service import retry_tickets_for_integration
+    # Retry escalated tickets only after the provider credentials were
+    # actually validated. A pending/unverified connection must not trigger
+    # customer-facing side effects.
+    if integration.get("status") in {"active", "verified"}:
+        try:
+            from app.services.auto_retry_service import retry_tickets_for_integration
 
-        _definition = get_integration_by_key(body.integration_type)
-        _category = _definition.category.value if _definition else ""
-        retry_summary = retry_tickets_for_integration(
-            db=db,
-            company_id=str(user.company_id),
-            integration_type=body.integration_type,
-            category=_category,
-        )
-        if retry_summary.get("retried"):
-            import logging
-
-            logging.getLogger("parwa.api.integrations").info(
-                "integration_connect_auto_retry company=%s integration=%s retried=%d",
-                str(user.company_id)[:8], body.integration_type,
-                retry_summary["retried"],
+            _definition = get_integration_by_key(body.integration_type)
+            _category = _definition.category.value if _definition else ""
+            retry_summary = retry_tickets_for_integration(
+                db=db,
+                company_id=str(user.company_id),
+                integration_type=body.integration_type,
+                category=_category,
             )
-    except Exception:  # noqa: BLE001 — retry sweep must never break connect
-        pass
+            if retry_summary.get("retried"):
+                import logging
+
+                logging.getLogger("parwa.api.integrations").info(
+                    "integration_connect_auto_retry company=%s integration=%s retried=%d",
+                    str(user.company_id)[:8], body.integration_type,
+                    retry_summary["retried"],
+                )
+        except Exception:  # noqa: BLE001 — retry sweep must never break connect
+            pass
 
     return IntegrationResponse(**integration)
 
@@ -1299,6 +1301,8 @@ class AnalyzeIntegrationsResponse(BaseModel):
     data_profile: Dict[str, Any]
     detected_gaps: List[Dict[str, Any]]
     recommendations: List[Dict[str, Any]]
+    recommended_agents: List[Dict[str, Any]] = Field(default_factory=list)
+    analysis_id: Optional[str] = None
     analysis_summary: str
 
 
@@ -1332,80 +1336,169 @@ async def api_analyze_integrations(
         get_crm_analyser_url,
     )
 
-    if not get_crm_analyser_url():
-        return AnalyzeIntegrationsResponse(
-            company_id=str(user.company_id),
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
-            connected_integrations=[],
-            data_profile={},
-            detected_gaps=[],
-            recommendations=[],
-            analysis_summary="CRM analyser not configured.",
-        )
+    analyser_url = get_crm_analyser_url()
 
-    # Collect tickets + send to external analyser
-    tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
-    result = await analyze_crm_external(
-        tickets=tickets,
-        company_name=getattr(user, "company_name", "Unknown"),
-    )
+    # Load this tenant's connected systems BEFORE analysis so the external
+    # analyser can distinguish existing connections from missing capabilities.
+    from database.models.integration import Integration
 
-    # Build the response
-    recommendations = [
-        {"name": name, "priority": "high", "reason": "Recommended by CRM analysis"}
-        for name in result.get("integrations", [])
-    ]
-
-    # ── Fallback: never return empty recommendations ──
-    # Brand-new tenants have zero tickets, so the analyser has nothing to
-    # learn from and returns []. Empty recommendations → zero agents built
-    # → onboarding-build /status can never report all_ready=True → the
-    # customer deadlocks at the verify screen. Guarantee a starter pack.
-    from app.api.onboarding_build import STARTER_AGENT_PACK
-
-    if result.get("error"):
-        analysis_summary = (
-            "CRM Analyser unavailable — showing a starter pack you can "
-            "connect now. Re-run analysis after your first tickets arrive."
-        )
-    elif not recommendations:
-        recommendations = [
-            {"name": name, "priority": "medium",
-             "reason": "Starter pack — recommended for new accounts"}
-            for name in STARTER_AGENT_PACK
-        ]
-        analysis_summary = (
-            "No ticket history yet — showing a starter pack. "
-            "Re-run analysis after your first tickets arrive for "
-            "personalized recommendations."
-        )
-    else:
-        analysis_summary = result.get("error") or f"Analyzed {result.get('tickets_scanned', 0)} tickets. Found {len(result.get('integrations', []))} integrations needed."
-
-    # Include the tenant's actually-connected integrations. Both flows write
-    # here: the Superglue flow upserts "connected", the manual flow "active".
-    connected_list: list = []
+    connected_rows = []
     try:
-        from database.models.integration import Integration
         connected_rows = db.query(Integration).filter(
             Integration.company_id == str(user.company_id),
-            Integration.status.in_(["active", "connected", "verified"]),
+            Integration.status.in_(["active", "verified"]),
         ).all()
-        connected_list = [
-            {"type": r.integration_type, "name": r.name, "status": r.status}
-            for r in connected_rows
-        ]
     except Exception as exc:
         import logging
         logging.getLogger("parwa.integrations").warning(
-            "Failed to load connected integrations: %s", str(exc)[:200]
+            "Failed to load connected integrations for CRM analysis: %s",
+            str(exc)[:200],
         )
 
-    data_profile = {"total_tickets": result.get("tickets_scanned", 0)}
+    connected_keys = sorted({
+        row.integration_type for row in connected_rows if row.integration_type
+    })
+
+    # Never collect or transmit customer ticket content when the secure
+    # external analyser endpoint is not configured. Continue with the same
+    # persisted starter-pack path so onboarding can still build safe agents.
+    if analyser_url:
+        tickets = collect_tenant_tickets(db, str(user.company_id), days=30)
+        result = await analyze_crm_external(
+            tickets=tickets,
+            company_name=getattr(user, "company_name", "Unknown"),
+            connected_integrations=connected_keys,
+        )
+    else:
+        result = {
+            "error": "CRM analyser not configured with a secure HTTPS endpoint and API key",
+            "integrations": [],
+            "agents": [],
+            "tools": [],
+            "tickets_scanned": 0,
+        }
+
+    # The CRM analyser returns two different things: missing integrations
+    # and support-agent capabilities. Keep them separate; a Stripe connection
+    # is a data source, not a "Stripe agent".
+    def _system_id(name: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", str(name).strip().lower()).strip("-")
+        aliases = {
+            "postgresql": "postgres",
+            "postgres-db": "postgres",
+            "mongo-db": "mongodb",
+            "google-mail": "gmail",
+            "google-workspace-mail": "gmail",
+        }
+        return aliases.get(slug, slug)
+
+    from app.api.superglue_systems import POPULAR_SYSTEMS
+    popular_systems = {item["id"]: item for item in POPULAR_SYSTEMS}
+    recommendations = []
+    database_system_ids = {"postgres", "mysql", "mongodb", "supabase-db", "snowflake", "bigquery"}
+    for item in result.get("integrations", []):
+        if isinstance(item, dict):
+            raw_name = item.get("name") or item.get("system_id") or item.get("key") or item.get("integration_key")
+            raw_system_id = item.get("system_id") or item.get("integration_key") or item.get("key")
+        else:
+            raw_name = str(item)
+            raw_system_id = None
+        if not raw_name:
+            continue
+        system_id = _system_id(str(raw_system_id or raw_name))
+        # The analyser receives the connected inventory, but enforce this
+        # server-side too so users are never asked to reconnect an existing app.
+        if system_id in connected_keys:
+            continue
+        catalog_entry = get_integration_by_key(system_id)
+        superglue_entry = popular_systems.get(system_id, {})
+        display_name = (
+            catalog_entry.name if catalog_entry
+            else superglue_entry.get("name")
+            or str(raw_name).replace("-", " ").replace("_", " ").title()
+        )
+        category = (
+            catalog_entry.category.value if catalog_entry
+            else superglue_entry.get("category")
+            or ("Database" if system_id in database_system_ids else "Custom")
+        )
+        recommendations.append({
+            "name": display_name,
+            "system_id": system_id,
+            "category": category,
+            "db_type": superglue_entry.get("db_type") or {
+                "postgres": "postgresql",
+                "supabase-db": "postgresql",
+                "mysql": "mysql",
+                "mongodb": "mongodb",
+                "snowflake": "snowflake",
+                "bigquery": "bigquery",
+            }.get(system_id),
+            "auth_type": superglue_entry.get("auth_type"),
+            "auth_schema": superglue_entry.get("auth_schema", []),
+            "url_hint": superglue_entry.get("url_hint", ""),
+            "icon": superglue_entry.get("icon", "🔌"),
+            "priority": item.get("priority", "high") if isinstance(item, dict) else "high",
+            "reason": item.get("reason", "Recommended by CRM analysis") if isinstance(item, dict) else "Recommended by CRM analysis",
+        })
+    recommended_agents = [
+        item if isinstance(item, dict) else {"name": str(item)}
+        for item in (result.get("agents") or [])
+        if isinstance(item, (dict, str)) and str(item).strip()
+    ]
+
+    from app.api.onboarding_build import STARTER_AGENT_PACK
+    starter_integrations = ("Stripe", "Shopify", "Gmail", "Slack")
+    if not result.get("error") and (not result.get("tickets_scanned") and not recommendations):
+        recommendations = [
+            {
+                "name": name,
+                "system_id": _system_id(name),
+                "priority": "medium",
+                "required": False,
+                "reason": "Optional starter integration — connect only if your business uses it",
+            }
+            for name in starter_integrations
+            if _system_id(name) not in connected_keys
+        ]
+    if not recommended_agents:
+        recommended_agents = [
+            {"name": name, "capabilities": capabilities, "priority": "medium"}
+            for name, capabilities in STARTER_AGENT_PACK.items()
+        ]
+
+    if result.get("error"):
+        analysis_summary = (
+            "CRM Analyser unavailable — showing starter support-agent suggestions. "
+            "Configure the secure analyser to receive personalized integration recommendations."
+        )
+    elif not result.get("tickets_scanned"):
+        analysis_summary = (
+            "No ticket history yet — showing starter suggestions. "
+            "Re-run analysis after your first tickets arrive for personalized recommendations."
+        )
+    else:
+        analysis_summary = (
+            result.get("analysis_summary")
+            or f"Analyzed {result.get('tickets_scanned', 0)} tickets. "
+               f"Found {len(recommendations)} integrations and {len(recommended_agents)} agent capabilities."
+        )
+
+    # Include the same tenant-scoped inventory that was sent to the analyser.
+    connected_list = [
+        {"type": r.integration_type, "name": r.name, "status": r.status}
+        for r in connected_rows
+    ]
+
+    data_profile = {
+        "total_tickets": result.get("tickets_scanned", 0),
+        "recommended_agents": recommended_agents,
+    }
 
     # ── Save to CRMAnalysisResult table (persists across logins) ──
     # Stores the full analysis so the user can see their recommendations
     # on the dashboard later, not just during onboarding.
+    analysis_id = None
     try:
         from database.models.crm_analysis import CRMAnalysisResult
         analysis_record = CRMAnalysisResult(
@@ -1420,6 +1513,8 @@ async def api_analyze_integrations(
         )
         db.add(analysis_record)
         db.commit()
+        db.refresh(analysis_record)
+        analysis_id = str(analysis_record.id)
     except Exception as exc:
         # Don't fail the whole request if DB save fails — the analysis
         # result is still returned to the frontend.
@@ -1436,6 +1531,8 @@ async def api_analyze_integrations(
         data_profile=data_profile,
         detected_gaps=[],
         recommendations=recommendations,
+        recommended_agents=recommended_agents,
+        analysis_id=analysis_id,
         analysis_summary=analysis_summary,
     )
 

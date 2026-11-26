@@ -55,9 +55,11 @@ try:  # best-effort DB registry for deploy-phase ownership tracking
 except Exception:  # noqa: BLE001
     register_tool = None
 
-BUILDER_URL = "https://p11668uhxhd1-d.space-z.ai"
-BUILDER_KEY = "bld_16983ffb226ec89575dea48c5b6ee245cc56ebb649ae04b5"
-CRM_URL = "https://preview-chat-448c1694-61bf-48c8-bac4-d207abd37b73.space-z.ai"
+BUILDER_URL = os.environ.get("BUILDER_API_URL", "").strip().rstrip("/")
+BUILDER_KEY = os.environ.get("BUILDER_API_KEY", "").strip()
+CRM_URL = os.environ.get("CRM_ANALYSER_URL", "").strip().rstrip("/")
+CRM_ANALYSER_API_KEY = os.environ.get("CRM_ANALYSER_API_KEY", "").strip()
+ALLOW_MUTATIONS = os.environ.get("PARWA_E2E_ALLOW_MUTATIONS", "").strip().lower() == "true"
 
 TENANT_A = "acme-payments-demo"   # payments business — preset tools
 TENANT_B = "gadgethub-demo"       # electronics shop — novel capability
@@ -98,6 +100,10 @@ def phase0_health() -> bool:
         ok_all = False
     # Builder
     try:
+        if not BUILDER_URL:
+            raise RuntimeError("BUILDER_API_URL is required; refusing to use a hardcoded preview service")
+        if not BUILDER_KEY:
+            raise RuntimeError("BUILDER_API_KEY is required for the Builder integration test")
         st, body = http_json(f"{BUILDER_URL}/api/health", headers={"X-API-Key": BUILDER_KEY})
         llm_ok = body.get("llm_ready") is True
         print(f"  ✓ Builder Agent     — status={body.get('status')}, llm_ready={body.get('llm_ready')}")
@@ -109,7 +115,14 @@ def phase0_health() -> bool:
     # payloads (its LLM needs real ticket data), so we probe the HTTP server
     # directly; full functional proof happens in Phase 2 with a real snapshot.
     try:
-        req = urllib.request.Request(f"{CRM_URL}/")
+        if not CRM_URL:
+            raise RuntimeError("CRM_ANALYSER_URL is required; refusing to use a hardcoded preview service")
+        if not CRM_ANALYSER_API_KEY:
+            raise RuntimeError("CRM_ANALYSER_API_KEY is required")
+        req = urllib.request.Request(
+            f"{CRM_URL}/",
+            headers={"Authorization": f"Bearer {CRM_ANALYSER_API_KEY}"},
+        )
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 alive = r.status == 200
@@ -213,7 +226,12 @@ def phase2_crm() -> bool:
         "connected_integrations": [],
     }
     try:
-        st, resp = http_json(f"{CRM_URL}/api/crm-analyser/analyze", method="POST", body={"source": "upload", "data": snapshot})
+        st, resp = http_json(
+            f"{CRM_URL}/api/crm-analyser/analyze",
+            method="POST",
+            body={"source": "upload", "data": snapshot},
+            headers={"Authorization": f"Bearer {CRM_ANALYSER_API_KEY}"},
+        )
         rid = resp.get("request_id")
         if not rid:
             print(f"  ✗ no request_id: {json.dumps(resp)[:200]}")
@@ -223,7 +241,10 @@ def phase2_crm() -> bool:
         work_order = None
         for i in range(40):
             time.sleep(5)
-            _, stt = http_json(f"{CRM_URL}/api/crm-analyser/analyze?id={rid}")
+            _, stt = http_json(
+                f"{CRM_URL}/api/crm-analyser/analyze?id={rid}",
+                headers={"Authorization": f"Bearer {CRM_ANALYSER_API_KEY}"},
+            )
             state = stt.get("status", {}).get("status", "unknown")
             if state == "completed":
                 work_order = stt["status"]["result"].get("work_order", {})
@@ -261,6 +282,8 @@ def phase3_builder() -> bool:
         "capability": "warranty_and_order_support",
     }
     try:
+        if not BUILDER_KEY:
+            raise RuntimeError("BUILDER_API_KEY is required for the Builder integration test")
         st, resp = http_json(
             f"{BUILDER_URL}/api/build",
             method="POST",
@@ -465,6 +488,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", type=int, choices=range(0, 7), help="run a single phase")
     args = ap.parse_args()
+    # Health checks are read-only. Every other phase uploads test data or
+    # creates/executes external tools, so require explicit sandbox opt-in.
+    if (args.phase is None or args.phase != 0) and not ALLOW_MUTATIONS:
+        raise SystemExit(
+            "Refusing to mutate external test tenants. Set PARWA_E2E_ALLOW_MUTATIONS=true "
+            "only when SUPERGLUE, BUILDER_API_URL and CRM_ANALYSER_URL point to approved "
+            "sandbox/test services and the demo tenants are reserved for this test."
+        )
     if args.phase is not None:
         ok = PHASES[args.phase]()
     else:

@@ -2626,6 +2626,28 @@ async def _fetch_crm_data(tenant_id: str, customer_context: Dict) -> Dict:
 # ── Connected Database Discovery ──────────────────────────────────
 
 
+def _set_pipeline_tenant_context(db: Any, tenant_id: str) -> None:
+    """Set RLS context for sessions opened outside the request dependency."""
+    try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db.execute(
+                text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+    except Exception as exc:
+        db.rollback()
+        logger.error("node3_tenant_rls_context_failed: %s", str(exc)[:160])
+        raise
+
+
+def _schema_metadata_only(schema: Any) -> Dict[str, Any]:
+    """Use the shared allowlist sanitizer before schema enters agent state."""
+    from app.core.schema_metadata import sanitize_schema_metadata
+    return sanitize_schema_metadata(schema)
+
+
+
 def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
     """Fetch tenant's connected databases from DBConnection table.
 
@@ -2643,23 +2665,36 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
     """
     try:
         from database.base import SessionLocal
-        from database.models.integration import DBConnection
+        from database.models.integration import DBConnection, Integration
 
         db = SessionLocal()
         try:
+            _set_pipeline_tenant_context(db, tenant_id)
             connections = db.query(DBConnection).filter(
                 DBConnection.company_id == tenant_id,
-                DBConnection.status == "connected",
+                DBConnection.status == "verified",
             ).all()
 
+            import json
             result = []
             for conn in connections:
+                try:
+                    schema = _schema_metadata_only(json.loads(conn.schema_analysis)) if conn.schema_analysis else None
+                except (json.JSONDecodeError, TypeError):
+                    schema = None
+                linked_integration = db.query(Integration).filter(
+                    Integration.company_id == tenant_id,
+                    Integration.name == conn.name,
+                ).first()
                 db_info = {
                     "id": str(conn.id),
+                    "system_id": linked_integration.integration_type if linked_integration else conn.name,
                     "name": conn.name,
                     "db_type": conn.db_type,
-                    "readonly": conn.is_readonly,  # always True — AI never writes to customer DB
+                    "readonly": conn.is_readonly,
                     "status": conn.status,
+                    "schema": schema,
+                    "schema_ready": bool(schema and schema.get("source") != "fallback"),
                 }
                 result.append(db_info)
 
@@ -2680,6 +2715,40 @@ def _fetch_connected_databases(tenant_id: str) -> List[Dict[str, Any]]:
         # Non-fatal: pipeline should never break because of this
         logger.warning("fetch_connected_databases_failed: %s", str(exc)[:200])
         return []
+
+
+def _fetch_connected_integrations(tenant_id: str) -> Dict[str, Dict[str, Any]]:
+    """Return non-secret integration metadata for this tenant's agents."""
+    try:
+        import json
+        from database.base import SessionLocal
+        from database.models.integration import Integration
+
+        db = SessionLocal()
+        try:
+            _set_pipeline_tenant_context(db, tenant_id)
+            rows = db.query(Integration).filter(
+                Integration.company_id == tenant_id,
+                Integration.status.in_(["active", "verified"]),
+            ).all()
+            result: Dict[str, Dict[str, Any]] = {}
+            for row in rows:
+                try:
+                    settings = json.loads(row.settings or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    settings = {}
+                result[row.integration_type] = {
+                    "name": row.name or row.integration_type,
+                    "system_id": row.integration_type,
+                    "status": row.status,
+                    "settings": settings,
+                }
+            return result
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("fetch_connected_integrations_failed: %s", str(exc)[:180])
+        return {}
 
 
 # ── Main Node Function ────────────────────────────────────────────
@@ -3333,6 +3402,19 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
 
     # ── Connected Database Discovery: make pipeline aware of tenant's DBs ─
     connected_databases = _fetch_connected_databases(tenant_id)
+    tenant_integrations = _fetch_connected_integrations(tenant_id)
+    # Include discovered DB schemas in the same non-secret integration context
+    # consumed by onboarding/tool generation and the Node 5 tool-forge fallback.
+    for db_info in connected_databases:
+        tenant_integrations[f"database:{db_info['system_id']}"] = {
+            "name": db_info["name"],
+            "system_id": db_info["system_id"],
+            "db_type": db_info["db_type"],
+            "status": db_info["status"],
+            "readonly": db_info["readonly"],
+            "schema": db_info.get("schema"),
+            "schema_ready": db_info.get("schema_ready", False),
+        }
     if connected_databases:
         logs.append({"node": 3, "technique": "ConnectedDBDiscovery", "duration_ms": 0,
                      "result_summary": f"dbs={len(connected_databases)} types={[d['db_type'] for d in connected_databases]}"})
@@ -3378,6 +3460,7 @@ async def node_3_knowledge_fetch(state: PipelineV2State) -> dict:
 
     return {
         "connected_databases": connected_databases,
+        "tenant_integrations": tenant_integrations,
         "knowledge_context": filtered,
         "wiki_section_a": wiki_a,
         "wiki_section_b": wiki_b,

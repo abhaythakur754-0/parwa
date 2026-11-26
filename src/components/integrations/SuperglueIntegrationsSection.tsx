@@ -116,6 +116,10 @@ export function SuperglueIntegrationsSection() {
       toast.error('Name is required');
       return;
     }
+    if ((formSystem.auth_type === 'oauth' || formSystem.auth_type === 'api_key') && !formApiKey.trim()) {
+      toast.error('A valid access token or API key is required');
+      return;
+    }
     // Build credentials from auth_schema + API key
     const credentials: Record<string, string> = {};
     if (formSystem.auth_schema) {
@@ -126,7 +130,7 @@ export function SuperglueIntegrationsSection() {
       }
     }
     if (formApiKey.trim()) {
-      if (formSystem.id === 'hubspot') {
+      if (formSystem.auth_type === 'oauth') {
         credentials.access_token = formApiKey.trim();
       } else {
         credentials.api_key = formApiKey.trim();
@@ -142,6 +146,9 @@ export function SuperglueIntegrationsSection() {
         credentials,
         icon: formSystem.icon,
       };
+      for (const [key, value] of Object.entries(credentials)) {
+        payload.url = String(payload.url || '').replaceAll(`{${key}}`, value);
+      }
       // Database-specific fields
       if (formSystem.auth_type === 'database') {
         payload.db_type = formSystem.db_type || formDbType;
@@ -214,7 +221,7 @@ export function SuperglueIntegrationsSection() {
         <div className="px-2 py-1 rounded-md bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold uppercase tracking-wider">
           ⚡ Powered by Superglue
         </div>
-        <span className="text-xs text-zinc-500">Connect your apps — Superglue handles auth, retries &amp; execution</span>
+        <span className="text-xs text-zinc-500">Connect your apps — Superglue handles tool execution &amp; retries; credentials stay encrypted</span>
       </div>
 
       {/* Integration cards */}
@@ -300,19 +307,21 @@ export function SuperglueIntegrationsSection() {
                 />
               </div>
 
-              {/* OAuth: show Connect button, no manual fields */}
+              {/* This dashboard form accepts provider tokens; guided onboarding
+                  provides the browser-based OAuth consent flow where supported. */}
               {formSystem.auth_type === 'oauth' && (
-                <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                  <p className="text-xs text-violet-300 mb-2">
-                    {formSystem.name} uses OAuth. Click below to authorize.
+                <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20 space-y-2">
+                  <p className="text-xs text-violet-300">
+                    Paste a provider-issued access token here. For browser-based OAuth consent, use the guided onboarding connection flow.
                   </p>
-                  <button
-                    onClick={handleConnect}
-                    disabled={submitting || !formName.trim()}
-                    className="w-full px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium disabled:opacity-50 transition"
-                  >
-                    {submitting ? 'Connecting...' : `Connect with ${formSystem.name}`}
-                  </button>
+                  <label className="block text-xs text-zinc-400">Access token *</label>
+                  <input
+                    type="password"
+                    value={formApiKey}
+                    onChange={(e) => setFormApiKey(e.target.value)}
+                    placeholder="Paste provider access token"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                  />
                 </div>
               )}
 
@@ -422,11 +431,12 @@ export function SuperglueIntegrationsSection() {
               >
                 Cancel
               </button>
-              {/* Hide Connect button for OAuth (handled above) */}
-              {formSystem.auth_type !== 'oauth' && (
               <button
                 onClick={handleConnect}
-                disabled={submitting || !formName.trim() || (formSystem.auth_type === 'api_key' && !formUrl.trim())}
+                disabled={
+                  submitting || !formName.trim() ||
+                  ((formSystem.auth_type === 'api_key' || formSystem.auth_type === 'oauth') && (!formUrl.trim() || !formApiKey.trim()))
+                }
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
@@ -436,7 +446,6 @@ export function SuperglueIntegrationsSection() {
                 )}
                 {submitting ? 'Connecting...' : 'Connect via Superglue'}
               </button>
-              )}
             </div>
           </div>
         </div>

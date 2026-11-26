@@ -496,19 +496,47 @@ class SuperglueCallQueue(Base):
     __tablename__ = "superglue_call_queue"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    company_id = Column(String(36), nullable=True, index=True)
-    tool_id = Column(String(100), nullable=False)
-    input_data = Column(Text, nullable=False)  # JSON of inputs
-    ticket_id = Column(String(36), nullable=True, index=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    tool_id = Column(String(255), nullable=False)
+    input_data = Column(Text, nullable=False)  # encrypted JSON of tool inputs
+    idempotency_key = Column(String(512), nullable=True, index=True)
+    safety_level = Column(String(24), nullable=False, default="unknown")
+    ticket_id = Column(String(128), nullable=True, index=True)
     agent_id = Column(String(36), nullable=True)
 
     status = Column(String(20), nullable=False, default="pending", index=True)
     retry_count = Column(Integer, default=0)
     max_retries = Column(Integer, default=2)
     error_message = Column(Text, nullable=True)
-    result_data = Column(Text, nullable=True)  # cached result for recovery
+    result_data = Column(Text, nullable=True)  # encrypted cached result (if used)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                        onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+
+
+
+class TicketToolExecution(Base):
+    """Tenant-scoped idempotency ledger for external agent side effects.
+
+    The ledger intentionally stores no raw tool inputs or customer payloads.
+    A reservation is committed before a Superglue call and retained when the
+    outcome is failed or ambiguous to prevent duplicate external actions.
+    """
+    __tablename__ = "ticket_tool_executions"
+
+    idempotency_key = Column(String(512), primary_key=True, nullable=False)
+    company_id = Column(
+        String(36),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    ticket_id = Column(String(128), nullable=False, index=True)
+    tool_id = Column(String(255), nullable=False)
+    action = Column(String(100), nullable=True)
+    status = Column(String(24), nullable=False, default="completed", index=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    executed_at = Column(DateTime, nullable=True)

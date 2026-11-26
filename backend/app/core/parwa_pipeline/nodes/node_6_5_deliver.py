@@ -62,6 +62,7 @@ Production hardening (v2):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import random
@@ -407,6 +408,90 @@ def _persist_crm_failure_to_dlq(
         return None
 
 
+async def _push_to_crm_via_superglue(
+    *,
+    state: PipelineV2State,
+    response_text: str,
+    crm_ticket_id: str,
+) -> Tuple[bool, Dict[str, Any], Optional[str]]:
+    """Use the tenant's generated CRM reply tool when OAuth credentials live in Superglue.
+
+    Returns handled=False only when no platform tool exists, allowing the
+    legacy API-key CRMBridge adapter to handle that provider.
+    """
+    tenant_id = str(state.get("tenant_id") or "")
+    if not tenant_id or not crm_ticket_id:
+        return False, {}, None
+
+    from database.base import SessionLocal
+    from database.models.variant_engine import AIAgentAssignment
+
+    db_session = SessionLocal()
+    try:
+        if getattr(db_session, "bind", None) and db_session.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db_session.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+        assignment = db_session.query(AIAgentAssignment).filter(
+            AIAgentAssignment.company_id == tenant_id,
+            AIAgentAssignment.agent_name == "Ticket Reply Specialist",
+            AIAgentAssignment.superglue_tool_status == "active",
+        ).first()
+        if not assignment or not assignment.superglue_tool_id:
+            return False, {}, None
+        try:
+            tool_definition = json.loads(assignment.superglue_tool_definition or "{}")
+        except (TypeError, ValueError):
+            return True, {"success": False, "error": "CRM reply tool definition is invalid"}, "invalid_crm_reply_tool"
+
+        from app.core.parwa_pipeline.nodes.node_5_act_verify import (
+            _extract_tool_inputs,
+            _execute_with_idempotency,
+        )
+        quality = state.get("quality_score", 0.0)
+        if state.get("simple_confidence"):
+            quality = max(quality, state["simple_confidence"])
+        if state.get("super_node_quality"):
+            quality = max(quality, state["super_node_quality"])
+        internal_note = _build_crm_internal_note(state, quality)
+
+        tool_input = _extract_tool_inputs(
+            {
+                "ticket_id": crm_ticket_id,
+                "response": response_text,
+                "reply": response_text,
+                "message": response_text,
+                "description": response_text,
+                "status": "resolved",
+                "public": True,
+                "internal_note": internal_note,
+            },
+            "reply_to_ticket",
+            str(state.get("ticket_details") or ""),
+            tool_definition=tool_definition,
+            crm_data=state.get("crm_data") or {},
+            ticket_id=crm_ticket_id,
+        )
+        response_hash = hashlib.sha256(response_text.encode("utf-8")).hexdigest()[:20]
+        result = await _execute_with_idempotency(
+            assignment.superglue_tool_id,
+            tool_input,
+            f"{crm_ticket_id}:public-reply:{response_hash}",
+            crm_ticket_id,
+            "ticket_reply",
+            tenant_id,
+            str(tool_definition.get("description") or ""),
+        )
+        if result.get("needs_customer_info"):
+            state["crm_delivery_needs_customer_info"] = result.get("missing_required", [])
+            return True, result, result.get("error", "Required CRM reply inputs are missing")
+        return True, result, None if result.get("success") else result.get("error", "Superglue CRM reply failed")
+    except Exception as exc:
+        logger.exception("Node 6.5 Superglue CRM reply failed")
+        return True, {"success": False, "error": str(exc)[:200]}, str(exc)[:200]
+    finally:
+        db_session.close()
+
+
 async def _push_to_crm_with_retry(
     *,
     state: PipelineV2State,
@@ -444,6 +529,9 @@ async def _push_to_crm_with_retry(
 
         db_session = SessionLocal()
         try:
+            if getattr(db_session, "bind", None) and db_session.bind.dialect.name == "postgresql":
+                from sqlalchemy import text
+                db_session.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
             svc = IntegrationService(db_session)
             crm_config = svc.get_crm_config_for_tenant(tenant_id, crm_provider)
         finally:
@@ -455,6 +543,26 @@ async def _push_to_crm_with_retry(
             "Node 6.5 could not load CRM config tenant=%s provider=%s err=%s",
             tenant_id, crm_provider, str(exc)[:200],
         )
+
+    # OAuth credentials are intentionally never copied back into PARWA.
+    # Prefer the generated tenant-scoped Superglue reply tool for those CRM
+    # connections; use CRMBridge only for legacy API-key integrations.
+    sg_handled, sg_result, sg_error = await _push_to_crm_via_superglue(
+        state=state,
+        response_text=response_text,
+        crm_ticket_id=crm_ticket_id,
+    )
+    if sg_handled:
+        if sg_result.get("success"):
+            if metrics_enabled:
+                from app.core.metrics import record_crm_push_attempt
+                record_crm_push_attempt(crm_provider, "success", 0.0)
+            return "success", sg_result, 0, None
+        logger.error(
+            "Node 6.5 Superglue reply failed ticket=%s provider=%s error=%s",
+            state.get("ticket_id", "?"), crm_provider, str(sg_error)[:200],
+        )
+        return "error", sg_result, 0, str(sg_error or "superglue_crm_reply_failed")[:200]
 
     if crm_config is None:
         # No active integration for this provider — short-circuit with a

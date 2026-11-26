@@ -43,7 +43,18 @@ router = APIRouter(prefix="/api/onboarding-build", tags=["onboarding-build"])
 # integrations yet means the analyser has nothing to learn from. Without a
 # fallback, zero agents get built and /status can never report all_ready=True
 # — onboarding deadlocks at verify. This guarantees the build always runs.
-STARTER_AGENT_PACK = ("Stripe", "Shopify", "Gmail", "Slack")
+CRM_PROVIDER_IDS = {
+    "hubspot", "zendesk", "salesforce", "freshdesk", "zoho",
+}
+
+STARTER_AGENT_PACK = {
+    "Refund Specialist": ["refund_processing", "billing_inquiry"],
+    "Order & Shipping Specialist": ["order_cancellation", "shipping_delivery", "product_information"],
+    "Billing Specialist": ["billing_inquiry", "invoice_request"],
+    "Account Support Specialist": ["account_management", "subscription_management"],
+    "Technical Support Specialist": ["technical_support"],
+    "General Support Specialist": ["faq_general"],
+}
 
 
 # ── Models ────────────────────────────────────────────────────────────
@@ -77,6 +88,53 @@ class BuildStatusResponse(BaseModel):
     failed: int
     all_ready: bool
     agents: List[AgentBuildStatus]
+
+
+def _validate_platform_tool_schema(agent_name: str, tool_definition: Any) -> Optional[str]:
+    """Require the critical input contract for CRM reply/escalation tools."""
+    if agent_name not in {"Ticket Reply Specialist", "Ticket Escalation Specialist"}:
+        return None
+    if isinstance(tool_definition, str):
+        try:
+            tool_definition = json.loads(tool_definition)
+        except (TypeError, ValueError):
+            return "Generated platform tool definition is not valid JSON"
+    if not isinstance(tool_definition, dict):
+        return "Generated platform tool has no structured definition"
+
+    schema = (
+        tool_definition.get("inputSchema")
+        or tool_definition.get("input_schema")
+        or tool_definition.get("parameters")
+    )
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return "Generated platform tool has no input schema"
+
+    def normalise(value: Any) -> str:
+        return "".join(char for char in str(value).lower() if char.isalnum())
+
+    properties = {normalise(key) for key in schema["properties"]}
+    required = {normalise(key) for key in schema.get("required", [])}
+    has_ticket_id = any("ticket" in key and "id" in key for key in properties)
+    has_required_ticket_id = any("ticket" in key and "id" in key for key in required)
+    if not has_ticket_id or not has_required_ticket_id:
+        return "Platform tool must require the original CRM ticket ID"
+
+    if agent_name == "Ticket Reply Specialist":
+        reply_words = ("response", "reply", "comment", "body", "message")
+        has_reply = any(any(word in key for word in reply_words) for key in properties)
+        has_required_reply = any(any(word in key for word in reply_words) for key in required)
+        if not has_reply or not has_required_reply:
+            return "Ticket reply tool must require a customer-facing response body"
+    else:
+        note_words = ("internalnote", "privatenote", "note", "comment")
+        has_note = any(any(word in key for word in note_words) for key in properties)
+        has_required_note = any(any(word in key for word in note_words) for key in required)
+        has_status = any("status" in key for key in properties)
+        has_required_status = any("status" in key for key in required)
+        if not has_note or not has_required_note or not has_status or not has_required_status:
+            return "Escalation tool must require a private note and escalation status"
+    return None
 
 
 # ── Trigger endpoint ──────────────────────────────────────────────────
@@ -113,49 +171,142 @@ async def trigger_build(
     if not analysis:
         raise HTTPException(status_code=404, detail="No CRM analysis found. Run analysis first.")
 
-    # 2. Extract agents from recommendations
-    # The analyser returns integrations as a list of names; we derive agents from them
-    # Each integration becomes an agent specialized for that system
-    recommendations = analysis.recommendations or []
+    # CRM analysis stores integration recommendations separately from the
+    # support agents required to handle ticket capabilities.
+    recommendations = (analysis.data_profile or {}).get("recommended_agents") or []
+    if not isinstance(recommendations, list) or not recommendations:
+        recommendations = [
+            {"name": name, "capabilities": capabilities, "priority": "medium"}
+            for name, capabilities in STARTER_AGENT_PACK.items()
+        ]
+
     agent_statuses: List[AgentBuildStatus] = []
     created = 0
     skipped = 0
     failed = 0
 
-    # Get tenant's connected integrations for tool generation context
-    # Status vocab: Superglue flow writes "connected", manual flow writes
-    # "active" — read BOTH or one flow is invisible to the other.
-    from database.models.integration import Integration
+    # Tools are generated against this tenant's VERIFIED data sources only.
+    from database.models.integration import Integration, DBConnection
     connected_integrations = db.query(Integration).filter(
         Integration.company_id == tenant_id,
-        Integration.status.in_(["connected", "verified", "active"]),
+        Integration.status.in_(["verified", "active"]),
     ).all()
+
+    # These two platform agents are required infrastructure for a human-grade
+    # ticket lifecycle: customer-facing CRM replies and private escalations.
+    if any(item.integration_type in CRM_PROVIDER_IDS for item in connected_integrations):
+        existing_by_name = {
+            str(item.get("name") or item.get("agent_name") or "").strip().lower(): index
+            for index, item in enumerate(recommendations) if isinstance(item, dict)
+        }
+        mandatory_crm_agents = [
+            {
+                "name": "Ticket Reply Specialist",
+                "role": "Customer-facing CRM response",
+                "capabilities": ["ticket_reply"],
+                "priority": "critical",
+                "reason": "Required to post the resolved response back to the source CRM ticket",
+            },
+            {
+                "name": "Ticket Escalation Specialist",
+                "role": "Private CRM escalation and handoff",
+                "capabilities": ["ticket_escalation", "ticket_status_update"],
+                "priority": "high",
+                "reason": "Required to create private escalation notes and update ticket status",
+            },
+        ]
+        for mandatory_agent in mandatory_crm_agents:
+            existing_index = existing_by_name.get(mandatory_agent["name"].lower())
+            if existing_index is None:
+                recommendations.append(mandatory_agent)
+                continue
+            existing_recommendation = recommendations[existing_index]
+            current_capabilities = existing_recommendation.get("capabilities") or []
+            if not isinstance(current_capabilities, list):
+                current_capabilities = [str(current_capabilities)]
+            existing_recommendation["capabilities"] = sorted(
+                {str(value) for value in current_capabilities}
+                | set(mandatory_agent["capabilities"])
+            )
+            existing_recommendation["role"] = mandatory_agent["role"]
+            existing_recommendation["reason"] = mandatory_agent["reason"]
+
     tenant_integrations_ctx = {
-        i.integration_type: {"name": i.name, "status": i.status}
+        i.integration_type: {
+            "name": i.name,
+            "status": i.status,
+            "system_id": i.integration_type,
+        }
         for i in connected_integrations
     }
 
-    # ── Fallback: never leave a tenant with zero agents ──
-    # Empty recommendations → zero agents → all_ready=False forever →
-    # the customer is stuck on the verify screen. Derive agents from the
-    # integrations they already connected; if none, use the starter pack.
-    if not recommendations:
-        fallback_names = [
-            i.integration_type.replace("-", " ").replace("_", " ").title()
-            for i in connected_integrations
-        ] or list(STARTER_AGENT_PACK)
-        recommendations = [
-            {"name": name, "priority": "high",
-             "reason": "Auto-generated from your connected systems"}
-            for name in fallback_names
-        ]
-        logger.info("onboarding_build_fallback tenant=%s agents=%d",
-                    tenant_id, len(recommendations))
+    connected_databases = db.query(DBConnection).filter(
+        DBConnection.company_id == tenant_id,
+        DBConnection.status == "verified",
+    ).all()
+    for db_conn in connected_databases:
+        try:
+            schema = json.loads(db_conn.schema_analysis) if db_conn.schema_analysis else None
+        except (json.JSONDecodeError, TypeError):
+            schema = None
+        if schema and schema.get("source") != "fallback":
+            db_integration = next(
+                (item for item in connected_integrations if item.name == db_conn.name),
+                None,
+            )
+            db_system_id = db_integration.integration_type if db_integration else db_conn.name
+            tenant_integrations_ctx[f"database:{db_system_id}"] = {
+                "name": db_conn.name,
+                "status": db_conn.status,
+                "system_id": db_system_id,
+                "db_type": db_conn.db_type,
+                "readonly": True,
+                "schema": schema,
+                "schema_ready": True,
+            }
+
+    if not tenant_integrations_ctx:
+        raise HTTPException(
+            status_code=409,
+            detail="Connect and verify at least one integration or database before building agents.",
+        )
+
+    logger.info(
+        "onboarding_build_scope tenant=%s verified_sources=%d agents=%d",
+        tenant_id, len(tenant_integrations_ctx), len(recommendations),
+    )
 
     for rec in recommendations:
-        agent_name = rec.get("name", "Unknown") if isinstance(rec, dict) else str(rec)
-        agent_role = f"{agent_name} Specialist"
-        capabilities = _infer_capabilities(agent_name)
+        if isinstance(rec, dict):
+            raw_name = (
+                rec.get("name")
+                or rec.get("agent_name")
+                or rec.get("key")
+                or rec.get("capability")
+                or "General Support Specialist"
+            )
+            agent_name = str(raw_name).replace("_", " ").strip().title()
+            agent_role = str(rec.get("role") or agent_name)
+            raw_capabilities = rec.get("capabilities")
+            if isinstance(raw_capabilities, list):
+                capabilities = [str(item) for item in raw_capabilities if str(item).strip()]
+            elif rec.get("capability"):
+                capabilities = [str(rec["capability"])]
+            else:
+                capabilities = _infer_capabilities(agent_name)
+            agent_reason = str(rec.get("reason") or "")
+            agent_instructions = str(
+                rec.get("instructions")
+                or f"Handle {agent_name}-related customer tickets. {agent_reason}".strip()
+            )
+        else:
+            agent_name = str(rec).replace("_", " ").strip().title()
+            agent_role = agent_name
+            capabilities = _infer_capabilities(agent_name)
+            agent_instructions = f"Handle {agent_name}-related customer tickets."
+
+        if not agent_name:
+            continue
 
         # 3. Dedup check — does this agent already exist for this tenant?
         existing = db.query(AIAgentAssignment).filter(
@@ -164,21 +315,38 @@ async def trigger_build(
         ).first()
 
         if existing and existing.superglue_tool_status == "active":
-            agent_statuses.append(AgentBuildStatus(
-                agent_name=agent_name,
-                agent_role=agent_role,
-                status="skipped",
-                superglue_tool_id=existing.superglue_tool_id,
-                error=None,
-            ))
-            skipped += 1
-            continue
+            try:
+                existing_definition = json.loads(existing.superglue_tool_definition or "{}")
+            except (TypeError, ValueError):
+                existing_definition = {}
+            schema_error = _validate_platform_tool_schema(agent_name, existing_definition)
+            existing_tool_ok = bool(
+                not schema_error
+                and existing.superglue_tool_id
+                and await superglue_client.verify_tool_exists(
+                    existing.superglue_tool_id, tenant_id=tenant_id
+                )
+            )
+            if existing_tool_ok:
+                agent_statuses.append(AgentBuildStatus(
+                    agent_name=agent_name,
+                    agent_role=agent_role,
+                    status="skipped",
+                    superglue_tool_id=existing.superglue_tool_id,
+                    error=None,
+                ))
+                skipped += 1
+                continue
+            existing.superglue_tool_status = "pending"
+            existing.superglue_tool_id = None
+            db.commit()
 
         # 4. Create/update the agent assignment row
         if existing:
             agent = existing
             agent.agent_role = agent_role
             agent.capabilities = json.dumps(capabilities)
+            agent.instructions = agent_instructions
             agent.superglue_tool_status = "pending"
         else:
             agent = AIAgentAssignment(
@@ -187,7 +355,7 @@ async def trigger_build(
                 agent_role=agent_role,
                 domain=agent_name,
                 capabilities=json.dumps(capabilities),
-                instructions=f"Handle {agent_name}-related customer tickets.",
+                instructions=agent_instructions,
                 restrictions="Only use approved Superglue tools. Follow tier guardrails.",
                 feature_ids="[]",
                 task_ids="[]",
@@ -204,28 +372,56 @@ async def trigger_build(
         try:
             async with agent_tool_lock(f"{tenant_id}:{agent.id}"):
                 db.refresh(agent)  # another request may have finished while we waited
-                if agent.superglue_tool_id and agent.superglue_tool_status == "active":
+                if (
+                    agent.superglue_tool_id
+                    and agent.superglue_tool_status == "active"
+                    and await superglue_client.verify_tool_exists(
+                        agent.superglue_tool_id, tenant_id=tenant_id
+                    )
+                ):
                     logger.info(
                         "superglue_tool_reuse (onboarding) | tenant=%s | agent=%s | tool_id=%s "
-                        "— already active, skipping duplicate generation",
+                        "— verified existing tool, skipping duplicate generation",
                         tenant_id, agent_name, agent.superglue_tool_id,
                     )
-                    # Synthesize a success result so the shared block below
-                    # records the status without regenerating anything.
                     result = {
                         "success": True,
                         "tool_id": agent.superglue_tool_id,
                         "tool_definition": json.loads(agent.superglue_tool_definition or "{}"),
                     }
                 else:
+                    agent.superglue_tool_id = None
+                    agent.superglue_tool_status = "pending"
+                    db.commit()
                     result = await generate_tool_for_agent(
                         agent_name=agent_name,
-                        agent_instructions=f"Handle {agent_name}-related customer tickets.",
+                        agent_instructions=agent_instructions,
                         agent_capabilities=", ".join(capabilities),
                         sample_ticket=None,
                         tenant_integrations=tenant_integrations_ctx,
                         tenant_id=tenant_id,
                     )
+
+            if result.get("success"):
+                schema_error = _validate_platform_tool_schema(
+                    agent_name, result.get("tool_definition")
+                )
+                if schema_error:
+                    result = {"success": False, "error": schema_error}
+
+            if result.get("success"):
+                generated_tool_id = result.get("tool_id")
+                tool_exists = bool(
+                    generated_tool_id
+                    and await superglue_client.verify_tool_exists(
+                        generated_tool_id, tenant_id=tenant_id
+                    )
+                )
+                if not tool_exists:
+                    result = {
+                        "success": False,
+                        "error": "Generated tool could not be verified in this tenant's Superglue workspace",
+                    }
 
             if result.get("success"):
                 agent.superglue_tool_id = result.get("tool_id")
@@ -289,6 +485,7 @@ async def get_build_status(
 
     agents = db.query(AIAgentAssignment).filter(
         AIAgentAssignment.company_id == tenant_id,
+        AIAgentAssignment.superglue_tool_status.in_(["active", "pending", "failed"]),
     ).all()
 
     agent_statuses: List[AgentBuildStatus] = []
@@ -336,6 +533,18 @@ def _infer_capabilities(integration_name: str) -> List[str]:
     name_lower = integration_name.lower()
 
     capability_map = {
+        "refund": ["refund_processing", "billing_inquiry"],
+        "billing": ["billing_inquiry", "invoice_request"],
+        "invoice": ["invoice_request", "billing_inquiry"],
+        "order": ["order_cancellation", "shipping_delivery", "product_information"],
+        "shipping": ["shipping_delivery"],
+        "delivery": ["shipping_delivery"],
+        "product": ["product_information"],
+        "account": ["account_management"],
+        "subscription": ["subscription_management", "billing_inquiry"],
+        "technical": ["technical_support"],
+        "general": ["faq_general"],
+        "faq": ["faq_general"],
         "stripe": ["refund_processing", "billing_inquiry"],
         "razorpay": ["refund_processing", "billing_inquiry"],
         "paypal": ["refund_processing", "billing_inquiry"],
@@ -350,7 +559,6 @@ def _infer_capabilities(integration_name: str) -> List[str]:
         "github": ["technical_support"],
         "jira": ["technical_support"],
         "notion": ["faq_general"],
-        "shipping": ["shipping_delivery"],
         "shipstation": ["shipping_delivery"],
     }
 

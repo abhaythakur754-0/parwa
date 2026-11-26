@@ -48,21 +48,8 @@ logger = logging.getLogger("parwa.superglue_client")
 HTTP_TIMEOUT = 30.0
 
 
-# ── Hardcoded Superglue config (no env var needed on Render) ──
-# STABLE stack (2026-09-08): platform preview route (system Caddy), NOT a
-# quick tunnel — never rotates, resolves to public Aliyun ALB IPs.
-# Bearer-token only, NO x-session-id required. Independently re-verified
-# from the consumer side: dashboard 200, list tools 200 (5 tools),
-# /tools/{id}/run 200 status=success with real rows, POST /v1/tools 201,
-# DELETE /v1/tools/{id} 200, /sgq/jobs 202→done<1s, /sgai/v1 Mistral 200.
-# NOTE: PATCH /v1/tools/{id} does NOT exist on this stack — use DELETE.
+# ── Default endpoint configuration; credentials are environment-only ──
 DEFAULT_SUPERGLUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi"
-# ── Credentials (code defaults; env vars still win if ever set) ──
-# NOTE: keep the GitHub repo PRIVATE while a real token sits here.
-# Paste the current token from the Superglue instance dashboard below.
-DEFAULT_SUPERGLUE_TOKEN = "sg_fbde45884a601f06d4d10a6d9300eb546223c2784ca66f0b"
-DEFAULT_SUPERGLUE_LLM_KEY = "sgai_39ff17e8bca987faa7fb31c92d952ee0d9fe021fea592c4f"
-# SECURITY: prefer env vars in shared/public checkouts.
 DEFAULT_SUPERGLUE_QUEUE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_STATUS_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgq/jobs"
 DEFAULT_SUPERGLUE_CORE_URL = "https://preview-chat-98e04084-5e3a-4783-865f-1b226d21cc01.space-z.ai/sgapi/v1/tools"
@@ -89,19 +76,35 @@ def _session_headers() -> dict:
     return {"x-session-id": session_id} if session_id else {}
 
 
+def _get_tenant_api_key(tenant_id: Optional[str]) -> str:
+    """Load one tenant's Superglue service-account key; never fall back to admin."""
+    if not tenant_id:
+        return ""
+    try:
+        from database.base import SessionLocal
+        from app.core.superglue_tenant_accounts import get_tenant_api_key
+
+        db = SessionLocal()
+        try:
+            return get_tenant_api_key(db, str(tenant_id)) or ""
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.error("superglue_tenant_key_lookup_failed: %s", str(exc)[:160])
+        return ""
+
+
 def _get_config() -> tuple[str, str]:
     """Get Superglue URL + token.
 
-    Resolution order: env var SUPERGLUE_AUTH_TOKEN, then the code default
-    DEFAULT_SUPERGLUE_TOKEN. If both empty, an empty token is returned and
-    every call site skips the request (they all guard on empty token).
+    SUPERGLUE_AUTH_TOKEN is the only credential source. If it is absent,
+    calls are disabled rather than falling back to a source-code secret.
     """
     url = os.environ.get("SUPERGLUE_API_URL", DEFAULT_SUPERGLUE_URL).strip().rstrip("/")
-    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", DEFAULT_SUPERGLUE_TOKEN).strip()
+    token = os.environ.get("SUPERGLUE_AUTH_TOKEN", "").strip()
     if not token:
         logger.error(
-            "SUPERGLUE_AUTH_TOKEN is not set (env) and DEFAULT_SUPERGLUE_TOKEN "
-            "is empty in code — Superglue calls are DISABLED (fail-closed)."
+            "SUPERGLUE_AUTH_TOKEN is not set — Superglue calls are DISABLED (fail-closed)."
         )
     return url, token
 
@@ -172,12 +175,11 @@ def _get_llm_url() -> str:
 
 
 def _get_llm_key() -> str:
-    """Superglue LLM API key (sgai_…). Env var first, then code default."""
-    key = os.environ.get("SUPERGLUE_LLM_API_KEY", DEFAULT_SUPERGLUE_LLM_KEY).strip()
+    """Superglue LLM API key. The environment is the only credential source."""
+    key = os.environ.get("SUPERGLUE_LLM_API_KEY", "").strip()
     if not key:
         logger.error(
-            "SUPERGLUE_LLM_API_KEY is not set (env) and DEFAULT_SUPERGLUE_LLM_KEY "
-            "is empty in code — LLM lane DISABLED (fail-closed)."
+            "SUPERGLUE_LLM_API_KEY is not set — Superglue LLM lane DISABLED (fail-closed)."
         )
     return key
 
@@ -224,10 +226,13 @@ def namespaced_tool_id(tool_id: str, tenant_id: str) -> str:
     Superglue server.
     """
     if not tenant_id:
-        return tool_id  # no tenant context — use raw ID (legacy behavior)
-    if tool_id.startswith(f"tenant_") and "__" in tool_id:
-        return tool_id  # already namespaced
-    return f"tenant_{tenant_id}__{tool_id}"
+        return tool_id  # administrative callers without tenant scope use raw IDs
+    tenant_prefix = f"tenant_{tenant_id}__"
+    if tool_id.startswith("tenant_") and "__" in tool_id:
+        if not tool_id.startswith(tenant_prefix):
+            raise ValueError("Tool ID belongs to a different tenant namespace")
+        return tool_id
+    return f"{tenant_prefix}{tool_id}"
 
 
 async def list_tools() -> List[Dict[str, Any]]:
@@ -269,7 +274,10 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
     if not is_configured():
         return False
 
-    url, token = _get_config()
+    url, admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id) if tenant_id else admin_token
+    if not url or not token:
+        return False
     actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
 
     try:
@@ -288,9 +296,9 @@ async def verify_tool_exists(tool_id: str, tenant_id: Optional[str] = None) -> b
         # 404 or other → tool doesn't exist
         return False
     except Exception as exc:
-        # If we can't reach Superglue, assume tool exists (don't block tickets)
-        logger.warning("verify_tool_exists_error: %s — assuming exists", str(exc)[:100])
-        return True
+        # Never mark an unverified tool as production-ready or execute it blindly.
+        logger.warning("verify_tool_exists_error: %s", str(exc)[:100])
+        return False
 
 
 async def get_tenant_tool_ids(tenant_id: Optional[str] = None) -> set:
@@ -348,16 +356,21 @@ async def list_systems() -> List[Dict[str, Any]]:
         return []
 
 
-async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Optional[str] = None) -> Dict[str, Any]:
+async def execute_tool(
+    tool_id: str,
+    input_data: Dict[str, Any],
+    tenant_id: Optional[str] = None,
+    idempotency_key: Optional[str] = None,
+    safety_level: str = "unknown",
+) -> Dict[str, Any]:
     """Execute a Superglue tool (sync — waits for full multi-step chain to complete).
 
     Args:
         tool_id: The Superglue tool ID (e.g. "payment-refund-by-email")
         input_data: Input parameters (e.g. {"customerEmail": "john@gmail.com"})
-        tenant_id: OPTIONAL but strongly recommended. When provided, the tool_id
-            is namespaced as "tenant_{tenant_id}__{tool_id}" so each tenant
-            can only execute their OWN tools. This is critical for multi-tenant
-            security — without it, Tenant A could call Tenant B's tools.
+        tenant_id: REQUIRED authenticated tenant ID. The tool_id is namespaced
+            as "tenant_{tenant_id}__{tool_id}" and executed with that tenant's
+            dedicated Superglue service-account key.
 
     Returns:
         {success: bool, data: dict, error: str, run_id: str, step_results: list}
@@ -367,12 +380,19 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         - Sync mode returns the FULL result inline (no need to poll /v1/runs/{id}).
         - For multi-step tools, this waits for ALL steps to complete (~3-10s typical).
         - For async mode (long-running tools), pass options.async=true and poll separately.
-        - Tenant isolation: pass tenant_id from the caller's authenticated context.
-          The actual tool ID sent to Superglue becomes tenant-namespaced.
+        - Tenant isolation: tenant_id and its service-account key are mandatory.
     """
-    url, token = _get_config()
+    url, _admin_token = _get_config()
+    if not tenant_id:
+        return {"success": False, "error": "Tenant context is required for tool execution"}
+    token = _get_tenant_api_key(tenant_id)
     if not url or not token:
-        return {"success": False, "error": "Superglue not configured"}
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
+    if safety_level not in {"read", "sensitive_pii"} and not idempotency_key:
+        return {
+            "success": False,
+            "error": "An idempotency key is required for non-read tool execution",
+        }
 
     # ── Per-tenant tool isolation (CRITICAL for multi-tenant security) ──
     # Without this, Tenant A could call Tenant B's tools by guessing the tool_id.
@@ -386,6 +406,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
     # User vision: 'and other data also' — same pattern as LLM queue
     import uuid as _uuid
     import json as _json
+    from shared.utils.token_encryption import encrypt_token
     _call_id = str(_uuid.uuid4())
     _call_persisted = False
     try:
@@ -393,11 +414,19 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         from database.models.core import SuperglueCallQueue
         _qdb = SessionLocal()
         try:
+            if tenant_id and _qdb.bind and _qdb.bind.dialect.name == "postgresql":
+                from sqlalchemy import text as _tenant_sql
+                _qdb.execute(
+                    _tenant_sql("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                    {"tenant_id": tenant_id},
+                )
             _qrow = SuperglueCallQueue(
                 id=_call_id,
                 company_id=tenant_id,
                 tool_id=actual_tool_id,
-                input_data=_json.dumps(input_data),
+                input_data=encrypt_token(_json.dumps(input_data)),
+                idempotency_key=idempotency_key,
+                safety_level=safety_level,
                 status="in_progress",
                 max_retries=2,
             )
@@ -407,7 +436,13 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         finally:
             _qdb.close()
     except Exception as persist_exc:
-        logger.warning("superglue_call_persist_failed: %s", str(persist_exc)[:200])
+        logger.error("superglue_call_persist_failed; refusing external execution: %s", str(persist_exc)[:200])
+
+    if not _call_persisted:
+        return {
+            "success": False,
+            "error": "Durable tenant call queue is unavailable; action was not executed",
+        }
 
     try:
         # Sync execution — waits for the full multi-step chain to complete.
@@ -455,7 +490,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
             if status == "success":
                 # ── SUCCESS: delete from queue (user's 'delete that' vision) ──
                 if _call_persisted:
-                    _delete_superglue_call_row(_call_id)
+                    _delete_superglue_call_row(_call_id, tenant_id)
                 return {
                     "success": True,
                     "data": result.get("data"),
@@ -475,7 +510,7 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
             # Async accepted — run started but not yet complete. Poll for result.
             if status == "running" and run_id:
                 logger.info("superglue tool %s running async, polling run_id=%s", tool_id, run_id)
-                return await _poll_run_status(run_id, tool_id=tool_id)
+                return await _poll_run_status(run_id, tool_id=tool_id, tenant_id=tenant_id)
 
             # Failed or unknown
             return {
@@ -496,10 +531,10 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
 
         # ── FAILURE: mark in DB for audit (don't delete — keep for recovery) ──
         if _call_persisted:
-            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}: {res.text[:200]}")
+            _mark_superglue_call_failed(_call_id, f"HTTP {res.status_code}", tenant_id)
         return {
             "success": False,
-            "error": f"Superglue returned {res.status_code}: {res.text[:200]}",
+            "error": f"Superglue returned HTTP {res.status_code}",
             "tool_id": tool_id,
         }
 
@@ -507,20 +542,26 @@ async def execute_tool(tool_id: str, input_data: Dict[str, Any], tenant_id: Opti
         logger.error("superglue_execute_tool error: %s", str(exc)[:200])
         # Mark failed in DB (Render might have restarted mid-call)
         if _call_persisted:
-            _mark_superglue_call_failed(_call_id, str(exc)[:200])
+            _mark_superglue_call_failed(_call_id, str(exc)[:200], tenant_id)
         return {"success": False, "error": str(exc)[:200], "tool_id": tool_id}
 
 
 # ── DB queue helpers for Superglue calls (small + surgical) ────────────
 
-def _delete_superglue_call_row(call_id: str) -> None:
+def _delete_superglue_call_row(call_id: str, tenant_id: Optional[str] = None) -> None:
     """Delete a completed Superglue call from the queue."""
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
+        from sqlalchemy import text
         _db = SessionLocal()
         try:
-            _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).delete()
+            if tenant_id and _db.bind and _db.bind.dialect.name == "postgresql":
+                _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+            query = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id)
+            if tenant_id:
+                query = query.filter(SuperglueCallQueue.company_id == tenant_id)
+            query.delete()
             _db.commit()
         finally:
             _db.close()
@@ -528,15 +569,59 @@ def _delete_superglue_call_row(call_id: str) -> None:
         logger.warning("superglue_call_delete_failed: %s", str(exc)[:200])
 
 
-def _mark_superglue_call_failed(call_id: str, error: str) -> None:
+def _can_safely_recover_tool_call(safety_level: Optional[str]) -> bool:
+    """Only retry operations whose replay cannot create external side effects."""
+    return safety_level in {"read", "sensitive_pii"}
+
+
+def _sync_ticket_tool_execution_status(
+    db,
+    company_id: Optional[str],
+    idempotency_key: Optional[str],
+    status: str,
+    error: Optional[str] = None,
+) -> None:
+    """Reconcile the outer idempotency record when a durable call is recovered."""
+    if not company_id or not idempotency_key:
+        return
+    from sqlalchemy import text
+
+    if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+        db.execute(
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(company_id)},
+        )
+    db.execute(
+        text(
+            "UPDATE ticket_tool_executions "
+            "SET status = :status, error_message = :error_message, "
+            "executed_at = CASE WHEN :status = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END "
+            "WHERE idempotency_key = :idempotency_key AND company_id = :company_id"
+        ),
+        {
+            "status": status,
+            "error_message": str(error or "")[:1000] or None,
+            "idempotency_key": idempotency_key,
+            "company_id": str(company_id),
+        },
+    )
+
+
+def _mark_superglue_call_failed(call_id: str, error: str, tenant_id: Optional[str] = None) -> None:
     """Mark a Superglue call as failed (kept in DB for audit + recovery)."""
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
         from datetime import datetime, timezone
+        from sqlalchemy import text
         _db = SessionLocal()
         try:
-            row = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id).first()
+            if tenant_id and _db.bind and _db.bind.dialect.name == "postgresql":
+                _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": tenant_id})
+            query = _db.query(SuperglueCallQueue).filter(SuperglueCallQueue.id == call_id)
+            if tenant_id:
+                query = query.filter(SuperglueCallQueue.company_id == tenant_id)
+            row = query.first()
             if row:
                 row.status = "failed"
                 row.error_message = error[:500]
@@ -558,85 +643,192 @@ async def recover_stuck_superglue_calls() -> None:
     Finds calls with status='in_progress' (Render died mid-call) and
     retries them.
 
-    If the superglue_call_queue table doesn't exist yet (fresh DB), this
-    function silently skips — no log spam. The table is created on first
-    Superglue call that needs DB-backed queueing.
+    The queue is provisioned by Alembic. If an older deployment has not
+    applied the migration yet, this function silently skips — no log spam.
     """
     global _superglue_queue_table_missing_warned
     try:
         from database.base import SessionLocal
         from database.models.core import SuperglueCallQueue
         import json as _json
-        from sqlalchemy import text as _sql_text
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import and_, or_, text as _sql_text
 
-        _db = SessionLocal()
-        try:
-            # Check if table exists first (avoid spamming errors every 60s)
+        from app.core.tenant_context import tenant_bypass
+        with tenant_bypass(reason="Superglue queue recovery worker"):
+            _db = SessionLocal()
             try:
-                _db.execute(_sql_text("SELECT 1 FROM superglue_call_queue LIMIT 1"))
-            except Exception as table_check_exc:
-                if "does not exist" in str(table_check_exc).lower():
-                    if not _superglue_queue_table_missing_warned:
-                        logger.info(
-                            "superglue_call_recovery: table superglue_call_queue not yet created — "
-                            "will be auto-created on first Superglue DB-backed call. Skipping recovery loop."
-                        )
-                        _superglue_queue_table_missing_warned = True
-                    return  # Table doesn't exist yet — silent skip
-                raise  # Different error — re-raise
-
-            stuck_rows = _db.query(SuperglueCallQueue).filter(
-                SuperglueCallQueue.status == "in_progress"
-            ).limit(5).all()  # cap at 5 per cycle
-
-            if not stuck_rows:
-                return
-
-            # Table exists now — reset the warned flag
-            _superglue_queue_table_missing_warned = False
-
-            logger.info("superglue_call_recovery: found %d stuck calls", len(stuck_rows))
-
-            for row in stuck_rows:
-                if row.retry_count >= row.max_retries:
-                    # Max retries exceeded — mark failed
-                    row.status = "failed"
-                    row.error_message = "max retries exceeded during recovery"
-                    row.completed_at = datetime.now(timezone.utc)
-                    _db.commit()
-                    continue
-
-                # Retry the call
+                # Check if table exists first (avoid spamming errors every 60s)
                 try:
-                    input_data = _json.loads(row.input_data)
-                    # Increment retry count
-                    row.retry_count = (row.retry_count or 0) + 1
-                    _db.commit()
+                    _db.execute(_sql_text("SELECT 1 FROM superglue_call_queue LIMIT 1"))
+                except Exception as table_check_exc:
+                    if "does not exist" in str(table_check_exc).lower():
+                        if not _superglue_queue_table_missing_warned:
+                            logger.info(
+                                "superglue_call_recovery: table superglue_call_queue not yet created — "
+                                "will be auto-created on first Superglue DB-backed call. Skipping recovery loop."
+                            )
+                            _superglue_queue_table_missing_warned = True
+                        return  # Table doesn't exist yet — silent skip
+                    raise  # Different error — re-raise
 
-                    # Make the actual call (without re-persisting to avoid loops)
-                    result = await _execute_tool_raw(
-                        row.tool_id, input_data, tenant_id=row.company_id
-                    )
+                # Never replay a call that may still be executing in a live API
+                # worker. The normal HTTP + async-poll path completes within 3
+                # minutes; a 5-minute lease marks genuinely abandoned calls.
+                stale_before = datetime.now(timezone.utc) - timedelta(minutes=5)
+                recovery_query = _db.query(SuperglueCallQueue).filter(
+                    SuperglueCallQueue.status.in_(["in_progress", "recovering"]),
+                    or_(
+                        SuperglueCallQueue.updated_at < stale_before,
+                        and_(
+                            SuperglueCallQueue.updated_at.is_(None),
+                            SuperglueCallQueue.created_at < stale_before,
+                        ),
+                    ),
+                ).order_by(SuperglueCallQueue.created_at.asc()).limit(5)
+                if _db.bind and _db.bind.dialect.name == "postgresql":
+                    recovery_query = recovery_query.with_for_update(skip_locked=True)
+                stuck_rows = recovery_query.all()
 
-                    if result.get("success"):
-                        # Success — delete the row
-                        _db.query(SuperglueCallQueue).filter(
-                            SuperglueCallQueue.id == row.id
-                        ).delete()
-                        _db.commit()
-                        logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
-                    else:
+                if not stuck_rows:
+                    return
+
+                # Claim the batch before any network calls. A second worker
+                # will see a fresh lease and cannot replay the same operation.
+                claimed_at = datetime.now(timezone.utc)
+                for row in stuck_rows:
+                    row.status = "recovering"
+                    row.updated_at = claimed_at
+                _db.commit()
+
+                # Table exists now — reset the warned flag
+                _superglue_queue_table_missing_warned = False
+
+                logger.info("superglue_call_recovery: found %d stale calls", len(stuck_rows))
+
+                for row in stuck_rows:
+                    retry_count = int(row.retry_count or 0)
+                    max_retries = int(row.max_retries or 2)
+                    if retry_count >= max_retries:
+                        # Max retries exceeded — mark failed
+                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            _db.execute(
+                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                {"tenant_id": str(row.company_id)},
+                            )
                         row.status = "failed"
-                        row.error_message = result.get("error", "unknown")[:500]
+                        row.error_message = "max retries exceeded during recovery"
                         row.completed_at = datetime.now(timezone.utc)
+                        _sync_ticket_tool_execution_status(
+                            _db, row.company_id, row.idempotency_key, "failed",
+                            row.error_message,
+                        )
                         _db.commit()
-                except Exception as retry_exc:
-                    logger.warning(
-                        "superglue_call_recovery_retry_failed: call=%s err=%s",
-                        row.id[:8], str(retry_exc)[:200],
-                    )
-        finally:
-            _db.close()
+                        continue
+
+                    # A process may have died after the provider accepted a write
+                    # but before PARWA recorded the result. Replaying an ambiguous
+                    # write could double-refund or duplicate a CRM comment. Only
+                    # read-only calls are safe to replay automatically.
+                    if not _can_safely_recover_tool_call(row.safety_level):
+                        row.status = "failed"
+                        row.error_message = (
+                            "Interrupted write has an ambiguous outcome; manual reconciliation required"
+                        )
+                        row.completed_at = datetime.now(timezone.utc)
+                        _sync_ticket_tool_execution_status(
+                            _db, row.company_id, row.idempotency_key, "failed",
+                            row.error_message,
+                        )
+                        _db.commit()
+                        continue
+
+                    # Retry the call
+                    try:
+                        # New rows are encrypted at rest. Support legacy plaintext
+                        # rows during the rolling migration, then rewrite them encrypted.
+                        try:
+                            from shared.utils.token_encryption import decrypt_token, encrypt_token
+                            decrypted_payload = decrypt_token(row.input_data)
+                            input_data = _json.loads(decrypted_payload)
+                        except Exception:
+                            try:
+                                input_data = _json.loads(row.input_data)
+                                from shared.utils.token_encryption import encrypt_token
+                                row.input_data = encrypt_token(_json.dumps(input_data))
+                            except Exception:
+                                if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                    _db.execute(
+                                        _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                        {"tenant_id": str(row.company_id)},
+                                    )
+                                row.status = "failed"
+                                row.error_message = "queued payload could not be decrypted"
+                                row.completed_at = datetime.now(timezone.utc)
+                                _sync_ticket_tool_execution_status(
+                                    _db, row.company_id, row.idempotency_key, "failed",
+                                    row.error_message,
+                                )
+                                _db.commit()
+                                continue
+
+                        # Set tenant RLS context before modifying this tenant's queue row.
+                        if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            _db.execute(
+                                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                {"tenant_id": str(row.company_id)},
+                            )
+                        row.retry_count = retry_count + 1
+                        row.updated_at = datetime.now(timezone.utc)
+                        _db.commit()
+
+                        # Make the actual call (without re-persisting to avoid loops)
+                        result = await _execute_tool_raw(
+                            row.tool_id, input_data, tenant_id=row.company_id
+                        )
+
+                        if result.get("success"):
+                            # Success — delete the row
+                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                _db.execute(
+                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                    {"tenant_id": str(row.company_id)},
+                                )
+                            _sync_ticket_tool_execution_status(
+                                _db, row.company_id, row.idempotency_key, "completed"
+                            )
+                            _db.query(SuperglueCallQueue).filter(
+                                SuperglueCallQueue.id == row.id,
+                                SuperglueCallQueue.company_id == row.company_id,
+                            ).delete()
+                            _db.commit()
+                            logger.info("superglue_call_recovery: call %s retried successfully", row.id[:8])
+                        else:
+                            if row.company_id and getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                                _db.execute(
+                                    _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                                    {"tenant_id": str(row.company_id)},
+                                )
+                            row.error_message = result.get("error", "unknown")[:500]
+                            if int(row.retry_count or 0) < max_retries:
+                                # Read-only calls may be retried again after a fresh lease.
+                                row.status = "in_progress"
+                                row.updated_at = datetime.now(timezone.utc)
+                            else:
+                                row.status = "failed"
+                                row.completed_at = datetime.now(timezone.utc)
+                                _sync_ticket_tool_execution_status(
+                                    _db, row.company_id, row.idempotency_key, "failed",
+                                    row.error_message,
+                                )
+                            _db.commit()
+                    except Exception as retry_exc:
+                        logger.warning(
+                            "superglue_call_recovery_retry_failed: call=%s err=%s",
+                            row.id[:8], str(retry_exc)[:200],
+                        )
+            finally:
+                _db.close()
     except Exception as exc:
         logger.warning("recover_stuck_superglue_calls_error: %s", str(exc)[:200])
 
@@ -650,7 +842,10 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
 
-    url, token = _get_config()
+    url, _admin_token = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
     actual_tool_id = namespaced_tool_id(tool_id, tenant_id) if tenant_id else tool_id
 
     try:
@@ -698,16 +893,21 @@ async def _execute_tool_raw(tool_id: str, input_data: dict, tenant_id: str = Non
         return {"success": False, "error": str(exc)[:200]}
 
 
-async def _poll_run_status(run_id: str, tool_id: str = "", max_polls: int = 30, interval: float = 2.0) -> Dict[str, Any]:
+async def _poll_run_status(run_id: str, tool_id: str = "", tenant_id: Optional[str] = None, max_polls: int = 30, interval: float = 2.0) -> Dict[str, Any]:
     """Poll a Superglue run until it completes (success/failed) or times out.
 
     Used for async-execution tools that return status=running.
     Returns the same shape as execute_tool():
         {success, data, error, run_id, step_results, tool_id}
     """
-    url, token = _get_config()
-    if not url or not token:
-        return {"success": False, "error": "Superglue not configured", "run_id": run_id, "tool_id": tool_id}
+    url, admin_token = _get_config()
+    # Superglue service accounts can execute tools but cannot read run history.
+    # This run_id is returned by the immediately preceding tenant-authenticated
+    # execute request, never supplied by a user; use the server admin key only
+    # to retrieve that single run's completion result.
+    if not url or not admin_token:
+        return {"success": False, "error": "Superglue run status is unavailable", "run_id": run_id, "tool_id": tool_id}
+    token = admin_token
 
     import asyncio
 
@@ -846,137 +1046,149 @@ async def get_available_tools_description(tenant_id: Optional[str] = None) -> st
 
 
 async def create_system(
-    system_id: str,
-    name: str,
-    url: str,
-    tenant_id: Optional[str] = None,
-    credentials: Optional[Dict[str, Any]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    icon: str = "",
-    specific_instructions: str = "",
+    system_id: str, name: str, url: str, tenant_id: Optional[str] = None,
+    credentials: Optional[Dict[str, Any]] = None, metadata: Optional[Dict[str, Any]] = None,
+    icon: str = "", specific_instructions: str = "",
+    customer_api_key: Optional[str] = None, credential_url: Optional[str] = None,
+    template_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create a system (connected app) in Superglue.
-
-    Args:
-        system_id: Raw system ID (e.g. "shopify-store"). Will be namespaced.
-        name: Human-readable name (e.g. "My Shopify Store").
-        url: Base URL of the external system (e.g. "https://mystore.myshopify.com").
-        tenant_id: Tenant UUID for namespacing. Strongly recommended.
-        credentials: Optional auth credentials (api_key, oauth_token, etc.).
-        metadata: Optional freeform metadata.
-        icon: Optional emoji/icon string.
-        specific_instructions: Optional notes for Superglue's LLM.
-
-    Returns: {"success": bool, "data": {...}, "error": str?}
-    """
+    """Create/update a connection owned by exactly one Superglue tenant account."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
+    cfg_url, _ = _get_config()
+    token = customer_api_key or _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue service account is unavailable"}
 
-    cfg_url, token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
+    meta = metadata or {}
+    auth_type = str(meta.get("auth_type") or "api_key").lower()
+    connection_url = credential_url or url
+    if auth_type == "oauth":
+        # OAuth exchange creates the provider connection after user consent.
+        return {"success": True, "pending_oauth": True, "data": {
+            "id": system_id, "systemId": system_id, "name": name,
+            "url": connection_url, "icon": icon, "metadata": meta,
+        }}
 
-    payload: Dict[str, Any] = {
-        "id": actual_id,
-        "name": name,
-        "url": url,
-        "icon": icon,
-        "specificInstructions": specific_instructions,
-        "credentials": credentials or {},
-        "metadata": metadata or {},
-    }
-
+    authentication = {"type": "none"} if auth_type in {"database", "smtp"} else {"type": "api_key"}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()}
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-            res = await client.post(
-                f"{cfg_url}/v1/systems",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
-                json=payload,
+            existing_response = await client.get(
+                f"{cfg_url}/v1/connections", headers=headers, params={"systemId": system_id}
             )
-        if res.status_code in (200, 201):
-            data = res.json()
-            return {"success": True, "data": data.get("data", data)}
-        return {"success": False, "error": f"HTTP {res.status_code}: {res.text[:200]}"}
-    except Exception as exc:
-        logger.warning("superglue_create_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
+            existing = None
+            if existing_response.status_code == 200:
+                body = existing_response.json()
+                data = body.get("data", body) if isinstance(body, dict) else {}
+                if isinstance(data, list):
+                    existing = next((x for x in data if isinstance(x, dict) and x.get("systemId") == system_id), None)
+                elif isinstance(data, dict):
+                    items = data.get("connections")
+                    if isinstance(items, list):
+                        existing = next((x for x in items if isinstance(x, dict) and x.get("systemId") == system_id), None)
+                    else:
+                        existing = data.get("connection")
 
+            request_body = {
+                "systemId": system_id, "name": name, "url": connection_url,
+                "authentication": authentication, "credentials": credentials or {},
+            }
+            if isinstance(existing, dict) and existing.get("id"):
+                response = await client.patch(
+                    f"{cfg_url}/v1/connections/{existing['id']}", headers=headers, json=request_body
+                )
+            else:
+                response = await client.post(
+                    f"{cfg_url}/v1/connections", headers=headers, json=request_body
+                )
+        if response.status_code not in (200, 201):
+            logger.error("superglue_connection_write_failed system=%s status=%s", system_id[:80], response.status_code)
+            return {"success": False, "error": f"Could not save tenant connection (HTTP {response.status_code})"}
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
+        return {"success": True, "data": data}
+    except Exception as exc:
+        logger.warning("superglue_create_connection_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not save tenant connection"}
 
 async def get_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-    """Get a single system from Superglue.
-
-    Returns: {"success": bool, "data": {...}, "error": str?}
-    """
+    """Read a tenant-owned connection; never use the organization admin key."""
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
-
-    cfg_url, token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            res = await client.get(
-                f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+            response = await client.get(
+                f"{cfg_url}/v1/connections", headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                params={"systemId": system_id},
             )
-        if res.status_code == 200:
-            data = res.json()
-            return {"success": True, "data": data.get("data", data)}
-        if res.status_code == 404:
-            return {"success": False, "error": "System not found"}
-        return {"success": False, "error": f"HTTP {res.status_code}"}
+        if response.status_code == 404:
+            return {"success": False, "error": "Connection not found"}
+        if response.status_code != 200:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
+        if isinstance(data, list):
+            connection = next((x for x in data if isinstance(x, dict) and x.get("systemId") == system_id), None)
+        elif isinstance(data, dict):
+            items = data.get("connections")
+            connection = next((x for x in items if isinstance(x, dict) and x.get("systemId") == system_id), None) if isinstance(items, list) else data.get("connection") or data
+        else:
+            connection = None
+        if not isinstance(connection, dict) or not connection:
+            return {"success": False, "error": "Connection not found"}
+        safe = {k: connection[k] for k in ("id", "systemId", "name", "url", "authentication", "credentialKeys", "createdAt", "updatedAt") if k in connection}
+        return {"success": True, "data": safe}
     except Exception as exc:
-        logger.warning("superglue_get_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
-
+        logger.warning("superglue_get_connection_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not read tenant connection"}
 
 async def delete_system(system_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-    """Delete a system from Superglue (disconnect the app).
-
-    Returns: {"success": bool, "error": str?}
-    """
-    if not is_configured():
-        return {"success": False, "error": "Superglue not configured"}
-
-    cfg_url, token = _get_config()
-    actual_id = namespaced_tool_id(system_id, tenant_id) if tenant_id else system_id
-
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            res = await client.delete(
-                f"{cfg_url}/v1/systems/{actual_id}",
-                headers={"Authorization": f"Bearer {token}", **_session_headers()},
-            )
-        if res.status_code in (200, 204):
-            return {"success": True}
-        if res.status_code == 404:
-            return {"success": False, "error": "System not found"}
-        return {"success": False, "error": f"HTTP {res.status_code}"}
-    except Exception as exc:
-        logger.warning("superglue_delete_system error: %s", str(exc)[:200])
-        return {"success": False, "error": str(exc)[:200]}
-
+    """Delete only this tenant's connection for the selected system ID."""
+    return await delete_tenant_credentials(system_id, str(tenant_id or ""))
 
 async def list_tenant_systems(tenant_id: str) -> List[Dict[str, Any]]:
-    """List all systems belonging to a specific tenant.
-
-    Filters the global system list by the tenant's namespace prefix
-    (tenant_{tenant_id}__) so each tenant only sees their own connections.
-
-    Returns: list of system dicts (empty list on error).
-    """
-    all_systems = await list_systems()
-    if not tenant_id:
-        return all_systems
-    prefix = f"tenant_{tenant_id}__"
-    return [s for s in all_systems if s.get("id", "").startswith(prefix)]
-
+    """List only connections visible to the tenant service account."""
+    if not is_configured() or not tenant_id:
+        return []
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{cfg_url}/v1/connections",
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+            )
+        if response.status_code != 200:
+            return []
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else []
+        if isinstance(data, dict):
+            data = data.get("connections", [])
+        return [
+            {k: item[k] for k in ("id", "systemId", "name", "url", "authentication", "credentialKeys") if k in item}
+            for item in data if isinstance(item, dict)
+        ] if isinstance(data, list) else []
+    except Exception as exc:
+        logger.warning("superglue_list_tenant_connections_error: %s", str(exc)[:160])
+        return []
 
 # ── Superglue Catalog Discovery (for Custom integrations/databases) ─────
 # When a user wants to connect a platform NOT in our curated catalog,
 # we ask Superglue "what auth does this platform need?" and get back
 # the auth type + required fields. This is the "Ask Superglue" flow.
 
-async def discover_auth_schema(platform_name: str, platform_type: str = "integration") -> Dict[str, Any]:
+async def discover_auth_schema(
+    platform_name: str,
+    platform_type: str = "integration",
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """Ask Superglue for the auth schema of a platform.
 
     Used when a user wants to connect a Custom integration or database
@@ -987,6 +1199,7 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
     Args:
         platform_name: Name of the platform (e.g., "Zoho Inventory", "Paddle", "CockroachDB")
         platform_type: "integration" or "database" — changes what Superglue looks for
+        tenant_id: authenticated company ID used to load that tenant's Superglue key
 
     Returns: {
         "success": bool,
@@ -1002,7 +1215,10 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
     if not is_configured():
         return {"success": False, "error": "Superglue not configured", "auth_type": "api_key", "fields": []}
 
-    cfg_url, token = _get_config()
+    cfg_url = _get_config()[0]
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "schema": None, "error": "Tenant Superglue credentials are unavailable"}
 
     try:
         # Ask Superglue to discover the auth schema for this platform
@@ -1077,6 +1293,202 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
         }
 
 
+async def delete_tenant_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
+    """Revoke only this tenant's credential connection; keep shared system definitions."""
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue credentials are unavailable"}
+
+    headers = {"Authorization": f"Bearer {token}", **_session_headers()}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(
+                f"{url}/v1/connections",
+                headers=headers,
+                params={"systemId": system_id},
+            )
+            if response.status_code == 404:
+                return {"success": True}
+            if response.status_code != 200:
+                return {"success": False, "error": f"Could not inspect tenant connection (HTTP {response.status_code})"}
+            payload = response.json()
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            if isinstance(data, list):
+                connection = next(
+                    (item for item in data if isinstance(item, dict) and item.get("systemId") == system_id),
+                    None,
+                )
+            elif isinstance(data, dict):
+                connections = data.get("connections")
+                if isinstance(connections, list):
+                    connection = next(
+                        (item for item in connections if isinstance(item, dict) and item.get("systemId") == system_id),
+                        None,
+                    )
+                else:
+                    connection = data.get("connection") or data
+            else:
+                connection = None
+            connection_id = connection.get("id") if isinstance(connection, dict) else None
+            if not connection_id:
+                return {"success": True}
+            deleted = await client.delete(
+                f"{url}/v1/connections/{connection_id}",
+                headers=headers,
+            )
+            return {"success": deleted.status_code in (200, 204, 404)}
+    except Exception as exc:
+        logger.warning("superglue_tenant_credential_delete_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not revoke tenant connection"}
+
+
+async def start_oauth_exchange(
+    system_id: str,
+    tenant_id: str,
+    oauth_app_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Start Superglue-managed OAuth using this tenant's service account."""
+    if not is_configured():
+        return {"success": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {"success": False, "error": "Tenant Superglue service account is unavailable"}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        **_session_headers(),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            selected_app_id = oauth_app_id
+            if not selected_app_id:
+                apps_response = await client.get(
+                    f"{url}/v1/oauth-apps",
+                    headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                    params={"systemId": system_id},
+                )
+                if apps_response.status_code == 200:
+                    apps_payload = apps_response.json()
+                    apps_data = apps_payload.get("data", apps_payload) if isinstance(apps_payload, dict) else []
+                    if isinstance(apps_data, dict):
+                        apps_data = apps_data.get("oauthApps") or apps_data.get("apps") or []
+                    if isinstance(apps_data, list):
+                        selected = next(
+                            (
+                                item for item in apps_data
+                                if isinstance(item, dict) and item.get("id")
+                            ),
+                            None,
+                        )
+                        if selected:
+                            selected_app_id = str(selected["id"])
+
+            payload: Dict[str, Any] = {"systemId": system_id}
+            if selected_app_id:
+                payload["oauthAppId"] = selected_app_id
+            response = await client.post(
+                f"{url}/v1/oauth/exchanges",
+                headers=headers,
+                json=payload,
+            )
+        if response.status_code not in (200, 201):
+            logger.warning("superglue_oauth_start_failed system=%s status=%s", system_id, response.status_code)
+            return {
+                "success": False,
+                "error": f"Superglue OAuth could not start (HTTP {response.status_code})",
+            }
+        body = response.json()
+        data = body.get("data", body) if isinstance(body, dict) else {}
+        authorization_url = data.get("authorizationUrl") or data.get("authorization_url")
+        if not authorization_url:
+            return {"success": False, "error": "Superglue did not return an authorization URL"}
+        return {"success": True, "authorization_url": authorization_url}
+    except Exception as exc:
+        logger.warning("superglue_oauth_start_error: %s", str(exc)[:160])
+        return {"success": False, "error": "Could not start provider authorization"}
+
+async def check_oauth_credentials(system_id: str, tenant_id: str) -> Dict[str, Any]:
+    """Check the tenant's Superglue connection without returning secret values."""
+    if not is_configured():
+        return {"success": False, "connected": False, "error": "Superglue not configured"}
+    url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {
+            "success": False,
+            "connected": False,
+            "error": "Tenant Superglue service account is unavailable",
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                f"{url}/v1/connections",
+                headers={"Authorization": f"Bearer {token}", **_session_headers()},
+                params={"systemId": system_id},
+            )
+        if response.status_code == 404:
+            return {"success": True, "connected": False}
+        if response.status_code != 200:
+            return {
+                "success": False,
+                "connected": False,
+                "error": f"Could not verify provider connection (HTTP {response.status_code})",
+            }
+
+        payload = response.json()
+        data = payload.get("data", payload) if isinstance(payload, dict) else {}
+        if isinstance(data, list):
+            connection = next(
+                (
+                    item for item in data
+                    if isinstance(item, dict) and item.get("systemId") == system_id
+                ),
+                None,
+            )
+        elif isinstance(data, dict):
+            connections = data.get("connections")
+            if isinstance(connections, list):
+                connection = next(
+                    (
+                        item for item in connections
+                        if isinstance(item, dict) and item.get("systemId") == system_id
+                    ),
+                    None,
+                )
+            else:
+                connection = data.get("connection") or data
+        else:
+            connection = None
+
+        keys = connection.get("credentialKeys", []) if isinstance(connection, dict) else []
+        has_access_token = False
+        if isinstance(keys, dict):
+            entry = keys.get("access_token")
+            has_access_token = bool(
+                entry.get("hasValue") if isinstance(entry, dict) else entry
+            )
+        elif isinstance(keys, list):
+            has_access_token = any(
+                isinstance(entry, dict)
+                and (entry.get("key") or entry.get("name")) == "access_token"
+                and entry.get("hasValue") is True
+                for entry in keys
+            )
+        return {"success": True, "connected": has_access_token}
+    except Exception as exc:
+        logger.warning("superglue_oauth_status_error: %s", str(exc)[:160])
+        return {
+            "success": False,
+            "connected": False,
+            "error": "Could not check provider authorization",
+        }
+
 async def analyze_db_schema(
     db_connection_id: str,
     tenant_id: str,
@@ -1105,34 +1517,57 @@ async def analyze_db_schema(
     if not is_configured():
         return {"success": False, "error": "Superglue not configured"}
 
-    cfg_url, token = _get_config()
+    cfg_url, _ = _get_config()
+    token = _get_tenant_api_key(tenant_id)
+    if not token:
+        return {
+            "success": False,
+            "schema": None,
+            "error": "Tenant Superglue credentials are unavailable",
+        }
 
     try:
-        # Call Superglue's auto.read to discover the database schema
+        # Call Superglue's auto.read with the tenant identity. Database
+        # connection secrets must never be sent using the organization key.
         async with httpx.AsyncClient(timeout=60.0) as client:
             res = await client.post(
                 f"{cfg_url}/v1/discover/db-schema",
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", **_session_headers()},
                 json={
-                    "connection_id": namespaced_tool_id(db_connection_id, tenant_id),
+                    "connection_id": db_connection_id,
                     "db_type": db_type,
                     "connection_config": connection_config,
                 },
             )
 
         if res.status_code == 200:
-            data = res.json().get("data", res.json())
-            return {"success": True, "schema": data}
+            payload = res.json()
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            if isinstance(data, dict) and isinstance(data.get("schema"), dict):
+                data = data["schema"]
+            has_objects = isinstance(data, dict) and any(
+                isinstance(data.get(key), list) and len(data[key]) > 0
+                for key in ("tables", "collections", "schemas")
+            )
+            if has_objects and data.get("source") != "fallback":
+                return {"success": True, "schema": data}
+            return {
+                "success": False,
+                "schema": None,
+                "error": "Superglue returned no verified tables, collections, or schemas",
+            }
 
-        # If Superglue can't analyze, return a basic schema based on DB type
+        # Never report a generic fallback as a successful discovery. Agents
+        # must not treat an unknown schema as verified or invent table names.
         return {
-            "success": True,
-            "schema": _fallback_schema(db_type),
+            "success": False,
+            "schema": None,
+            "error": f"Superglue schema discovery failed (HTTP {res.status_code})",
         }
 
     except Exception as exc:
         logger.warning("superglue_analyze_db_schema error: %s", str(exc)[:200])
-        return {"success": True, "schema": _fallback_schema(db_type)}
+        return {"success": False, "schema": None, "error": str(exc)[:200]}
 
 
 def _fallback_schema(db_type: str) -> Dict[str, Any]:

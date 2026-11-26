@@ -15,6 +15,30 @@ def test_production_rejects_short_encryption_key(monkeypatch):
         Settings.validate_encryption_key("too-short")
 
 
+def test_production_requires_mcp_auth_token(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="MCP_AUTH_TOKEN"):
+        Settings.validate_mcp_auth_token("")
+
+
+def test_production_rejects_placeholder_mcp_auth_token(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="at least 32 characters"):
+        Settings.validate_mcp_auth_token("your_mcp_token_here")
+
+
+def test_production_accepts_strong_mcp_auth_token(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    token = "mcp-" + ("x" * 40)
+    assert Settings.validate_mcp_auth_token(token) == token
+
+
+def test_development_allows_missing_mcp_auth_token_with_warning(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    with pytest.warns(UserWarning, match="MCP_AUTH_TOKEN is empty"):
+        assert Settings.validate_mcp_auth_token("") == ""
+
+
 def test_production_requires_authenticated_redis_url(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("REDIS_PASSWORD", raising=False)

@@ -192,6 +192,11 @@ def _learn_tickets(db, company_id: str, tickets: list) -> tuple:
                 )
                 .first()
             )
+            # AIWikiStore persists through its own short-lived SQLAlchemy
+            # session. Release this read-only lookup transaction first:
+            # SQLite otherwise holds a reader lock that can reject the
+            # write-through INSERT with SQLITE_BUSY/database is locked.
+            db.commit()
             if exists:
                 skipped += 1
                 continue

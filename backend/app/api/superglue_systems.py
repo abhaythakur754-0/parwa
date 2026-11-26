@@ -20,6 +20,7 @@ BC-001: All operations scoped to authenticated user's company_id (tenant isolati
         System IDs are namespaced as tenant_{company_id}__{system_id} in Superglue.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -47,7 +48,7 @@ logger = get_logger("superglue_systems_api")
 # also connect ANY custom system via the POST endpoint with a custom URL.
 #
 # Auth types:
-#   "oauth"    → Show "Connect with X" button (Superglue handles OAuth redirect)
+#   "oauth"    → Require a provider-issued access token until the OAuth callback is implemented.
 #   "api_key"  → Show URL + API Key form (+ optional extra_fields per system)
 #   "database" → Show host/port/db/user/pass form (+ optional extra_fields for Snowflake/BigQuery)
 #   "smtp"     → Show SMTP form (host + port + user + pass for custom email)
@@ -72,7 +73,10 @@ POPULAR_SYSTEMS: List[Dict[str, Any]] = [
     {"id": "pipedrive",    "name": "Pipedrive",         "icon": "🔄", "url_hint": "https://api.pipedrive.com",      "category": "CRM",           "auth_type": "api_key"},
 
     # ── E-commerce ──
-    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",    "auth_type": "oauth"},
+    {"id": "shopify",      "name": "Shopify",           "icon": "🛒", "url_hint": "https://{store}.myshopify.com", "category": "E-commerce",    "auth_type": "oauth",
+     "auth_schema": [
+         {"key": "store", "label": "Store subdomain", "type": "text", "required": True, "placeholder": "mystore"},
+     ]},
 
     # ── Email (OAuth + API key + SMTP mix) ──
     {"id": "gmail",        "name": "Gmail",             "icon": "📧", "url_hint": "https://gmail.googleapis.com",   "category": "Email",         "auth_type": "oauth"},
@@ -98,7 +102,10 @@ POPULAR_SYSTEMS: List[Dict[str, Any]] = [
     # ── Dev Tools / Productivity ──
     {"id": "github",       "name": "GitHub",            "icon": "🐙", "url_hint": "https://api.github.com",         "category": "Dev Tools",     "auth_type": "oauth"},
     {"id": "notion",       "name": "Notion",            "icon": "📝", "url_hint": "https://api.notion.com/v1",      "category": "Productivity",  "auth_type": "oauth"},
-    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "auth_type": "oauth"},
+    {"id": "jira",         "name": "Jira",              "icon": "🟦", "url_hint": "https://{subdomain}.atlassian.net", "category": "Project Management", "auth_type": "oauth",
+     "auth_schema": [
+         {"key": "subdomain", "label": "Atlassian site", "type": "text", "required": True, "placeholder": "mycompany"},
+     ]},
     {"id": "google-analytics", "name": "Google Analytics", "icon": "📊", "url_hint": "https://analyticsreporting.googleapis.com", "category": "Analytics", "auth_type": "oauth"},
 
     # ── Databases (standard host/port form) ──
@@ -186,32 +193,38 @@ async def get_catalog() -> CatalogResponse:
 
 
 @router.get("/systems", response_model=ListSystemsResponse)
-async def list_systems(user: User = Depends(get_current_user)) -> ListSystemsResponse:
-    """List all systems connected by this tenant.
-
-    BC-001: Scoped to user's company_id. Only returns systems with the
-    tenant_{company_id}__ prefix.
-    """
+async def list_systems(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ListSystemsResponse:
+    """List this tenant's locally registered integrations without leaking other tenants."""
     tenant_id = str(user.company_id)
-    systems = await superglue_client.list_tenant_systems(tenant_id)
-    # Strip the tenant prefix from the ID for cleaner frontend display
-    cleaned = []
-    prefix = f"tenant_{tenant_id}__"
-    for s in systems:
-        clean_id = s.get("id", "")
-        if clean_id.startswith(prefix):
-            clean_id = clean_id[len(prefix):]
-        cleaned.append(SystemResponse(
-            id=clean_id,
-            name=s.get("name", ""),
-            url=s.get("url", ""),
-            icon=s.get("icon", ""),
-            credentials={},  # never expose credentials to frontend
-            metadata=s.get("metadata", {}),
-            created_at=s.get("createdAt") or s.get("created_at"),
-            updated_at=s.get("updatedAt") or s.get("updated_at"),
+    shared_ids = {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
+    rows = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+    ).order_by(Integration.created_at.asc()).all()
+
+    systems = []
+    for row in rows:
+        is_shared = row.integration_type in shared_ids
+        result = await superglue_client.get_system(
+            row.integration_type,
+            tenant_id=tenant_id,
+        )
+        data = result.get("data", {}) if result.get("success") else {}
+        metadata = dict(data.get("metadata") or {})
+        metadata["local_status"] = row.status
+        systems.append(SystemResponse(
+            id=row.integration_type,
+            name=data.get("name") or row.name or row.integration_type,
+            url=data.get("url") or "",
+            icon=data.get("icon") or "",
+            credentials={},
+            metadata=metadata,
+            created_at=data.get("createdAt") or row.created_at,
+            updated_at=data.get("updatedAt") or row.updated_at,
         ))
-    return ListSystemsResponse(success=True, systems=cleaned, count=len(cleaned))
+    return ListSystemsResponse(success=True, systems=systems, count=len(systems))
 
 
 @router.post("/systems", response_model=SystemResponse, status_code=201)
@@ -235,37 +248,121 @@ async def create_system(
     tenant_id = str(user.company_id)
     is_database = req.system_id in DATABASE_SYSTEM_IDS
 
+    system_definition = next(
+        (item for item in POPULAR_SYSTEMS if item["id"] == req.system_id),
+        {},
+    )
+    auth_type = system_definition.get("auth_type", "api_key")
+    if req.metadata is None:
+        req.metadata = {}
+    # The server-side catalog is authoritative; callers cannot downgrade an
+    # OAuth provider into an API-key integration by changing request metadata.
+    req.metadata["auth_type"] = auth_type
+    has_provider_credentials = any(
+        str(value).strip() for value in (req.credentials or {}).values() if value is not None
+    )
+    if not is_database and auth_type != "oauth" and not has_provider_credentials:
+        raise HTTPException(
+            status_code=422,
+            detail="Provider credentials are required for this integration.",
+        )
+
     # For databases, build the URL + credentials from the DB-specific fields
     if is_database:
-        if not req.db_host or not req.db_name or not req.db_username:
-            raise HTTPException(status_code=400, detail="Database connections require db_host, db_name, db_username")
-        # Build a connection URL for Superglue (it treats DBs as systems with a URL)
-        db_port = req.db_port or 5432
-        req.url = f"{req.db_type or 'postgresql'}://{req.db_host}:{db_port}/{req.db_name}"
-        # Store DB credentials in the credentials dict for Superglue
-        req.credentials = {
-            "db_type": req.db_type,
+        db_type = req.db_type or "postgresql"
+        missing_database_fields = (
+            not req.db_host
+            or not req.db_name
+            or (db_type != "bigquery" and not req.db_username)
+        )
+        if missing_database_fields:
+            raise HTTPException(
+                status_code=400,
+                detail="Database connections require host and database name; username is also required except for BigQuery service accounts.",
+            )
+        # Superglue resolves <<systemId_secretName>> placeholders from the
+        # tenant-owned encrypted connection. Never embed DB passwords in URLs.
+        db_port = req.db_port or (443 if db_type in {"snowflake", "bigquery"} else 5432)
+        db_credentials = dict(req.credentials or {})
+        db_credentials.update({
+            "db_type": db_type,
             "host": req.db_host,
             "port": db_port,
             "database": req.db_name,
-            "username": req.db_username,
+            "username": req.db_username or "",
             "password": req.db_password or "",
-        }
+            "readonly": True,
+        })
+        if db_type in {"postgres", "postgresql"}:
+            req.url = (
+                f"postgresql://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}"
+            )
+        elif db_type == "mysql":
+            req.url = (
+                f"mysql://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}"
+            )
+        elif db_type == "mongodb":
+            req.url = (
+                f"mongodb://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@{req.db_host}:{db_port}/{req.db_name}?authSource=admin"
+            )
+        elif db_type == "snowflake":
+            db_credentials["account"] = req.db_host
+            db_credentials["warehouse"] = db_credentials.get("warehouse", "")
+            db_credentials["schema"] = db_credentials.get("schema", "")
+            req.url = (
+                f"snowflake://<<{req.system_id}_username>>:<<{req.system_id}_password>>"
+                f"@<<{req.system_id}_account>>/?warehouse=<<{req.system_id}_warehouse>>"
+                f"&database={req.db_name}&schema=<<{req.system_id}_schema>>"
+            )
+        elif db_type == "bigquery":
+            req.url = f"bigquery://<<{req.system_id}_project_id>>"
+        else:
+            raise HTTPException(status_code=422, detail="Unsupported database connector type")
+        req.credentials = db_credentials
         # Tell Superglue this is a database — it will auto-read the schema
         if not req.metadata:
             req.metadata = {}
         req.metadata["system_type"] = "database"
-        req.metadata["db_type"] = req.db_type
+        req.metadata["db_type"] = db_type
+
+    # Provision a separate Superglue service account for each tenant. The
+    # global admin token must never own customer credentials or OAuth tokens.
+    from app.core.superglue_tenant_accounts import get_or_create_tenant_account
+    tenant_account = await get_or_create_tenant_account(db, tenant_id)
+    if not tenant_account.get("success"):
+        raise HTTPException(
+            status_code=503,
+            detail=tenant_account.get("error", "Could not provision integration credentials"),
+        )
+
+    if not req.metadata:
+        req.metadata = {}
+    req.metadata["auth_type"] = auth_type
+
+    shared_system_ids = {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
+    is_shared_system = req.system_id in shared_system_ids
+    if is_database:
+        # The shared system definition is generic; the tenant-specific URL
+        # and credentials are stored on that tenant's service-account connection.
+        definition_url = f"{req.db_type or 'postgresql'}://localhost:{req.db_port or 5432}/{req.db_name}"
+    else:
+        definition_url = system_definition.get("url_hint") or req.url
 
     result = await superglue_client.create_system(
         system_id=req.system_id,
-        name=req.name,
-        url=req.url,
+        name=system_definition.get("name") or req.name,
+        url=definition_url,
         tenant_id=tenant_id,
         credentials=req.credentials,
         metadata=req.metadata,
-        icon=req.icon,
+        icon=req.icon or system_definition.get("icon", ""),
         specific_instructions=req.specific_instructions,
+        customer_api_key=tenant_account["api_key"],
+        credential_url=req.url,
+        template_id=req.system_id if is_shared_system and auth_type in {"oauth", "api_key"} else None,
     )
     if not result.get("success"):
         raw_error = str(result.get("error", "unknown"))
@@ -289,6 +386,7 @@ async def create_system(
         name=req.name,
         credentials=req.credentials,
         settings=req.metadata or {},
+        status="pending_oauth" if auth_type == "oauth" else "pending",
     )
 
     # If this is a CRM system, ALSO register an MCPConnection
@@ -299,33 +397,51 @@ async def create_system(
             company_id=tenant_id,
             name=req.name,
             server_url=req.url,
-            auth_token=req.credentials.get("api_key") if req.credentials else None,
+            auth_token=(req.credentials.get("api_key") or req.credentials.get("access_token") or req.credentials.get("token")) if req.credentials else None,
             system_id=req.system_id,
+            # MCP must not expose an API-key integration until the provider
+            # health check has succeeded.
+            status="pending_oauth" if auth_type == "oauth" else "pending",
         )
 
     # If this is a database, ALSO save to DBConnection table (read-only enforced)
     if is_database:
-        _upsert_db_connection(
+        db_conn = _upsert_db_connection(
             db=db,
             company_id=tenant_id,
             name=req.name,
             db_type=req.db_type or "postgresql",
             db_host=req.db_host,
-            db_port=req.db_port or 5432,
+            db_port=db_port,
             db_name=req.db_name,
             db_username=req.db_username,
             db_password=req.db_password,
             system_id=req.system_id,
+            connection_config=req.credentials,
+        )
+        # Schema discovery is part of connection setup, not a later manual step.
+        schema_discovery = await _discover_db_schema_for_connection(
+            db=db,
+            db_conn=db_conn,
+            tenant_id=tenant_id,
+            connection_config=req.credentials,
         )
 
     data = result.get("data", {})
+    response_metadata = dict(data.get("metadata") or req.metadata or {})
+    if is_database:
+        response_metadata["schema_discovery"] = {
+            "status": "verified" if schema_discovery.get("success") else "pending",
+            "table_count": len((schema_discovery.get("schema") or {}).get("tables", [])),
+            "error": schema_discovery.get("error"),
+        }
     return SystemResponse(
         id=req.system_id,  # return the clean (non-namespaced) ID
         name=data.get("name", req.name),
         url=data.get("url", req.url),
         icon=data.get("icon", req.icon),
         credentials={},
-        metadata=data.get("metadata", {}),
+        metadata=response_metadata,
         created_at=data.get("createdAt") or data.get("created_at"),
         updated_at=data.get("updatedAt") or data.get("updated_at"),
     )
@@ -335,10 +451,21 @@ async def create_system(
 async def get_system(
     system_id: str,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> SystemResponse:
-    """Get details of one connected system."""
+    """Get details of one connected system after tenant ownership validation."""
     tenant_id = str(user.company_id)
-    result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
+    result = await superglue_client.get_system(
+        system_id,
+        tenant_id=tenant_id,
+    )
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "System not found"))
 
@@ -363,18 +490,28 @@ async def delete_system(
 ) -> Dict[str, Any]:
     """Disconnect a system (delete from Superglue + remove MCPConnection if CRM)."""
     tenant_id = str(user.company_id)
-    result = await superglue_client.delete_system(system_id, tenant_id=tenant_id)
-    if not result.get("success"):
-        raise HTTPException(status_code=404, detail=result.get("error", "System not found"))
-
-    # Also remove the local Integration record
     integration = db.query(Integration).filter(
         Integration.company_id == tenant_id,
         Integration.integration_type == system_id,
     ).first()
-    if integration:
-        db.delete(integration)
-        db.commit()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
+    result = (
+        await superglue_client.delete_tenant_credentials(system_id, tenant_id)
+        if is_shared
+        else await superglue_client.delete_system(system_id, tenant_id=tenant_id)
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "Could not revoke integration credentials"),
+        )
+
+    integration_name = integration.name
+    db.delete(integration)
+    db.commit()
 
     # Also remove the MCPConnection record if this was a CRM
     if system_id in CRM_SYSTEM_IDS:
@@ -390,7 +527,7 @@ async def delete_system(
     if system_id in DATABASE_SYSTEM_IDS:
         db_conn = db.query(DBConnection).filter(
             DBConnection.company_id == tenant_id,
-            DBConnection.name.like(f"%({system_id})"),
+            DBConnection.name == integration_name,
         ).first()
         if db_conn:
             db.delete(db_conn)
@@ -418,22 +555,15 @@ async def verify_system(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> VerifyResponse:
-    """Verify a system is connected + MCPConnection is registered.
+    """Check Superglue registration AND previously verified provider access.
 
-    Checks:
-    1. System exists in Superglue (GET /v1/systems/{id} returns 200)
-    2. If CRM: MCPConnection record exists in PARWA DB
-
-    Used by onboarding Step 2 "Connect & Verify" button to confirm the
-    CRM is actually reachable before triggering the CRM Analyser.
+    A Superglue system record alone is not proof that provider credentials work.
+    The /test endpoint performs the real provider/database check and marks the
+    local Integration/DBConnection record verified.
     """
     tenant_id = str(user.company_id)
-
-    # 1. Check Superglue
     sg_result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
-    superglue_ok = sg_result.get("success", False)
-
-    if not superglue_ok:
+    if not sg_result.get("success"):
         return VerifyResponse(
             verified=False,
             superglue_ok=False,
@@ -441,42 +571,74 @@ async def verify_system(
             system_id=system_id,
             name="",
             url="",
-            message=f"Superglue verification failed: {sg_result.get('error', 'system not found')}",
+            message=f"System not found in Superglue: {sg_result.get('error', 'unknown')}",
         )
 
     data = sg_result.get("data", {})
     name = data.get("name", system_id)
     url = data.get("url", "")
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
 
-    # 2. Check MCPConnection (only for CRM systems)
+    if system_id in DATABASE_SYSTEM_IDS:
+        db_conn = db.query(DBConnection).filter(
+            DBConnection.company_id == tenant_id,
+            DBConnection.name == (integration.name if integration else ""),
+        ).first()
+        provider_verified = bool(db_conn and db_conn.status == "verified" and db_conn.schema_analysis)
+    else:
+        provider_verified = bool(
+            integration and integration.status in ("active", "verified")
+        )
+
     is_crm = system_id in CRM_SYSTEM_IDS
     mcp_registered = False
-    if is_crm:
+    if is_crm and provider_verified:
         mcp = db.query(MCPConnection).filter(
             MCPConnection.company_id == tenant_id,
             MCPConnection.name.like(f"%({system_id})"),
         ).first()
-        mcp_registered = mcp is not None
-        if not mcp_registered:
-            # Auto-create the MCPConnection if missing (self-healing)
+        if not mcp:
+            from app.services.integration_service import IntegrationService
+
+            credentials = IntegrationService._parse_json(
+                integration.credentials_encrypted if integration else None
+            ) or {}
+            auth_token = (
+                credentials.get("api_key")
+                or credentials.get("access_token")
+                or credentials.get("token")
+            )
             _upsert_mcp_connection(
                 db=db,
                 company_id=tenant_id,
                 name=name,
                 server_url=url,
-                auth_token=None,
+                auth_token=auth_token,
                 system_id=system_id,
             )
-            mcp_registered = True
+            mcp = db.query(MCPConnection).filter(
+                MCPConnection.company_id == tenant_id,
+                MCPConnection.name.like(f"%({system_id})"),
+            ).first()
+        mcp_registered = mcp is not None
 
+    verified = bool(provider_verified and (not is_crm or mcp_registered))
+    message = (
+        "Provider credentials and local connection records are verified."
+        if verified else
+        "System exists in Superglue, but provider credentials or database schema have not been verified. Run the connection test first."
+    )
     return VerifyResponse(
-        verified=True,
+        verified=verified,
         superglue_ok=True,
         mcp_registered=mcp_registered,
         system_id=system_id,
         name=name,
         url=url,
-        message="CRM verified — connected to Superglue" + (" + registered with MCP" if mcp_registered else ""),
+        message=message,
     )
 
 
@@ -490,6 +652,7 @@ def _upsert_mcp_connection(
     server_url: str,
     auth_token: Optional[str],
     system_id: str,
+    status: str = "connected",
 ) -> MCPConnection:
     """Create or update an MCPConnection record for a CRM system.
 
@@ -508,7 +671,7 @@ def _upsert_mcp_connection(
         mcp.server_url = server_url
         if auth_token:
             mcp.auth_token_encrypted = encrypt_token(auth_token)
-        mcp.status = "connected"
+        mcp.status = status
         mcp.capabilities = json.dumps(["crm"])
     else:
         # Create new
@@ -517,7 +680,7 @@ def _upsert_mcp_connection(
             name=full_name,
             server_url=server_url,
             auth_token_encrypted=encrypt_token(auth_token) if auth_token else None,
-            status="connected",
+            status=status,
             capabilities=json.dumps(["crm"]),
         )
         db.add(mcp)
@@ -525,6 +688,23 @@ def _upsert_mcp_connection(
     db.commit()
     db.refresh(mcp)
     return mcp
+
+
+def _set_mcp_connection_status(
+    db: Session,
+    integration: Optional[Integration],
+    system_id: str,
+    status: str,
+) -> None:
+    if not integration:
+        return
+    connection = db.query(MCPConnection).filter(
+        MCPConnection.company_id == str(integration.company_id),
+        MCPConnection.name == f"{integration.name} ({system_id})",
+    ).first()
+    if connection:
+        connection.status = status
+        db.commit()
 
 
 # ── Helper: upsert Integration (local DB record for every connection) ──
@@ -537,6 +717,7 @@ def _upsert_integration(
     name: str,
     credentials: Optional[Dict[str, Any]] = None,
     settings: Optional[Dict[str, Any]] = None,
+    status: str = "connected",
 ) -> Integration:
     """Create or update an Integration record.
 
@@ -556,8 +737,9 @@ def _upsert_integration(
 
     # Encrypt credentials if provided
     creds_encrypted = None
-    if credentials:
-        # Store the whole credentials dict as encrypted JSON
+    if credentials is not None:
+        # Store the whole credentials dict as encrypted JSON. An empty OAuth
+        # dict intentionally clears any stale API-key credentials on reconnect.
         creds_encrypted = encrypt_token(json.dumps(credentials))
 
     settings_json = json.dumps(settings or {})
@@ -565,8 +747,8 @@ def _upsert_integration(
     if integration:
         # Update existing
         integration.name = name
-        integration.status = "connected"
-        if creds_encrypted:
+        integration.status = status
+        if credentials is not None:
             integration.credentials_encrypted = creds_encrypted
         integration.settings = settings_json
         integration.error_message = None
@@ -576,7 +758,7 @@ def _upsert_integration(
             company_id=company_id,
             integration_type=integration_type,
             name=name,
-            status="connected",
+            status=status,
             credentials_encrypted=creds_encrypted,
             settings=settings_json,
         )
@@ -585,6 +767,100 @@ def _upsert_integration(
     db.commit()
     db.refresh(integration)
     return integration
+
+
+# ── Managed OAuth: explicit customer consent, tenant-scoped credentials ──
+
+
+class OAuthStartResponse(BaseModel):
+    authorization_url: str
+
+
+class OAuthStatusResponse(BaseModel):
+    system_id: str
+    connected: bool
+    status: str
+    message: str
+
+
+@router.post("/systems/{system_id}/oauth/start", response_model=OAuthStartResponse)
+async def start_system_oauth(
+    system_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OAuthStartResponse:
+    """Start a Superglue-managed OAuth exchange for the authenticated tenant."""
+    tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration has not been created")
+
+    definition = next((item for item in POPULAR_SYSTEMS if item["id"] == system_id), None)
+    if not definition or definition.get("auth_type") != "oauth":
+        raise HTTPException(status_code=400, detail="This integration does not use OAuth")
+
+    result = await superglue_client.start_oauth_exchange(
+        system_id=system_id,
+        tenant_id=tenant_id,
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error", "Could not start provider authorization"),
+        )
+    integration.status = "pending_oauth"
+    integration.error_message = None
+    db.commit()
+    return OAuthStartResponse(authorization_url=result["authorization_url"])
+
+
+@router.get("/systems/{system_id}/oauth/status", response_model=OAuthStatusResponse)
+async def get_system_oauth_status(
+    system_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OAuthStatusResponse:
+    """Poll Superglue's tenant credential store; never expose OAuth tokens."""
+    tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    result = await superglue_client.check_oauth_credentials(
+        system_id=system_id,
+        tenant_id=tenant_id,
+    )
+    connected = result.get("success") is True and result.get("connected") is True
+    if connected:
+        integration.status = "verified"
+        integration.error_message = None
+        integration.last_sync = datetime.now(timezone.utc)
+        mcp_connection = db.query(MCPConnection).filter(
+            MCPConnection.company_id == tenant_id,
+            MCPConnection.name == f"{integration.name} ({system_id})",
+        ).first()
+        if mcp_connection:
+            mcp_connection.status = "connected"
+    elif integration.status != "verified":
+        integration.status = "pending_oauth"
+        integration.error_message = result.get("error")
+    db.commit()
+
+    return OAuthStatusResponse(
+        system_id=system_id,
+        connected=connected,
+        status=integration.status,
+        message=(
+            "Provider account authorized and credentials stored securely"
+            if connected else result.get("error") or "Waiting for provider authorization"
+        ),
+    )
 
 
 # ── Test endpoint: real credential verification ───────────────────────
@@ -624,9 +900,24 @@ async def test_system(
     from datetime import datetime, timezone
 
     tenant_id = str(user.company_id)
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if not integration:
+        return TestResponse(
+            system_id=system_id,
+            works=False,
+            tested_at=datetime.now(timezone.utc).isoformat(),
+            message="Integration is not connected for this tenant",
+        )
+    is_shared = system_id in {item["id"] for item in POPULAR_SYSTEMS if item["id"] != "custom"}
 
-    # 1. Get the system from Superglue (to retrieve URL + credentials)
-    sg_result = await superglue_client.get_system(system_id, tenant_id=tenant_id)
+    # 1. Get the shared provider definition or tenant-namespaced custom system.
+    sg_result = await superglue_client.get_system(
+        system_id,
+        tenant_id=tenant_id,
+    )
     if not sg_result.get("success"):
         return TestResponse(
             system_id=system_id,
@@ -637,116 +928,187 @@ async def test_system(
 
     data = sg_result.get("data", {})
     system_url = data.get("url", "").rstrip("/")
-    credentials = data.get("credentials", {}) or {}
-
-    tested_at = datetime.now(timezone.utc).isoformat()
-
-    # ── DATABASE TEST: verify DBConnection record + Superglue has the system ──
-    # For databases, Superglue auto-reads the schema when the system was created.
-    # The test just confirms: (1) Superglue has it, (2) DBConnection record exists.
-    # Superglue handles the actual schema introspection + tool generation automatically.
-    if system_id in DATABASE_SYSTEM_IDS:
-        # Check DBConnection record exists
-        db_conn = db.query(DBConnection).filter(
-            DBConnection.company_id == tenant_id,
-            DBConnection.name.like(f"%({system_id})"),
-        ).first()
-
-        if db_conn:
-            db_conn.status = "verified"
-            db.commit()
-
-        return TestResponse(
+    definition = next((item for item in POPULAR_SYSTEMS if item["id"] == system_id), {})
+    if definition.get("auth_type") == "oauth":
+        oauth_status = await superglue_client.check_oauth_credentials(
             system_id=system_id,
-            works=True,
-            status_code=200,
-            tested_at=tested_at,
-            message=f"✓ Database connected — Superglue is reading schema + generating tools automatically",
-            sample_data={"db_type": data.get("metadata", {}).get("db_type", "unknown")} if data.get("metadata") else None,
+            tenant_id=tenant_id,
         )
-
-    # ── API TEST: make a real HTTP GET to verify credentials work ──
-    if not system_url:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message="System has no URL configured",
-        )
-
-    # 2. Build auth headers from credentials
-    headers = {"Accept": "application/json", "User-Agent": "PARWA-Test/1.0"}
-    api_key = credentials.get("api_key") or credentials.get("token") or credentials.get("access_token")
-    if api_key:
-        # Try common auth header patterns
-        headers["Authorization"] = f"Bearer {api_key}"
-        # Also set X-API-Key as fallback (some APIs use this)
-        headers["X-API-Key"] = api_key
-
-    # 3. Make a real GET request to the system's URL
-    tested_at = datetime.now(timezone.utc).isoformat()
-    try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(system_url, headers=headers)
-
-        # 200/201 = works; 401/403 = auth failed; 404 = wrong URL; 5xx = their server broken
-        works = resp.status_code in (200, 201)
-        sample = resp.text[:500] if resp.text else ""
-
-        # Update the Integration record with test result
-        integration = db.query(Integration).filter(
-            Integration.company_id == tenant_id,
-            Integration.integration_type == system_id,
-        ).first()
+        works = oauth_status.get("success") is True and oauth_status.get("connected") is True
         if integration:
-            integration.last_sync = datetime.now(timezone.utc)
-            if works:
-                integration.status = "verified"
-                integration.error_message = None
-            else:
-                integration.status = "error"
-                integration.error_message = f"HTTP {resp.status_code}: {sample[:200]}"
-            db.commit()
-
+            integration.status = "verified" if works else "pending_oauth"
+            integration.error_message = None if works else oauth_status.get("error")
         if works:
-            message = f"✓ Connection works (HTTP {resp.status_code})"
-        elif resp.status_code in (401, 403):
-            message = f"✗ Authentication failed (HTTP {resp.status_code}) — check your API key"
-        elif resp.status_code == 404:
-            message = f"✗ URL not found (HTTP 404) — check your system URL"
-        else:
-            message = f"✗ API returned HTTP {resp.status_code}"
-
+            mcp_connection = db.query(MCPConnection).filter(
+                MCPConnection.company_id == tenant_id,
+                MCPConnection.name == f"{integration.name} ({system_id})",
+            ).first() if integration else None
+            if mcp_connection:
+                mcp_connection.status = "connected"
+        db.commit()
         return TestResponse(
             system_id=system_id,
             works=works,
-            status_code=resp.status_code,
-            tested_at=tested_at,
-            message=message,
-            sample_data={"preview": sample} if sample else None,
+            status_code=200 if works else None,
+            tested_at=datetime.now(timezone.utc).isoformat(),
+            message=(
+                "OAuth account authorized and securely connected"
+                if works else oauth_status.get("error") or "Complete provider authorization to verify this integration"
+            ),
         )
 
-    except httpx.ConnectError:
+    # Prefer the locally encrypted credentials; Superglue may redact secrets
+    # when returning a system object.
+    from app.services.integration_service import IntegrationService
+    credentials = IntegrationService._parse_json(
+        integration.credentials_encrypted if integration else None
+    ) or {}
+
+    tested_at = datetime.now(timezone.utc).isoformat()
+
+    # ── DATABASE TEST: require real schema discovery ──
+    if system_id in DATABASE_SYSTEM_IDS:
+        db_conn = db.query(DBConnection).filter(
+            DBConnection.company_id == tenant_id,
+            DBConnection.name == integration.name,
+        ).first() if integration else None
+
+        if not db_conn:
+            return TestResponse(
+                system_id=system_id,
+                works=False,
+                tested_at=tested_at,
+                message="Database connection record not found for this tenant",
+            )
+
+        discovery = await _discover_db_schema_for_connection(
+            db=db, db_conn=db_conn, tenant_id=tenant_id
+        )
+        schema = discovery.get("schema") or {}
+        works = bool(discovery.get("success"))
         return TestResponse(
             system_id=system_id,
-            works=False,
+            works=works,
+            status_code=200 if works else None,
             tested_at=tested_at,
-            message=f"✗ Cannot connect to {system_url} — URL is wrong or unreachable",
+            message=(
+                f"Database reachable; discovered {len(schema.get('tables', []))} tables"
+                if works else f"Database schema discovery failed: {discovery.get('error', 'unknown error')}"
+            ),
+            sample_data={"db_type": db_conn.db_type, "schema_ready": works},
         )
-    except httpx.TimeoutException:
+
+    # ── Provider-specific credential test ──────────────────────────
+    # A GET to an API root can return 200 without authenticating. Use the
+    # integration catalog's real test endpoint for known providers.
+    from app.core.integration_catalog import get_integration_by_key
+    catalog_entry = get_integration_by_key(system_id)
+
+    if catalog_entry:
+        normalized = dict(credentials)
+        token = (
+            normalized.get("access_token")
+            or normalized.get("api_key")
+            or normalized.get("token")
+            or normalized.get("api_token")
+        )
+        if system_id == "hubspot" and token:
+            normalized["api_key"] = token
+        elif system_id == "salesforce" and token:
+            normalized["refresh_token"] = token
+            normalized.setdefault("instance_url", system_url)
+        elif system_id == "gmail" and token:
+            normalized["refresh_token"] = token
+        elif system_id == "shopify" and token:
+            from urllib.parse import urlparse
+            normalized["access_token"] = token
+            normalized.setdefault("store_url", urlparse(system_url).netloc)
+        elif system_id == "slack" and token:
+            normalized["bot_token"] = token
+        elif system_id in ("github", "notion") and token:
+            normalized["api_key"] = token
+        elif system_id == "zendesk":
+            normalized["api_token"] = token or normalized.get("api_token", "")
+            if not normalized.get("subdomain") and system_url:
+                from urllib.parse import urlparse
+                normalized["subdomain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "freshdesk":
+            if not normalized.get("domain") and system_url:
+                from urllib.parse import urlparse
+                normalized["domain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "pipedrive" and token:
+            normalized["api_token"] = token
+            if not normalized.get("company_domain") and system_url:
+                from urllib.parse import urlparse
+                normalized["company_domain"] = urlparse(system_url).hostname.split(".")[0]
+        elif system_id == "twilio" and token:
+            normalized["auth_token"] = token
+
+        test_result = await asyncio.to_thread(
+            IntegrationService(db)._test_credentials, system_id, normalized
+        )
+        works = bool(test_result.get("success"))
+        if integration:
+            integration.last_sync = datetime.now(timezone.utc)
+            integration.status = "verified" if works else "error"
+            integration.error_message = None if works else str(test_result.get("message", "Provider test failed"))[:500]
+            db.commit()
+            if system_id in CRM_SYSTEM_IDS or (integration.settings or {}).get("is_crm"):
+                _set_mcp_connection_status(db, integration, system_id, "connected" if works else "error")
         return TestResponse(
             system_id=system_id,
-            works=False,
+            works=works,
+            status_code=200 if works else None,
             tested_at=tested_at,
-            message=f"✗ Connection timed out — {system_url} is too slow or unreachable",
+            message=test_result.get("message", "Provider credential test failed"),
         )
-    except Exception as exc:
-        return TestResponse(
-            system_id=system_id,
-            works=False,
-            tested_at=tested_at,
-            message=f"✗ Test failed: {str(exc)[:150]}",
-        )
+
+    # Zoho uses a provider-specific authorization scheme and is not in the
+    # shared catalog yet; do not fall back to an unauthenticated API-root GET.
+    if system_id == "zoho":
+        token = credentials.get("access_token") or credentials.get("api_key")
+        if not token:
+            return TestResponse(system_id=system_id, works=False, tested_at=tested_at, message="Zoho access token is missing")
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://www.zohoapis.com/crm/v2/users?type=CurrentUser",
+                    headers={"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"},
+                )
+            works = resp.status_code == 200
+            if integration:
+                integration.status = "verified" if works else "error"
+                integration.error_message = None if works else f"Zoho returned HTTP {resp.status_code}"
+                db.commit()
+                _set_mcp_connection_status(db, integration, system_id, "connected" if works else "error")
+            return TestResponse(
+                system_id=system_id, works=works, status_code=resp.status_code,
+                tested_at=tested_at,
+                message="Connected to Zoho CRM" if works else f"Zoho authentication failed (HTTP {resp.status_code})",
+            )
+        except Exception as exc:
+            return TestResponse(system_id=system_id, works=False, tested_at=tested_at, message=f"Zoho test failed: {str(exc)[:150]}")
+
+    # Unknown/custom providers must not be marked verified by a root URL
+    # returning HTTP 200. Require a provider-specific health-check definition
+    # before enabling an agent to use this integration.
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.integration_type == system_id,
+    ).first()
+    if integration:
+        integration.status = "error"
+        integration.error_message = "No provider-specific authenticated health check is configured"
+        db.commit()
+        if system_id in CRM_SYSTEM_IDS or (integration.settings or {}).get("is_crm"):
+            _set_mcp_connection_status(db, integration, system_id, "error")
+
+    return TestResponse(
+        system_id=system_id,
+        works=False,
+        tested_at=tested_at,
+        message="This provider has no authenticated connection test configured. It cannot be marked verified yet.",
+    )
 
 
 # ── Helper: upsert DBConnection (for database-type systems) ──────────
@@ -763,6 +1125,7 @@ def _upsert_db_connection(
     db_username: str,
     db_password: Optional[str],
     system_id: str,
+    connection_config: Optional[Dict[str, Any]] = None,
 ) -> DBConnection:
     """Create or update a DBConnection record for a database system.
 
@@ -773,18 +1136,20 @@ def _upsert_db_connection(
     The (company_id, name) pair is the natural key — reconnecting the same
     database updates instead of creating a duplicate.
     """
-    # Build the connection string based on database type
-    if db_type == "mongodb":
-        conn_str = f"mongodb://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
-    elif db_type == "snowflake":
-        conn_str = f"snowflake://{db_username}:{db_password or ''}@{db_host}/{db_name}"
-    elif db_type == "bigquery":
-        conn_str = f"bigquery://{db_host}/{db_name}"  # uses service account, not password
-    else:
-        # postgresql, mysql
-        conn_str = f"{db_type}://{db_username}:{db_password or ''}@{db_host}:{db_port}/{db_name}"
-
-    conn_encrypted = encrypt_token(conn_str)
+    # Store the complete structured config encrypted. This preserves provider-
+    # specific fields (e.g. BigQuery service accounts, Snowflake warehouse/role)
+    # required by schema discovery and later agent tool generation.
+    config = dict(connection_config or {})
+    config.update({
+        "db_type": db_type,
+        "host": db_host,
+        "port": db_port,
+        "database": db_name,
+        "username": db_username,
+        "password": db_password or "",
+        "readonly": True,
+    })
+    conn_encrypted = encrypt_token(json.dumps(config))
 
     # Find existing by (company_id, name)
     db_conn = db.query(DBConnection).filter(
@@ -815,6 +1180,98 @@ def _upsert_db_connection(
     return db_conn
 
 
+def _sanitize_schema_metadata(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Delegate to the shared allowlist sanitizer; sample values are excluded."""
+    from app.core.schema_metadata import sanitize_schema_metadata
+    return sanitize_schema_metadata(schema)
+
+
+async def _discover_db_schema_for_connection(
+    db: Session,
+    db_conn: DBConnection,
+    tenant_id: str,
+    connection_config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Discover and persist a tenant database schema through Superglue.
+
+    A generic fallback schema is not success. Only a real schema response
+    marks the connection verified and exposes it to ticket-solving agents.
+    """
+    config = dict(connection_config or {})
+    if not config and db_conn.connection_string_encrypted:
+        try:
+            from shared.utils.token_encryption import decrypt_token
+            from urllib.parse import unquote, urlsplit
+
+            decrypted = decrypt_token(db_conn.connection_string_encrypted)
+            if decrypted:
+                try:
+                    parsed_config = json.loads(decrypted)
+                    config = parsed_config if isinstance(parsed_config, dict) else {}
+                except (json.JSONDecodeError, TypeError):
+                    # Backward compatibility for older rows that encrypted a
+                    # URI rather than the structured config used by new rows.
+                    parsed = urlsplit(decrypted)
+                    config = {
+                        "db_type": parsed.scheme or db_conn.db_type,
+                        "host": parsed.hostname or "",
+                        "port": parsed.port,
+                        "database": parsed.path.lstrip("/"),
+                        "username": unquote(parsed.username or ""),
+                        "password": unquote(parsed.password or ""),
+                        "readonly": True,
+                    }
+        except Exception as exc:
+            logger.warning("db_schema_config_decrypt_failed: %s", str(exc)[:160])
+            config = {}
+
+    if not config:
+        db_conn.status = "schema_pending"
+        db.commit()
+        return {"success": False, "schema": None, "error": "Database connection config is unavailable"}
+
+    # Superglue's connection namespace is the integration system ID, not
+    # PARWA's local DBConnection row UUID.
+    integration = db.query(Integration).filter(
+        Integration.company_id == tenant_id,
+        Integration.name == db_conn.name,
+    ).first()
+    superglue_system_id = integration.integration_type if integration else db_conn.name
+
+    result = await superglue_client.analyze_db_schema(
+        db_connection_id=superglue_system_id,
+        tenant_id=tenant_id,
+        db_type=db_conn.db_type,
+        connection_config=config,
+    )
+    schema = result.get("schema")
+    has_discovered_objects = isinstance(schema, dict) and any(
+        isinstance(schema.get(key), list) and len(schema[key]) > 0
+        for key in ("tables", "collections", "schemas")
+    )
+    if result.get("success") and has_discovered_objects and schema.get("source") != "fallback":
+        # Store structural metadata only. Sample rows and values belong in
+        # live Superglue tool results, not a long-lived schema cache.
+        safe_schema = _sanitize_schema_metadata(schema)
+        db_conn.schema_analysis = json.dumps(safe_schema)
+        db_conn.status = "verified"
+        db_conn.updated_at = datetime.now(timezone.utc)
+        if integration:
+            integration.status = "verified"
+            integration.error_message = None
+            integration.last_sync = datetime.now(timezone.utc)
+        db.commit()
+        return {"success": True, "schema": safe_schema}
+
+    db_conn.status = "schema_pending"
+    db.commit()
+    return {
+        "success": False,
+        "schema": None,
+        "error": result.get("error") or "Superglue did not return a verified schema",
+    }
+
+
 # ── Custom Integration/DB Discovery Endpoints ──────────────────────────
 # These are called by the frontend when a user wants to connect a Custom
 # platform (not in our curated catalog). We ask Superglue for the auth
@@ -838,6 +1295,7 @@ async def discover_auth(req: DiscoverAuthRequest, user: User = Depends(get_curre
     result = await superglue_client.discover_auth_schema(
         platform_name=req.platform_name,
         platform_type=req.platform_type,
+        tenant_id=str(user.company_id),
     )
     return result
 
@@ -863,7 +1321,9 @@ async def analyze_db_schema(
     what data is available. Node 4 (Reasoning) uses this to decide which
     Superglue query tools to call.
     """
-    tenant_id = req.tenant_id or str(user.company_id)
+    tenant_id = str(user.company_id)
+    if req.tenant_id and req.tenant_id != tenant_id:
+        raise HTTPException(status_code=403, detail="Cannot access another tenant's database")
 
     # Find the DB connection
     db_conn = db.query(DBConnection).filter(
@@ -874,26 +1334,11 @@ async def analyze_db_schema(
     if not db_conn:
         raise HTTPException(status_code=404, detail="Database connection not found")
 
-    # Decrypt connection config to pass to Superglue
-    try:
-        from shared.utils.token_encryption import decrypt_token
-        config = json.loads(decrypt_token(db_conn.connection_string_encrypted)) if db_conn.connection_string_encrypted else {}
-    except Exception:
-        config = {}
-
-    # Call Superglue to analyze the schema
-    result = await superglue_client.analyze_db_schema(
-        db_connection_id=req.db_connection_id,
+    result = await _discover_db_schema_for_connection(
+        db=db,
+        db_conn=db_conn,
         tenant_id=tenant_id,
-        db_type=db_conn.db_type,
-        connection_config=config,
     )
-
-    if result.get("success") and result.get("schema"):
-        # Save the schema analysis to the DB connection record
-        db_conn.schema_analysis = json.dumps(result["schema"])
-        db_conn.updated_at = datetime.now(timezone.utc)
-        db.commit()
 
     return {
         "success": result.get("success", False),

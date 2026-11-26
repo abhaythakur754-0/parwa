@@ -30,11 +30,12 @@ LLM calls: 1-2 (ReAct + Reverse Thinking, only for complex actions)
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.core.parwa_pipeline.llm_client import llm_call
 from app.core.parwa_pipeline.state_v2 import PipelineV2State
@@ -67,71 +68,186 @@ _CAPABILITY_MATRIX = {
 # If extraction fails, falls back to the LLM-selection path.
 
 
-def _extract_tool_inputs(details: Dict, action: str, knowledge: str) -> Dict[str, Any]:
-    """Extract common tool inputs from ticket details + knowledge text.
+def _extract_tool_inputs(
+    details: Dict,
+    action: str,
+    knowledge: str,
+    tool_definition: Optional[Dict[str, Any]] = None,
+    crm_data: Optional[Dict[str, Any]] = None,
+    ticket_id: str = "",
+) -> Dict[str, Any]:
+    """Map ticket/CRM context into the exact generated tool input schema.
 
-    Looks for: emails, transaction IDs, order numbers, amounts, customer names.
-    Returns a dict suitable for Superglue execute_tool(input_data).
+    Unknown required fields are returned as _missing_required so callers can
+    ask for information instead of executing a tool with guessed parameters.
     """
     import re
+    import json
 
-    inputs: Dict[str, Any] = {}
+    details = details if isinstance(details, dict) else {}
+    crm_data = crm_data if isinstance(crm_data, dict) else {}
+    text = " ".join([str(details), str(crm_data), knowledge or "", action or ""])
 
-    # Combine all available text to scan
-    text = " ".join([
-        str(details or {}),
-        knowledge or "",
-        action or "",
-    ])
-
-    # Email
     email_match = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', text)
-    if email_match:
-        inputs["customerEmail"] = email_match.group(0).rstrip(".")
+    email = email_match.group(0).rstrip(".") if email_match else None
 
-    # Transaction ID (txn_xxx, ch_xxx, pi_xxx for Stripe/Paddle)
     txn_match = re.search(r'\b(txn_|ch_|pi_|re_|sub_|ctm_)[A-Za-z0-9]{6,}', text)
-    if txn_match:
-        inputs["transactionId"] = txn_match.group(0)
+    transaction_id = txn_match.group(0) if txn_match else None
 
-    # Order number (#1234, ORD-1234, order 1234)
-    order_match = re.search(r'(?:order|ord|#)\s*[-:]?\s*([A-Z0-9]{4,12})', text, re.IGNORECASE)
-    if order_match:
-        inputs["orderNumber"] = order_match.group(1)
+    order_match = re.search(
+        r'(?:order|ord|#)\s*[-:]?\s*([A-Z0-9]{4,12})', text, re.IGNORECASE
+    )
+    order_number = order_match.group(1) if order_match else None
 
-    # Amount ($50, $99.99, 100 cents)
-    # 2026-10 FIX: prefer the currency-anchored amount Node 1 already
-    # extracted (details["amount"]). The old regex re-scanned the combined
-    # text — including KB knowledge — and grabbed unrelated "$" amounts
-    # (e.g. "$500" from pricing docs) as the refund amount.
-    _details_amount = details.get("amount") if isinstance(details, dict) else None
-    if _details_amount:
+    amount_cents = None
+    raw_amount = details.get("amount")
+    if raw_amount not in (None, ""):
         try:
-            inputs["amount"] = int(round(float(_details_amount) * 100))
+            amount_cents = int(round(float(raw_amount) * 100))
         except (TypeError, ValueError):
-            pass
-    amount_match = re.search(r'\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)', text)
-    if amount_match and "amount" not in inputs:
-        # Convert dollars to cents (Superglue tools expect cents).
-        # 2026-11 live-test fix: comma-formatted amounts ("$4,500") used to
-        # parse as "$4" and slip past the tier refund limit.
-        try:
-            dollars = float(amount_match.group(1).replace(",", ""))
-            inputs["amount"] = int(dollars * 100)
-        except ValueError:
-            pass
+            amount_cents = None
+    if amount_cents is None:
+        amount_match = re.search(
+            r'\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)', text
+        )
+        if amount_match:
+            try:
+                amount_cents = int(float(amount_match.group(1).replace(",", "")) * 100)
+            except ValueError:
+                pass
 
-    # Customer name (heuristic: "my name is X" or "I'm X")
-    name_match = re.search(r'(?:my name is|i am|i\'m)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', text)
-    if name_match:
-        inputs["customerName"] = name_match.group(1)
-
-    # Date (next Tuesday, tomorrow, 2024-01-15)
+    name_match = re.search(
+        r'(?:my name is|i am|i\'m)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', text
+    )
+    customer_name = name_match.group(1) if name_match else None
     date_match = re.search(r'\b(\d{4}-\d{2}-\d{2})\b', text)
-    if date_match:
-        inputs["dateTime"] = date_match.group(1)
+    date_value = date_match.group(1) if date_match else None
+    phone_match = re.search(r'\+?\d[\d\s().-]{7,}\d', text)
+    phone_value = re.sub(r'\s+', '', phone_match.group(0)) if phone_match else None
 
-    return inputs
+    base: Dict[str, Any] = {}
+    if email:
+        base["customerEmail"] = email
+        base["email"] = email
+    if transaction_id:
+        base["transactionId"] = transaction_id
+        base["transaction_id"] = transaction_id
+        base["payment_id"] = transaction_id
+    if order_number:
+        base["orderNumber"] = order_number
+        base["order_number"] = order_number
+        base["order_id"] = order_number
+    if amount_cents is not None:
+        base["amount"] = amount_cents
+        base["amount_cents"] = amount_cents
+    if customer_name:
+        base["customerName"] = customer_name
+        base["customer_name"] = customer_name
+    if date_value:
+        base["dateTime"] = date_value
+        base["date"] = date_value
+    if phone_value:
+        base["phone"] = phone_value
+    if ticket_id:
+        base["ticket_id"] = ticket_id
+        base["ticketId"] = ticket_id
+
+    def _normalise_key(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+    def _lookup(source: Any, key: str) -> Any:
+        target = _normalise_key(key)
+        if isinstance(source, dict):
+            for source_key, value in source.items():
+                if _normalise_key(source_key) == target and value not in (None, ""):
+                    return value
+            for nested in source.values():
+                if isinstance(nested, dict):
+                    value = _lookup(nested, key)
+                    if value not in (None, ""):
+                        return value
+        return None
+
+    if isinstance(tool_definition, str):
+        try:
+            tool_definition = json.loads(tool_definition)
+        except (TypeError, ValueError):
+            tool_definition = {}
+    definition = tool_definition if isinstance(tool_definition, dict) else {}
+    schema = None
+    for candidate in (
+        definition.get("inputSchema"),
+        definition.get("input_schema"),
+        definition.get("parameters"),
+        definition.get("inputParameters"),
+        definition.get("input_parameters"),
+    ):
+        if isinstance(candidate, dict) and (
+            isinstance(candidate.get("properties"), dict) or isinstance(candidate.get("required"), list)
+        ):
+            schema = candidate
+            break
+    if schema is None and isinstance(definition.get("tool_definition"), dict):
+        nested = definition["tool_definition"]
+        schema = nested.get("inputSchema") or nested.get("input_schema") or nested.get("parameters")
+
+    if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+        return base
+
+    mapped: Dict[str, Any] = {}
+    for key, spec in schema["properties"].items():
+        spec = spec if isinstance(spec, dict) else {}
+        value = _lookup(details, key) or _lookup(crm_data, key) or _lookup(base, key)
+        norm = _normalise_key(key)
+        if value in (None, ""):
+            if "email" in norm:
+                value = email
+            elif any(part in norm for part in ("transaction", "paymentid", "refundid", "chargeid", "subscriptionid")):
+                value = transaction_id
+            elif "order" in norm:
+                value = order_number
+            elif "amount" in norm:
+                value = amount_cents
+            elif "ticket" in norm and "id" in norm:
+                value = ticket_id
+            elif any(part in norm for part in ("customername", "fullname", "contactname")):
+                value = customer_name
+            elif "phone" in norm or "mobile" in norm:
+                value = phone_value
+            elif "date" in norm or "time" in norm:
+                value = date_value
+            elif any(part in norm for part in ("response", "reply", "body", "comment", "message")):
+                value = (
+                    details.get("response")
+                    or details.get("reply")
+                    or details.get("message")
+                    or details.get("description")
+                    or action
+                )
+            elif "internalnote" in norm or norm == "note":
+                value = details.get("internal_note") or details.get("note") or action
+            elif norm in ("status", "ticketstatus"):
+                value = details.get("status") or "pending"
+            elif norm in ("public", "ispublic", "publicreply"):
+                value = details.get("public", True)
+            elif norm in ("internal", "isinternal", "privatenote"):
+                value = details.get("internal", False)
+            elif any(part in norm for part in ("reason", "description")):
+                value = details.get("description") or details.get("message") or action
+            elif "currency" in norm:
+                value = details.get("currency") or _lookup(crm_data, "currency")
+            elif norm in ("limit", "pagesize", "perpage") and key not in schema.get("required", []):
+                value = spec.get("default", 10)
+        if value not in (None, ""):
+            mapped[key] = value
+        elif "default" in spec:
+            mapped[key] = spec["default"]
+
+    required = schema.get("required", [])
+    missing = [key for key in required if key not in mapped or mapped[key] in (None, "")]
+    if missing:
+        mapped["_missing_required"] = missing
+    return mapped
 
 
 # ── Rule-based action check (non-LLM) ─────────────────────────────
@@ -268,6 +384,9 @@ async def _execute_real_refund(
     # Load the tenant's Stripe credentials
     db = SessionLocal()
     try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant_id)})
         service = IntegrationService(db)
         creds = service.get_credential_config(tenant_id, "stripe")
         if not creds or not creds.get("api_key"):
@@ -397,6 +516,9 @@ THOUGHT:"""
                     from database.models.variant_engine import AIAgentAssignment
                     _db = SessionLocal()
                     try:
+                        if getattr(_db, "bind", None) and _db.bind.dialect.name == "postgresql":
+                            from sqlalchemy import text
+                            _db.execute(text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant_id)})
                         _agent = _db.query(AIAgentAssignment).filter(
                             AIAgentAssignment.id == routed_agent_id,
                             AIAgentAssignment.company_id == tenant_id,
@@ -406,7 +528,21 @@ THOUGHT:"""
                             # Tool exists and active — use it
                             # Initialize variables that might be used in approval gate
                             _tool_id = _agent.superglue_tool_id
-                            _tool_input = _extract_tool_inputs(details, action, knowledge)
+                            _agent_tool_definition = _agent.superglue_tool_definition or {}
+                            if isinstance(_agent_tool_definition, str):
+                                try:
+                                    _agent_tool_definition = json.loads(_agent_tool_definition)
+                                except (TypeError, ValueError):
+                                    _agent_tool_definition = {}
+                            _agent_tool_description = str(_agent_tool_definition.get("description") or "")
+                            _tool_input = _extract_tool_inputs(
+                                details,
+                                action,
+                                knowledge,
+                                tool_definition=_agent_tool_definition,
+                                crm_data=crm_data,
+                                ticket_id=state.get("ticket_id", ""),
+                            )
                             result = {"success": False, "error": "not executed"}
                             # ── APPROVAL GATE (eliminates the risky part) ──
                             # If this agent's tool does dangerous actions (refund, cancel),
@@ -450,7 +586,8 @@ THOUGHT:"""
                                     _ticket_id_5 = state.get("ticket_id", "")
                                     _idem_key = f"{_ticket_id_5}:{_tool_id}:{action}"
                                     result = await _execute_with_idempotency(
-                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id
+                                        _tool_id, _tool_input, _idem_key, _ticket_id_5, action, tenant_id,
+                                        _agent_tool_description, allow_bounded_financial=True,
                                     )
                             else:
                                 # No approval required → execute immediately (read-only tools, lookups, etc.)
@@ -479,13 +616,24 @@ THOUGHT:"""
                                     result = await _execute_with_idempotency(
                                         _tool_id, _tool_input,
                                         f"{state.get('ticket_id','')}:{_tool_id}:{action}",
-                                        state.get("ticket_id",""), action, tenant_id
+                                        state.get("ticket_id",""), action, tenant_id, _agent_tool_description,
+                                        allow_bounded_financial=True,
                                     )
 
                             # If approval was required by agent config, observation is already set — skip result check
                             # If safety gate blocked or requires approval, handle specially
                             if not state.get("pending_approval"):
-                                if result.get("guardrail_blocked"):
+                                if result.get("needs_customer_info"):
+                                    state["needs_customer_info"] = True
+                                    state["missing_tool_inputs"] = result.get("missing_required", [])
+                                    observation = (
+                                        f"NO ACTION TAKEN. The agent tool requires additional customer information: "
+                                        f"{', '.join(result.get('missing_required', []))}. Ask the customer for these details; "
+                                        "do not claim that the requested action was completed."
+                                    )
+                                    tool_executed = f"not_executed_missing_inputs:agent:{routed_agent_id}:{_tool_id}"
+                                    logs.append(f"node5: required agent tool inputs missing: {result.get('missing_required', [])}")
+                                elif result.get("guardrail_blocked"):
                                     observation = (
                                         f"ACTION BLOCKED by safety guardrails: {result.get('error', '')}. "
                                         f"Agent '{_agent.agent_name}' tool '{_tool_id}' not executed."
@@ -538,6 +686,7 @@ THOUGHT:"""
                     try:
                         _f_agent = _f_db.query(_ForgeAgent).filter(
                             _ForgeAgent.id == routed_agent_id,
+                            _ForgeAgent.company_id == tenant_id,
                         ).first()
                         if _f_agent and (not _f_agent.superglue_tool_id or _f_agent.superglue_tool_status != "active"):
                             from app.core.superglue_tool_generator import generate_tool_for_agent
@@ -586,14 +735,36 @@ THOUGHT:"""
                                     _f_agent.superglue_tool_status = "active"
                                     _f_db.commit()
                                     _forge_tool_id = _forge["tool_id"]
-                                    _forge_input = _extract_tool_inputs(details, action, knowledge)
+                                    _forge_tool_definition = _forge.get("tool_definition") or {}
+                                    if isinstance(_forge_tool_definition, str):
+                                        try:
+                                            _forge_tool_definition = json.loads(_forge_tool_definition)
+                                        except (TypeError, ValueError):
+                                            _forge_tool_definition = {}
+                                    _forge_tool_description = str(_forge_tool_definition.get("description") or "")
+                                    _forge_input = _extract_tool_inputs(
+                                        details,
+                                        action,
+                                        knowledge,
+                                        tool_definition=_forge_tool_definition,
+                                        crm_data=crm_data,
+                                        ticket_id=state.get("ticket_id", ""),
+                                    )
                                     _forge_ticket = state.get("ticket_id", "")
                                     _forge_result = await _execute_with_idempotency(
                                         _forge_tool_id, _forge_input,
                                         f"{_forge_ticket}:{_forge_tool_id}:{action}",
-                                        _forge_ticket, action, tenant_id,
+                                        _forge_ticket, action, tenant_id, _forge_tool_description,
                                     )
-                                if _forge_result and _forge_result.get("guardrail_blocked"):
+                                if _forge_result and _forge_result.get("needs_customer_info"):
+                                    state["needs_customer_info"] = True
+                                    state["missing_tool_inputs"] = _forge_result.get("missing_required", [])
+                                    observation = (
+                                        "NO ACTION TAKEN. The newly generated tool requires additional customer information: "
+                                        f"{', '.join(_forge_result.get('missing_required', []))}. Ask the customer for these details."
+                                    )
+                                    tool_executed = f"not_executed_missing_inputs:agent:{routed_agent_id}:{_forge_tool_id}"
+                                elif _forge_result and _forge_result.get("guardrail_blocked"):
                                     observation = (
                                         f"ACTION BLOCKED by safety guardrails after tool-forge: "
                                         f"{_forge_result.get('error', '')}. Tool '{_forge_tool_id}' not executed."
@@ -650,8 +821,26 @@ THOUGHT:"""
                     db_lines = ["Connected databases:"]
                     for db_info in connected_dbs:
                         readonly = " (read-only)" if db_info.get("readonly", True) else ""
-                        db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly}")
+                        db_lines.append(f"  - {db_info['name']}: {db_info['db_type']}{readonly} (system_id={db_info.get('system_id', 'unknown')})")
+                        schema = db_info.get("schema")
+                        if schema:
+                            db_lines.append(
+                                "    verified schema metadata: " + str(schema)[:2500]
+                            )
+                        else:
+                            db_lines.append("    schema not verified; do not invent table or column names")
                     db_context = "\n".join(db_lines) + "\n\n"
+
+                tenant_integrations = state.get("tenant_integrations", {})
+                if tenant_integrations:
+                    integration_lines = ["Tenant-connected integrations:"]
+                    for integration_type, info in list(tenant_integrations.items())[:40]:
+                        if isinstance(info, dict):
+                            integration_lines.append(
+                                f"  - {integration_type}: {info.get('name', integration_type)} "
+                                f"(status={info.get('status', 'unknown')})"
+                            )
+                    db_context += "\n".join(integration_lines) + "\n\n"
 
                 # Step 3: Ask LLM which tool to call
                 tool_prompt = f"""You are deciding which tool to call for a customer support action.
@@ -701,6 +890,23 @@ If no tool matches, respond with:
                             tool_id = "none"
 
                     if tool_id and tool_id != "none":
+                        # This legacy fallback has no tenant-verified agent tool
+                        # schema. A model-suggested ID/input pair is advisory
+                        # only; never execute it without an active assignment.
+                        logger.warning(
+                            "node5: refusing fallback tool without verified agent schema tenant=%s tool=%s",
+                            str(tenant_id)[:24], str(tool_id)[:80],
+                        )
+                        observation = (
+                            f"NO ACTION TAKEN: tool '{tool_id}' was suggested, but no active "
+                            "tenant agent assignment with a verified input schema is available. "
+                            "Ask for missing information or escalate; do not claim completion."
+                        )
+                        tool_executed = f"not_executed_unverified_schema:{tool_id}"
+                        state["needs_human_review"] = True
+                        tool_id = "none"
+
+                    if tool_id and tool_id != "none":
                         # Step 3: Run Action Safety Gate before execution
                         # 2026-10 FIX: classify by tool name only — the ticket's
                         # action text must not inflate a read-only tool's risk.
@@ -741,7 +947,15 @@ If no tool matches, respond with:
                             # Step 4: Execute the tool via Superglue
                             # 2026-09: tenant-scoped on this path — the namespaced
                             # id must match how the tool was SAVED.
-                            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+                            result = await _execute_with_idempotency(
+                                tool_id,
+                                tool_input,
+                                f"{tenant_id}:{state.get('ticket_id', '')}:fallback:{tool_id}:{action}",
+                                str(state.get("ticket_id", "")),
+                                action,
+                                tenant_id,
+                                str(decision.get("description") or decision.get("reasoning") or ""),
+                            )
 
                             if result.get("success"):
                                 observation = f"ACTION EXECUTED via Superglue tool '{tool_id}': {str(result.get('data', ''))[:300]}"
@@ -2072,7 +2286,8 @@ async def node_5_act_verify(state: PipelineV2State) -> dict:
 
 
 def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
-                            tenant_id: str, variant_tier: str) -> dict:
+                            tenant_id: str, variant_tier: str,
+                            allow_bounded_financial: bool = False) -> dict:
     """Run the Superglue Action Safety pipeline before tool execution.
 
     Pipeline: classify_action → check_financial_guardrails → needs_approval check.
@@ -2084,11 +2299,16 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
       - needs_approval (bool): whether this action requires human approval
       - guardrail_result (dict|None): raw guardrail result if applicable
 
-    BC-008: never crashes — returns {blocked: False} on any error so
-    execution proceeds as normal.
+    Safety validation is fail-closed: if classification or guardrail checks
+    are unavailable, the action is blocked and must be reviewed manually.
     """
-    default = {"blocked": False, "reason": "", "safety_level": "read",
-               "needs_approval": False, "guardrail_result": None}
+    default = {
+        "blocked": True,
+        "reason": "Safety validation unavailable; action blocked for manual review",
+        "safety_level": "unknown",
+        "needs_approval": True,
+        "guardrail_result": None,
+    }
     try:
         from app.core.action_safety import classify_action, needs_approval as _needs_approval
         from app.core.action_safety import ActionSafetyLevel
@@ -2097,17 +2317,36 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
         # Step 1: Classify the action
         safety = classify_action(tool_id, description)
         logs_safe = []  # will be assigned by caller if needed
+        if safety.confidence < 0.6:
+            return {
+                "blocked": True,
+                "reason": "Action could not be classified safely; manual review is required",
+                "safety_level": safety.level.value,
+                "needs_approval": True,
+                "guardrail_result": None,
+            }
 
         # Step 2: For FINANCIAL actions, check tier-based guardrails
         guardrail_result = None
         if safety.level == ActionSafetyLevel.FINANCIAL:
-            amount = float(tool_input.get("amount", 0)) if isinstance(tool_input, dict) else 0.0
-            # 2026-10 FIX: tool inputs carry amounts in CENTS (Superglue
-            # convention — see _extract_tool_inputs) but PARWA_TIER_LIMITS
-            # are in DOLLARS. Without conversion a $25 refund (2500 cents)
-            # was compared as $2500 and always guardrail-blocked.
-            if amount:
-                amount = amount / 100.0
+            amount_candidates = []
+            if isinstance(tool_input, dict):
+                for key, value in tool_input.items():
+                    if "amount" in str(key).lower() and value not in (None, ""):
+                        try:
+                            amount_candidates.append(abs(float(value)))
+                        except (TypeError, ValueError):
+                            continue
+            if not amount_candidates or max(amount_candidates) <= 0:
+                return {
+                    "blocked": True,
+                    "reason": "Financial action has no verified positive amount; manual review is required",
+                    "safety_level": safety.level.value,
+                    "needs_approval": True,
+                    "guardrail_result": None,
+                }
+            # Tool inputs use cents; PARWA tier guardrails use dollars.
+            amount = max(amount_candidates) / 100.0
             gr = check_financial_guardrails(safety.level.value, amount, variant_tier, tool_id)
             guardrail_result = {"allowed": gr.allowed, "reason": gr.reason,
                                 "limit": gr.limit, "remaining": gr.remaining}
@@ -2117,76 +2356,209 @@ def _run_action_safety_gate(tool_id: str, description: str, tool_input: dict,
                         "guardrail_result": guardrail_result}
 
         # Step 3: Check if approval is required for this safety level
-        approval = _needs_approval(safety.level)
+        approval = _needs_approval(safety.level) and not (
+            allow_bounded_financial and safety.level == ActionSafetyLevel.FINANCIAL
+        )
         return {"blocked": False, "reason": safety.reasoning,
                 "safety_level": safety.level.value, "needs_approval": approval,
                 "guardrail_result": guardrail_result}
     except Exception as exc:
-        logger.debug("action_safety_gate_error: %s", str(exc)[:150])
+        logger.error("action_safety_gate_error: %s", str(exc)[:150])
         return default
 
 
-async def _execute_with_idempotency(tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id=""):
-    """Execute a Superglue tool with idempotency + safety gate protection.
+async def _execute_with_idempotency(
+    tool_id, tool_input, idempotency_key, ticket_id, action, tenant_id="",
+    tool_description="", allow_bounded_financial=False,
+):
+    """Execute a tenant Superglue tool with safety checks and atomic idempotency.
 
-    Pipeline: action safety gate → idempotency check → execute.
-    Returns special keys "guardrail_blocked" and "safety_approval_required" so
-    the caller can distinguish safety blocks from normal failures.
+    A reservation is committed before the external side effect. Failed or
+    ambiguous executions retain the reservation so retries cannot double-refund
+    or duplicate a customer-visible CRM update.
     """
+    import hashlib
+
+    missing_required = list((tool_input or {}).get("_missing_required") or [])
+    if missing_required:
+        return {
+            "success": False,
+            "needs_customer_info": True,
+            "missing_required": missing_required,
+            "error": "Required information is missing: " + ", ".join(missing_required),
+        }
+    if not tenant_id:
+        return {
+            "success": False,
+            "error": "Tenant context is required; action was not executed",
+            "guardrail_blocked": True,
+        }
+
+    tool_input = {
+        key: value for key, value in (tool_input or {}).items()
+        if not str(key).startswith("_")
+    }
+
     from app.core.superglue_client import execute_tool
     from database.base import SessionLocal
     from sqlalchemy import text as _sql_text
 
-    # ── ACTION SAFETY GATE (runs before idempotency check) ──
-    # 2026-10 FIX: classify by the TOOL's identity (name), NOT the ticket's
-    # action text. Passing the action (e.g. "investigate_billing") matched
-    # FINANCIAL keywords ("billing") and parked even read-only lookup tools
-    # in the approval queue — so NO tool ever auto-executed.
+    # Safety validation must pass before an idempotency reservation or side effect.
     try:
-        _sg = _run_action_safety_gate(tool_id, "", tool_input or {}, tenant_id, "parwa")
-        if _sg["blocked"]:
-            return {"success": False, "error": _sg["reason"],
-                    "guardrail_blocked": True, "safety_level": _sg["safety_level"]}
-        if _sg["needs_approval"]:
-            return {"success": False, "error": f"Safety approval required: {_sg['reason']}",
-                    "safety_approval_required": True, "safety_level": _sg["safety_level"]}
-    except Exception as _sg_exc:
-        logger.debug("idempotency_safety_gate_error: %s", str(_sg_exc)[:100])
-
-    # ── IDEMPOTENCY CHECK ──
-    try:
-        _idb = SessionLocal()
-        try:
-            # Check if already executed
-            _existing = _idb.execute(_sql_text(
-                "SELECT 1 FROM ticket_tool_executions "
-                "WHERE idempotency_key = :key LIMIT 1"
-            ), {"key": idempotency_key}).fetchone()
-
-            if _existing:
-                logger.warning(
-                    "IDEMPOTENCY_BLOCK: ticket=%s tool=%s action=%s already executed — SKIP",
-                    ticket_id[:8], tool_id[:20], action,
-                )
-                return {"success": False, "error": "already_executed", "skipped": True}
-
-            # Not executed → execute now
-            result = await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
-
-            # Record execution (prevent future duplicates)
-            if result.get("success"):
-                _idb.execute(_sql_text(
-                    "INSERT INTO ticket_tool_executions "
-                    "(idempotency_key, ticket_id, tool_id, action, executed_at) "
-                    "VALUES (:key, :tid, :tool, :action, NOW()) "
-                    "ON CONFLICT (idempotency_key) DO NOTHING"
-                ), {"key": idempotency_key, "tid": ticket_id, "tool": tool_id, "action": action})
-                _idb.commit()
-
-            return result
-        finally:
-            _idb.close()
+        safety = _run_action_safety_gate(
+            tool_id, tool_description, tool_input, tenant_id, "parwa",
+            allow_bounded_financial=allow_bounded_financial,
+        )
+        if safety.get("blocked"):
+            return {
+                "success": False,
+                "error": safety.get("reason", "Action blocked by safety policy"),
+                "guardrail_blocked": True,
+                "safety_level": safety.get("safety_level", "unknown"),
+            }
+        if safety.get("needs_approval"):
+            return {
+                "success": False,
+                "error": f"Safety approval required: {safety.get('reason', 'manual review required')}",
+                "safety_approval_required": True,
+                "safety_level": safety.get("safety_level", "unknown"),
+            }
     except Exception as exc:
-        # Table doesn't exist yet — just execute (backward compat)
-        logger.debug("idempotency_check_skipped: %s", str(exc)[:100])
-        return await execute_tool(tool_id, tool_input, tenant_id=tenant_id)
+        logger.error("idempotency_safety_gate_failed: %s", str(exc)[:160])
+        return {
+            "success": False,
+            "error": "Safety validation is unavailable; action was not executed",
+            "guardrail_blocked": True,
+            "safety_level": "unknown",
+        }
+
+    scoped_key = f"{tenant_id}:{idempotency_key}"
+    if len(scoped_key) > 512:
+        scoped_key = f"{tenant_id}:{hashlib.sha256(scoped_key.encode('utf-8')).hexdigest()}"
+    legacy_key = str(idempotency_key)[:512]
+
+    # Atomically reserve the idempotency key before calling Superglue.
+    db = SessionLocal()
+    try:
+        if getattr(db, "bind", None) and db.bind.dialect.name == "postgresql":
+            db.execute(
+                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+
+        existing = db.execute(
+            _sql_text(
+                "SELECT status FROM ticket_tool_executions "
+                "WHERE company_id = :tenant_id "
+                "AND idempotency_key IN (:scoped_key, :legacy_key) "
+                "ORDER BY CASE WHEN idempotency_key = :scoped_key THEN 0 ELSE 1 END "
+                "LIMIT 1"
+            ),
+            {
+                "tenant_id": str(tenant_id),
+                "scoped_key": scoped_key,
+                "legacy_key": legacy_key,
+            },
+        ).fetchone()
+        if existing:
+            status = existing[0]
+            if status == "completed":
+                # A previous attempt (including the durable recovery worker)
+                # already completed this exact idempotent action. Treat it as
+                # success so the pipeline can finish without repeating the side effect.
+                return {
+                    "success": True,
+                    "already_executed": True,
+                    "execution_status": "completed",
+                }
+            message = (
+                "previous_attempt_failed" if status == "failed"
+                else "execution_in_progress"
+            )
+            logger.warning(
+                "IDEMPOTENCY_BLOCK tenant=%s ticket=%s tool=%s status=%s",
+                str(tenant_id)[:12], str(ticket_id)[:24], str(tool_id)[:40], status,
+            )
+            return {"success": False, "error": message, "skipped": True, "execution_status": status}
+
+        reservation = db.execute(
+            _sql_text(
+                "INSERT INTO ticket_tool_executions "
+                "(idempotency_key, company_id, ticket_id, tool_id, action, status, created_at, executed_at) "
+                "VALUES (:key, :tenant_id, :ticket_id, :tool_id, :action, 'in_progress', CURRENT_TIMESTAMP, NULL) "
+                "ON CONFLICT (idempotency_key) DO NOTHING"
+            ),
+            {
+                "key": scoped_key,
+                "tenant_id": str(tenant_id),
+                "ticket_id": str(ticket_id)[:128],
+                "tool_id": str(tool_id)[:255],
+                "action": str(action)[:100],
+            },
+        )
+        if reservation.rowcount != 1:
+            db.rollback()
+            return {
+                "success": False,
+                "error": "execution_in_progress",
+                "skipped": True,
+                "execution_status": "in_progress",
+            }
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("idempotency_reservation_failed: %s", str(exc)[:180])
+        return {
+            "success": False,
+            "error": "Idempotency storage is unavailable; action was not executed",
+            "guardrail_blocked": True,
+        }
+    finally:
+        db.close()
+
+    # The reservation is durable before the external request begins.
+    try:
+        result = await execute_tool(
+            tool_id,
+            tool_input,
+            tenant_id=tenant_id,
+            idempotency_key=scoped_key,
+            safety_level=safety.get("safety_level", "unknown"),
+        )
+        if not isinstance(result, dict):
+            result = {"success": False, "error": "Superglue returned an invalid tool result"}
+    except Exception as exc:
+        result = {"success": False, "error": str(exc)[:200]}
+
+    final_status = "completed" if result.get("success") is True else "failed"
+    update_db = SessionLocal()
+    try:
+        if getattr(update_db, "bind", None) and update_db.bind.dialect.name == "postgresql":
+            update_db.execute(
+                _sql_text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant_id)},
+            )
+        update_db.execute(
+            _sql_text(
+                "UPDATE ticket_tool_executions "
+                "SET status = :status, error_message = :error_message, "
+                "executed_at = CASE WHEN :status = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END "
+                "WHERE idempotency_key = :key AND company_id = :tenant_id"
+            ),
+            {
+                "status": final_status,
+                "error_message": str(result.get("error") or "")[:1000] or None,
+                "key": scoped_key,
+                "tenant_id": str(tenant_id),
+            },
+        )
+        update_db.commit()
+    except Exception as exc:
+        update_db.rollback()
+        # Keep the committed reservation in_progress: retrying could duplicate
+        # a side effect whose final status could not be recorded.
+        logger.error("idempotency_status_update_failed: %s", str(exc)[:160])
+    finally:
+        update_db.close()
+
+    return result

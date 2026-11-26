@@ -287,11 +287,25 @@ check("P3-3 thrash guard: max-retried ticket skipped",
 T_CONNECT = "t-conn-0004"
 make_ticket(T_CONNECT, "crm_pending", build_escalation_ask("no_tool_for_action", "execute_refund"))
 
-r = client.post("/api/integrations", json={
-    "integration_type": "stripe", "name": "Stripe",
-    "config": {"api_key": "sk_test_x"},
-    "validate_credentials": False,
-})
+# The production route must not trigger customer-facing retries for an
+# unverified/pending connection. Simulate a successful Stripe credential
+# check so this test exercises the verified-connect auto-retry path without
+# making a real provider request.
+from app.services.integration_service import IntegrationService  # noqa: E402
+
+_original_test_credentials = IntegrationService._test_credentials
+IntegrationService._test_credentials = (
+    lambda self, integration_type, config:
+    {"success": True, "message": "mock credentials verified"}
+)
+try:
+    r = client.post("/api/integrations", json={
+        "integration_type": "stripe", "name": "Stripe",
+        "config": {"api_key": "sk_test_x"},
+        "validate_credentials": True,
+    })
+finally:
+    IntegrationService._test_credentials = _original_test_credentials
 check("P3-4a connect endpoint accepted (201)",
       r.status_code == 201, f"http={r.status_code}")
 check("P3-4b connect fired auto-retry for the waiting ticket",

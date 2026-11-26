@@ -26,25 +26,45 @@ branch_labels = None
 depends_on = None
 
 
+def _add_column_if_missing(table_name: str, column: sa.Column) -> None:
+    """Add a migration-owned column only when it is absent from the live schema."""
+    bind = op.get_bind()
+    existing = {item["name"] for item in sa.inspect(bind).get_columns(table_name)}
+    if column.name not in existing:
+        op.add_column(table_name, column)
+
+
 def upgrade() -> None:
-    # 0. CRITICAL: several model columns were NEVER created by any earlier
-    #    migration (they existed only on the model). 040 previously crashed
-    #    here on every fresh `upgrade head`, blocking ALL later migrations.
-    op.execute(
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS number_source "
-        "VARCHAR(20) NOT NULL DEFAULT 'parwa_provided'"
+    # These columns were present in the ORM model but missing from the original
+    # table migration. Inspecting first keeps upgrades safe on both SQLite CI
+    # and PostgreSQL deployments where an operator may already have added one.
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("number_source", sa.String(length=20), nullable=False, server_default="parwa_provided"),
     )
-    for _col in [
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS caller_id_name VARCHAR(100)",
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS greeting_style VARCHAR(20) NOT NULL DEFAULT 'professional'",
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS language_preference VARCHAR(10) NOT NULL DEFAULT 'en-US'",
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS parwa_phone_number VARCHAR(30)",
-        "ALTER TABLE voice_channel_configs ADD COLUMN IF NOT EXISTS parwa_number_sid VARCHAR(64)",
-    ]:
-        op.execute(_col)
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("caller_id_name", sa.String(length=100), nullable=True),
+    )
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("greeting_style", sa.String(length=20), nullable=False, server_default="professional"),
+    )
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("language_preference", sa.String(length=10), nullable=False, server_default="en-US"),
+    )
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("parwa_phone_number", sa.String(length=30), nullable=True),
+    )
+    _add_column_if_missing(
+        "voice_channel_configs",
+        sa.Column("parwa_number_sid", sa.String(length=64), nullable=True),
+    )
 
     # 1. provider column on voice_channel_configs
-    op.add_column(
+    _add_column_if_missing(
         "voice_channel_configs",
         sa.Column(
             "provider",

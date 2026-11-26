@@ -5,9 +5,19 @@ on:
     branches:
       - main
       - 'security/**'
+      - 'fix/**'
+      - 'feat/**'
+      - 'chore/**'
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+# Keep only the newest verification run for a branch. Rapid fix commits
+# should not leave dozens of stale CI runs queued behind one another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
@@ -15,6 +25,20 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   test-backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parwa
+          POSTGRES_PASSWORD: parwa_test_password
+          POSTGRES_DB: parwa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U parwa -d parwa_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -55,7 +79,169 @@ jobs:
           DATABASE_URL: sqlite:///./migration-ci.db
         run: |
           alembic -c database/alembic.ini upgrade head
-          python -c "from sqlalchemy import create_engine, inspect; i=inspect(create_engine('sqlite:///./migration-ci.db')); assert i.has_table('emergency_states'); assert {'company_id','is_paused','paused_by','paused_at','reason'} <= {c['name'] for c in i.get_columns('emergency_states')}; print('Alembic schema is current and emergency pause storage exists')"
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect
+          engine = create_engine(os.environ["DATABASE_URL"])
+          inspector = inspect(engine)
+          assert inspector.has_table("emergency_states")
+          assert {"company_id", "is_paused", "paused_by", "paused_at", "reason"} <= {
+              column["name"] for column in inspector.get_columns("emergency_states")
+          }
+          assert "company_id" in {column["name"] for column in inspector.get_columns("ai_agent_assignments")}
+          assert inspector.has_table("superglue_tenant_accounts")
+          assert {"company_id", "service_account_id", "api_key_encrypted", "status"} <= {
+              column["name"] for column in inspector.get_columns("superglue_tenant_accounts")
+          }
+          assert any(
+              constraint["column_names"] == ["company_id"]
+              for constraint in inspector.get_unique_constraints("superglue_tenant_accounts")
+          )
+          assert inspector.has_table("ticket_tool_executions")
+          assert {"company_id", "status", "error_message", "created_at", "executed_at"} <= {
+              column["name"] for column in inspector.get_columns("ticket_tool_executions")
+          }
+          assert inspector.has_table("superglue_call_queue")
+          queue_columns = {
+              column["name"]: column for column in inspector.get_columns("superglue_call_queue")
+          }
+          assert {"company_id", "tool_id", "input_data", "idempotency_key", "safety_level", "ticket_id", "status"} <= set(queue_columns)
+          assert queue_columns["tool_id"]["type"].length >= 255
+          assert queue_columns["ticket_id"]["type"].length >= 128
+          assert any(
+              fk.get("constrained_columns") == ["company_id"]
+              and fk.get("referred_table") == "companies"
+              for fk in inspector.get_foreign_keys("superglue_call_queue")
+          )
+          print("SQLite Alembic schema is current; tenant agent-assignment column exists")
+          PY
+
+      - name: Verify Alembic schema migrations on PostgreSQL
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: postgresql+psycopg://parwa:parwa_test_password@localhost:5432/parwa_test
+        run: |
+          # Supabase defines these built-in roles; create them in the disposable
+          # PostgreSQL CI service so Supabase-specific RLS migrations can run.
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, text
+          engine = create_engine(os.environ["DATABASE_URL"])
+          with engine.begin() as connection:
+              for role in ("service_role", "anon", "authenticated"):
+                  exists = connection.execute(
+                      text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+                      {"role": role},
+                  ).first()
+                  if not exists:
+                      connection.exec_driver_sql(f"CREATE ROLE {role} NOLOGIN")
+          PY
+          alembic -c database/alembic.ini upgrade head
+          python - <<'PY'
+          import importlib.util
+          import os
+          from sqlalchemy import create_engine, inspect, text
+          engine = create_engine(os.environ["DATABASE_URL"])
+          inspector = inspect(engine)
+          assert inspector.has_table("emergency_states")
+          assert {"company_id", "is_paused", "paused_by", "paused_at", "reason"} <= {
+              column["name"] for column in inspector.get_columns("emergency_states")
+          }
+          assert "company_id" in {column["name"] for column in inspector.get_columns("ai_agent_assignments")}
+          vector_indexes = {index["name"] for index in inspector.get_indexes("document_chunks")}
+          assert {
+              "ix_document_chunks_embedding_vector_768",
+              "ix_document_chunks_embedding_vector_1024",
+          } <= vector_indexes, sorted({
+              "ix_document_chunks_embedding_vector_768",
+              "ix_document_chunks_embedding_vector_1024",
+          } - vector_indexes)
+          with engine.connect() as connection:
+              rls_enabled = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'ai_agent_assignments'::regclass"
+              )).scalar_one()
+              tenant_accounts_rls = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'superglue_tenant_accounts'::regclass"
+              )).scalar_one()
+              tenant_accounts_policies = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'superglue_tenant_accounts'"
+              )).scalar_one()
+              tool_execution_rls = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'ticket_tool_executions'::regclass"
+              )).scalar_one()
+              tool_execution_policies = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'ticket_tool_executions'"
+              )).scalar_one()
+              call_queue_rls = connection.execute(text(
+                  "SELECT relrowsecurity FROM pg_class WHERE oid = 'superglue_call_queue'::regclass"
+              )).scalar_one()
+              call_queue_policies = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'superglue_call_queue'"
+              )).scalar_one()
+              policy_count = connection.execute(text(
+                  "SELECT COUNT(*) FROM pg_policies WHERE schemaname = current_schema() "
+                  "AND tablename = 'ai_agent_assignments'"
+              )).scalar_one()
+              version_length = connection.execute(text(
+                  "SELECT character_maximum_length FROM information_schema.columns "
+                  "WHERE table_schema = current_schema() AND table_name = 'alembic_version' "
+                  "AND column_name = 'version_num'"
+              )).scalar_one()
+              enabled_tables = {
+                  row[0] for row in connection.execute(text(
+                      "SELECT c.relname FROM pg_class c "
+                      "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                      "WHERE n.nspname = current_schema() AND c.relkind = 'r' "
+                      "AND c.relrowsecurity"
+                  )).all()
+              }
+              existing_tables = {
+                  row[0] for row in connection.execute(text(
+                      "SELECT c.relname FROM pg_class c "
+                      "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                      "WHERE n.nspname = current_schema() AND c.relkind = 'r'"
+                  )).all()
+              }
+              existing_policies = {
+                  (row[0], row[1]) for row in connection.execute(text(
+                      "SELECT tablename, policyname FROM pg_policies "
+                      "WHERE schemaname = current_schema()"
+                  )).all()
+              }
+          assert rls_enabled is True
+          assert tenant_accounts_rls is True
+          assert tenant_accounts_policies == 4
+          assert tool_execution_rls is True
+          assert tool_execution_policies == 4
+          assert call_queue_rls is True
+          # Migration 042 installs srv_full_access; migration 048 adds four tenant policies.
+          assert call_queue_policies == 5
+          # Migration 042 service-role policy plus four tenant policies from migration 045.
+          assert policy_count == 5
+          assert version_length >= 255
+          spec = importlib.util.spec_from_file_location(
+              "rls_migration", "database/alembic/versions/022_enable_rls.py"
+          )
+          rls_migration = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(rls_migration)
+          expected_rls_tables = set(rls_migration.TENANT_TABLES)
+          # Migration 022 intentionally skips historical tenant tables that are
+          # absent from this schema. Enforce RLS on every listed table that exists.
+          existing_tenant_tables = expected_rls_tables & existing_tables
+          missing_rls = existing_tenant_tables - enabled_tables
+          assert not missing_rls, sorted(missing_rls)
+          required_policies = {
+              (table, f"{table}_tenant_{suffix}")
+              for table in existing_tenant_tables
+              for suffix in ("select", "insert", "update", "delete")
+          }
+          missing_policies = required_policies - existing_policies
+          assert not missing_policies, sorted(missing_policies)
+          print("PostgreSQL schema, long Alembic IDs, tenant service accounts, encrypted call queue, atomic tool idempotency, and RLS policies are verified")
+          PY
 
       - name: Build Rust parwa_core (MANDATORY — fail CI if it doesn't compile)
         run: |
@@ -162,6 +348,17 @@ jobs:
             --ignore=tests/unit/test_sla_service.py \
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
+
+      - name: Run deterministic full agent pipeline regression suite
+        timeout-minutes: 5
+        run: |
+          # Exercise the real multi-node pipeline with deterministic LLM/CRM mocks.
+          # Covers realistic ticket paths, safety/approval routing, escalation,
+          # quality loops, and Node 1–8 participation without live provider credentials.
+          python -m pytest tests/test_parwa_jarvis_integration.py -v --tb=short --noconftest
+
+      - name: Run Superglue client contract tests (mocked HTTP)
+        run: python -m pytest app/tests/test_superglue_client.py -v --tb=short --noconftest
 
       - name: Live API integration tests (escalation wiring + Phase 2/3 + E2E)
         timeout-minutes: 15

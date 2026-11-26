@@ -26,26 +26,69 @@ from app.core.superglue_client import (
     is_configured,
     namespaced_tool_id,
     _get_config,
+    _get_llm_key,
     DEFAULT_SUPERGLUE_URL,
 )
+
+
+class _QueueQuery:
+    def filter(self, *args, **kwargs):
+        return self
+
+    def delete(self):
+        return 0
+
+    def first(self):
+        return None
+
+
+class _QueueDB:
+    bind = None
+
+    def add(self, row):
+        self.row = row
+
+    def query(self, model):
+        return _QueueQuery()
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        pass
 
 
 # ── Config ──
 
 
+@pytest.fixture(autouse=True)
+def fake_superglue_credentials(monkeypatch):
+    """Mock HTTP tests use synthetic credentials, never production secrets."""
+    monkeypatch.setenv("SUPERGLUE_AUTH_TOKEN", "test-superglue-token")
+    monkeypatch.setenv("SUPERGLUE_LLM_API_KEY", "test-superglue-llm-key")
+    monkeypatch.setenv("DATA_ENCRYPTION_KEY", "12345678901234567890123456789012")
+    from app.core import superglue_client
+    from database import base
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "test-tenant-key")
+    monkeypatch.setattr(base, "SessionLocal", lambda: _QueueDB())
+
+
 class TestGetConfig:
-    def test_uses_free_defaults_when_no_env(self):
-        """The free shared Superglue setup remains usable without Render secrets."""
+    def test_fails_closed_when_no_env(self):
         with patch.dict(os.environ, {}, clear=True):
             url, token = _get_config()
             assert url == DEFAULT_SUPERGLUE_URL
-            assert token
+            assert token == ""
+            assert _get_llm_key() == ""
 
 
 class TestIsConfigured:
-    def test_configured_with_defaults(self):
-        # The existing free Superglue endpoint and credentials are code defaults.
-        assert is_configured() is True
+    def test_missing_environment_credentials_disable_superglue(self):
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_configured() is False
 
     def test_configured_empty_url(self):
         with patch.dict(os.environ, {"SUPERGLUE_API_URL": "", "SUPERGLUE_AUTH_TOKEN": "tok"}):
@@ -138,6 +181,31 @@ class TestListTools:
 
 class TestExecuteTool:
     @pytest.mark.asyncio
+    async def test_queue_persistence_failure_blocks_http_execution(self, monkeypatch):
+        from database import base
+        from app.core.superglue_client import execute_tool
+
+        monkeypatch.setattr(base, "SessionLocal", lambda: (_ for _ in ()).throw(RuntimeError("queue unavailable")))
+        with patch("app.core.superglue_client.httpx.AsyncClient") as mock_client_cls:
+            result = await execute_tool(
+                "refund-tool",
+                {"amount": 1000},
+                tenant_id="tenant-test",
+                idempotency_key="tenant-test:ticket-1:refund-tool",
+            )
+            assert result["success"] is False
+            assert "Durable tenant call queue" in result["error"]
+            mock_client_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_requires_tenant_context(self):
+        from app.core.superglue_client import execute_tool
+
+        result = await execute_tool("refund-tool", {"email": "a@b.com"})
+        assert result["success"] is False
+        assert "Tenant context" in result["error"]
+
+    @pytest.mark.asyncio
     async def test_success_response(self):
         # execute_tool checks res.json()["status"] == "success" to determine success
         mock_response = MagicMock()
@@ -152,7 +220,12 @@ class TestExecuteTool:
             mock_client_cls.return_value = mock_client
 
             from app.core.superglue_client import execute_tool
-            result = await execute_tool("refund-tool", {"email": "a@b.com"})
+            result = await execute_tool(
+                "refund-tool",
+                {"email": "a@b.com"},
+                tenant_id="tenant-test",
+                idempotency_key="tenant-test:ticket-2:refund-tool",
+            )
             assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -169,7 +242,12 @@ class TestExecuteTool:
             mock_client_cls.return_value = mock_client
 
             from app.core.superglue_client import execute_tool
-            await execute_tool("refund-tool", {}, tenant_id="t-123")
+            await execute_tool(
+                "refund-tool",
+                {},
+                tenant_id="t-123",
+                idempotency_key="t-123:ticket-3:refund-tool",
+            )
             # Verify the URL contains the namespaced tool_id
             call_args = mock_client.post.call_args
             assert "tenant_t-123__refund-tool" in call_args[0][0]
@@ -235,8 +313,8 @@ class TestVerifyToolExists:
             assert await verify_tool_exists("refund-tool") is False
 
     @pytest.mark.asyncio
-    async def test_returns_true_on_network_error(self):
-        """BC-008: Assume tool exists if we can't reach Superglue."""
+    async def test_returns_false_on_network_error(self):
+        """Fail closed: an unreachable Superglue server cannot verify a tool."""
         with patch("app.core.superglue_client.httpx.AsyncClient", side_effect=Exception("network")):
             from app.core.superglue_client import verify_tool_exists
-            assert await verify_tool_exists("refund-tool") is True
+            assert await verify_tool_exists("refund-tool") is False

@@ -39,6 +39,7 @@ _KEYWORDS: dict[ActionSafetyLevel, list[str]] = {
     ActionSafetyLevel.WRITE: [
         "update", "modify", "change", "edit", "set", "create",
         "add", "assign", "send", "email", "sms", "notify",
+        "reply", "respond", "comment", "escalate", "escalation", "note", "resolve",
     ],
     ActionSafetyLevel.READ: [
         "get", "fetch", "list", "search", "query", "check",
@@ -65,45 +66,94 @@ class ActionSafetyResult:
 
 
 def classify_action(tool_name: str, tool_description: str = "") -> ActionSafetyResult:
-    """Classify a Superglue tool action by keyword matching.
+    """Classify an action using explicit operation intent, not domain nouns alone.
 
-    Scans both *tool_name* and *tool_description* (case-insensitive).
-    Returns the highest-severity match. Defaults to READ.
-    BC-008: never raises — returns READ on any error.
+    A read-only search for payment/refund records is not a financial write.
+    Financial approval is required when a financial domain is combined with a
+    write operation; destructive operations always take precedence.
     """
     try:
         text = f"{tool_name} {tool_description}".lower()
 
-        best_level = ActionSafetyLevel.READ
-        best_keyword: Optional[str] = None
-
-        for level in _PRIORITY:
-            for kw in _KEYWORDS[level]:
-                if kw in text:
-                    best_level = level
-                    best_keyword = kw
-                    break  # found highest-severity match
-            if best_keyword is not None:
-                break
-
-        confidence = 0.9 if best_keyword else 0.5
-        reasoning = (
-            f"Matched keyword '{best_keyword}' -> {best_level.value}"
-            if best_keyword
-            else "No keyword matched; defaulting to READ"
+        destructive_terms = tuple(_KEYWORDS[ActionSafetyLevel.DESTRUCTIVE])
+        financial_domains = (
+            "refund", "credit", "payment", "charge", "invoice",
+            "billing", "money", "debit", "payout", "transfer",
         )
+        read_verbs = (
+            "get", "fetch", "list", "search", "query", "check", "verify",
+            "status", "health", "info", "lookup", "read", "retrieve",
+            "find", "inspect", "investigate", "analyze", "analyse", "review",
+        )
+        write_verbs = tuple(_KEYWORDS[ActionSafetyLevel.WRITE]) + (
+            "process", "issue", "capture", "pay", "refund", "charge",
+            "credit", "debit", "payout", "transfer", "void",
+        )
+
+        destructive_match = next((term for term in destructive_terms if term in text), None)
+        if destructive_match:
+            return ActionSafetyResult(
+                level=ActionSafetyLevel.DESTRUCTIVE,
+                confidence=0.95,
+                matched_keyword=destructive_match,
+                reasoning=f"Matched destructive operation '{destructive_match}'",
+            )
+
+        read_match = next((term for term in read_verbs if term in text), None)
+        write_match = next((term for term in write_verbs if term in text), None)
+        financial_domain = next((term for term in financial_domains if term in text), None)
+
+        # Explicit read-only intent wins over financial nouns such as "billing"
+        # or "payment", unless the description also contains a write operation.
+        if financial_domain and write_match:
+            return ActionSafetyResult(
+                level=ActionSafetyLevel.FINANCIAL,
+                confidence=0.95,
+                matched_keyword=financial_domain,
+                reasoning=f"Financial write operation detected ({financial_domain}/{write_match})",
+            )
+
+        if read_match and not write_match:
+            sensitive = next(
+                (term for term in _KEYWORDS[ActionSafetyLevel.SENSITIVE_PII] if term in text),
+                None,
+            )
+            level = ActionSafetyLevel.SENSITIVE_PII if sensitive else ActionSafetyLevel.READ
+            return ActionSafetyResult(
+                level=level,
+                confidence=0.9,
+                matched_keyword=sensitive or read_match,
+                reasoning=f"Read-only operation matched '{sensitive or read_match}'",
+            )
+
+        if financial_domain:
+            return ActionSafetyResult(
+                level=ActionSafetyLevel.FINANCIAL,
+                confidence=0.8,
+                matched_keyword=financial_domain,
+                reasoning=f"Financial tool requires approval ({financial_domain})",
+            )
+
+        if write_match:
+            return ActionSafetyResult(
+                level=ActionSafetyLevel.WRITE,
+                confidence=0.9,
+                matched_keyword=write_match,
+                reasoning=f"Write operation matched '{write_match}'",
+            )
+
         return ActionSafetyResult(
-            level=best_level,
-            confidence=confidence,
-            matched_keyword=best_keyword,
-            reasoning=reasoning,
+            level=ActionSafetyLevel.READ,
+            confidence=0.5,
+            matched_keyword=None,
+            reasoning="No operation intent matched; caller must fail closed",
         )
     except Exception:
         return ActionSafetyResult(
-            level=ActionSafetyLevel.READ,
+            level=ActionSafetyLevel.DESTRUCTIVE,
             confidence=0.0,
             matched_keyword=None,
-            reasoning="Error during classification; defaulting to READ",
+            reasoning="Error during classification; blocking for manual review",
         )
 
 

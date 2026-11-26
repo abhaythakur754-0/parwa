@@ -992,12 +992,48 @@ def _build_tool_instruction(
     if agent_instructions:
         parts.append(f"Agent context: {agent_instructions[:500]}")
 
+    capability_tokens = {
+        token.strip().lower()
+        for token in (agent_capabilities or "").replace(";", ",").split(",")
+        if token.strip()
+    }
+    if "ticket_reply" in capability_tokens:
+        parts.append(
+            "This is the dedicated customer-facing CRM reply tool. It MUST accept the source "
+            "ticket ID and the exact response body as required inputs, create a PUBLIC reply/comment "
+            "on that existing ticket, and return the created reply/comment ID plus resulting ticket status. "
+            "Do not create a new ticket, do not send an email separately, and do not mark a ticket resolved "
+            "unless the caller explicitly supplies that status."
+        )
+    if "ticket_escalation" in capability_tokens or "ticket_status_update" in capability_tokens:
+        parts.append(
+            "This is the private CRM escalation tool. It MUST accept the source ticket ID and an internal "
+            "note as required inputs, add the note as PRIVATE/INTERNAL (never public), and update the ticket "
+            "to the supplied escalation status. Return the note ID and resulting ticket status."
+        )
+
     if sample_ticket:
         parts.append(f"Sample ticket this agent needs to handle: {sample_ticket[:500]}")
 
     if tenant_integrations:
         integ_list = ", ".join(tenant_integrations.keys())
         parts.append(f"Tenant has these integrations connected: {integ_list}.")
+        for integration_id, details in tenant_integrations.items():
+            if not isinstance(details, dict):
+                continue
+            system_id = details.get("system_id") or integration_id
+            parts.append(
+                f"Connected system mapping: {integration_id} uses Superglue system_id={system_id} "
+                f"(status={details.get('status', 'unknown')})."
+            )
+            schema = details.get("schema")
+            if schema and details.get("schema_ready", True):
+                # Schema metadata is filtered to table/column names upstream;
+                # never include credentials or sample row values in prompts.
+                parts.append(
+                    f"Verified read-only schema for {integration_id}: "
+                    f"{json.dumps(schema, ensure_ascii=False)[:5000]}"
+                )
 
     parts.append(
         "Design a multi-step tool that takes the customer's input (e.g. email, order ID) "
@@ -1017,11 +1053,13 @@ def _format_integrations(integrations: Dict[str, Any]) -> list:
     pick the right API endpoints when designing the tool.
     """
     systems = []
-    for integ_type, creds in integrations.items():
+    for integ_type, details in integrations.items():
+        details = details if isinstance(details, dict) else {}
+        system_id = details.get("system_id") or integ_type
         systems.append({
-            "id": integ_type,
-            "type": integ_type,
-            "credentials": creds if isinstance(creds, dict) else {},
+            "id": system_id,
+            "type": system_id,
+            "credentials": {},
         })
     return systems
 
@@ -1126,7 +1164,10 @@ async def _generate_tool_via_parwa_llm(
     # Build prompt for NVIDIA to generate tool JSON
     integ_text = ""
     if tenant_integrations:
-        integ_text = "\nConnected integrations: " + ", ".join(tenant_integrations.keys())
+        integ_text = "\nConnected integrations and Superglue system IDs: " + "; ".join(
+            f"{key}={value.get('system_id', key) if isinstance(value, dict) else key}"
+            for key, value in tenant_integrations.items()
+        )
 
     prompt = f"""You are designing a Superglue multi-step tool for an AI agent.
 

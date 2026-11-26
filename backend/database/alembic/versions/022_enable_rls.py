@@ -179,16 +179,11 @@ TENANT_TABLES: list[str] = [
     # These tables have company_id columns but were not covered by RLS,
     # creating a cross-tenant data leak risk.
     # 021 — missing_rls_tables (security patch)
-    "ai_agent_assignments",
     "canned_responses",
-    "channels",
     "chat_widget_configs",
     "chat_widget_messages",
     "chat_widget_sessions",
     "custom_fields",
-    "jarvis_action_tickets",
-    "jarvis_knowledge_used",
-    "jarvis_messages",
     "notification_logs",
     "notification_preferences",
     "paddle_reconciliation_reports",
@@ -198,7 +193,6 @@ TENANT_TABLES: list[str] = [
     "sms_messages",
     "ticket_collisions",
     "ticket_triggers",
-    "variant_limits",
 ]
 
 # ═══════════════════════════════════════════════════════════════════
@@ -216,77 +210,57 @@ _DROP_FUNCTION_SQL = "DROP FUNCTION IF EXISTS app.current_tenant_id();"
 
 
 def _enable_rls_for_table(table: str) -> None:
-    """Enable RLS and create tenant-isolation policies on *table*."""
+    """Enable tenant RLS only on an existing table with a company_id column."""
     conn = op.get_bind()
-
-    # ── Enable RLS ──────────────────────────────────────────────
-    try:
-        conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
-        log.debug("RLS enabled on %s", table)
-    except Exception:
-        log.warning("Could not enable RLS on %s — skipping", table, exc_info=True)
+    inspector = sa.inspect(conn)
+    if not inspector.has_table(table):
+        log.warning("Skipping RLS on missing table %s", table)
         return
 
-    # ── Drop existing policies (idempotent) ────────────────────
+    columns = {column["name"] for column in inspector.get_columns(table)}
+    if "company_id" not in columns:
+        raise RuntimeError(
+            f"RLS migration expected {table}.company_id, but the column is missing. "
+            "Add the tenant column or remove the table from TENANT_TABLES."
+        )
+
+    conn.execute(sa.text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+
+    # Recreate the four policies deterministically; IF EXISTS is transaction-safe.
     for suffix in ("tenant_select", "tenant_insert", "tenant_update", "tenant_delete"):
         policy_name = f"{table}_{suffix}"
-        try:
-            conn.execute(sa.text(f"DROP POLICY IF EXISTS {policy_name} ON {table}"))
-        except Exception:
-            pass  # non-existent policy — fine
+        conn.execute(sa.text(f"DROP POLICY IF EXISTS {policy_name} ON {table}"))
 
-    # ── SELECT ──────────────────────────────────────────────────
-    try:
-        conn.execute(sa.text(
-            f"CREATE POLICY {table}_tenant_select ON {table} "
-            f"FOR SELECT USING (company_id = app.current_tenant_id())"
-        ))
-    except Exception:
-        log.warning("Failed to create SELECT policy on %s", table, exc_info=True)
-
-    # ── INSERT ──────────────────────────────────────────────────
-    try:
-        conn.execute(sa.text(
-            f"CREATE POLICY {table}_tenant_insert ON {table} "
-            f"FOR INSERT WITH CHECK (company_id = app.current_tenant_id())"
-        ))
-    except Exception:
-        log.warning("Failed to create INSERT policy on %s", table, exc_info=True)
-
-    # ── UPDATE ──────────────────────────────────────────────────
-    try:
-        conn.execute(sa.text(
-            f"CREATE POLICY {table}_tenant_update ON {table} "
-            f"FOR UPDATE USING (company_id = app.current_tenant_id())"
-        ))
-    except Exception:
-        log.warning("Failed to create UPDATE policy on %s", table, exc_info=True)
-
-    # ── DELETE ──────────────────────────────────────────────────
-    try:
-        conn.execute(sa.text(
-            f"CREATE POLICY {table}_tenant_delete ON {table} "
-            f"FOR DELETE USING (company_id = app.current_tenant_id())"
-        ))
-    except Exception:
-        log.warning("Failed to create DELETE policy on %s", table, exc_info=True)
+    conn.execute(sa.text(
+        f"CREATE POLICY {table}_tenant_select ON {table} "
+        f"FOR SELECT USING (company_id = app.current_tenant_id())"
+    ))
+    conn.execute(sa.text(
+        f"CREATE POLICY {table}_tenant_insert ON {table} "
+        f"FOR INSERT WITH CHECK (company_id = app.current_tenant_id())"
+    ))
+    conn.execute(sa.text(
+        f"CREATE POLICY {table}_tenant_update ON {table} "
+        f"FOR UPDATE USING (company_id = app.current_tenant_id())"
+    ))
+    conn.execute(sa.text(
+        f"CREATE POLICY {table}_tenant_delete ON {table} "
+        f"FOR DELETE USING (company_id = app.current_tenant_id())"
+    ))
 
 
 def _disable_rls_for_table(table: str) -> None:
-    """Drop all tenant policies and disable RLS on *table*."""
+    """Drop tenant policies and disable RLS on an existing table."""
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if not inspector.has_table(table):
+        return
 
     for suffix in ("tenant_select", "tenant_insert", "tenant_update", "tenant_delete"):
         policy_name = f"{table}_{suffix}"
-        try:
-            conn.execute(sa.text(f"DROP POLICY IF EXISTS {policy_name} ON {table}"))
-        except Exception:
-            pass
+        conn.execute(sa.text(f"DROP POLICY IF EXISTS {policy_name} ON {table}"))
 
-    try:
-        conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
-    except Exception:
-        log.warning("Could not disable RLS on %s", table, exc_info=True)
+    conn.execute(sa.text(f"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY"))
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -300,11 +274,7 @@ def upgrade() -> None:
         return
 
     # ── 1. Create the app schema (if missing) and helper function ──
-    try:
-        conn.execute(sa.text("CREATE SCHEMA IF NOT EXISTS app"))
-    except Exception:
-        log.warning("Could not create schema 'app'", exc_info=True)
-
+    conn.execute(sa.text("CREATE SCHEMA IF NOT EXISTS app"))
     op.execute(_CREATE_FUNCTION_SQL)
     log.info("Created app.current_tenant_id() function")
 

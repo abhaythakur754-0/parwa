@@ -11,14 +11,15 @@
  *          from the backend, so this phase ALWAYS produces recommendations.
  * Phase 3: Recommended Integrations — show analyser results as connectable
  *          cards below the CRM. User connects each via Superglue.
- * Phase 4: Agent build — auto-triggered in background, polled via
- *          /api/onboarding-build/status. "Continue" unlocks when all pass.
+ * Phase 4: Verify required integrations and MCP, then build tenant agents.
+ *          Poll /api/onboarding-build/status; optional starter integrations
+ *          never block onboarding.
  *
  * Replaces the old "show all 12 systems at once" grid. Makes onboarding
  * fast, guided, and simple — customer just follows instructions.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Loader2, CheckCircle2, Link2, X, Plug, AlertTriangle,
   Sparkles, Search, ChevronRight,
@@ -28,27 +29,44 @@ import { cn } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────────────
 
+interface AuthSchemaField {
+  key: string;
+  label: string;
+  type: 'text' | 'email' | 'password' | 'textarea';
+  required?: boolean;
+  placeholder?: string;
+}
+
 interface CRMType {
   id: string;
   name: string;
   icon: string;
   url_hint: string;
+  auth_type?: string;
+  auth_schema?: AuthSchemaField[];
+  db_type?: string;
+  category?: string;
 }
 
-interface VerifyResult {
-  verified: boolean;
-  superglue_ok: boolean;
-  mcp_registered: boolean;
+interface TestResult {
+  works: boolean;
   system_id: string;
-  name: string;
-  url: string;
+  status_code?: number;
+  tested_at: string;
   message: string;
+  sample_data?: Record<string, unknown>;
 }
 
 interface AnalysisRecommendation {
   name: string;
+  system_id?: string;
+  category?: string;
+  db_type?: string;
+  auth_type?: string;
+  auth_schema?: AuthSchemaField[];
   priority?: string;
   reason?: string;
+  required?: boolean;
 }
 
 interface AnalysisResult {
@@ -58,6 +76,8 @@ interface AnalysisResult {
   data_profile: any;
   detected_gaps: any[];
   recommendations: AnalysisRecommendation[];
+  recommended_agents?: Array<Record<string, unknown>>;
+  analysis_id?: string;
   analysis_summary: string;
 }
 
@@ -87,15 +107,7 @@ interface BuildStatus {
 // paste-a-token form — honest path until the Superglue OAuth redirect ships.
 // auth_schema: extra fields per system (rendered before the API Key field)
 
-interface AuthSchemaField {
-  key: string;
-  label: string;
-  type: 'text' | 'email' | 'password' | 'textarea';
-  required?: boolean;
-  placeholder?: string;
-}
-
-const CRM_OPTIONS: (CRMType & { auth_type?: string; auth_schema?: AuthSchemaField[] })[] = [
+const CRM_OPTIONS: CRMType[] = [
   { id: 'hubspot',    name: 'HubSpot',      icon: '🎯', url_hint: 'https://api.hubapi.com',  auth_type: 'oauth' },
   { id: 'salesforce',  name: 'Salesforce',   icon: '☁️', url_hint: 'https://login.salesforce.com', auth_type: 'oauth' },
   { id: 'zendesk',    name: 'Zendesk',      icon: '🎫', url_hint: 'https://{subdomain}.zendesk.com/api/v2', auth_type: 'api_key',
@@ -140,7 +152,12 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
   const [buildStatus, setBuildStatus] = useState<BuildStatus | null>(null);
   const [testingSystem, setTestingSystem] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { works: boolean; message: string }>>({});
-  const [allTested, setAllTested] = useState(false);
+  const allTested = analysisResult
+    ? analysisResult.recommendations.filter((rec) => rec.required !== false).every((rec) => {
+        const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
+        return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
+      })
+    : false;
 
   // ── Phase 1: Open CRM connect form ────────────────────────────────
   // OAuth-type CRMs also use this form: until Superglue exposes an OAuth
@@ -156,24 +173,24 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setFormOpen(true);
   };
 
-  // ── Phase 1: Verify CRM (Superglue + MCP) ────────────────────────
+  // ── Phase 1: Verify CRM with a real provider/API check ────────────
   const handleVerify = async (systemId: string) => {
     setVerifying(true);
     try {
-      const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/verify`, {
+      const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/test`, {
         method: 'POST',
       });
-      const data: VerifyResult = await res.json();
-      if (data.verified) {
+      const data: TestResult = await res.json();
+      if (res.ok && data.works) {
         setVerified(true);
         toast.success(data.message);
-        // Auto-proceed to Phase 2: Analysis
+        // Auto-proceed only after the external provider actually responds.
         setTimeout(() => runAnalysis(), 500);
       } else {
-        toast.error(data.message || 'Verification failed');
+        toast.error(data.message || 'Connection test failed');
       }
     } catch {
-      toast.error('Network error during verification');
+      toast.error('Network error during connection test');
     } finally {
       setVerifying(false);
     }
@@ -190,10 +207,11 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       const data: AnalysisResult = await res.json();
       if (res.ok) {
         setAnalysisResult(data);
+        // A CRM-only tenant can proceed directly to agent construction when
+        // the analyser finds no additional integrations are required.
         setPhase('recommendations');
-        // AUTO-TRIGGER agent + tool creation in the background (no user click needed).
-        // Runs in parallel while the user fills in their integrations.
-        triggerAgentBuild();
+        // Build agents only after the user has connected and verified the
+        // recommended data sources; otherwise tools are generated too early.
       } else {
         setAnalysisError((data as any).detail || 'Analysis failed');
         setPhase('error');
@@ -208,17 +226,28 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
   // Opens a connect form (same modal as CRM) — detects if it's a database
   // and shows DB-specific fields (host, port, db name, user, password)
   const connectRecommendation = async (rec: AnalysisRecommendation) => {
-    const systemId = rec.name.toLowerCase().replace(/\s+/g, '-');
+    const systemId = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
     // Detect if this is a database recommendation
     const dbKeywords = ['database', 'db', 'postgres', 'mysql', 'mongo', 'snowflake', 'bigquery', 'warehouse'];
-    const isDb = dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
+    const isDb = rec.category?.toLowerCase().includes('database') === true ||
+      dbKeywords.some((kw) => rec.name.toLowerCase().includes(kw) || (rec.reason || '').toLowerCase().includes(kw));
 
     // Open the connect form with the right mode
-    setSelectedCRM({ id: systemId, name: rec.name, icon: '🔌', url_hint: '' });
+    setSelectedCRM({
+      id: systemId,
+      name: rec.name,
+      icon: '🔌',
+      url_hint: CRM_OPTIONS.find((item) => item.id === systemId)?.url_hint || '',
+      auth_type: rec.auth_type,
+      auth_schema: rec.auth_schema,
+      db_type: rec.db_type,
+      category: rec.category,
+    });
     setFormName(rec.name);
-    setFormUrl('');
+    setFormUrl(CRM_OPTIONS.find((item) => item.id === systemId)?.url_hint || '');
     setFormApiKey('');
-    setFormDbType('postgresql');
+    setFormExtraFields({});
+    setFormDbType(rec.db_type || 'postgresql');
     setFormDbHost('');
     setFormDbPort('5432');
     setFormDbName('');
@@ -235,23 +264,45 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       toast.error('Name is required');
       return;
     }
+
+    const missingAuthField = selectedCRM.auth_schema?.find(
+      (field) => field.required && !formExtraFields[field.key]?.trim(),
+    );
+    if (missingAuthField) {
+      toast.error(`${missingAuthField.label} is required`);
+      return;
+    }
+
+    const effectiveDbHost = formDbType === 'bigquery'
+      ? (formExtraFields.project_id || formDbHost).trim()
+      : formDbType === 'snowflake'
+        ? (formExtraFields.account || formDbHost).trim()
+        : formDbHost.trim();
     if (isDbForm) {
-      if (!formDbHost.trim() || !formDbName.trim() || !formDbUsername.trim()) {
-        toast.error('Host, database name, and username are required');
+      if (!effectiveDbHost || !formDbName.trim() || (formDbType !== 'bigquery' && !formDbUsername.trim())) {
+        toast.error('Host/project, database name, and required username are missing');
         return;
       }
-    } else {
-      if (!formUrl.trim()) {
-        toast.error('URL is required');
+    } else if (!formUrl.trim()) {
+      toast.error('URL is required');
+      return;
+    }
+
+    const isOAuth = selectedCRM.auth_type === 'oauth';
+    let oauthPopup: Window | null = null;
+    if (isOAuth) {
+      // Open synchronously from the user gesture so popup blockers do not
+      // prevent the provider's consent screen from appearing.
+      oauthPopup = window.open('about:blank', 'parwa-provider-oauth', 'width=620,height=760');
+      if (!oauthPopup) {
+        toast.error('Allow popups for PARWA to authorize this provider securely');
         return;
       }
     }
 
     setConnecting(true);
     try {
-      // Detect if this is a CRM connection (Phase 1) vs recommendation (Phase 3)
-      const isCrm = CRM_OPTIONS.some((c) => c.id === selectedCRM.id);
-
+      const isCrm = CRM_OPTIONS.some((item) => item.id === selectedCRM.id);
       const payload: any = {
         system_id: selectedCRM.id,
         name: formName.trim(),
@@ -260,23 +311,20 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       };
 
       if (isDbForm) {
-        // Database connection — send DB-specific fields
         payload.db_type = formDbType;
-        payload.db_host = formDbHost.trim();
-        payload.db_port = parseInt(formDbPort) || 5432;
+        payload.db_host = effectiveDbHost;
+        payload.db_port = parseInt(formDbPort) || (['snowflake', 'bigquery'].includes(formDbType) ? 443 : 5432);
         payload.db_name = formDbName.trim();
         payload.db_username = formDbUsername.trim();
         payload.db_password = formDbPassword;
-        payload.url = ''; // backend builds it from DB fields
-        payload.credentials = {};
+        payload.url = '';
+        payload.credentials = Object.fromEntries(
+          Object.entries(formExtraFields).filter(([, value]) => value.trim()),
+        );
       } else {
-        // API connection — build credentials from auth_schema fields + API key.
-        // auth_schema fields (Zendesk subdomain/email, Freshdesk domain, etc.)
-        // used to be dropped here — they must reach Superglue or the
-        // connection is broken from birth.
         const credentials: Record<string, string> = {};
-        const crmDef = CRM_OPTIONS.find((c) => c.id === selectedCRM.id);
-        if (crmDef?.auth_schema) {
+        const crmDef = CRM_OPTIONS.find((item) => item.id === selectedCRM.id) || selectedCRM;
+        if (crmDef.auth_schema) {
           for (const field of crmDef.auth_schema) {
             if (formExtraFields[field.key]?.trim()) {
               credentials[field.key] = formExtraFields[field.key].trim();
@@ -284,14 +332,12 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           }
         }
         if (formApiKey.trim()) {
-          // HubSpot uses access_token, others use api_key
-          if (selectedCRM.id === 'hubspot') {
-            credentials.access_token = formApiKey.trim();
-          } else {
-            credentials.api_key = formApiKey.trim();
-          }
+          credentials.api_key = formApiKey.trim();
         }
         payload.url = formUrl.trim();
+        for (const [key, value] of Object.entries(credentials)) {
+          payload.url = payload.url.replaceAll(`{${key}}`, value);
+        }
         payload.credentials = credentials;
       }
 
@@ -301,22 +347,89 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (res.ok) {
-        toast.success(`${formName} connected`);
-        setFormOpen(false);
-
-        // If this was a CRM (Phase 1), auto-verify + trigger analysis
-        if (isCrm) {
-          await handleVerify(selectedCRM.id);
-        } else {
-          // Phase 3 recommendation — mark as connected
-          setConnectedRecommendations((prev) => new Set(prev).add(formName));
-        }
-      } else {
-        toast.error(data.detail || 'Failed to connect');
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to create integration connection');
       }
-    } catch {
-      toast.error('Network error');
+      setFormOpen(false);
+
+      if (isOAuth) {
+        const startRes = await fetch(
+          `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/oauth/start`,
+          { method: 'POST' },
+        );
+        const startData = await startRes.json();
+        if (!startRes.ok || !startData.authorization_url) {
+          throw new Error(startData.detail || 'Could not start provider authorization');
+        }
+        if (oauthPopup) oauthPopup.location.href = startData.authorization_url;
+
+        let authorized = false;
+        for (let attempt = 0; attempt < 90; attempt += 1) {
+          // Check immediately: the provider may already have completed the
+          // redirect while this request was being created. Keep the two-second
+          // cadence for all subsequent polls to avoid needless API traffic.
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+          const statusRes = await fetch(
+            `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/oauth/status`,
+          );
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.connected === true) {
+              authorized = true;
+              break;
+            }
+          }
+          if (oauthPopup?.closed) {
+            // Superglue closes the popup after successful consent. Give its
+            // credential write one final poll before treating it as cancelled.
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+        oauthPopup?.close();
+        if (!authorized) {
+          throw new Error('Provider authorization was not completed. Reconnect and approve access to continue.');
+        }
+        toast.success(`${formName} authorization completed`);
+      } else {
+        toast.success(`${formName} connected`);
+      }
+
+      if (isCrm) {
+        await handleVerify(selectedCRM.id);
+      } else {
+        const connectedName = formName;
+        setConnectedRecommendations((prev) => new Set(prev).add(connectedName));
+        try {
+          const testRes = await fetch(
+            `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/test`,
+            { method: 'POST' },
+          );
+          const testData = await testRes.json();
+          setTestResults((prev) => ({
+            ...prev,
+            [selectedCRM.id]: {
+              works: testRes.ok && testData.works === true,
+              message: testData.message || 'Connection test failed',
+            },
+          }));
+          if (testRes.ok && testData.works === true) {
+            toast.success(`${connectedName}: connection verified`);
+          } else {
+            toast.error(`${connectedName}: ${testData.message || 'connection test failed'}`);
+          }
+        } catch {
+          setTestResults((prev) => ({
+            ...prev,
+            [selectedCRM.id]: { works: false, message: 'Network error during connection test' },
+          }));
+          toast.error(`${connectedName}: could not verify connection`);
+        }
+      }
+    } catch (error) {
+      oauthPopup?.close();
+      toast.error(error instanceof Error ? error.message : 'Network error');
     } finally {
       setConnecting(false);
     }
@@ -324,7 +437,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
 
   // ── Phase 3b: Test that a connected integration actually works ────
   const testIntegration = async (rec: AnalysisRecommendation) => {
-    const systemId = rec.name.toLowerCase().replace(/\s+/g, '-');
+    const systemId = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
     setTestingSystem(systemId);
     try {
       const res = await fetch(`/api/superglue/systems/${encodeURIComponent(systemId)}/test`, {
@@ -347,56 +460,6 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     }
   };
 
-  // ── Phase 3c: Check if all connected integrations have been tested ──
-  useEffect(() => {
-    if (analysisResult && connectedRecommendations.size > 0) {
-      const allTestedNow = Array.from(connectedRecommendations).every((name) => {
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        return testResults[id] !== undefined;
-      });
-      setAllTested(allTestedNow);
-    }
-  }, [connectedRecommendations, testResults, analysisResult]);
-
-  // ── Phase 4 (background): Auto-trigger agent + tool creation ──────
-  // Called automatically when analysis results come back. Runs in the
-  // background while the user fills in integrations. No UI change — just
-  // polls status silently.
-  const triggerAgentBuild = async () => {
-    try {
-      const res = await fetch('/api/onboarding-build/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        // Start polling for status in the background
-        pollBuildStatus();
-      }
-      // If it fails, the Verify button will catch it (agents not ready)
-    } catch {
-      // Silent — Verify button will report the failure
-    }
-  };
-
-  // ── Background polling for build status ───────────────────────────
-  const pollBuildStatus = async () => {
-    const poll = async () => {
-      try {
-        const res = await fetch('/api/onboarding-build/status');
-        const data: BuildStatus = await res.json();
-        setBuildStatus(data);
-        // Keep polling until all agents are ready or all failed
-        if (!data.all_ready && !(data.failed > 0 && data.pending === 0)) {
-          setTimeout(poll, 3000);
-        }
-      } catch {
-        setTimeout(poll, 5000);
-      }
-    };
-    poll();
-  };
-
   // ── Phase 4: Verify button — checks all 3 things with progressive loading ──
   const [verifyingAll, setVerifyingAll] = useState(false);
   const [verifyStep, setVerifyStep] = useState(0); // 0=idle, 1=checking API keys, 2=checking MCP, 3=checking agents, 4=done
@@ -414,57 +477,80 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     setVerifyStep(1);
 
     try {
-      // Step 1: Check all connected integrations have been tested + work
-      const connected = Array.from(connectedRecommendations);
-      const allTestedOk = connected.every((name) => {
-        const id = name.toLowerCase().replace(/\s+/g, '-');
-        return testResults[id]?.works === true;
+      const expectedIntegrations = (analysisResult?.recommendations || []).filter((rec) => rec.required !== false);
+      const integrationsOk = expectedIntegrations.every((rec) => {
+        const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
+        return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
       });
-      const apiKeysOk = allTestedOk && connected.length > 0;
-      // Brief pause so the user sees the loading state for each step
-      await new Promise((r) => setTimeout(r, 400));
+      const apiKeysOk = integrationsOk;
       setVerifyStep(2);
-
-      // Step 2: Check MCP connection (CRM was verified in Phase 1)
       const mcpOk = verified;
-      await new Promise((r) => setTimeout(r, 400));
-      setVerifyStep(3);
 
-      // Step 3: Check build status (agents + tools)
-      const statusRes = await fetch('/api/onboarding-build/status');
-      const status: BuildStatus = await statusRes.json();
-      setBuildStatus(status);
-      const agentsOk = status.all_ready;
-      setVerifyStep(4);
+      let agentsOk = false;
+      let status: BuildStatus | null = null;
 
-      const allPassed = apiKeysOk && mcpOk && agentsOk;
+      if (apiKeysOk && mcpOk && analysisResult?.analysis_id) {
+        setVerifyStep(3);
+        const triggerRes = await fetch('/api/onboarding-build/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis_result_id: analysisResult.analysis_id }),
+        });
+        const triggerData = await triggerRes.json();
+        if (!triggerRes.ok) {
+          throw new Error(triggerData.detail || 'Could not start agent creation');
+        }
 
-      let message = '';
-      if (allPassed) {
-        message = '✓ All checks passed — ready to continue!';
+        // Wait for every generated agent tool to be verified in Superglue.
+        for (let attempt = 0; attempt < 60; attempt += 1) {
+          const statusRes = await fetch('/api/onboarding-build/status');
+          if (!statusRes.ok) throw new Error('Could not verify agent build status');
+          const nextStatus = await statusRes.json() as BuildStatus;
+          status = nextStatus;
+          setBuildStatus(nextStatus);
+          if (nextStatus.all_ready || (nextStatus.failed > 0 && nextStatus.pending === 0)) break;
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+        agentsOk = status?.all_ready === true;
       } else {
-        const failures: string[] = [];
-        if (!apiKeysOk) failures.push('test all integrations');
-        if (!mcpOk) failures.push('MCP not connected');
-        if (!agentsOk) failures.push(`agents building (${status.ready}/${status.total_agents} ready)`);
-        message = `✗ Pending: ${failures.join(', ')}`;
+        setVerifyStep(3);
+        const statusRes = await fetch('/api/onboarding-build/status');
+        if (statusRes.ok) {
+          status = await statusRes.json();
+          setBuildStatus(status);
+        }
       }
+
+      setVerifyStep(4);
+      const allPassed = apiKeysOk && mcpOk && agentsOk;
+      const failures: string[] = [];
+      if (!apiKeysOk) failures.push('verify all recommended integrations');
+      if (!mcpOk) failures.push('CRM/MCP connection is not verified');
+      if (!agentsOk) failures.push(
+        status?.failed
+          ? `${status.failed} agent tool(s) failed`
+          : status?.pending
+            ? `${status.pending} agents building`
+            : 'agents are not ready',
+      );
 
       setVerifyResult({
         api_keys_ok: apiKeysOk,
         mcp_ok: mcpOk,
         agents_ok: agentsOk,
         all_passed: allPassed,
-        message,
+        message: allPassed
+          ? '✓ All checks passed — required integrations and agent tools are verified. Ready to continue!'
+          : `✗ Pending: ${failures.join(', ')}`,
       });
-    } catch {
+    } catch (error) {
       setVerifyStep(4);
       setVerifyResult({
         api_keys_ok: false,
         mcp_ok: false,
         agents_ok: false,
         all_passed: false,
-        message: '✗ Network error during verification',
+        message: error instanceof Error ? error.message : 'Network error during verification',
       });
     } finally {
       setVerifyingAll(false);
@@ -668,7 +754,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
           )}
 
           {/* Verify + Continue buttons */}
-          {connectedRecommendations.size > 0 && (
+          {analysisResult && verified && (
             <div className="mt-4 pt-3 border-t border-white/5 space-y-3">
               {/* Verify button — checks all 3 things */}
               <button
@@ -939,6 +1025,30 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
                       🔒 Read-only enforced. Superglue auto-reads your schema + generates query tools.
                     </p>
                   </div>
+                  {selectedCRM?.auth_schema?.map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-xs text-zinc-400 mb-1">
+                        {field.label}{field.required ? ' *' : ''}
+                      </label>
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          value={formExtraFields[field.key] || ''}
+                          onChange={(e) => setFormExtraFields((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder || ''}
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                        />
+                      ) : (
+                        <input
+                          type={field.type === 'password' ? 'password' : 'text'}
+                          value={formExtraFields[field.key] || ''}
+                          onChange={(e) => setFormExtraFields((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder || ''}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                        />
+                      )}
+                    </div>
+                  ))}
                 </>
               ) : (
                 /* ── API FORM: show URL + API key ── */
@@ -968,27 +1078,29 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
                       />
                     </div>
                   ))}
-                  {/* API Key field — shown for ALL systems. OAuth-type CRMs
-                      accept an API key / access token until the Superglue
-                      OAuth redirect endpoint ships; a real credential here
-                      beats an empty "OAuth" connect that fails on first use. */}
-                  <div>
-                    <label className="block text-xs text-zinc-400 mb-1">
-                      API Key / Token *
-                    </label>
-                    <input
-                      type="password"
-                      value={formApiKey}
-                      onChange={(e) => setFormApiKey(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
-                    />
-                    <p className="text-[10px] text-zinc-600 mt-1">
-                      {((selectedCRM as any)?.auth_type === 'oauth')
-                        ? `Paste an access token from your ${selectedCRM.name} account — stored securely in Superglue.`
-                        : 'Stored securely in Superglue + encrypted in MCP registry.'}
-                    </p>
-                  </div>
+                  {selectedCRM?.auth_type === 'oauth' ? (
+                    <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-3">
+                      <p className="text-xs text-violet-200 font-medium">Secure OAuth authorization</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">
+                        Continue to {selectedCRM.name} in a secure popup and approve the requested access.
+                        Superglue stores and refreshes the OAuth tokens; PARWA never receives the token values.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">API Key / Token *</label>
+                      <input
+                        type="password"
+                        value={formApiKey}
+                        onChange={(e) => setFormApiKey(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50 font-mono"
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-1">
+                        Stored in the tenant's encrypted Superglue credential connection.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1002,7 +1114,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
               </button>
               <button
                 onClick={handleConnect}
-                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() || !formDbName.trim()) : (!formUrl.trim() || !formApiKey.trim()))}
+                disabled={connecting || !formName.trim() || (isDbForm ? (!formDbHost.trim() && formDbType !== 'bigquery') || !formDbName.trim() : (!formUrl.trim() || (selectedCRM?.auth_type !== 'oauth' && !formApiKey.trim())))}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plug className="w-3.5 h-3.5" />}

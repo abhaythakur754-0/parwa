@@ -16,13 +16,11 @@ import { SuperglueOnboardingFlow } from '../SuperglueOnboardingFlow';
 // ── Mock fetch ────────────────────────────────────────────────────────
 
 const MOCK_VERIFY_RESPONSE = {
-  verified: true,
-  superglue_ok: true,
-  mcp_registered: true,
+  works: true,
   system_id: 'hubspot',
-  name: 'My HubSpot',
-  url: 'https://api.hubapi.com',
-  message: 'CRM verified — connected to Superglue + registered with MCP',
+  status_code: 200,
+  tested_at: '2026-11-26T00:00:00Z',
+  message: 'Connection works (HTTP 200)',
 };
 
 const MOCK_ANALYSIS_RESPONSE = {
@@ -42,10 +40,17 @@ const MOCK_ANALYSIS_RESPONSE = {
 let fetchMock: ReturnType<typeof jest.fn>;
 
 beforeEach(() => {
+  jest.spyOn(window, 'open').mockReturnValue({ location: { href: '' }, closed: false, close: jest.fn() } as any);
   fetchMock = jest.fn();
   global.fetch = fetchMock as unknown as typeof global.fetch;
 
   fetchMock.mockImplementation((url: string, opts?: any) => {
+    if (url.includes('/oauth/start') && opts?.method === 'POST') {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+    }
+    if (url.includes('/oauth/status')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+    }
     // POST /api/superglue/systems — create system
     if (url === '/api/superglue/systems' && opts?.method === 'POST') {
       return Promise.resolve({
@@ -60,8 +65,8 @@ beforeEach(() => {
         }),
       });
     }
-    // POST /api/superglue/systems/hubspot/verify
-    if (url.includes('/systems/hubspot/verify') && opts?.method === 'POST') {
+    // POST /api/superglue/systems/hubspot/test
+    if (url.includes('/systems/hubspot/test') && opts?.method === 'POST') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(MOCK_VERIFY_RESPONSE),
@@ -125,7 +130,6 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     // Fill + submit
     fireEvent.change(screen.getByPlaceholderText('My HubSpot Account'), { target: { value: 'My HubSpot' } });
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Should show verified state (CRM name + "Verified" badge)
@@ -150,7 +154,6 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
     // API key is REQUIRED now — empty-credential connects were a bug
     // (they "verified" OK but could not read any data on first use).
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // The analysis mock resolves fast, so we should land on recommendations
@@ -176,7 +179,6 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
     // API key is REQUIRED now — empty-credential connects were a bug
     // (they "verified" OK but could not read any data on first use).
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Wait for recommendations to appear
@@ -201,7 +203,6 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
     // API key is REQUIRED now — empty-credential connects were a bug
     // (they "verified" OK but could not read any data on first use).
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Wait for recommendations
@@ -219,10 +220,16 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
   it('shows error state when analysis fails', async () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((url: string, opts?: any) => {
+      if (url.includes('/oauth/start') && opts?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+      }
+      if (url.includes('/oauth/status')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+      }
       if (url === '/api/superglue/systems' && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'hubspot', name: 'My HubSpot', url: '', icon: '', credentials: {}, metadata: {} }) });
       }
-      if (url.includes('/verify') && opts?.method === 'POST') {
+      if (url.includes('/test') && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_VERIFY_RESPONSE) });
       }
       if (url === '/api/integrations/analyze' && opts?.method === 'POST') {
@@ -242,7 +249,6 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
     fireEvent.change(screen.getByPlaceholderText('https://api.hubapi.com'), { target: { value: 'https://api.hubapi.com' } });
     // API key is REQUIRED now — empty-credential connects were a bug
     // (they "verified" OK but could not read any data on first use).
-    fireEvent.change(screen.getByPlaceholderText('••••••••••••'), { target: { value: 'pat_test123' } });
     fireEvent.click(screen.getByText('Connect & Verify'));
 
     // Should show error state

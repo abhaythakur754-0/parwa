@@ -259,7 +259,7 @@ class AIAgentAssignment(Base):
 
     __tablename__ = "ai_agent_assignments"
 
-    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(String(36), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
 
     id = Column(String(36), primary_key=True, default=_uuid)
     agent_name = Column(String(100), nullable=False)

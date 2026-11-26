@@ -16,6 +16,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Alembic's default version_num column is VARCHAR(32), but this and later
+    # revision identifiers exceed 32 characters. Widen it before Alembic
+    # records this revision, otherwise PostgreSQL rejects the version update.
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        bind.execute(sa.text(
+            "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)"
+        ))
+
     # Add new columns to subscriptions table
     op.add_column(
         "subscriptions",
