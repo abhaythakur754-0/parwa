@@ -187,7 +187,12 @@ class TestExecuteTool:
 
         monkeypatch.setattr(base, "SessionLocal", lambda: (_ for _ in ()).throw(RuntimeError("queue unavailable")))
         with patch("app.core.superglue_client.httpx.AsyncClient") as mock_client_cls:
-            result = await execute_tool("refund-tool", {"amount": 1000}, tenant_id="tenant-test")
+            result = await execute_tool(
+                "refund-tool",
+                {"amount": 1000},
+                tenant_id="tenant-test",
+                idempotency_key="tenant-test:ticket-1:refund-tool",
+            )
             assert result["success"] is False
             assert "Durable tenant call queue" in result["error"]
             mock_client_cls.assert_not_called()
@@ -215,7 +220,12 @@ class TestExecuteTool:
             mock_client_cls.return_value = mock_client
 
             from app.core.superglue_client import execute_tool
-            result = await execute_tool("refund-tool", {"email": "a@b.com"}, tenant_id="tenant-test")
+            result = await execute_tool(
+                "refund-tool",
+                {"email": "a@b.com"},
+                tenant_id="tenant-test",
+                idempotency_key="tenant-test:ticket-2:refund-tool",
+            )
             assert result["success"] is True
 
     @pytest.mark.asyncio
@@ -232,7 +242,12 @@ class TestExecuteTool:
             mock_client_cls.return_value = mock_client
 
             from app.core.superglue_client import execute_tool
-            await execute_tool("refund-tool", {}, tenant_id="t-123")
+            await execute_tool(
+                "refund-tool",
+                {},
+                tenant_id="t-123",
+                idempotency_key="t-123:ticket-3:refund-tool",
+            )
             # Verify the URL contains the namespaced tool_id
             call_args = mock_client.post.call_args
             assert "tenant_t-123__refund-tool" in call_args[0][0]
@@ -298,8 +313,8 @@ class TestVerifyToolExists:
             assert await verify_tool_exists("refund-tool") is False
 
     @pytest.mark.asyncio
-    async def test_returns_true_on_network_error(self):
-        """BC-008: Assume tool exists if we can't reach Superglue."""
+    async def test_returns_false_on_network_error(self):
+        """Fail closed: an unreachable Superglue server cannot verify a tool."""
         with patch("app.core.superglue_client.httpx.AsyncClient", side_effect=Exception("network")):
             from app.core.superglue_client import verify_tool_exists
-            assert await verify_tool_exists("refund-tool") is True
+            assert await verify_tool_exists("refund-tool") is False
