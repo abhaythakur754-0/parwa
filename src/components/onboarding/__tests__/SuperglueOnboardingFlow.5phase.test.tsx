@@ -184,20 +184,21 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     }
   });
 
-  it('Phase 2→3: agent build auto-triggers when analysis returns (no button click)', async () => {
+  it('Phase 2→3: agent build waits until required integrations are verified', async () => {
     await completePhase1And2();
-    // The build should have been triggered automatically — check the trigger was called
-    await waitFor(() => {
-      const triggerCalls = fetchMock.mock.calls.filter(
-        ([url, opts]: any) => url === '/api/onboarding-build/trigger' && opts?.method === 'POST'
-      );
-      expect(triggerCalls.length).toBeGreaterThan(0);
-    });
+    // Do not provision tenant-specific tools from unverified credentials.
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/onboarding-build/trigger',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
-  it('Phase 3: shows background build status indicator', async () => {
-    await completePhase1And2();
-    // Should show the background build status (after status poll returns)
+  it('Phase 3: shows background build status after verification starts provisioning', async () => {
+    await connectAndTestRecommendation();
+    await waitFor(() => {
+      expect(screen.getByText('Verify All Connections')).toBeEnabled();
+    });
+    fireEvent.click(screen.getByText('Verify All Connections'));
     await waitFor(() => {
       expect(screen.getByText(/AI Agents \(building in background\)/i)).toBeInTheDocument();
     }, { timeout: 5000 });
@@ -265,7 +266,7 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
     }, { timeout: 5000 });
     // Should show success message
     await waitFor(() => {
-      expect(screen.getByText(/All checks passed/i)).toBeInTheDocument();
+      expect(screen.getByText(/All checks passed — required integrations and agent tools are verified/i)).toBeInTheDocument();
     });
     // Continue button should now be enabled
     expect(screen.getByText('Continue to Next Step').closest('button')).not.toBeDisabled();
@@ -290,6 +291,12 @@ describe('NEW 5-Phase Onboarding Flow (auto-build + verify gate)', () => {
   it('Phase 3: Verify shows failure when agents not ready', async () => {
     // Override: status always returns "building" (never ready)
     fetchMock.mockImplementation((url: string, opts?: any) => {
+      if (url.includes('/oauth/start') && opts?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+      }
+      if (url.includes('/oauth/status')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+      }
       if (url === '/api/superglue/systems' && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'x', name: 'x', url: '', icon: '', credentials: {}, metadata: {} }) });
       }
