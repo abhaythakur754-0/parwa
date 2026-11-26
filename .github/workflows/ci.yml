@@ -198,6 +198,13 @@ jobs:
                       "AND c.relrowsecurity"
                   )).all()
               }
+              existing_tables = {
+                  row[0] for row in connection.execute(text(
+                      "SELECT c.relname FROM pg_class c "
+                      "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                      "WHERE n.nspname = current_schema() AND c.relkind = 'r'"
+                  )).all()
+              }
               existing_policies = {
                   (row[0], row[1]) for row in connection.execute(text(
                       "SELECT tablename, policyname FROM pg_policies "
@@ -221,10 +228,14 @@ jobs:
           rls_migration = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(rls_migration)
           expected_rls_tables = set(rls_migration.TENANT_TABLES)
-          assert expected_rls_tables <= enabled_tables, sorted(expected_rls_tables - enabled_tables)
+          # Migration 022 intentionally skips historical tenant tables that are
+          # absent from this schema. Enforce RLS on every listed table that exists.
+          existing_tenant_tables = expected_rls_tables & existing_tables
+          missing_rls = existing_tenant_tables - enabled_tables
+          assert not missing_rls, sorted(missing_rls)
           required_policies = {
               (table, f"{table}_tenant_{suffix}")
-              for table in expected_rls_tables
+              for table in existing_tenant_tables
               for suffix in ("select", "insert", "update", "delete")
           }
           missing_policies = required_policies - existing_policies
