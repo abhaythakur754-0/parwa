@@ -88,3 +88,18 @@ def test_voice_test_call_is_owner_admin_only():
     guard = default.args[0]
     assert ast.unparse(guard.func) == "require_roles"
     assert [arg.value for arg in guard.args] == ["owner", "admin"]
+
+
+def test_voice_configuration_mutations_are_owner_admin_only():
+    tree = _tree("app/api/voice_channel.py")
+    for name in ("create_voice_config", "update_voice_config", "delete_voice_config"):
+        handler = next(
+            node for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == name
+        )
+        user_arg = next(arg for arg in handler.args.args if arg.arg == "current_user")
+        offset = len(handler.args.args) - len(handler.args.defaults)
+        default = handler.args.defaults[handler.args.args.index(user_arg) - offset]
+        guard = default.args[0]
+        assert ast.unparse(guard.func) == "require_roles", name
+        assert [arg.value for arg in guard.args] == ["owner", "admin"], name

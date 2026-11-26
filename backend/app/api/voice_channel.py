@@ -471,7 +471,7 @@ async def get_voice_config(
 @router.post("/config")
 async def create_voice_config(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """Create voice channel configuration.
 
@@ -524,7 +524,7 @@ async def create_voice_config(
 @router.put("/config")
 async def update_voice_config(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """Update voice channel configuration (partial update).
 
@@ -556,7 +556,7 @@ async def update_voice_config(
 @router.delete("/config")
 async def delete_voice_config(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """Delete voice channel configuration.
 
