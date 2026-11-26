@@ -220,6 +220,12 @@ describe('SuperglueOnboardingFlow — 3-Phase Progressive Flow', () => {
   it('shows error state when analysis fails', async () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((url: string, opts?: any) => {
+      if (url.includes('/oauth/start') && opts?.method === 'POST') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ authorization_url: 'https://provider.example/oauth/authorize' }) });
+      }
+      if (url.includes('/oauth/status')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ connected: true }) });
+      }
       if (url === '/api/superglue/systems' && opts?.method === 'POST') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: 'hubspot', name: 'My HubSpot', url: '', icon: '', credentials: {}, metadata: {} }) });
       }
