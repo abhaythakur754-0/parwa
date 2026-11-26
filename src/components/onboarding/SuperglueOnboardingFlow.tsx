@@ -19,7 +19,7 @@
  * fast, guided, and simple — customer just follows instructions.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Loader2, CheckCircle2, Link2, X, Plug, AlertTriangle,
   Sparkles, Search, ChevronRight,
@@ -152,7 +152,12 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
   const [buildStatus, setBuildStatus] = useState<BuildStatus | null>(null);
   const [testingSystem, setTestingSystem] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { works: boolean; message: string }>>({});
-  const [allTested, setAllTested] = useState(false);
+  const allTested = analysisResult
+    ? analysisResult.recommendations.filter((rec) => rec.required !== false).every((rec) => {
+        const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
+        return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
+      })
+    : false;
 
   // ── Phase 1: Open CRM connect form ────────────────────────────────
   // OAuth-type CRMs also use this form: until Superglue exposes an OAuth
@@ -204,7 +209,6 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         setAnalysisResult(data);
         // A CRM-only tenant can proceed directly to agent construction when
         // the analyser finds no additional integrations are required.
-        setAllTested(Array.isArray(data.recommendations) && data.recommendations.length === 0);
         setPhase('recommendations');
         // Build agents only after the user has connected and verified the
         // recommended data sources; otherwise tools are generated too early.
@@ -456,19 +460,6 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
     }
   };
 
-  // ── Phase 3c: Check if all connected integrations have been tested ──
-  useEffect(() => {
-    if (!analysisResult) {
-      setAllTested(false);
-      return;
-    }
-    const allTestedNow = analysisResult.recommendations.filter((rec) => rec.required !== false).every((rec) => {
-      const id = rec.system_id || rec.name.toLowerCase().replace(/\s+/g, '-');
-      return connectedRecommendations.has(rec.name) && testResults[id]?.works === true;
-    });
-    setAllTested(allTestedNow);
-  }, [connectedRecommendations, testResults, analysisResult]);
-
   // ── Phase 4: Verify button — checks all 3 things with progressive loading ──
   const [verifyingAll, setVerifyingAll] = useState(false);
   const [verifyStep, setVerifyStep] = useState(0); // 0=idle, 1=checking API keys, 2=checking MCP, 3=checking agents, 4=done
@@ -536,7 +527,11 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
       if (!apiKeysOk) failures.push('verify all recommended integrations');
       if (!mcpOk) failures.push('CRM/MCP connection is not verified');
       if (!agentsOk) failures.push(
-        status?.failed ? `${status.failed} agent tool(s) failed` : 'agents are not ready',
+        status?.failed
+          ? `${status.failed} agent tool(s) failed`
+          : status?.pending
+            ? `${status.pending} agents building`
+            : 'agents are not ready',
       );
 
       setVerifyResult({
@@ -545,7 +540,7 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
         agents_ok: agentsOk,
         all_passed: allPassed,
         message: allPassed
-          ? '✓ All required integrations and agent tools are verified — ready to continue!'
+          ? '✓ All checks passed — required integrations and agent tools are verified. Ready to continue!'
           : `✗ Pending: ${failures.join(', ')}`,
       });
     } catch (error) {
