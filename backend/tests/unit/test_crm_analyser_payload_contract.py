@@ -184,7 +184,8 @@ async def test_analyser_does_not_send_customer_tickets_without_api_key(monkeypat
     )
 
     assert "CRM_ANALYSER_API_KEY not configured" in result["error"]
-    assert result["tickets_scanned"] == 1
+    # No analyser received or processed the ticket because auth was absent.
+    assert result["tickets_scanned"] == 0
 
 
 
