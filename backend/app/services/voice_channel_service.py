@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from app.security.voice_call_policy import resolve_recording_enabled
 from database.models.voice_channel import (
     VoiceCall,
     VoiceChannelConfig,
@@ -96,7 +97,7 @@ class VoiceChannelService:
             sender_id: ID of the caller (agent/bot).
             sender_role: Sender role (agent, bot, system).
             ticket_id: Optional ticket ID to link.
-            enable_recording: Override config recording setting.
+            enable_recording: Per-call opt-out; tenant policy remains authoritative.
 
         Returns:
             Dict with status, call_id, twilio_call_sid.
@@ -139,10 +140,11 @@ class VoiceChannelService:
         if rate_error:
             return {"status": "error", "error": rate_error}
 
-        # Resolve recording setting
-        should_record = (
-            enable_recording if enable_recording is not None
-            else config.enable_recording
+        # Tenant configuration is the upper bound; callers may opt out per call
+        # but cannot enable recording when the tenant has disabled it.
+        should_record = resolve_recording_enabled(
+            config.enable_recording,
+            enable_recording,
         )
 
         # Build the call script: greeting, then start LISTENING —

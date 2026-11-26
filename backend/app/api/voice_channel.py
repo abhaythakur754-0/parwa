@@ -33,7 +33,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from database.models.core import User
 
 logger = logging.getLogger("parwa.voice_channel_api")
@@ -92,6 +92,14 @@ async def initiate_outbound_call(
     if not body.get("to_number"):
         return _error_response("VALIDATION_ERROR", "to_number is required")
 
+    requested_recording = body.get("enable_recording")
+    if requested_recording is not None and not isinstance(requested_recording, bool):
+        return _error_response(
+            "VALIDATION_ERROR",
+            "enable_recording must be a boolean",
+            422,
+        )
+
     sender_id = str(current_user.id)
 
     try:
@@ -104,9 +112,10 @@ async def initiate_outbound_call(
             variant_tier=body.get("variant_tier", "parwa"),
             message=body.get("message"),
             sender_id=sender_id,
-            sender_role=body.get("sender_role", "agent"),
+            # This is an authenticated human caller; never trust a client-supplied role.
+            sender_role="agent",
             ticket_id=body.get("ticket_id"),
-            enable_recording=body.get("enable_recording"),
+            enable_recording=requested_recording,
         )
 
         if result.get("status") == "error":
@@ -620,7 +629,7 @@ async def get_call_history(
 @router.post("/test-call")
 async def test_call(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
 ):
     """Make a test call to a specified number.
 
