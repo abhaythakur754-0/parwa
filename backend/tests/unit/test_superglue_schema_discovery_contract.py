@@ -54,7 +54,8 @@ async def test_schema_discovery_rejects_empty_success_response(monkeypatch):
     assert result["success"] is False
     assert result["schema"] is None
     assert "no verified tables" in result["error"].lower()
-    assert captured["json"]["connection_id"] == "tenant_tenant-123__postgres"
+    # create_system stores the raw systemId under this tenant service account.
+    assert captured["json"]["connection_id"] == "postgres"
 
 
 @pytest.mark.asyncio
