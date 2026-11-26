@@ -379,7 +379,7 @@ async def receive_webhook(
                 str(occurred_at).replace("Z", "+00:00")
             )
         age = (datetime.now(timezone.utc) - event_time).total_seconds()
-        if age > _get_max_webhook_age_seconds():
+        if abs(age) > _get_max_webhook_age_seconds():
             logger.warning(
                 "webhook_replay_rejected provider=%s event_id=%s age_seconds=%s",
                 provider, _get_event_id_from_payload(provider, payload), age,
