@@ -601,6 +601,8 @@ async def verify_system(
             MCPConnection.name.like(f"%({system_id})"),
         ).first()
         if not mcp:
+            from app.services.integration_service import IntegrationService
+
             credentials = IntegrationService._parse_json(
                 integration.credentials_encrypted if integration else None
             ) or {}
@@ -1293,6 +1295,7 @@ async def discover_auth(req: DiscoverAuthRequest, user: User = Depends(get_curre
     result = await superglue_client.discover_auth_schema(
         platform_name=req.platform_name,
         platform_type=req.platform_type,
+        tenant_id=str(user.company_id),
     )
     return result
 
