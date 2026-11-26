@@ -36,6 +36,7 @@ async def test_schema_discovery_rejects_empty_success_response(monkeypatch):
     captured = {}
     monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
     monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "test-token"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-test-token")
     monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
     monkeypatch.setattr(
         superglue_client.httpx,
@@ -65,6 +66,7 @@ async def test_schema_discovery_accepts_real_table_metadata(monkeypatch):
     }
     monkeypatch.setattr(superglue_client, "is_configured", lambda: True)
     monkeypatch.setattr(superglue_client, "_get_config", lambda: ("https://sg.test/sgapi", "test-token"))
+    monkeypatch.setattr(superglue_client, "_get_tenant_api_key", lambda tenant_id: "tenant-test-token")
     monkeypatch.setattr(superglue_client, "_session_headers", lambda: {})
     monkeypatch.setattr(
         superglue_client.httpx,
