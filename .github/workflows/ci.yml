@@ -349,6 +349,28 @@ jobs:
             --ignore=tests/unit/test_support_service.py \
             --ignore=tests/unit/test_user_service.py
 
+      - name: Run Security Regression Suite (required)
+        env:
+          ENVIRONMENT: test
+          SECRET_KEY: fake_secret_for_ci_only
+          DATABASE_URL: sqlite:///./test.db
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: fake_jwt_secret_for_ci
+          DATA_ENCRYPTION_KEY: 12345678901234567890123456789012
+          PRICING_SIGNING_KEY: dev-ci-pricing-signing-key-for-testing
+        run: |
+          # Keep critical, deterministic security regressions visible as a
+          # required CI step. Auth-dependent security tests also run in the
+          # complete tests/unit suite above.
+          python -m pytest \
+            tests/unit/test_outbound_webhook_url_security.py \
+            tests/unit/test_production_security_config.py \
+            tests/unit/test_security_headers.py \
+            tests/unit/test_business_email_otp_hashing.py \
+            tests/unit/test_technique_config_scope_contract.py \
+            tests/unit/test_onboarding_awareness_scope_contract.py \
+            -v --tb=short
+
       - name: Run deterministic full agent pipeline regression suite
         timeout-minutes: 5
         run: |
