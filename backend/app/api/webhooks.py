@@ -229,16 +229,11 @@ def _verify_provider_signature(
             from app.security.hmac_verification import (
                 verify_brevo_ip,
             )
-            forwarded = request.headers.get(
-                "x-forwarded-for", "",
-            )
-            client_ip = (
-                forwarded.split(",")[0].strip()
-                if forwarded
-                else request.client.host
-                if request.client
-                else ""
-            )
+            # Resolve the address using the shared trusted-proxy policy.
+            # The leftmost X-Forwarded-For value is client-controlled and
+            # must never be used directly for an IP allowlist decision.
+            from app.core.security.security_utils import get_client_ip
+            client_ip = get_client_ip(request)
             # Use configured IPs if set, otherwise use defaults
             custom_ips = None
             if settings.BREVO_INBOUND_IPS:
