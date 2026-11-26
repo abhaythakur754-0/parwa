@@ -361,7 +361,12 @@ export function SuperglueOnboardingFlow({ onComplete }: { onComplete?: () => voi
 
         let authorized = false;
         for (let attempt = 0; attempt < 90; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          // Check immediately: the provider may already have completed the
+          // redirect while this request was being created. Keep the two-second
+          // cadence for all subsequent polls to avoid needless API traffic.
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
           const statusRes = await fetch(
             `/api/superglue/systems/${encodeURIComponent(selectedCRM.id)}/oauth/status`,
           );
