@@ -75,7 +75,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
+from app.security.command_authorization import require_command_role
 from app.logger import get_logger
 from database.models.jarvis_cc import (
     JarvisAwarenessSnapshot,
@@ -661,6 +662,7 @@ def execute_command(
     command_id: str,
     session_id: str,
     user_id: Optional[str] = None,
+    user_role: str = "system",
 ) -> Dict[str, Any]:
     """Execute a parsed command by dispatching to the appropriate handler.
 
@@ -717,7 +719,16 @@ def execute_command(
         parsed = _safe_parse_json(command.command_parsed)
         action = parsed.get("action", "unknown")
 
-        # ── Step 3: Transition to executing ──
+        # ── Step 3: Enforce command-level authorization ──
+        try:
+            require_command_role(action, user_role)
+        except AuthorizationError:
+            command.status = "failed"
+            command.error_message = "Insufficient role for command action"
+            db.flush()
+            raise
+
+        # ── Step 4: Transition to executing ──
         now = datetime.now(timezone.utc)
         command.status = "executing"
         command.executed_at = now
@@ -772,6 +783,8 @@ def execute_command(
             "error": None,
         }
 
+    except AuthorizationError:
+        raise
     except Exception:
         total_ms = round((time.monotonic() - start_time) * 1000, 2)
         logger.exception(
@@ -814,6 +827,7 @@ def undo_command(
     session_id: str,
     user_id: Optional[str] = None,
     command_id: Optional[str] = None,
+    user_role: str = "system",
 ) -> Dict[str, Any]:
     """Undo the last undoable command for the session (or a specific one).
 
@@ -894,6 +908,7 @@ def undo_command(
         now = datetime.now(timezone.utc)
         original_parsed = _safe_parse_json(original_command.command_parsed)
         original_action = original_parsed.get("action", "unknown")
+        require_command_role(original_action, user_role)
 
         undo_command_row = JarvisCommand(
             session_id=session_id,
@@ -968,7 +983,7 @@ def undo_command(
             "status": "completed",
         }
 
-    except (NotFoundError, ValidationError):
+    except (NotFoundError, ValidationError, AuthorizationError):
         raise
     except Exception:
         logger.exception(
@@ -1075,6 +1090,7 @@ def execute_quick_command(
     session_id: str,
     quick_command_id: str,
     user_id: Optional[str] = None,
+    user_role: str = "system",
 ) -> Dict[str, Any]:
     """Execute a quick command preset by ID.
 
@@ -1148,6 +1164,7 @@ def execute_quick_command(
             command_id=str(command.id),
             session_id=session_id,
             user_id=user_id,
+            user_role=user_role,
         )
 
         logger.info(
@@ -1158,7 +1175,7 @@ def execute_quick_command(
 
         return result
 
-    except (NotFoundError, ValidationError):
+    except (NotFoundError, ValidationError, AuthorizationError):
         raise
     except Exception:
         logger.exception(

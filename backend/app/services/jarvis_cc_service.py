@@ -42,6 +42,7 @@ from sqlalchemy.orm import Session
 
 from app.core.variant_tier_mapper import TIER_METADATA
 from app.exceptions import (
+    AuthorizationError,
     NotFoundError,
     ValidationError,
     RateLimitError,
@@ -429,6 +430,7 @@ async def send_cc_message(
     user_message: str,
     ticket_id: Optional[str] = None,
     channel: str = "chat",
+    user_role: str = "system",
 ) -> Tuple[JarvisMessage, JarvisMessage, Dict[str, Any]]:
     """Process a customer care message and generate AI response (ASYNC).
 
@@ -574,6 +576,7 @@ async def send_cc_message(
                 command_id=str(command.id),
                 session_id=session_id,
                 user_id=user_id,
+                user_role=user_role,
             )
 
             # Build AI response as a command_response message
@@ -619,6 +622,8 @@ async def send_cc_message(
                 "command_action": _action,
                 "execution_time_ms": cmd_result.get("execution_time_ms", 0),
             }
+        except AuthorizationError:
+            raise
         except Exception as cmd_exc:
             logger.warning(
                 "cc_command_fallback_to_pipeline: session=%s, error=%s",

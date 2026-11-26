@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_roles
 from app.exceptions import ParwaBaseError
 from app.schemas.jarvis_cc import (
     JarvisCCSessionCreate,
@@ -227,6 +227,7 @@ async def send_cc_message(
                 user_message=body.content,
                 ticket_id=body.ticket_id,
                 channel=body.channel,
+                user_role=str(user.role),
             )
             return _ai_message_to_response(ai_msg, pipeline_metadata)
         except ParwaBaseError:
@@ -405,7 +406,7 @@ def get_cc_history(
 @router.get("/prompt")
 def get_cc_system_prompt(
     session_id: str = Query(..., description="Customer care session ID"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ):
     """Preview the system prompt for a CC session (debug/admin).
@@ -884,6 +885,7 @@ def send_command(
             command_id=str(command.id),
             session_id=body.session_id,
             user_id=str(user.id),
+            user_role=str(user.role),
         )
 
         # Build response
@@ -940,6 +942,7 @@ def execute_quick_command(
             session_id=body.session_id,
             quick_command_id=body.quick_command_id,
             user_id=str(user.id),
+            user_role=str(user.role),
         )
 
         return JarvisCommandResponse(
@@ -990,6 +993,7 @@ def undo_command(
             session_id=body.session_id,
             user_id=str(user.id),
             command_id=body.command_id,
+            user_role=str(user.role),
         )
 
         return JarvisCommandResponse(
@@ -1195,7 +1199,7 @@ def get_co_pilot_suggestion(
 @router.post("/command/custom-quick-command", response_model=Dict[str, Any])
 def add_custom_quick_command(
     body: JarvisCustomQuickCommandAdd,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ):
     """Add a custom quick command preset for this tenant.
@@ -1238,7 +1242,7 @@ def add_custom_quick_command(
 @router.delete("/command/custom-quick-command")
 def remove_custom_quick_command(
     body: JarvisCustomQuickCommandRemove,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles("owner", "admin")),
     db: Session = Depends(get_db),
 ):
     """Remove a custom quick command preset.
