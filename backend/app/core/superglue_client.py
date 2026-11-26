@@ -1184,7 +1184,11 @@ async def list_tenant_systems(tenant_id: str) -> List[Dict[str, Any]]:
 # we ask Superglue "what auth does this platform need?" and get back
 # the auth type + required fields. This is the "Ask Superglue" flow.
 
-async def discover_auth_schema(platform_name: str, platform_type: str = "integration") -> Dict[str, Any]:
+async def discover_auth_schema(
+    platform_name: str,
+    platform_type: str = "integration",
+    tenant_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """Ask Superglue for the auth schema of a platform.
 
     Used when a user wants to connect a Custom integration or database
@@ -1195,6 +1199,7 @@ async def discover_auth_schema(platform_name: str, platform_type: str = "integra
     Args:
         platform_name: Name of the platform (e.g., "Zoho Inventory", "Paddle", "CockroachDB")
         platform_type: "integration" or "database" — changes what Superglue looks for
+        tenant_id: authenticated company ID used to load that tenant's Superglue key
 
     Returns: {
         "success": bool,
