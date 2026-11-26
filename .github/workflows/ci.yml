@@ -369,6 +369,7 @@ jobs:
             tests/unit/test_business_email_otp_hashing.py \
             tests/unit/test_technique_config_scope_contract.py \
             tests/unit/test_onboarding_awareness_scope_contract.py \
+            tests/unit/test_jarvis_control_role_contract.py \
             -v --tb=short
 
       - name: Run deterministic full agent pipeline regression suite

@@ -218,7 +218,7 @@ async def resolve_notification(
 )
 async def approve_batch(
     req: BatchActionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Approve (flush) pending notification batches."""
@@ -257,7 +257,7 @@ async def approve_batch(
 )
 async def reject_batch(
     req: BatchActionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Reject (flush & discard) pending notification batches."""
@@ -321,7 +321,7 @@ async def get_flags(
 )
 async def set_flag(
     req: SetFlagRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Create a new system flag."""
@@ -364,7 +364,7 @@ async def set_flag(
 )
 async def revoke_flag(
     flag_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Revoke an active flag by its ID (must belong to caller's tenant)."""
@@ -405,7 +405,7 @@ async def revoke_flag(
 )
 async def command_pause(
     req: PauseRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Pause processing for a target (refund, return, all, etc.)."""
@@ -433,7 +433,7 @@ async def command_pause(
 )
 async def command_resume(
     req: ResumeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Resume processing for a target."""
@@ -459,7 +459,7 @@ async def command_resume(
 )
 async def command_redirect(
     req: RedirectRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Redirect a channel to AI or human handler."""
@@ -485,7 +485,7 @@ async def command_redirect(
 )
 async def command_mode(
     req: ModeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Switch between shadow / supervised / graduated mode."""
@@ -728,7 +728,7 @@ async def approvals_pending(company_id: str = Depends(get_company_id)):
 )
 async def approval_batch(
     req: ApprovalBatchRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Approve or reject a batch of pending items."""
@@ -1025,7 +1025,7 @@ async def list_agents(company_id: str = Depends(get_company_id)):
 @router.post("/wave8/provision")
 async def provision_agent_endpoint(
     request: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Provision new agents via chat command."""
@@ -1060,7 +1060,7 @@ async def list_skills(company_id: str = Depends(get_company_id)):
 @router.post("/wave8/teach")
 async def teach_skill_endpoint(
     request: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Teach a new skill via natural language."""
@@ -1161,7 +1161,7 @@ async def proactive_outreach_endpoint(
 @router.post("/wave8/correction")
 async def dspy_correction_endpoint(
     request: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles("owner", "admin")),
     company_id: str = Depends(get_company_id),
 ):
     """Apply a DSPy correction."""
