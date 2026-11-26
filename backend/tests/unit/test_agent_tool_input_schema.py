@@ -43,7 +43,7 @@ def test_input_extractor_maps_ticket_and_crm_data_to_tool_schema():
 
 def test_input_extractor_marks_unknown_required_fields_instead_of_guessing():
     inputs = _extract_tool_inputs(
-        {"description": "Please refund my order"},
+        {"description": "Please refund order #ABCD1234"},
         "refund",
         "",
         tool_definition={
@@ -58,7 +58,8 @@ def test_input_extractor_marks_unknown_required_fields_instead_of_guessing():
         },
     )
 
-    assert inputs["order_id"]
+    # A supplied order identifier is mapped; an unknown warehouse is never guessed.
+    assert inputs["order_id"] == "ABCD1234"
     assert inputs["_missing_required"] == ["warehouse_id"]
 
 
