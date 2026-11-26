@@ -87,7 +87,8 @@ def test_analyser_keeps_integration_and_agent_recommendations_separate():
     assert 'result.get("integrations", [])' in source
     assert 'result.get("agents")' in source
     assert '"recommended_agents": recommended_agents' in source
-    assert '"system_id": _system_id(str(name))' in source
+    assert '"system_id": system_id' in source
+    assert "system_id = _system_id(str(raw_system_id or raw_name))" in source
 
 
 def test_analyser_never_recommends_already_connected_integrations_or_fills_false_gaps():
