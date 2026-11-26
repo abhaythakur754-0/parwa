@@ -72,6 +72,15 @@ from database.models.core import User
 
 router = APIRouter(prefix="/api/jarvis/cc", tags=["Jarvis Customer Care"])
 
+def _require_owned_cc_session(db: Session, user: User, session_id: str) -> None:
+    """Reject session IDs that do not belong to the authenticated user."""
+    jarvis_cc_service.get_cc_session(
+        db=db,
+        session_id=session_id,
+        user_id=str(user.id),
+        company_id=str(user.company_id or ""),
+    )
+
 # Semaphore to serialize Jarvis CC chat requests (same pattern as jarvis.py)
 import asyncio as _asyncio_mod
 _JARVIS_CC_SEMAPHORE = _asyncio_mod.Semaphore(1)
@@ -406,6 +415,7 @@ def get_cc_system_prompt(
     context (brand voice, KB, capabilities) is correctly injected.
     """
     try:
+        _require_owned_cc_session(db, user, session_id)
         prompt = jarvis_cc_service.build_cc_system_prompt(
             db=db,
             session_id=session_id,
@@ -497,6 +507,7 @@ def get_awareness_snapshot(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         snapshot = jarvis_awareness_engine.get_latest_snapshot(
             db=db,
             session_id=session_id,
@@ -542,6 +553,7 @@ def get_awareness_snapshots(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         snapshots, total = jarvis_awareness_engine.get_snapshot_history(
             db=db,
             session_id=session_id,
@@ -599,6 +611,7 @@ def get_awareness_alerts(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         alerts, total = jarvis_awareness_engine.get_active_alerts(
             db=db,
             session_id=session_id,
@@ -654,6 +667,7 @@ def acknowledge_alert(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         alert = jarvis_awareness_engine.acknowledge_alert(
             db=db,
             alert_id=body.alert_id,
@@ -696,6 +710,7 @@ def dismiss_alert(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         alert = jarvis_awareness_engine.dismiss_alert(
             db=db,
             alert_id=body.alert_id,
@@ -739,6 +754,7 @@ def resolve_alert(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         alert = jarvis_awareness_engine.resolve_alert(
             db=db,
             alert_id=body.alert_id,
@@ -781,6 +797,7 @@ def get_awareness_delta(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         # Get the two most recent snapshots
         snapshots, _ = jarvis_awareness_engine.get_snapshot_history(
             db=db,
@@ -849,6 +866,7 @@ def send_command(
         )
 
     try:
+        _require_owned_cc_session(db, user, body.session_id)
         # Step 1: Receive and parse the command
         command = jarvis_command_service.receive_command(
             db=db,
@@ -915,6 +933,7 @@ def execute_quick_command(
         )
 
     try:
+        _require_owned_cc_session(db, user, body.session_id)
         result = jarvis_command_service.execute_quick_command(
             db=db,
             company_id=str(user.company_id),
@@ -964,6 +983,7 @@ def undo_command(
         )
 
     try:
+        _require_owned_cc_session(db, user, body.session_id)
         result = jarvis_command_service.undo_command(
             db=db,
             company_id=str(user.company_id),
@@ -1016,6 +1036,7 @@ def get_command_history(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         commands, total = jarvis_command_service.get_command_history(
             db=db,
             company_id=str(user.company_id),
@@ -1065,6 +1086,7 @@ def get_quick_commands(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         commands = jarvis_command_service.get_quick_commands(
             db=db,
             company_id=str(user.company_id),
@@ -1105,6 +1127,7 @@ def get_command_by_id(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         command = jarvis_command_service.get_command_by_id(
             db=db,
             company_id=str(user.company_id),
@@ -1150,6 +1173,7 @@ def get_co_pilot_suggestion(
         )
 
     try:
+        _require_owned_cc_session(db, user, session_id)
         result = jarvis_command_service.generate_co_pilot_suggestion(
             db=db,
             company_id=str(user.company_id),
@@ -1187,6 +1211,7 @@ def add_custom_quick_command(
         )
 
     try:
+        _require_owned_cc_session(db, user, body.session_id)
         result = jarvis_command_service.add_custom_quick_command(
             db=db,
             company_id=str(user.company_id),
@@ -1229,6 +1254,7 @@ def remove_custom_quick_command(
         )
 
     try:
+        _require_owned_cc_session(db, user, body.session_id)
         removed = jarvis_command_service.remove_custom_quick_command(
             db=db,
             company_id=str(user.company_id),
