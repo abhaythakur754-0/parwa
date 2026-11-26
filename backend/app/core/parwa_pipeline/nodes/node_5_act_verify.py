@@ -30,6 +30,7 @@ LLM calls: 1-2 (ReAct + Reverse Thinking, only for complex actions)
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
