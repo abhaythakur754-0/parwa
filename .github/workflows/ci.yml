@@ -210,8 +210,10 @@ jobs:
           assert tool_execution_rls is True
           assert tool_execution_policies == 4
           assert call_queue_rls is True
-          assert call_queue_policies == 4
-          assert policy_count == 4
+          # Migration 042 installs srv_full_access; migration 048 adds four tenant policies.
+          assert call_queue_policies == 5
+          # Migration 042 service-role policy plus four tenant policies from migration 045.
+          assert policy_count == 5
           assert version_length >= 255
           spec = importlib.util.spec_from_file_location(
               "rls_migration", "database/alembic/versions/022_enable_rls.py"
