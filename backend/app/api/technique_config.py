@@ -17,10 +17,11 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.api.deps import get_company_id, require_roles
 from app.core.technique_router import (
     TechniqueID,
     TechniqueTier,
@@ -247,6 +248,7 @@ def get_config_store() -> TechniqueConfigStore:
 router = APIRouter(
     prefix="/api/techniques/config",
     tags=["Technique Config"],
+    dependencies=[Depends(require_roles("owner", "admin"))],
 )
 
 
@@ -280,8 +282,9 @@ async def list_technique_configs(
     company_id: str = Query(
         ...,
         min_length=1,
-        description="Company ID (required)",
+        description="Company ID (must match the authenticated tenant)",
     ),
+    authenticated_company_id: str = Depends(get_company_id),
     variant_type: Optional[str] = Query(
         None,
         description="Filter by tier (tier_1, tier_2, tier_3)",
@@ -297,6 +300,10 @@ async def list_technique_configs(
     Returns all techniques from TECHNIQUE_REGISTRY with their
     enabled/disabled status and any per-tenant overrides.
     """
+    if company_id != authenticated_company_id:
+        raise HTTPException(status_code=403, detail="Tenant access denied")
+    company_id = authenticated_company_id
+
     try:
         store = get_config_store()
         all_configs = store.list_configs(company_id)
@@ -348,6 +355,7 @@ async def list_technique_configs(
 async def update_technique_config(
     technique_id: str,
     body: UpdateTechniqueConfigRequest,
+    authenticated_company_id: str = Depends(get_company_id),
 ):
     """
     Enable/disable a technique for a tenant.
@@ -359,9 +367,12 @@ async def update_technique_config(
 
     Validates:
     - technique_id exists in TECHNIQUE_REGISTRY
-    - company_id is not empty
+    - company_id matches the authenticated tenant
     - BC-009: Tier 1 techniques cannot be disabled
     """
+    if body.company_id != authenticated_company_id:
+        raise HTTPException(status_code=403, detail="Tenant access denied")
+
     try:
         # Validate technique_id exists
         if technique_id not in {
@@ -407,7 +418,7 @@ async def update_technique_config(
 
         store = get_config_store()
         config = store.set_config(
-            company_id=body.company_id,
+            company_id=authenticated_company_id,
             technique_id=technique_id,
             enabled=body.enabled,
             overrides=body.config_overrides,
@@ -442,8 +453,9 @@ async def get_technique_config(
     company_id: str = Query(
         ...,
         min_length=1,
-        description="Company ID (required)",
+        description="Company ID (must match the authenticated tenant)",
     ),
+    authenticated_company_id: str = Depends(get_company_id),
 ):
     """
     Get configuration for a specific technique.
@@ -453,6 +465,10 @@ async def get_technique_config(
 
     Returns the technique config with current settings and overrides.
     """
+    if company_id != authenticated_company_id:
+        raise HTTPException(status_code=403, detail="Tenant access denied")
+    company_id = authenticated_company_id
+
     try:
         # Validate technique_id exists
         if technique_id not in {

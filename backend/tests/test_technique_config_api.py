@@ -17,10 +17,11 @@ Minimum 40 tests.
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Generator
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 # Import technique_router directly (no problematic deps)
@@ -49,6 +50,8 @@ UpdateTechniqueConfigRequest = _tc_mod.UpdateTechniqueConfigRequest
 router = _tc_mod.router
 get_config_store = _tc_mod.get_config_store
 
+from app.api.deps import get_current_user
+
 
 # ── Fixtures ───────────────────────────────────────────────────────
 
@@ -74,6 +77,27 @@ def app() -> Generator[FastAPI, None, None]:
 
     application = FastAPI()
     application.include_router(router)
+
+    async def test_current_user(request: Request):
+        # Legacy functional tests simulate a signed-in owner for the tenant
+        # under test. Dedicated security tests pin this identity and attempt
+        # to cross the tenant boundary with client-controlled IDs.
+        company_id = request.headers.get("x-test-company")
+        if company_id is None:
+            company_id = request.query_params.get("company_id")
+        if company_id is None:
+            try:
+                payload = await request.json()
+                company_id = payload.get("company_id") if isinstance(payload, dict) else None
+            except Exception:
+                company_id = None
+        return SimpleNamespace(
+            id="test-user",
+            company_id=company_id or "company_1",
+            role=request.headers.get("x-test-role", "owner"),
+        )
+
+    application.dependency_overrides[get_current_user] = test_current_user
     yield application
 
     # Cleanup handled by autouse fixture
