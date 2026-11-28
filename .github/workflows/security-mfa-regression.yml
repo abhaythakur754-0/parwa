@@ -52,3 +52,17 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run focused MFA security contracts
         run: python -m pytest --noconftest tests/unit/test_mfa_login_enforcement_security.py tests/unit/test_mfa_session_storage_security.py -q --tb=short
+
+  mfa-frontend-contracts:
+    name: MFA frontend route and store regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+      - name: Run MFA store and login integration tests
+        run: bunx jest src/lib/__tests__/mfa-store.test.ts src/__tests__/integration/settings-mfa-email-flow.test.ts --runInBand

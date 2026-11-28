@@ -140,7 +140,11 @@ export const useMFAStore = create<MFAState>((set) => ({
   },
 
   verifyLogin: async (code: string, mfaSessionToken: string, backupCode = false) => {
-    if (!code || !mfaSessionToken) {
+    if (!code) {
+      set({ error: 'Please enter a verification code' });
+      return false;
+    }
+    if (!mfaSessionToken) {
       set({ error: 'Your login session expired. Please sign in again.' });
       return false;
     }

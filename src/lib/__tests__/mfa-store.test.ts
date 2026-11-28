@@ -228,7 +228,7 @@ describe('MFA Store', () => {
 
   describe('verifyLogin', () => {
     it('returns false for empty code', async () => {
-      const result = await useMFAStore.getState().verifyLogin('');
+      const result = await useMFAStore.getState().verifyLogin('', 'mfa-session');
       expect(result).toBe(false);
       expect(useMFAStore.getState().error).toBe('Please enter a verification code');
     });
@@ -236,7 +236,7 @@ describe('MFA Store', () => {
     it('successfully verifies login with TOTP code', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
 
-      const result = await useMFAStore.getState().verifyLogin('123456');
+      const result = await useMFAStore.getState().verifyLogin('123456', 'mfa-session');
       expect(result).toBe(true);
       expect(useMFAStore.getState().status).toBe('idle');
     });
@@ -244,12 +244,12 @@ describe('MFA Store', () => {
     it('successfully verifies login with backup code', async () => {
       mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
 
-      const result = await useMFAStore.getState().verifyLogin('aa1-bb2', true);
+      const result = await useMFAStore.getState().verifyLogin('aa1-bb2', 'mfa-session', true);
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/mfa/backup'),
+        expect.stringContaining('/mfa/backup/verify'),
         expect.objectContaining({
-          body: JSON.stringify({ backup_code: 'aa1-bb2' }),
+          body: JSON.stringify({ code: 'aa1-bb2', mfa_session_token: 'mfa-session' }),
         })
       );
     });
@@ -257,7 +257,7 @@ describe('MFA Store', () => {
     it('REJECTS any code when backend unavailable (404) — no demo bypass', async () => {
       mockFetch.mockResolvedValueOnce({ ok: false, status: 503 });
 
-      const result = await useMFAStore.getState().verifyLogin('123456');
+      const result = await useMFAStore.getState().verifyLogin('123456', 'mfa-session');
       expect(result).toBe(false);
       expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
     });
@@ -265,7 +265,7 @@ describe('MFA Store', () => {
     it('REJECTS backup code on network error — no demo bypass', async () => {
       mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-      const result = await useMFAStore.getState().verifyLogin('abcd', true);
+      const result = await useMFAStore.getState().verifyLogin('abcd', 'mfa-session', true);
       expect(result).toBe(false);
       expect(useMFAStore.getState().isBackendUnavailable).toBe(true);
     });
@@ -277,7 +277,7 @@ describe('MFA Store', () => {
         json: async () => ({ detail: 'Invalid code' }),
       });
 
-      const result = await useMFAStore.getState().verifyLogin('000000');
+      const result = await useMFAStore.getState().verifyLogin('000000', 'mfa-session');
       expect(result).toBe(false);
       expect(useMFAStore.getState().error).toBe('Invalid code');
     });

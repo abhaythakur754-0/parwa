@@ -110,7 +110,7 @@ describe('MFA Flow Integration', () => {
 
     let result = false;
     await act(async () => {
-      result = await useMFAStore.getState().verifyLogin('654321');
+      result = await useMFAStore.getState().verifyLogin('654321', 'mfa-session');
     });
 
     expect(result).toBe(true);
