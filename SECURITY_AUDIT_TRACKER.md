@@ -125,3 +125,5 @@ When the separate agent/integration work is merged, do not restart this audit. R
 
 - **C-13 — exporter downgrade corrected:** the PostgreSQL exporter bypasses the application SQLAlchemy URL helper, so its Compose connection had remained explicitly set to `sslmode=disable`. It now requests TLS with `sslmode=require`. The PostgreSQL server's TLS listener/certificate and deployed connection must still be confirmed in the target environment.
 - **C-14 — controlled legacy migration added:** added an explicit dry-run-first script for all OAuthAccount token fields and Integration credential rows. It aborts on unreadable/corrupt values and only persists changes with an explicit `--apply`; it has not been run against production data.
+
+- **C-13 — Kubernetes workload database URL wiring:** the backend and worker application containers previously received DB_HOST/DB_PASSWORD fields but not DATABASE_URL, which is the setting consumed by the SQLAlchemy database layer. Both now receive the DATABASE_URL key from the parwa-secrets Secret; this prevents an accidental SQLite default in those pods. A manifest regression test covers backend, worker, and MCP.

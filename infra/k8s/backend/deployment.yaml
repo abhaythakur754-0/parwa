@@ -60,6 +60,11 @@ spec:
               containerPort: 8000
               protocol: TCP
           env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: DATABASE_URL
             - name: ENVIRONMENT
               valueFrom:
                 configMapKeyRef:
