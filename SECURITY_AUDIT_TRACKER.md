@@ -208,3 +208,6 @@ When the separate agent/integration work is merged, do not restart this audit. R
 ### CI follow-up — frontend test runner correction (2026-11-28)
 
 - The first full CI run for the Next.js CSRF regression reached the frontend unit suite and found the new test imported Vitest, while this repository's configured test runner is Jest. Frontend lint, type-check, build, and chat API regression all passed; 726 existing frontend tests passed. Corrected the new CSRF test to use Jest globals and the Node environment. The latest backend security suite, including the new Python/Rust CSRF and chat limiter checks, passed; Rust compilation passed. A fresh full CI run is required for the corrected test file.
+
+
+- **CSRF production-mode detection hardening:** the empty-allowlist fail-closed guard now reads the effective Pydantic `ENVIRONMENT` setting (including env-file configuration), not only `os.environ`. If settings cannot be loaded and no explicit non-production mode is available, it defaults to production-safe rejection. Direct local check with `ENVIRONMENT=production` passed.

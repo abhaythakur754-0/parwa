@@ -240,7 +240,7 @@ def test_cookie_auth_csrf_origin_helper_uses_exact_origin_not_shared_site():
 def test_csrf_bridge_fails_closed_when_production_allowlist_is_empty():
     source = _read("backend/app/core/parwa_core_bridge.py")
     _, function = _function_source(source, "is_valid_origin")
-    guard = 'os.environ.get("ENVIRONMENT", "development").lower() == "production"'
     assert "not self._trusted_origins" in function
-    assert guard in function
-    assert function.index(guard) < function.index("if self._rust is not None")
+    assert "_is_production_environment()" in function
+    assert function.index("_is_production_environment()") < function.index("if self._rust is not None")
+    assert 'get_settings().ENVIRONMENT.lower() == "production"' in source

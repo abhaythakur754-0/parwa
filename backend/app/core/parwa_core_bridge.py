@@ -1241,6 +1241,18 @@ def _add_cache_control(
 _CSRF_MAX_AGE = 3600  # 1 hour (same as csrf.py)
 
 
+def _is_production_environment() -> bool:
+    """Read the effective Pydantic environment, including env-file values."""
+    try:
+        from app.config import get_settings
+        return get_settings().ENVIRONMENT.lower() == "production"
+    except Exception:
+        # If settings cannot be loaded, prefer production-safe behavior unless
+        # an explicit non-production environment is available.
+        environment = os.environ.get("ENVIRONMENT") or os.environ.get("APP_ENV")
+        return (environment or "production").lower() == "production"
+
+
 class _CSRFValidatorBridge:
     """Adapter presenting CSRF validation backed by the Rust
     ``CSRFValidator`` with pure-Python fallback.
@@ -1284,7 +1296,7 @@ class _CSRFValidatorBridge:
         # origin configuration as permission to accept every browser origin.
         if (
             not self._trusted_origins
-            and os.environ.get("ENVIRONMENT", "development").lower() == "production"
+            and _is_production_environment()
         ):
             logger.critical("csrf_trusted_origins_missing_fail_closed")
             return False
