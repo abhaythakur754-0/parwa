@@ -11,7 +11,7 @@ C-05 FIX: cors_origin_list no longer returns ["*"] as fallback.
 import os
 import warnings
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -66,34 +66,27 @@ class MCPSettings(BaseSettings):
 
     @field_validator("MCP_AUTH_TOKEN")
     @classmethod
-    def validate_auth_token(cls, v: str) -> str:
-        """C-04 FIX: MCP_AUTH_TOKEN is required in production."""
-        if not v:
-            env = os.environ.get("ENVIRONMENT", "development")
-            if env == "production":
+    def validate_auth_token(cls, v: str, info: ValidationInfo) -> str:
+        """Require a strong shared secret for production MCP authentication."""
+        env = str(info.data.get("ENVIRONMENT") or os.environ.get("ENVIRONMENT", "development")).lower()
+        if env == "production":
+            normalized = (v or "").strip().lower()
+            placeholders = {"password", "changeme", "secret", "test", "fake", "parwa", "your_mcp_token_here"}
+            if (
+                not normalized
+                or len(v) < 32
+                or normalized in placeholders
+                or normalized.startswith(("your_", "your-", "change-me", "change-this", "replace-me", "placeholder", "example-", "dev-"))
+            ):
                 raise ValueError(
-                    "MCP_AUTH_TOKEN is REQUIRED in production. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    "MCP_AUTH_TOKEN must be a non-placeholder random value of at least 32 characters in production."
                 )
+        elif not v:
             warnings.warn(
                 "MCP_AUTH_TOKEN is empty — all MCP requests are allowed "
                 "without authentication. Set MCP_AUTH_TOKEN before deploying!",
                 stacklevel=2,
             )
-        return v
-
-    @field_validator("ENVIRONMENT")
-    @classmethod
-    def validate_environment(cls, v: str) -> str:
-        """Also validate MCP_AUTH_TOKEN when ENVIRONMENT is set to production."""
-        # If environment is being set to production, ensure MCP_AUTH_TOKEN is also set
-        if v == "production":
-            token = os.environ.get("MCP_AUTH_TOKEN", "")
-            if not token:
-                raise ValueError(
-                    "MCP_AUTH_TOKEN is REQUIRED when ENVIRONMENT=production. "
-                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
-                )
         return v
 
     # ── Properties ───────────────────────────────────────────────
@@ -114,7 +107,10 @@ class MCPSettings(BaseSettings):
         This prevents the wildcard + credentials security violation.
         """
         if self.CORS_ORIGINS:
-            return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+            origins = [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+            if "*" in origins:
+                raise ValueError("CORS_ORIGINS cannot contain '*' when credentials are enabled.")
+            return origins
         # C-05 FIX: Return empty list instead of ["*"]
         # An empty list means all cross-origin requests are denied,
         # which is the safe default. Configure CORS_ORIGINS explicitly.

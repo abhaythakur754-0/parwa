@@ -492,6 +492,15 @@ class Settings(BaseSettings):
     # ── CORS (frontend origin) ─────────────────────────────────
     CORS_ORIGINS: str = "http://localhost:3000,https://parwa.buzz,https://parwa.vercel.app"
 
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def validate_cors_origins(cls, v: str) -> str:
+        """Reject wildcard origins when credentialed CORS is enabled."""
+        origins = [origin.strip() for origin in (v or "").split(",") if origin.strip()]
+        if "*" in origins:
+            raise ValueError("CORS_ORIGINS cannot contain '*' when credentials are enabled.")
+        return v
+
     # ── Frontend ────────────────────────────────────────────────
     FRONTEND_URL: str = "http://localhost:3000"
 

@@ -24,6 +24,24 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import StaticPool
 
 
+def _enforce_postgres_sslmode(url: str) -> str:
+    """Require encrypted PostgreSQL transport; never honor downgrade modes."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    if not url or not url.lower().startswith(("postgresql://", "postgresql+")):
+        return url
+
+    parsed = urlsplit(url)
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    ssl_modes = [value.lower() for key, value in query if key.lower() == "sslmode"]
+    secure_modes = {"require", "verify-ca", "verify-full"}
+    if not ssl_modes or any(mode not in secure_modes for mode in ssl_modes):
+        query = [(key, value) for key, value in query if key.lower() != "sslmode"]
+        query.append(("sslmode", "require"))
+
+    return urlunsplit(parsed._replace(query=urlencode(query)))
+
+
 def _get_db_url() -> str:
     env = os.environ.get("ENVIRONMENT", "")
     if env == "test":
@@ -45,13 +63,8 @@ def _get_db_url() -> str:
         else:
             url = f"sqlite:///{path}"
 
-    # C-13: Enforce sslmode=require for PostgreSQL connections
-    if url and url.startswith("postgresql"):
-        if "sslmode" not in url.lower():
-            separator = "&" if "?" in url else "?"
-            url = f"{url}{separator}sslmode=require"
-
-    return url
+    # C-13: Enforce encrypted PostgreSQL transport and prevent sslmode downgrades.
+    return _enforce_postgres_sslmode(url)
 
 
 _db_url = _get_db_url()

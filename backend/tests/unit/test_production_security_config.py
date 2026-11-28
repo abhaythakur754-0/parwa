@@ -151,3 +151,64 @@ def test_production_rejects_placeholder_separate_redis_password_even_if_url_has_
         Settings.validate_production_redis_auth(
             "redis://default:real-url-password@redis.example:6379/0"
         )
+
+
+def test_backend_cors_rejects_wildcard_with_credentials():
+    with pytest.raises(ValueError, match="cannot contain"):
+        Settings.validate_cors_origins("*")
+
+
+def test_backend_cors_accepts_explicit_origins():
+    value = "https://parwa.buzz,https://parwa.vercel.app"
+    assert Settings.validate_cors_origins(value) == value
+
+
+def test_mcp_server_requires_strong_production_token(monkeypatch):
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from mcp_server.config import MCPSettings
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="at least 32 characters"):
+        MCPSettings(MCP_AUTH_TOKEN="short")
+
+
+def test_mcp_server_accepts_strong_production_token(monkeypatch):
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from mcp_server.config import MCPSettings
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    token = "mcp-" + ("x" * 40)
+    assert MCPSettings(MCP_AUTH_TOKEN=token).MCP_AUTH_TOKEN == token
+
+
+def test_mcp_server_cors_rejects_explicit_wildcard():
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from mcp_server.config import MCPSettings
+
+    with pytest.raises(ValueError, match="cannot contain"):
+        MCPSettings(CORS_ORIGINS="*").cors_origin_list
+
+
+def test_postgres_sslmode_prevents_explicit_downgrade():
+    from database.base import _enforce_postgres_sslmode
+
+    assert _enforce_postgres_sslmode("postgresql://db/app") == "postgresql://db/app?sslmode=require"
+    assert _enforce_postgres_sslmode("postgresql://db/app?sslmode=disable").endswith("sslmode=require")
+    assert _enforce_postgres_sslmode("postgresql://db/app?sslmode=prefer").endswith("sslmode=require")
+    assert _enforce_postgres_sslmode("postgresql://db/app?sslmode=verify-full").endswith("sslmode=verify-full")
+    assert _enforce_postgres_sslmode("sqlite:///./app.db") == "sqlite:///./app.db"
