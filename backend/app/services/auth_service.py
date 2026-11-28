@@ -438,10 +438,10 @@ def logout_user(
             stored.user_id)
 
 
-def google_auth(
+async def google_auth(
     db: Session,
     id_token: str,
-) -> AuthResponse:
+) -> AuthResponse | dict:
     """Authenticate or register via Google OAuth.
 
     Verifies the Google ID token, then creates or links
@@ -490,15 +490,24 @@ def google_auth(
             company = db.query(Company).filter(
                 Company.id == user.company_id
             ).first()
+            if user.mfa_enabled:
+                if not company:
+                    raise AuthenticationError(message="Account company not found")
+                from app.api.mfa import create_mfa_session_token
+                challenge = await create_mfa_session_token(
+                    user_id=str(user.id), company_id=str(user.company_id),
+                    email=user.email, role=user.role,
+                    plan=company.subscription_tier or "starter",
+                )
+                db.commit()
+                return {"mfa_required": True, "mfa_session_token": challenge,
+                        "user": {"id": user.id, "email": user.email,
+                                 "full_name": user.full_name, "is_verified": user.is_verified}}
             tokens = _create_token_pair(db, user, company)
             db.commit()
             db.refresh(user)
-            logger.info(
-                "google_login user_id=%s company_id=%s",
-                user.id, user.company_id)
-            return _build_auth_response(
-                user, company, tokens, is_new_user=False
-            )
+            logger.info("google_login user_id=%s company_id=%s", user.id, user.company_id)
+            return _build_auth_response(user, company, tokens, is_new_user=False)
         raise AuthenticationError(
             message="Google account linked to disabled user"
         )
@@ -516,15 +525,24 @@ def google_auth(
         company = db.query(Company).filter(
             Company.id == user.company_id
         ).first()
+        if user.mfa_enabled:
+            if not company:
+                raise AuthenticationError(message="Account company not found")
+            from app.api.mfa import create_mfa_session_token
+            challenge = await create_mfa_session_token(
+                user_id=str(user.id), company_id=str(user.company_id),
+                email=user.email, role=user.role,
+                plan=company.subscription_tier or "starter",
+            )
+            db.commit()
+            return {"mfa_required": True, "mfa_session_token": challenge,
+                    "user": {"id": user.id, "email": user.email,
+                             "full_name": user.full_name, "is_verified": user.is_verified}}
         tokens = _create_token_pair(db, user, company)
         db.commit()
         db.refresh(user)
-        logger.info(
-            "google_linked user_id=%s company_id=%s",
-            user.id, user.company_id)
-        return _build_auth_response(
-            user, company, tokens, is_new_user=False
-        )
+        logger.info("google_linked user_id=%s company_id=%s", user.id, user.company_id)
+        return _build_auth_response(user, company, tokens, is_new_user=False)
 
     # New user — create company + user + oauth link
     now = datetime.now(timezone.utc)

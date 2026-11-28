@@ -198,6 +198,14 @@ function LoginContent() {
         throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
       }
 
+      if (result.status === 'mfa_required') {
+        if (typeof result.mfa_session_token !== 'string' || !result.mfa_session_token) {
+          throw new Error('MFA challenge could not be created. Please try again.');
+        }
+        sessionStorage.setItem('parwa_mfa_session_token', result.mfa_session_token);
+        router.push('/auth/mfa-verify');
+        return;
+      }
       if (result.status !== 'success') {
         throw new Error(String(result.message || 'Google sign-in failed. Please try again.'));
       }

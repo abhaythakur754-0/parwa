@@ -49,6 +49,9 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ status: "mfa_required", message: "Verify your authenticator code to finish signing in.", mfa_session_token: data.mfa_session_token, user: data.user });
         }
         if (data.user && data.tokens) {
+          if (data.mfa_required === true && typeof data.mfa_session_token === "string") {
+            return NextResponse.json({ status: "mfa_required", message: "Verify your authenticator code to finish signing in.", mfa_session_token: data.mfa_session_token, user: data.user });
+          }
           const userData = {
             id: data.user.id,
             email: data.user.email || normalizedEmail,

@@ -202,12 +202,12 @@ def refresh(
     return result
 
 
-@router.post("/google", response_model=AuthResponse)
-def google_login(
+@router.post("/google", response_model=None)
+async def google_login(
     body: GoogleAuthRequest,
     response: Response,
     db: Session = Depends(get_db),
-) -> AuthResponse:
+) -> AuthResponse | dict:
     """Authenticate or register via Google OAuth.
 
     F-011: Google OAuth sign-in.
@@ -215,7 +215,9 @@ def google_login(
     L12: Also sets HTTP-only cookies for tokens.
     """
     try:
-        result = google_auth(db=db, id_token=body.id_token)
+        result = await google_auth(db=db, id_token=body.id_token)
+        if isinstance(result, dict) and result.get("mfa_required"):
+            return result
         _set_token_cookies(response, result.tokens)
         return result
     except Exception as exc:
