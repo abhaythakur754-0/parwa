@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
+import { isValidCookieAuthOrigin } from "@/lib/csrf-origin";
 
 /**
  * SHOBH — Next.js Middleware (SIMPLIFIED)
@@ -61,6 +62,31 @@ function isPublicPath(pathname: string): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Cookie-authenticated state changes must originate from this exact origin.
+  // SameSite=Lax does not protect against hostile sibling subdomains such as
+  // another tenant-controlled *.vercel.app deployment.
+  const method = request.method.toUpperCase();
+  const isStateChanging = !["GET", "HEAD", "OPTIONS"].includes(method);
+  const hasAuthCookie = Boolean(
+    request.cookies.get("parwa_at")?.value ||
+    request.cookies.get("parwa_rt")?.value
+  );
+  if (
+    pathname.startsWith("/api/") &&
+    isStateChanging &&
+    hasAuthCookie &&
+    !isValidCookieAuthOrigin(
+      request.url,
+      request.headers.get("origin"),
+      request.headers.get("referer"),
+    )
+  ) {
+    return NextResponse.json(
+      { status: "error", message: "CSRF validation failed." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   // Allow public paths without auth
   if (isPublicPath(pathname)) {

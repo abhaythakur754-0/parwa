@@ -218,3 +218,20 @@ def test_production_backend_proxy_uses_stable_trusted_origin_before_vercel_previ
     vercel = source.index("if (process.env.VERCEL_URL)")
     assert production < vercel
     assert "return 'https://parwa.buzz'" in source
+
+
+def test_next_middleware_validates_origin_for_cookie_auth_state_changes():
+    source = _read("src/middleware.ts")
+    assert "isStateChanging" in source
+    assert 'request.cookies.get("parwa_at")' in source
+    assert 'request.cookies.get("parwa_rt")' in source
+    assert "isValidCookieAuthOrigin(" in source
+    assert "status: 403" in source
+
+
+def test_cookie_auth_csrf_origin_helper_uses_exact_origin_not_shared_site():
+    source = _read("src/lib/csrf-origin.ts")
+    assert "new URL(requestUrl).origin" in source
+    assert "new URL(sourceUrl).origin === expectedOrigin" in source
+    assert "sourceUrl === 'null'" in source
+    assert "attacker.vercel.app" in _read("src/lib/__tests__/csrf-origin.test.ts")

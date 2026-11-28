@@ -147,7 +147,7 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - **H-09 / H-12:** pricing signing key is settings-backed with production validation; Google ID tokens are sent to tokeninfo in a POST body, not a query string.
 - **H-13 / H-16 / H-17:** billing mutation roles are enforced; current notification templates HTML-escape user-controlled fields; channel-status requires authentication and returns configured booleans rather than API-key prefixes.
 - **H-14:** visitor/company validation and tenant protections are credited from the previously completed chat-widget checks; not repeated.
-- **H-18 / H-19:** chat requires authoritative backend-confirmed identity; the Next.js `/api/chat` proxy and backend Jarvis chat endpoints consume a shared Redis-backed per-user budget (10 requests/minute, fail-closed if Redis is unavailable); cookie-auth state-changing requests receive Origin/Referer and double-submit CSRF validation.
+- **H-18 / H-19:** chat requires authoritative backend-confirmed identity; the Next.js `/api/chat` proxy and backend Jarvis chat endpoints consume a shared Redis-backed per-user budget (10 requests/minute, fail-closed if Redis is unavailable); backend cookie-auth requests enforce Origin/Referer and double-submit CSRF validation, and Next.js middleware enforces exact same-origin metadata for state-changing API requests carrying PARWA auth cookies.
 - **H-20:** the historical dashboard mock-login tree is absent from the current source snapshot; current src/app/api/auth login/register routes proxy to the backend and do not mint mock identities.
 - **H-11:** MD5 file-integrity usage is deferred unless a concrete security decision is shown to rely on collision resistance; it is not treated as a demonstrated high-impact production exploit in this focused pass.
 
@@ -190,3 +190,10 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - The Next.js backend proxy now uses the stable production origin before considering a deployment-specific `VERCEL_URL`, so strict exact-origin CSRF validation does not accidentally reject production proxy calls.
 - Added a Next.js regression asserting that a 429 prevents LLM execution, plus backend source-contract tests for the Redis counter and direct backend routes. Local focused suite after this addition: **144 passed** (Stage 3, MFA, and response-template tests); Python compilation passed. Next.js Vitest and full Rust-backed CI remain pending for the latest commit.
 - Stage 3 remains in progress until the exact latest SHA passes CI and the remaining audit is complete.
+
+
+### Stage 3 continuation — Next.js cookie-auth CSRF boundary (2026-11-28)
+
+- **H-19 — Next.js BFF CSRF: FIXED in code.** The Next.js middleware previously authenticated cookie-backed API requests but did not validate their Origin/Referer. A hostile sibling `*.vercel.app` site could attempt same-site cross-origin POSTs, even though the backend's own CSRF middleware was strict (the BFF adds its own trusted Origin when proxying). The middleware now checks every state-changing `/api/*` request carrying `parwa_at` or `parwa_rt` and requires exact equality between the source origin and the request origin. It rejects missing, malformed, `null`, lookalike, or sibling-subdomain origins with 403. Bearer-only requests without auth cookies are unaffected; safe methods are unaffected.
+- Added dedicated Vitest cases for exact-origin, same-origin Referer fallback, hostile sibling Vercel subdomain, malformed/missing metadata, lookalike hostnames, and port mismatch. Backend Stage 3 source-contract tests cover middleware wiring. Latest local Python focused suite: **146 passed**; new frontend Vitest remains a CI check.
+- Stage 3 remains in progress until the latest SHA passes CI and the remaining review is complete.
