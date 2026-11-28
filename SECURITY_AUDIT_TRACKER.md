@@ -167,3 +167,11 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - **H-03 — linked Google OAuth verification: tightened.** For an existing linked Google subject, an unverified local account is marked verified only when the tokeninfo-verified Google email exactly matches the current local email. A mismatch is rejected rather than allowing the linked subject to verify a different local email.
 - Local checks for this continuation: **19 Stage 3 source-contract tests passed**; combined focused Stage 3 + MFA regression suite **28 passed**; five direct Python CSRF validator cases passed (configured origin, untrusted Vercel Origin, untrusted Vercel Referer, lookalike hostname, explicitly allowlisted Vercel origin); Python compilation passed. Cargo/Rust compilation is unavailable locally in this environment; the Rust build and native runtime regression are required CI gates for this commit.
 - Stage 3 remains in progress until the new exact SHA passes required CI and the remaining review is complete.
+
+
+### Stage 3 continuation — outbound email HTML sanitization (2026-11-28)
+
+- **H-16 — outbound email HTML injection: FIXED.** The branded AI email template rendered `ai_response_html` and quoted inbound email HTML with Jinja `|safe`, and the fallback renderer interpolated these fields directly. Both response and quote HTML are now sanitized before either rendering path. The sanitizer keeps only a small tag allowlist, removes inline styles, decodes HTML entities before validating link schemes, and permits only `http`, `https`, and `mailto` links. The fallback also HTML-escapes customer and agent names and the model label.
+- Added regression cases for entity-obfuscated `javascript:`, `data:` links, inline style removal, safe link preservation, and the outbound fallback/template call contract.
+- Local checks after these changes: **21 Stage 3 source-contract tests passed**; **141 combined focused Stage 3 + MFA + response-template tests passed**; the complete response-template test file passed **111/111 including the new sanitizer cases**, and the targeted sanitizer class passed **14/14**. Python compilation passed. Rust native compilation remains a CI-only verification in this environment.
+- Stage 3 remains in progress until CI succeeds for the exact latest SHA and the remaining audit is complete.

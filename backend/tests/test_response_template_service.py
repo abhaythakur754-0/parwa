@@ -793,6 +793,32 @@ class TestSanitizeTemplateVariable:
         )
         assert "javascript:" not in result.lower()
 
+    def test_html_rejects_entity_obfuscated_javascript_and_data_urls(self):
+        result = sanitize_template_variable(
+            '<a href="java&#x73;cript:alert(1)">bad</a>'
+            '<a href="data:text/html;base64,PHNjcmlwdD4=">bad</a>',
+            "html",
+        )
+        assert "javascript:" not in result.lower()
+        assert "data:text/html" not in result.lower()
+        assert "href=" not in result
+
+    def test_html_removes_style_attributes(self):
+        result = sanitize_template_variable(
+            '<span style="background:url(https://evil.example/x)">text</span>',
+            "html",
+        )
+        assert "style=" not in result.lower()
+
+    def test_html_keeps_explicit_safe_link_schemes(self):
+        result = sanitize_template_variable(
+            '<a href="https://example.com/help">web</a>'
+            '<a href="mailto:help@example.com">mail</a>',
+            "html",
+        )
+        assert 'href="https://example.com/help"' in result
+        assert 'href="mailto:help@example.com"' in result
+
     def test_html_allows_safe_tags(self):
         result = sanitize_template_variable("<p>Hello</p>", "html")
         assert "<p>" in result

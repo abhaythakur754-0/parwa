@@ -164,3 +164,22 @@ def test_rust_csrf_validator_requires_explicit_vercel_origin_allowlist():
     implementation = source.split("#[cfg(test)]", 1)[0]
     assert "vercel" not in implementation.lower()
     assert "check_origin == *trusted" in implementation
+
+
+def test_outbound_email_sanitizes_ai_and_quoted_html_before_safe_template_slots():
+    source = _read("backend/app/services/outbound_email_service.py")
+    _, function = _function_source(source, "_render_ai_response_email")
+    assert 'sanitize_template_variable(ai_response_html or "", "html")' in function
+    assert 'sanitize_template_variable(inline_quote_html, "html")' in function
+    assert "safe_response_html" in function
+    assert "safe_quote_html" in function
+    assert "html_escape(customer_name" in function
+    assert "html_escape(agent_name" in function
+
+
+def test_email_html_sanitizer_rejects_encoded_unsafe_href_schemes_and_styles():
+    source = _read("backend/app/services/response_template_service.py")
+    assert "html_unescape(raw_value)" in source
+    assert "_ALLOWED_HREF_SCHEMES" in source
+    assert 'Set[str] = {"http", "https", "mailto"}' in source
+    assert 'Set[str] = {"href", "class", "title"}' in source

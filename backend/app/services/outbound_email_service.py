@@ -21,6 +21,7 @@ Building Codes:
 """
 
 import json
+from html import escape as html_escape
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -798,6 +799,14 @@ class OutboundEmailService:
         Returns:
             Rendered HTML string.
         """
+        # Sanitize both model output and quoted customer HTML before either
+        # the normal template (which marks these fields safe) or its fallback.
+        from app.services.response_template_service import sanitize_template_variable
+        safe_response_html = sanitize_template_variable(ai_response_html or "", "html")
+        safe_quote_html = (
+            sanitize_template_variable(inline_quote_html, "html")
+            if inline_quote_html else None
+        )
         try:
             from app.core.email_renderer import render_email_template
             return render_email_template(
@@ -805,28 +814,28 @@ class OutboundEmailService:
                 {
                     "ticket_id": ticket_id[:8] if ticket_id else "",
                     "customer_name": customer_name or "there",
-                    "ai_response_html": ai_response_html,
+                    "ai_response_html": safe_response_html,
                     "agent_name": agent_name,
                     "model_used": model_used,
-                    "inline_quote_html": inline_quote_html,
+                    "inline_quote_html": safe_quote_html,
                 },
             )
         except Exception as exc:
-            # Fallback to raw AI response wrapped in basic HTML
+            # Fallback uses the same sanitized HTML and escaped text fields.
             logger.warning(
                 "outbound_email_template_failed",
                 extra={"error": str(exc)[:200]},
             )
             quote_block = ""
-            if inline_quote_html:
-                quote_block = f"<div style='margin-top:20px'>{inline_quote_html}</div>"
+            if safe_quote_html:
+                quote_block = f"<div style='margin-top:20px'>{safe_quote_html}</div>"
             return f"""
             <div style="font-family:sans-serif;max-width:600px;padding:20px">
-                <p>Hi {customer_name or 'there'},</p>
-                <div style="margin:16px 0">{ai_response_html}</div>
+                <p>Hi {html_escape(customer_name or 'there')}</p>
+                <div style="margin:16px 0">{safe_response_html}</div>
                 <p style="font-size:12px;color:#999">
-                    — {agent_name}
-                    {f' ({model_used})' if model_used else ''}
+                    — {html_escape(agent_name or '')}
+                    {f' ({html_escape(model_used)})' if model_used else ''}
                 </p>
                 {quote_block}
             </div>

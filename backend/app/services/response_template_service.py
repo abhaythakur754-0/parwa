@@ -27,6 +27,8 @@ import json
 import logging
 import re
 import uuid
+from html import escape as html_escape, unescape as html_unescape
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -179,7 +181,8 @@ _ALLOWED_TAGS: Set[str] = {
     "p", "br", "strong", "em", "ul", "ol", "li", "a", "span", "div",
 }
 
-_ALLOWED_ATTRS: Set[str] = {"href", "class", "style", "title"}
+_ALLOWED_ATTRS: Set[str] = {"href", "class", "title"}
+_ALLOWED_HREF_SCHEMES: Set[str] = {"http", "https", "mailto"}
 
 # Regex for stripping dangerous content
 _RE_SCRIPT = re.compile(r"<script[^>]*>.*?</script>", re.DOTALL | re.IGNORECASE)
@@ -213,11 +216,24 @@ def _clean_tag(
     for attr_match in re.finditer(r'(\w+)\s*=\s*(["\'][^"\']*["\']|\S+)', attr_string):
         attr_name = attr_match.group(1).lower()
         if attr_name in allowed_attrs:
-            # Only allow safe attribute values (no javascript: etc.)
-            attr_value = attr_match.group(2)
-            if re.search(r"javascript:", attr_value, re.IGNORECASE):
+            raw_value = attr_match.group(2)
+            if raw_value[:1] in ("\"", "'") and raw_value[-1:] == raw_value[:1]:
+                raw_value = raw_value[1:-1]
+            attr_value = html_unescape(raw_value).strip()
+            if any(ord(char) < 32 for char in attr_value):
                 continue
-            clean_attrs.append(f"{attr_name}={attr_value}")
+            if attr_name == "href":
+                # Email links may navigate only to explicit web/mail schemes.
+                # Decode entities before parsing to block obfuscated schemes.
+                try:
+                    scheme = urlsplit(attr_value).scheme.lower()
+                except ValueError:
+                    continue
+                if scheme not in _ALLOWED_HREF_SCHEMES:
+                    continue
+            clean_attrs.append(
+                f'{attr_name}="{html_escape(attr_value, quote=True)}"'
+            )
 
     if clean_attrs:
         return f"<{tag_name} {' '.join(clean_attrs)}>"
