@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
 
         if (!backendFailed) {
           const authData = (data.data || data) as Record<string, unknown>;
+          if (authData.mfa_required === true && typeof authData.mfa_session_token === "string") {
+            return NextResponse.json({ status: "mfa_required", message: "Verify your authenticator code to finish signing in.", mfa_session_token: authData.mfa_session_token, user: authData.user });
+          }
           const userObj = (authData.user || data.user) as
             | Record<string, unknown>
             | undefined;
