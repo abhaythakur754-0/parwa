@@ -159,3 +159,11 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - The broader legacy security test files are stale in places (absolute old paths and assertions against removed dashboard/old route layouts); they were not used as proof of current security. Full backend pytest could not be collected in this local snapshot because structlog is absent; Rust tests could not be run locally because cargo is unavailable. The required CI run for the pushed commit remains the final code verification gate.
 
 **Stage 3 remains in progress until the exact pushed SHA passes CI and the remaining high-impact review is complete.**
+
+
+### Stage 3 continuation — CSRF origin trust and Google OAuth verification (2026-11-28)
+
+- **H-19 — CSRF origin trust: FIXED.** The Rust `CSRFValidator` and Python fallback previously trusted every HTTPS `*.vercel.app` origin, even when it was not in the configured allowlist. Vercel subdomains share a site boundary, so SameSite=Lax cookies do not make this wildcard safe. Both implementations now require exact configured origins; legitimate preview deployments must be explicitly listed in `CSRF_TRUSTED_ORIGINS` (or the configured CORS-origin fallback). Regression coverage rejects untrusted Vercel Origin and Referer values and accepts a preview only when explicitly allowlisted.
+- **H-03 — linked Google OAuth verification: tightened.** For an existing linked Google subject, an unverified local account is marked verified only when the tokeninfo-verified Google email exactly matches the current local email. A mismatch is rejected rather than allowing the linked subject to verify a different local email.
+- Local checks for this continuation: **19 Stage 3 source-contract tests passed**; combined focused Stage 3 + MFA regression suite **28 passed**; five direct Python CSRF validator cases passed (configured origin, untrusted Vercel Origin, untrusted Vercel Referer, lookalike hostname, explicitly allowlisted Vercel origin); Python compilation passed. Cargo/Rust compilation is unavailable locally in this environment; the Rust build and native runtime regression are required CI gates for this commit.
+- Stage 3 remains in progress until the new exact SHA passes required CI and the remaining review is complete.

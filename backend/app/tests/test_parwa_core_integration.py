@@ -1103,33 +1103,32 @@ class TestCSRFValidatorOriginValidation:
         assert result is False
 
 
-class TestCSRFValidatorVercelWildcards:
-    """Vercel preview deployments should be auto-allowed."""
+class TestCSRFValidatorVercelOrigins:
+    """Vercel deployments must be explicitly allowlisted for CSRF."""
 
-    def test_vercel_preview_allowed(self, csrf):
-        """*.vercel.app should be allowed even if not in trusted list."""
-        assert csrf.is_valid_origin("https://chat1-fixes-parwa.vercel.app") is True
+    def test_untrusted_vercel_preview_rejected(self, csrf):
+        assert csrf.is_valid_origin("https://chat1-fixes-parwa.vercel.app") is False
 
-    def test_vercel_double_dash_preview(self, csrf):
-        """Vercel deploy preview URLs with -- format."""
+    def test_untrusted_double_dash_vercel_preview_rejected(self, csrf):
         assert csrf.is_valid_origin(
             "https://parwa-git-main-abhaythakur754-0s-projects.vercel.app"
-        ) is True
+        ) is False
 
-    def test_vercel_with_path(self, csrf):
-        """Vercel origin with a path should still be matched (origin is extracted)."""
-        # The Rust implementation validates the origin portion.
-        # A full URL with path may or may not be handled depending on
-        # whether the implementation strips the path first.
-        result = csrf.is_valid_origin("https://my-preview.vercel.app")
-        assert result is True
+    def test_untrusted_vercel_referer_rejected(self, csrf):
+        assert csrf.is_valid_origin("", "https://my-preview.vercel.app/path") is False
+
+    def test_explicitly_trusted_vercel_origin_allowed(self):
+        validator = parwa_core.CSRFValidator(
+            trusted_origins=["https://parwa-git-main.vercel.app"],
+            secret_key="test-csrf-secret",
+            max_age=3600.0,
+        )
+        assert validator.is_valid_origin("https://parwa-git-main.vercel.app") is True
 
     def test_not_vercel_rejected(self, csrf):
-        """Non-Vercel, non-trusted domains should be rejected."""
         assert csrf.is_valid_origin("https://parwa.evil.com") is False
 
     def test_vercel_http_rejected(self, csrf):
-        """Only HTTPS Vercel origins should be allowed."""
         assert csrf.is_valid_origin("http://preview.vercel.app") is False
 
 

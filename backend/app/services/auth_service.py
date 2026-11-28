@@ -502,8 +502,15 @@ async def google_auth(
             User.id == oauth_account.user_id
         ).first()
         if user and user.is_active:
-            # Google tokeninfo verified the email claim before this branch.
-            user.is_verified = True
+            # A previously linked Google subject is not proof of a different
+            # current local email address. Only let a verified Google email
+            # complete local verification when the addresses still match.
+            if not user.is_verified:
+                if google_email != (user.email or "").lower().strip():
+                    raise AuthenticationError(
+                        message="Email verification required for this account"
+                    )
+                user.is_verified = True
             company = db.query(Company).filter(
                 Company.id == user.company_id
             ).first()

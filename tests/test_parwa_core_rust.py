@@ -157,6 +157,20 @@ def test_csrf_validator_origin_check():
     assert validator.is_valid_origin("https://evil.example") is False
 
 
+def test_csrf_validator_rejects_untrusted_vercel_previews():
+    """A random Vercel tenant must not inherit PARWA's CSRF trust."""
+    from app.core.parwa_core_bridge import parwa_csrf_validator
+
+    validator = parwa_csrf_validator(trusted_origins=["https://parwa.buzz"])
+    assert validator.is_valid_origin("https://attacker.vercel.app") is False
+    assert validator.is_valid_origin("", "https://attacker.vercel.app/submit") is False
+
+    explicitly_trusted = parwa_csrf_validator(
+        trusted_origins=["https://parwa.buzz", "https://preview.parwa.vercel.app"]
+    )
+    assert explicitly_trusted.is_valid_origin("https://preview.parwa.vercel.app") is True
+
+
 def test_security_headers_generated():
     """Security headers must include CSP with a nonce."""
     from app.core.parwa_core_bridge import parwa_get_security_headers

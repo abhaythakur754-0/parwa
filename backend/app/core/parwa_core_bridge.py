@@ -1239,7 +1239,6 @@ def _add_cache_control(
 # ═══════════════════════════════════════════════════════════════════
 
 _CSRF_MAX_AGE = 3600  # 1 hour (same as csrf.py)
-_VERCEL_PATTERN = r"^https://[a-z0-9\-]+(--[a-z0-9\-]+)?\.vercel\.app$"
 
 
 class _CSRFValidatorBridge:
@@ -1302,11 +1301,6 @@ class _CSRFValidatorBridge:
 
         if not check_origin:
             return False
-
-        # Vercel wildcard
-        import re
-        if re.match(_VERCEL_PATTERN, check_origin):
-            return True
 
         for trusted in self._trusted_origins:
             if check_origin == trusted or check_origin.startswith(trusted + "/"):

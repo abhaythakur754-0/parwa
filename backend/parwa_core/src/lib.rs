@@ -1059,11 +1059,6 @@ impl CSRFValidator {
             return false;
         };
 
-        // Allow any Vercel preview deployment
-        if Regex::new(r"^https://[a-z0-9\-]+(--[a-z0-9\-]+)?\.vercel\.app$").unwrap().is_match(&check_origin).unwrap_or(false) {
-            return true;
-        }
-
         // Check against trusted origins
         for trusted in &self.trusted_origins {
             if check_origin == *trusted || check_origin.starts_with(&format!("{}/", trusted)) {
@@ -2054,7 +2049,13 @@ mod tests {
         );
         assert!(csrf.is_valid_origin("https://app.parwa.ai", ""));
         assert!(!csrf.is_valid_origin("https://evil.com", ""));
-        assert!(csrf.is_valid_origin("https://parwa-git-main.vercel.app", ""));
+        assert!(!csrf.is_valid_origin("https://parwa-git-main.vercel.app", ""));
+        let explicitly_trusted = CSRFValidator::new(
+            Some(vec!["https://parwa-git-main.vercel.app".to_string()]),
+            "test-csrf-secret",
+            3600.0,
+        );
+        assert!(explicitly_trusted.is_valid_origin("https://parwa-git-main.vercel.app", ""));
     }
 
     #[test]

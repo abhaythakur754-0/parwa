@@ -135,10 +135,12 @@ def test_production_refresh_rejects_and_revokes_unverified_user_sessions():
     assert function.index(guard) < function.index("_create_token_pair")
 
 
-def test_existing_google_oauth_session_marks_google_verified_email_verified():
+def test_existing_google_oauth_session_only_verifies_matching_local_email():
     source = _read("backend/app/services/auth_service.py")
     _, function = _function_source(source, "google_auth")
-    assert "user.is_verified = True" in function
+    assert "if not user.is_verified:" in function
+    assert 'google_email != (user.email or "").lower().strip()' in function
+    assert "Email verification required for this account" in function
 
 
 def test_email_verification_revokes_pre_verification_refresh_sessions():
@@ -148,3 +150,17 @@ def test_email_verification_revokes_pre_verification_refresh_sessions():
     assert "db.query(RefreshToken)" in function
     assert "RefreshToken.user_id == user.id" in function
     assert "delete(synchronize_session=False)" in function
+
+
+def test_python_csrf_fallback_requires_explicit_vercel_origin_allowlist():
+    source = _read("backend/app/core/parwa_core_bridge.py")
+    assert "_VERCEL_PATTERN" not in source
+    assert "re.match(_VERCEL_PATTERN" not in source
+    assert 'check_origin == trusted or check_origin.startswith(trusted + "/")' in source
+
+
+def test_rust_csrf_validator_requires_explicit_vercel_origin_allowlist():
+    source = _read("backend/parwa_core/src/lib.rs")
+    implementation = source.split("#[cfg(test)]", 1)[0]
+    assert "vercel" not in implementation.lower()
+    assert "check_origin == *trusted" in implementation
