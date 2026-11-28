@@ -42,6 +42,7 @@ on:
 permissions:
   contents: read
 
+# Password and Google OAuth login paths share the same pre-auth MFA challenge contract.
 jobs:
   mfa-login-security:
     name: MFA login security regression
