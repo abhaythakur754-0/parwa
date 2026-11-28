@@ -6,28 +6,29 @@
 **Owner workflow:** direct work on `main`; no unnecessary branches.  
 **Handoff rule:** after every successful push to `main`, refresh the existing PARWA Library ZIP from that exact commit before continuing.
 
-## Focused production-security schedule
+## Focused production-security schedule — remaining work only
 
-**Purpose:** complete only the security work necessary to establish a defensible production baseline. Do not spend time exhaustively re-auditing low-risk historical findings or repeating already completed checks. Historical findings are used as leads, not as a mandatory 93-item checklist.
+**Rule:** the seven security checks listed under "Previously completed work carried forward" are CLOSED and excluded from this schedule. They are not tasks, they are not included in the estimate, and they must not be repeated absent a concrete regression or security-sensitive code change. Baseline inventory is complete; no separate stage is allocated to re-auditing it.
 
-| Stage | Essential scope | Estimate | Status |
-|---|---|---:|---|
-| 1 | Reconcile the seven user-confirmed completed checks and existing critical fixes; verify current baseline and identify genuine gaps | 1–2 hours | COMPLETE / carry-forward verification only |
-| 2 | Authentication, MFA, authorization, admin privilege boundaries and tenant isolation | 2–3 hours | IN PROGRESS |
-| 3 | Secrets, token/session protection, sensitive APIs and fail-closed production configuration | 2–3 hours | NOT STARTED |
-| 4 | Webhook authenticity/replay protection, integration permissions, rate limits and essential browser/API protections (including CSRF/CORS/security headers where applicable) | 2–3 hours | NOT STARTED |
-| 5 | Run required security regression tests; verify deployment/security settings; document unresolved risks and evidence-based sign-off | 2–3 hours | NOT STARTED |
+| Order | Remaining necessary work | What is included (only unresolved/unverified items) | Estimate | Status |
+|---|---|---|---:|---|
+| 1 | Finish critical authentication and authorization gaps | Verify the full password → MFA challenge → token issuance flow (C-09); confirm dashboard/API authentication, real token validation, admin/platform-admin boundaries, billing endpoint protection, and RAG tenant scoping (C-01, C-02, C-10, C-11, C-12). Fix only confirmed gaps. | 2–3 hours | PENDING |
+| 2 | Finish critical secrets, session and infrastructure gaps | Verify production secret fail-closed behavior, refresh-token pepper, MCP token enforcement, CORS fallback, trusted tenant-header handling, OAuth token encryption, PostgreSQL TLS, and whether historical `.env.prod` exposure requires credential rotation (C-04–C-08, C-13–C-15). Do not rework controls already proven effective. | 2–3 hours | PENDING |
+| 3 | Close only high-impact remaining attack paths | Check the still-relevant high-risk items: open redirects, email/OTP verification weaknesses, billing/admin middleware coverage, webhook fail-closed/replay behavior, OAuth URL leakage, billing roles, webhook status/retry authorization, HTML injection, API-key disclosure, chat API auth/rate limits, CSRF where cookie auth applies, mock-login remnants, and workflow tenant-IDOR. Existing completed webhook, onboarding, tenant, and Jarvis fixes are credited—not repeated. | 2–3 hours | PENDING |
+| 4 | One final verification and sign-off | Run the complete required security regression suite and relevant backend/frontend tests; verify production deployment settings and operational actions (including any required credential rotation); record only genuine residual risks and evidence. | 1–2 hours | PENDING |
 
-**Estimated focused engineering effort: 9–14 hours.** This is a planning estimate, not a completion guarantee; confirmed vulnerabilities, external provider dependencies, or CI/deployment failures may extend it.
+**Estimated remaining engineering effort: 7–11 focused hours**, assuming no newly discovered critical vulnerability, external credential-rotation delay, or deployment/provider access blocker. This estimate excludes the seven completed checks and excludes unrelated agent/integration feature work.
 
-### Scope control
+### Explicitly out of scope for this focused pass
 
-- **Must fix before production:** cross-tenant access, authentication/MFA bypass, unauthorized actions or privilege escalation, exposed secrets, unprotected sensitive endpoints, forged/replayed webhooks, and unsafe integration permissions.
-- **Verify proportionately:** rate limiting, CSRF/CORS, security headers, TLS, Redis and other deployment controls according to the actual exposed deployment paths.
-- **Defer/document:** low-risk style or hardening observations that do not create a meaningful exploitable production risk, plus stale or non-applicable historical findings.
-- Do not count a historical report item as currently open without checking the current code and its callers. Do not mark an item fixed based only on a related commit.
-- The seven completed checks remain credited; do not repeat them unless a relevant code change or regression gives a concrete reason.
-- Stage 5 must include evidence from CI and production configuration review. A green CI run alone is not production sign-off.
+- Repeating the seven completed checks.
+- Re-auditing all 93 historical findings line by line regardless of relevance.
+- Low-risk style-only or speculative hardening findings with no meaningful production exploit path; document/defer these.
+- Re-running checks solely to create more activity. Re-test only when a concrete code change or regression makes it necessary.
+
+### Completion rule
+
+A task is complete only when the current implementation and its callers are inspected, any real gap is fixed, targeted regression coverage passes, and the relevant CI run for the exact pushed `main` commit is verified. Production sign-off additionally requires deployment/credential checks; a green CI run alone is insufficient. After each push, refresh the existing Library ZIP from that exact commit before proceeding.
 
 ## Stage 1 — Baseline and reconciliation
 
