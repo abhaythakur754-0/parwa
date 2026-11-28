@@ -36,13 +36,15 @@ function getProxyOrigin(): string {
   if (process.env.FRONTEND_URL) {
     return process.env.FRONTEND_URL;
   }
-  // Vercel provides VERCEL_URL (e.g. parwa.vercel.app)
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  // Production default — must match backend's CSRF_TRUSTED_ORIGINS
+  // Production proxy calls must use the stable, explicitly trusted origin.
+  // VERCEL_URL may be a deployment-specific preview hostname, which is not
+  // automatically trusted by the backend CSRF allowlist.
   if (process.env.NODE_ENV === 'production') {
     return 'https://parwa.buzz';
+  }
+  // Vercel provides VERCEL_URL for non-production deployments.
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
   }
   // Local development
   return 'http://localhost:3000';

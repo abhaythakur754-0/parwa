@@ -210,3 +210,11 @@ def test_backend_chat_rate_limit_uses_atomic_tenant_scoped_redis_counter():
     jarvis_routes = _read("backend/app/api/jarvis_routes.py")
     _, pipeline_route = _function_source(jarvis_routes, "jarvis_chat")
     assert "_consume_chat_rate_limit_for_user(current_user)" in pipeline_route
+
+
+def test_production_backend_proxy_uses_stable_trusted_origin_before_vercel_preview_host():
+    source = _read("src/lib/backend-proxy.ts")
+    production = source.index("if (process.env.NODE_ENV === 'production')")
+    vercel = source.index("if (process.env.VERCEL_URL)")
+    assert production < vercel
+    assert "return 'https://parwa.buzz'" in source
