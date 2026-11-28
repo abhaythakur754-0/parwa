@@ -8,9 +8,37 @@ on:
       - 'fix/**'
       - 'feat/**'
       - 'chore/**'
+    paths-ignore:
+      - "backend/app/services/auth_service.py"
+      - "backend/app/api/auth.py"
+      - "backend/app/api/mfa.py"
+      - "backend/app/schemas/mfa.py"
+      - "backend/tests/unit/test_mfa_login_enforcement_security.py"
+      - "backend/tests/unit/test_mfa_session_storage_security.py"
+      - "src/app/api/auth/login/route.ts"
+      - "src/app/api/mfa/**"
+      - "src/app/(auth)/login/page.tsx"
+      - "src/app/auth/mfa-verify/page.tsx"
+      - "src/lib/mfa-store.ts"
+      - ".github/workflows/security-mfa-regression.yml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "backend/app/services/auth_service.py"
+      - "backend/app/api/auth.py"
+      - "backend/app/api/mfa.py"
+      - "backend/app/schemas/mfa.py"
+      - "backend/tests/unit/test_mfa_login_enforcement_security.py"
+      - "backend/tests/unit/test_mfa_session_storage_security.py"
+      - "src/app/api/auth/login/route.ts"
+      - "src/app/api/mfa/**"
+      - "src/app/(auth)/login/page.tsx"
+      - "src/app/auth/mfa-verify/page.tsx"
+      - "src/lib/mfa-store.ts"
+      - ".github/workflows/security-mfa-regression.yml"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 # Keep only the newest verification run for a branch. Rapid fix commits
