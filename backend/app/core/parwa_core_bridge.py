@@ -1279,6 +1279,16 @@ class _CSRFValidatorBridge:
         Wraps ``CSRFValidator.is_valid_origin(origin, referer)``.
         Falls back to the same logic as ``CSRFSecurityMiddleware._is_valid_origin``.
         """
+        # An empty allowlist is a local-development convenience only. In
+        # production, never let the Rust or Python fallback interpret missing
+        # origin configuration as permission to accept every browser origin.
+        if (
+            not self._trusted_origins
+            and os.environ.get("ENVIRONMENT", "development").lower() == "production"
+        ):
+            logger.critical("csrf_trusted_origins_missing_fail_closed")
+            return False
+
         if self._rust is not None:
             try:
                 return bool(

@@ -235,3 +235,12 @@ def test_cookie_auth_csrf_origin_helper_uses_exact_origin_not_shared_site():
     assert "new URL(sourceUrl).origin === expectedOrigin" in source
     assert "sourceUrl === 'null'" in source
     assert "attacker.vercel.app" in _read("src/lib/__tests__/csrf-origin.test.ts")
+
+
+def test_csrf_bridge_fails_closed_when_production_allowlist_is_empty():
+    source = _read("backend/app/core/parwa_core_bridge.py")
+    _, function = _function_source(source, "is_valid_origin")
+    guard = 'os.environ.get("ENVIRONMENT", "development").lower() == "production"'
+    assert "not self._trusted_origins" in function
+    assert guard in function
+    assert function.index(guard) < function.index("if self._rust is not None")
