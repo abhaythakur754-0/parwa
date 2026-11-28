@@ -87,6 +87,11 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: SECRET_KEY
+            - name: MCP_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: MCP_AUTH_TOKEN
           resources:
             requests:
               cpu: 200m

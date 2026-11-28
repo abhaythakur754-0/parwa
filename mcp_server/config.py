@@ -76,7 +76,7 @@ class MCPSettings(BaseSettings):
                 not normalized
                 or len(v) < 32
                 or normalized in placeholders
-                or normalized.startswith(("your_", "your-", "change-me", "change-this", "replace-me", "placeholder", "example-", "dev-"))
+                or normalized.startswith(("your_", "your-", "change-me", "change_", "change ", "change-this", "replace-me", "placeholder", "example-", "dev-"))
             ):
                 raise ValueError(
                     "MCP_AUTH_TOKEN must be a non-placeholder random value of at least 32 characters in production."

@@ -1364,6 +1364,8 @@ app.add_middleware(ActivityCaptureMiddleware)
 #    (be added AFTER AIEntitlementMiddleware). This is why we add
 #    AIEntitlementMiddleware here at #4, BEFORE TenantMiddleware at #5.
 app.add_middleware(AIEntitlementMiddleware)
+# Variant quota checks must run after TenantMiddleware has verified the JWT/API key.
+app.add_middleware(VariantCheckMiddleware)
 
 # 5. Tenant middleware — BC-001 multi-tenant isolation
 #    Runs AFTER AIEntitlementMiddleware in the request cycle (because it's
@@ -1404,13 +1406,10 @@ except Exception:
     # Fail closed: restrict to localhost rather than open wildcard
     _cors_origins = ["http://localhost:3000"]
 
-app.add_middleware(VariantCheckMiddleware)  # Variant tier enforcement (must be early)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    # Allow Vercel preview deployments
-    # e.g. chat1-fixes-parwa.vercel.app, parwa-git-main-abhaythakur754-0.vercel.app
-    allow_origin_regex=r"https://[a-z0-9\-]+\.(vercel\.app)|https://[a-z0-9\-]+--[a-z0-9\-]+\.vercel\.app",
+    # Preview deployments must be explicitly listed in CORS_ORIGINS.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

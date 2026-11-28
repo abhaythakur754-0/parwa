@@ -212,3 +212,56 @@ def test_postgres_sslmode_prevents_explicit_downgrade():
     assert _enforce_postgres_sslmode("postgresql://db/app?sslmode=prefer").endswith("sslmode=require")
     assert _enforce_postgres_sslmode("postgresql://db/app?sslmode=verify-full").endswith("sslmode=verify-full")
     assert _enforce_postgres_sslmode("sqlite:///./app.db") == "sqlite:///./app.db"
+
+
+def test_production_rejects_change_me_template_secrets(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    for validator, value in (
+        (Settings.validate_secret_key, "CHANGE_ME_generate_with_openssl_rand_hex_32"),
+        (Settings.validate_jwt_key, "CHANGE_ME_generate_with_openssl_rand_hex_32"),
+        (Settings.validate_encryption_key, "CHANGE_ME_32_chars_long_encryption_!"),
+    ):
+        with pytest.raises(ValueError):
+            validator(value)
+
+
+def test_variant_limit_uses_only_verified_tenant_state():
+    from app.middleware.variant_check import VariantCheckMiddleware
+
+    scope = {
+        "type": "http",
+        "state": {"company_id": "verified-tenant"},
+        "headers": [
+            (b"x-company-id", b"attacker-tenant"),
+            (b"authorization", b"Bearer forged.jwt.payload"),
+        ],
+    }
+    assert VariantCheckMiddleware._extract_company_id(scope) == "verified-tenant"
+
+
+def test_variant_limit_ignores_unverified_jwt_and_client_tenant_header():
+    from app.middleware.variant_check import VariantCheckMiddleware
+
+    scope = {
+        "type": "http",
+        "state": {},
+        "headers": [
+            (b"x-company-id", b"attacker-tenant"),
+            (b"authorization", b"Bearer forged.jwt.payload"),
+        ],
+    }
+    assert VariantCheckMiddleware._extract_company_id(scope) is None
+
+
+def test_mcp_server_rejects_long_change_me_template_token(monkeypatch):
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from mcp_server.config import MCPSettings
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(ValueError, match="non-placeholder"):
+        MCPSettings(MCP_AUTH_TOKEN="CHANGE_ME_" + ("x" * 48))

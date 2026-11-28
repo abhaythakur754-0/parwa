@@ -195,68 +195,16 @@ class VariantCheckMiddleware:
 
     @staticmethod
     def _extract_company_id(scope: dict) -> Optional[str]:
-        """Extract ``company_id`` from the ASGI *scope*.
+        """Read tenant identity established by the verified tenant/API-key middleware.
 
-        SECURITY: Only extracts company_id from the verified JWT bearer
-        token claims (``company_id`` claim). Authentication/verification
-        is handled by the auth middleware or route-level dependency.
-
-        Do NOT accept client-controlled headers (L06) — the X-Company-ID
-        header is fully client-supplied and can be spoofed.
-
-        Returns ``None`` when no usable value is found.
+        This middleware is deliberately registered inside TenantMiddleware.
+        Never decode unverified JWT claims or accept X-Company-ID from the client.
         """
-        # Only check Authorization header for JWT — never trust X-Company-ID
-        auth_header = dict(scope.get("headers", [])).get(
-            b"authorization", b""
-        ).decode("utf-8", errors="ignore").strip()
-        if auth_header and auth_header.lower().startswith("bearer "):
-            token = auth_header[7:].strip()
-            company_id = VariantCheckMiddleware._decode_company_id_from_jwt(token)
-            if company_id:
-                return company_id
-
+        state = scope.get("state") or {}
+        company_id = state.get("company_id") if isinstance(state, dict) else None
+        if isinstance(company_id, str) and company_id.strip():
+            return company_id.strip()
         return None
-
-    @staticmethod
-    def _decode_company_id_from_jwt(token: str) -> Optional[str]:
-        """Decode ``company_id`` claim from a JWT token without verification.
-
-        This is intentional — the middleware only needs the claim for the
-        limit lookup.  Authentication/verification is handled by the auth
-        middleware or route-level dependency.
-
-        Returns ``None`` if the token is malformed or missing the claim.
-        """
-        import base64
-
-        try:
-            # JWT structure: header.payload.signature (dot-separated)
-            parts = token.split(".")
-            if len(parts) != 3:
-                return None
-
-            # Decode the payload (second segment)
-            payload_b64 = parts[1]
-            # Add padding if necessary
-            padding = 4 - len(payload_b64) % 4
-            if padding != 4:
-                payload_b64 += "=" * padding
-
-            payload_json = base64.urlsafe_b64decode(payload_b64)
-            payload = json.loads(payload_json)
-
-            company_id = payload.get("company_id")
-            if company_id and isinstance(company_id, str) and company_id.strip():
-                return company_id.strip()
-
-            return None
-        except Exception:
-            logger.debug(
-                "variant_check_jwt_decode_failed",
-                exc_info=False,
-            )
-            return None
 
     @staticmethod
     async def _check_limit(company_id: str, limit_type: str) -> dict:

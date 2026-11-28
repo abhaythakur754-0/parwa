@@ -115,6 +115,16 @@ spec:
                 secretKeyRef:
                   name: parwa-secrets
                   key: DATA_ENCRYPTION_KEY
+            - name: REFRESH_TOKEN_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: REFRESH_TOKEN_PEPPER
+            - name: MCP_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: parwa-secrets
+                  key: MCP_AUTH_TOKEN
           resources:
             requests:
               cpu: 250m

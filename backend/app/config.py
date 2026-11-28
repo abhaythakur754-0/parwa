@@ -50,6 +50,8 @@ def _is_placeholder_secret(value: Optional[str]) -> bool:
         "your_",
         "your-",
         "change-me",
+        "change_",
+        "change ",
         "change-this",
         "replace-me",
         "placeholder",
