@@ -28,7 +28,7 @@ BC-012: All timestamps UTC.
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -52,6 +52,71 @@ from database.models.core import User
 logger = get_logger("jarvis_chat_api")
 
 router = APIRouter(prefix="/api/jarvis/chat", tags=["Jarvis Chat"])
+
+
+# ══════════════════════════════════════════════════════════════════
+# SHARED CHAT RATE LIMIT
+# ══════════════════════════════════════════════════════════════════
+
+_CHAT_RATE_LIMIT = 10
+_CHAT_RATE_WINDOW_SECONDS = 60
+_CHAT_RATE_LIMIT_SCRIPT = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+"""
+
+
+async def _consume_chat_rate_limit_for_user(user: User) -> dict:
+    """Consume one shared per-user chat allowance before invoking an LLM."""
+    if not user.company_id:
+        raise HTTPException(status_code=403, detail="User has no associated company")
+
+    from app.core.redis import get_redis, make_key
+
+    key = make_key(
+        str(user.company_id), "rate_limit", "jarvis_chat", str(user.id)
+    )
+    try:
+        redis = await get_redis()
+        count = int(await redis.eval(
+            _CHAT_RATE_LIMIT_SCRIPT,
+            1,
+            key,
+            _CHAT_RATE_WINDOW_SECONDS,
+        ))
+        if count > _CHAT_RATE_LIMIT:
+            ttl = max(1, int(await redis.ttl(key)))
+            raise HTTPException(
+                status_code=429,
+                detail="Chat request limit exceeded. Please retry shortly.",
+                headers={"Retry-After": str(ttl)},
+            )
+        return {
+            "allowed": True,
+            "limit": _CHAT_RATE_LIMIT,
+            "remaining": max(0, _CHAT_RATE_LIMIT - count),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "jarvis_chat_rate_limit_unavailable company_id=%s user_id=%s error=%s",
+            user.company_id, user.id, str(exc)[:160],
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Chat rate limiting is temporarily unavailable.",
+            headers={"Retry-After": "5"},
+        ) from exc
+
+
+@router.post("/rate-limit")
+async def consume_chat_rate_limit(user: User = Depends(get_current_user)):
+    """Authenticated Next.js proxy hook for the shared chat limiter."""
+    return await _consume_chat_rate_limit_for_user(user)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -170,6 +235,8 @@ async def send_chat_message(
     """
     if not user.company_id:
         return _error_response("VALIDATION_ERROR", "User has no associated company", 422)
+
+    await _consume_chat_rate_limit_for_user(user)
 
     try:
         result = await process_message(

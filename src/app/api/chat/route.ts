@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUserId } from '@/lib/api-auth';
+import { backendProxy } from '@/lib/backend-proxy';
 
 /**
  * POST /api/chat — Jarvis AI Chat Endpoint
@@ -457,6 +458,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { status: 'error', message: 'Message is required' },
         { status: 400 }
+      );
+    }
+
+    // Consume a shared Redis-backed per-user allowance before any LLM call
+    // or action-ticket side effect. The backend fails closed if Redis is down.
+    const rateLimit = await backendProxy('/api/jarvis/chat/rate-limit', {
+      method: 'POST',
+      body: '{}',
+      authToken: accessToken,
+    });
+    if (!rateLimit.response.ok) {
+      const status = rateLimit.response.status;
+      const retryAfter = rateLimit.response.headers.get('Retry-After') || '5';
+      return NextResponse.json(
+        {
+          status: 'error',
+          message: status === 429
+            ? 'You are sending messages too quickly. Please wait a moment.'
+            : status === 401
+              ? 'Authentication required.'
+              : 'Chat is temporarily unavailable. Please retry shortly.',
+        },
+        { status: status === 429 || status === 401 ? status : 503,
+          headers: { 'Retry-After': retryAfter, 'Cache-Control': 'no-store' } },
       );
     }
 

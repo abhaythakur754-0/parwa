@@ -147,7 +147,7 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - **H-09 / H-12:** pricing signing key is settings-backed with production validation; Google ID tokens are sent to tokeninfo in a POST body, not a query string.
 - **H-13 / H-16 / H-17:** billing mutation roles are enforced; current notification templates HTML-escape user-controlled fields; channel-status requires authentication and returns configured booleans rather than API-key prefixes.
 - **H-14:** visitor/company validation and tenant protections are credited from the previously completed chat-widget checks; not repeated.
-- **H-18 / H-19:** chat requires authoritative backend-confirmed identity; backend rate-limit middleware applies to POST requests; cookie-auth state-changing requests receive Origin/Referer and double-submit CSRF validation.
+- **H-18 / H-19:** chat requires authoritative backend-confirmed identity; the Next.js `/api/chat` proxy and backend Jarvis chat endpoints consume a shared Redis-backed per-user budget (10 requests/minute, fail-closed if Redis is unavailable); cookie-auth state-changing requests receive Origin/Referer and double-submit CSRF validation.
 - **H-20:** the historical dashboard mock-login tree is absent from the current source snapshot; current src/app/api/auth login/register routes proxy to the backend and do not mint mock identities.
 - **H-11:** MD5 file-integrity usage is deferred unless a concrete security decision is shown to rely on collision resistance; it is not treated as a demonstrated high-impact production exploit in this focused pass.
 
@@ -175,3 +175,10 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - Added regression cases for entity-obfuscated `javascript:`, `data:` links, inline style removal, safe link preservation, and the outbound fallback/template call contract.
 - Local checks after these changes: **21 Stage 3 source-contract tests passed**; **141 combined focused Stage 3 + MFA + response-template tests passed**; the complete response-template test file passed **111/111 including the new sanitizer cases**, and the targeted sanitizer class passed **14/14**. Python compilation passed. Rust native compilation remains a CI-only verification in this environment.
 - Stage 3 remains in progress until CI succeeds for the exact latest SHA and the remaining audit is complete.
+
+
+### Stage 3 continuation — shared Jarvis chat rate limiting (2026-11-28)
+
+- **H-18 — authenticated chat cost abuse: FIXED in code.** The Next.js `/api/chat` route previously required authentication but had no rate limit before invoking external LLM providers or creating action tickets. It now calls an authenticated backend limiter before any LLM/action side effect. The backend uses an atomic Redis `INCR` + `EXPIRE` Lua operation with a tenant-scoped key and a 10-request/60-second per-user window. The backend's native Jarvis message and pipeline routes share the same helper. Redis failure returns 503 (fail closed); over-limit requests return 429 with `Retry-After`.
+- Added a Next.js regression asserting that a 429 prevents LLM execution, plus backend source-contract tests for the Redis counter and direct backend routes. Local focused suite after this addition: **143 passed** (Stage 3, MFA, and response-template tests); Python compilation passed. Next.js Vitest and full Rust-backed CI remain pending for the latest commit.
+- Stage 3 remains in progress until the exact latest SHA passes CI and the remaining audit is complete.

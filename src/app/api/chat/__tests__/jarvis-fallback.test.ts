@@ -60,8 +60,9 @@ vi.mock('@/lib/jarvis-ai-engine', () => ({
 }));
 
 // Mock JWT verification (vi.hoisted so the mocks are available to the hoisted vi.mock calls).
-const { authenticatedUserIdMock } = vi.hoisted(() => ({
+const { authenticatedUserIdMock, backendProxyMock } = vi.hoisted(() => ({
   authenticatedUserIdMock: vi.fn().mockResolvedValue('user-1'),
+  backendProxyMock: vi.fn(),
 }));
 
 // The route delegates identity, revocation, and active-account checks to this
@@ -69,6 +70,10 @@ const { authenticatedUserIdMock } = vi.hoisted(() => ({
 // auth-helper behavior is covered by its own tests.
 vi.mock('@/lib/api-auth', () => ({
   getAuthenticatedUserId: authenticatedUserIdMock,
+}));
+
+vi.mock('@/lib/backend-proxy', () => ({
+  backendProxy: backendProxyMock,
 }));
 
 describe('POST /api/chat — JarvisAIEngine fallback', () => {
@@ -79,6 +84,11 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
     ensureLoadedMock.mockReset();
     // Restore default return values.
     authenticatedUserIdMock.mockResolvedValue('user-1');
+    backendProxyMock.mockReset();
+    backendProxyMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ allowed: true }), { status: 200 }),
+      csrfUsed: false,
+    });
     generateResponseMock.mockResolvedValue(
       'Thanks for your question! PARWA handles customer support across email, chat, SMS, and voice. Pricing starts at $999/mo for Mini PARWA.'
     );
@@ -131,6 +141,34 @@ describe('POST /api/chat — JarvisAIEngine fallback', () => {
     expect(data.status).toBe('success');
     // The mocked JarvisAIEngine response mentions PARWA + pricing.
     expect(data.reply.toLowerCase()).toMatch(/parwa|\$|price|plan/);
+  });
+
+  it('blocks LLM work when the shared backend rate limit is exceeded', async () => {
+    backendProxyMock.mockResolvedValueOnce({
+      response: new Response(JSON.stringify({ detail: 'rate limited' }), {
+        status: 429,
+        headers: { 'Retry-After': '23' },
+      }),
+      csrfUsed: false,
+    });
+
+    const req = new Request('http://localhost:3000/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer fake-token',
+      },
+      body: JSON.stringify({ message: 'Please help me' }),
+    });
+
+    const response = await POST(req as any);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('23');
+    expect(generateResponseMock).not.toHaveBeenCalled();
+    expect(backendProxyMock).toHaveBeenCalledWith(
+      '/api/jarvis/chat/rate-limit',
+      expect.objectContaining({ method: 'POST', authToken: 'fake-token' }),
+    );
   });
 
   it('requires authentication', async () => {

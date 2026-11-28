@@ -183,3 +183,30 @@ def test_email_html_sanitizer_rejects_encoded_unsafe_href_schemes_and_styles():
     assert "_ALLOWED_HREF_SCHEMES" in source
     assert 'Set[str] = {"http", "https", "mailto"}' in source
     assert 'Set[str] = {"href", "class", "title"}' in source
+
+
+def test_next_chat_route_consumes_backend_rate_limit_before_side_effects():
+    source = _read("src/app/api/chat/route.ts")
+    assert "backendProxy('/api/jarvis/chat/rate-limit'" in source
+    assert "authToken: accessToken" in source
+    assert source.index("/api/jarvis/chat/rate-limit") < source.index("detectAction(userMessage)")
+    assert "status === 429" in source
+
+
+def test_backend_chat_rate_limit_uses_atomic_tenant_scoped_redis_counter():
+    source = _read("backend/app/api/jarvis_chat.py")
+    _, endpoint = _function_source(source, "consume_chat_rate_limit")
+    assert "Depends(get_current_user)" in endpoint
+    assert "_consume_chat_rate_limit_for_user(user)" in endpoint
+    _, function = _function_source(source, "_consume_chat_rate_limit_for_user")
+    assert "make_key(" in function
+    assert '"rate_limit", "jarvis_chat", str(user.id)' in function
+    assert "redis.eval(" in function
+    assert "_CHAT_RATE_LIMIT" in function
+    assert "status_code=429" in function
+    assert "status_code=503" in function
+    _, message_route = _function_source(source, "send_chat_message")
+    assert "_consume_chat_rate_limit_for_user(user)" in message_route
+    jarvis_routes = _read("backend/app/api/jarvis_routes.py")
+    _, pipeline_route = _function_source(jarvis_routes, "jarvis_chat")
+    assert "_consume_chat_rate_limit_for_user(current_user)" in pipeline_route

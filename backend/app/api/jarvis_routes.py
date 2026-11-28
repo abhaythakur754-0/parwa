@@ -83,6 +83,11 @@ async def jarvis_chat(
 
     tenant_id = company_id
 
+    # This route also invokes the LLM pipeline directly; share the same
+    # Redis-backed per-user budget used by the Next.js chat proxy.
+    from app.api.jarvis_chat import _consume_chat_rate_limit_for_user
+    await _consume_chat_rate_limit_for_user(current_user)
+
     # Emit SSE init event
     await emit_pipeline_event(tenant_id, "init", {
         "question": req.question,
