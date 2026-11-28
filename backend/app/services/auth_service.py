@@ -201,7 +201,7 @@ async def authenticate_user(
     db: Session,
     email: str,
     password: str,
-) -> AuthResponse:
+) -> AuthResponse | dict:
     """Authenticate a user with email and password.
 
     BC-011: bcrypt verification, never leaks timing info.
@@ -318,18 +318,29 @@ async def authenticate_user(
         Company.id == user.company_id
     ).first()
 
-    # Generate tokens
+    # MFA-enabled users receive only a short-lived pre-auth challenge.
+    # No authenticated tokens are created until the second factor succeeds.
+    if user.mfa_enabled:
+        if not company:
+            raise AuthenticationError(message="Account company not found")
+        from app.api.mfa import create_mfa_session_token
+        mfa_session_token = await create_mfa_session_token(
+            user_id=str(user.id), company_id=str(user.company_id),
+            email=user.email, role=user.role,
+            plan=company.subscription_tier or "starter",
+        )
+        db.commit()
+        db.refresh(user)
+        logger.info("mfa_login_challenge_issued user_id=%s company_id=%s", user.id, user.company_id)
+        return {"mfa_required": True, "mfa_session_token": mfa_session_token,
+                "user": {"id": user.id, "email": user.email,
+                         "full_name": user.full_name, "is_verified": user.is_verified}}
+
     tokens = _create_token_pair(db, user, company)
     db.commit()
     db.refresh(user)
-
-    logger.info(
-        "user_authenticated user_id=%s company_id=%s",
-        user.id, user.company_id)
-
-    return _build_auth_response(
-        user, company, tokens, is_new_user=False
-    )
+    logger.info("user_authenticated user_id=%s company_id=%s", user.id, user.company_id)
+    return _build_auth_response(user, company, tokens, is_new_user=False)
 
 
 def refresh_tokens(

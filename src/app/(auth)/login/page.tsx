@@ -134,6 +134,15 @@ function LoginContent() {
         throw parseErr instanceof Error ? parseErr : new Error('Failed to read server response.');
       }
 
+      if (data.status === 'mfa_required') {
+        if (typeof data.mfa_session_token !== 'string' || !data.mfa_session_token) {
+          throw new Error('MFA challenge could not be created. Please try again.');
+        }
+        sessionStorage.setItem('parwa_mfa_session_token', data.mfa_session_token);
+        loginInProgress.current = false;
+        router.push('/auth/mfa-verify');
+        return;
+      }
       if (data.status !== 'success') {
         throw new Error(String(data.message || 'Login failed. Please try again.'));
       }

@@ -20,7 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { backendProxy } from '@/lib/backend-proxy';
-import { getAccessTokenFromCookies } from '@/lib/auth-cookies';
+import { getAccessTokenFromCookies, setAuthCookies } from '@/lib/auth-cookies';
 
 async function proxyToBackend(
   request: NextRequest,
@@ -51,6 +51,19 @@ async function proxyToBackend(
     const text = await response.text();
     try {
       const data = JSON.parse(text);
+      const isPreAuthCompletion =
+        (pathSegments.length === 1 && pathSegments[0] === 'verify') ||
+        (pathSegments.length === 2 && pathSegments[0] === 'backup' && pathSegments[1] === 'verify');
+      if (response.ok && isPreAuthCompletion) {
+        if (data.verified !== true || typeof data.access_token !== 'string' ||
+            typeof data.refresh_token !== 'string' || !data.user) {
+          return NextResponse.json({ detail: 'MFA verification did not produce a valid authenticated session.' }, { status: 502 });
+        }
+        const userData = { id: data.user.id, email: data.user.email, fullName: data.user.full_name, isVerified: data.user.is_verified ?? false };
+        const authenticated = NextResponse.json({ verified: true, user: userData, remaining: data.remaining });
+        setAuthCookies(authenticated, data.access_token, data.refresh_token, userData, Number(data.expires_in) || undefined);
+        return authenticated;
+      }
       return NextResponse.json(data, { status: response.status });
     } catch {
       return NextResponse.json(

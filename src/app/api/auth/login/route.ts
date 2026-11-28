@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
       if (backendRes.ok) {
         const data = await backendRes.json();
 
-        // Backend returns AuthResponse: { user, tokens, is_new_user }
+        // MFA challenge contains no authenticated tokens.
+        if (data.mfa_required === true && typeof data.mfa_session_token === "string") {
+          return NextResponse.json({ status: "mfa_required", message: "Verify your authenticator code to finish signing in.", mfa_session_token: data.mfa_session_token, user: data.user });
+        }
         if (data.user && data.tokens) {
           const userData = {
             id: data.user.id,

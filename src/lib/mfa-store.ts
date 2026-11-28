@@ -33,7 +33,7 @@ interface MFAState {
   // Actions
   initiateSetup: () => Promise<void>;
   verifyAndEnroll: (code: string) => Promise<boolean>;
-  verifyLogin: (code: string, backupCode?: boolean) => Promise<boolean>;
+  verifyLogin: (code: string, mfaSessionToken: string, backupCode?: boolean) => Promise<boolean>;
   disableMfa: (password: string) => Promise<boolean>;
   resetError: () => void;
   clearState: () => void;
@@ -139,21 +139,21 @@ export const useMFAStore = create<MFAState>((set) => ({
     }
   },
 
-  verifyLogin: async (code: string, backupCode = false) => {
-    if (!code) {
-      set({ error: 'Please enter a verification code' });
+  verifyLogin: async (code: string, mfaSessionToken: string, backupCode = false) => {
+    if (!code || !mfaSessionToken) {
+      set({ error: 'Your login session expired. Please sign in again.' });
       return false;
     }
     set({ status: 'verifying', error: null });
     try {
       const endpoint = backupCode
-        ? `${API_BASE}/backup`
-        : `${API_BASE}/login`;
+        ? `${API_BASE}/backup/verify`
+        : `${API_BASE}/verify`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(backupCode ? { backup_code: code } : { code }),
+        body: JSON.stringify({ code, mfa_session_token: mfaSessionToken }),
       });
 
       if (res.ok) {

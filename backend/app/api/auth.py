@@ -134,12 +134,12 @@ def register(
     return result
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login", response_model=None)
 async def login(
     body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
-) -> AuthResponse:
+) -> AuthResponse | dict:
     """Authenticate with email and password.
 
     F-010: Email/password login.
@@ -152,6 +152,8 @@ async def login(
         email=body.email,
         password=body.password,
     )
+    if isinstance(result, dict) and result.get("mfa_required"):
+        return result
     _set_token_cookies(response, result.tokens)
     return result
 

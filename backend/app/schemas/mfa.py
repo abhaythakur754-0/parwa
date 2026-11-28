@@ -57,6 +57,17 @@ class MFALoginVerifyRequest(BaseModel):
         return v
 
 
+class MFABackupLoginVerifyRequest(BaseModel):
+    """Request to complete login with backup code and pre-auth session."""
+    code: str = Field(min_length=1, max_length=32)
+    mfa_session_token: str = Field(min_length=1, max_length=256)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, v: str) -> str:
+        return v.strip().upper()
+
+
 class MFASetupResponse(BaseModel):
     """Response with QR code and backup codes."""
 

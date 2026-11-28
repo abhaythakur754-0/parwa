@@ -37,11 +37,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, optional_user
-from app.core.jwt_auth import (
-    create_access_token,
-    hash_refresh_token,
-)
+from app.core.jwt_auth import hash_refresh_token
 from app.exceptions import AuthenticationError
+from app.schemas.auth import UserResponse
 from app.schemas.mfa import (
     BackupCodeRegenerateRequest,
     BackupCodeUseRequest,
@@ -51,6 +49,7 @@ from app.schemas.mfa import (
     MFASetupVerifyRequest,
     MFAVerifyResponse,
     MFALoginVerifyRequest,
+    MFABackupLoginVerifyRequest,
     RevokeOthersResponse,
     SessionListResponse,
     SessionRevokeResponse,
@@ -69,15 +68,17 @@ from app.services.session_service import (
     revoke_session,
 )
 from database.base import get_db
-from database.models.core import User
+from database.models.core import Company, User
 
 # ── R-06 FIX: Response models for MFA endpoints returning untyped dict ──
 
 class MFALoginVerifyResponse(BaseModel):
-    """Response schema for MFA login verification."""
+    """Response after completing pre-authentication MFA."""
     verified: bool
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
+    expires_in: Optional[int] = None
+    user: Optional[UserResponse] = None
 
 class BackupCodesCountResponse(BaseModel):
     """Response schema for backup codes count."""
@@ -302,6 +303,26 @@ async def verify_mfa_session_token(token: str) -> dict:
     return session
 
 
+
+
+def _issue_mfa_login_response(db: Session, user: User, session_data: dict) -> MFALoginVerifyResponse:
+    """Issue the standard bounded token pair only after MFA proof succeeds."""
+    from app.services.auth_service import _build_auth_response, _create_token_pair
+    company = db.query(Company).filter(
+        Company.id == user.company_id,
+        Company.id == session_data["company_id"],
+    ).first()
+    if not company:
+        raise HTTPException(status_code=401, detail="Account company not found")
+    tokens = _create_token_pair(db, user, company)
+    auth_response = _build_auth_response(user, company, tokens, is_new_user=False)
+    db.commit()
+    return MFALoginVerifyResponse(
+        verified=True, access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token, expires_in=tokens.expires_in,
+        user=auth_response.user,
+    )
+
 # ── F-015: MFA Setup ──────────────────────────────────────────────
 
 
@@ -377,9 +398,10 @@ async def mfa_verify_login(
 
     # Look up user from session data
     user = db.query(User).filter(
-        User.id == session_data["user_id"]
+        User.id == session_data["user_id"],
+        User.company_id == session_data["company_id"],
     ).first()
-    if not user or not user.is_active:
+    if not user or not user.is_active or not user.mfa_enabled:
         raise HTTPException(
             status_code=401,
             detail={
@@ -416,34 +438,32 @@ async def mfa_verify_login(
             },
         )
 
-    # On successful MFA verification, issue real JWT tokens
-    if result.get("verified"):
-        from app.core.jwt_auth import generate_refresh_token
-        from app.services.auth_service import create_session
+    # Service returns status=verified; checking result['verified'] here was
+    # incorrect and prevented successful MFA from issuing an authenticated session.
+    if result.get("status") == "verified":
+        return _issue_mfa_login_response(db, user, session_data)
+    raise HTTPException(status_code=401, detail="MFA verification failed")
 
-        access_token = create_access_token(
-            user_id=user.id,
-            company_id=session_data["company_id"],
-            email=session_data["email"],
-            role=session_data["role"],
-            plan=session_data["plan"],
-        )
-        refresh_token_raw = generate_refresh_token()
 
-        # Create session in DB
-        create_session(
-            db=db,
-            user_id=user.id,
-            company_id=session_data["company_id"],
-            token_hash=hash_refresh_token(refresh_token_raw),
-            device_info="mfa-login",
-        )
 
-        result["access_token"] = access_token
-        result["refresh_token"] = refresh_token_raw
 
-    return result
-
+@router.post("/mfa/backup/verify", response_model=MFALoginVerifyResponse)
+async def mfa_backup_login_verify(
+    body: MFABackupLoginVerifyRequest,
+    db: Session = Depends(get_db),
+) -> MFALoginVerifyResponse:
+    """Complete login with a single-use backup code and pre-auth session."""
+    session_data = await verify_mfa_session_token(body.mfa_session_token)
+    user = db.query(User).filter(
+        User.id == session_data["user_id"],
+        User.company_id == session_data["company_id"],
+    ).first()
+    if not user or not user.is_active or not user.mfa_enabled:
+        raise HTTPException(status_code=401, detail="Invalid MFA login session")
+    result = use_backup_code(db=db, user=user, code=body.code)
+    if result.get("status") != "verified":
+        raise HTTPException(status_code=401, detail="Invalid backup code")
+    return _issue_mfa_login_response(db, user, session_data)
 
 # ── F-016: Backup Codes ───────────────────────────────────────────
 

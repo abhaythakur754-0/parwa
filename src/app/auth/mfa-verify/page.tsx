@@ -35,16 +35,27 @@ export default function MFAVerifyPage() {
   const handleVerify = useCallback(async () => {
     setLocalError(null);
     resetError();
+    const mfaSessionToken = sessionStorage.getItem('parwa_mfa_session_token');
+    if (!mfaSessionToken) {
+      router.replace('/login');
+      return;
+    }
     if (useBackup) {
-      const ok = await verifyLogin(backupCode.trim(), true);
-      if (ok) router.push('/dashboard');
+      const ok = await verifyLogin(backupCode.trim(), mfaSessionToken, true);
+      if (ok) {
+        sessionStorage.removeItem('parwa_mfa_session_token');
+        window.location.assign('/dashboard/tickets');
+      }
     } else {
       if (code.length !== OTP_LENGTH) {
         setLocalError('Please enter all 6 digits');
         return;
       }
-      const ok = await verifyLogin(code);
-      if (ok) router.push('/dashboard');
+      const ok = await verifyLogin(code, mfaSessionToken);
+      if (ok) {
+        sessionStorage.removeItem('parwa_mfa_session_token');
+        window.location.assign('/dashboard/tickets');
+      }
     }
   }, [backupCode, code, resetError, router, useBackup, verifyLogin]);
 
