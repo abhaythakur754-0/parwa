@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+/** @jest-environment node */
+
 import { isValidCookieAuthOrigin } from '../csrf-origin';
 
 describe('cookie-auth CSRF origin validation', () => {

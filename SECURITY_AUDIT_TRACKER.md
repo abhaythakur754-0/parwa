@@ -203,3 +203,8 @@ When the separate agent/integration work is merged, do not restart this audit. R
 
 - The Python bridge previously allowed every origin when the trusted-origin list was empty; the Rust validator had the same development fallback. The bridge now checks production mode before delegating to Rust or Python and rejects all origins when the allowlist is empty. Development behavior remains unchanged. A direct local check confirmed an empty production allowlist returns false; the Stage 3 source-contract suite now includes this guard.
 - Latest local focused Python suite after this addition: **147 passed** (Stage 3, MFA, and response-template tests); Python compilation passed. Full CI for the latest commit is pending.
+
+
+### CI follow-up — frontend test runner correction (2026-11-28)
+
+- The first full CI run for the Next.js CSRF regression reached the frontend unit suite and found the new test imported Vitest, while this repository's configured test runner is Jest. Frontend lint, type-check, build, and chat API regression all passed; 726 existing frontend tests passed. Corrected the new CSRF test to use Jest globals and the Node environment. The latest backend security suite, including the new Python/Rust CSRF and chat limiter checks, passed; Rust compilation passed. A fresh full CI run is required for the corrected test file.
