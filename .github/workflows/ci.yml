@@ -24,6 +24,7 @@ on:
       - "src/__tests__/integration/settings-mfa-email-flow.test.ts"
       - ".github/workflows/security-mfa-regression.yml"
       - ".github/workflows/ci.yml"
+      - "SECURITY_AUDIT_TRACKER.md"
   pull_request:
     branches:
       - main
