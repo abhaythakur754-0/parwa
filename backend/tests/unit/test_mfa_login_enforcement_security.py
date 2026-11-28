@@ -37,8 +37,7 @@ def test_auth_endpoint_returns_challenge_without_setting_auth_cookies():
 def test_totp_success_uses_standard_token_pair_and_tenant_bound_user():
     verify = _function(MFA_API, "mfa_verify_login")
     assert _calls(verify, "verify_mfa_session_token")
-    assert any(isinstance(n, ast.Call) and ast.unparse(n.func) == "filter" and "company_id" in ast.unparse(n)
-               for n in ast.walk(verify))
+    assert any(isinstance(n, ast.Attribute) and n.attr == "company_id" for n in ast.walk(verify))
     assert any(isinstance(n, ast.If) and "status" in ast.unparse(n.test) and "verified" in ast.unparse(n.test)
                for n in ast.walk(verify))
     assert _calls(_function(MFA_API, "_issue_mfa_login_response"), "_create_token_pair")

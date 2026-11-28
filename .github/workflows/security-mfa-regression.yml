@@ -15,6 +15,8 @@ on:
       - "src/app/(auth)/login/page.tsx"
       - "src/app/auth/mfa-verify/page.tsx"
       - "src/lib/mfa-store.ts"
+      - "src/lib/__tests__/mfa-store.test.ts"
+      - "src/__tests__/integration/settings-mfa-email-flow.test.ts"
       - ".github/workflows/security-mfa-regression.yml"
   pull_request:
     branches: [main]
