@@ -125,7 +125,7 @@ impl RateLimiter {
         let m = method.to_uppercase();
         if path == "/api/auth/login" && m == "POST" { return "auth_login".into(); }
         if path == "/api/auth/register" && m == "POST" { return "auth_register".into(); }
-        if path == "/api/auth/mfa" && m == "POST" { return "auth_mfa".into(); }
+        if (path == "/api/auth/mfa" || path.starts_with("/api/auth/mfa/")) && m == "POST" { return "auth_mfa".into(); }
         if path == "/api/auth/phone/send" && m == "POST" { return "auth_phone_send".into(); }
         if path == "/api/auth/phone/verify" && m == "POST" { return "auth_phone_verify".into(); }
         if (path == "/api/auth/forgot-password" || path == "/api/auth/reset-password") && m == "POST" {
@@ -1859,6 +1859,8 @@ mod tests {
         assert_eq!(rl.classify_path("/api/integrations/hubspot", "POST"), "integration");
         assert_eq!(rl.classify_path("/health", "GET"), "general_get");
         assert_eq!(rl.classify_path("/api/auth/mfa", "POST"), "auth_mfa");
+        assert_eq!(rl.classify_path("/api/auth/mfa/verify", "POST"), "auth_mfa");
+        assert_eq!(rl.classify_path("/api/auth/mfa/backup/verify", "POST"), "auth_mfa");
         assert_eq!(rl.classify_path("/api/auth/phone/send", "POST"), "auth_phone_send");
         assert_eq!(rl.classify_path("/api/public/demo/chat", "POST"), "demo_chat");
         assert_eq!(rl.classify_path("/api/auth/forgot-password", "POST"), "auth_reset");

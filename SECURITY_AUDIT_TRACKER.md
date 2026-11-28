@@ -13,8 +13,8 @@
 | Order | Remaining necessary work | What is included (only unresolved/unverified items) | Estimate | Status |
 |---|---|---|---:|---|
 | 1 | Finish critical authentication and authorization gaps | Verify the full password → MFA challenge → token issuance flow (C-09); confirm dashboard/API authentication, real token validation, admin/platform-admin boundaries, billing endpoint protection, and RAG tenant scoping (C-01, C-02, C-10, C-11, C-12). Fix only confirmed gaps. | 2–3 hours | COMPLETE |
-| 2 | Finish critical secrets, session and infrastructure gaps | Verify production secret fail-closed behavior, refresh-token pepper, MCP token enforcement, CORS fallback, trusted tenant-header handling, OAuth token encryption, PostgreSQL TLS, and whether historical `.env.prod` exposure requires credential rotation (C-04–C-08, C-13–C-15). Do not rework controls already proven effective. | 2–3 hours | IN PROGRESS — fixes added; CI pending |
-| 3 | Close only high-impact remaining attack paths | Check the still-relevant high-risk items: open redirects, email/OTP verification weaknesses, billing/admin middleware coverage, webhook fail-closed/replay behavior, OAuth URL leakage, billing roles, webhook status/retry authorization, HTML injection, API-key disclosure, chat API auth/rate limits, CSRF where cookie auth applies, mock-login remnants, and workflow tenant-IDOR. Existing completed webhook, onboarding, tenant, and Jarvis fixes are credited—not repeated. | 2–3 hours | PENDING |
+| 2 | Finish critical secrets, session and infrastructure gaps | Verify production secret fail-closed behavior, refresh-token pepper, MCP token enforcement, CORS fallback, trusted tenant-header handling, OAuth token encryption, PostgreSQL TLS, and whether historical `.env.prod` exposure requires credential rotation (C-04–C-08, C-13–C-15). Do not rework controls already proven effective. | 2–3 hours | CODE + CI COMPLETE — production operational checks remain |
+| 3 | Close only high-impact remaining attack paths | Check the still-relevant high-risk items: open redirects, email/OTP verification weaknesses, billing/admin middleware coverage, webhook fail-closed/replay behavior, OAuth URL leakage, billing roles, webhook status/retry authorization, HTML injection, API-key disclosure, chat API auth/rate limits, CSRF where cookie auth applies, mock-login remnants, and workflow tenant-IDOR. Existing completed webhook, onboarding, tenant, and Jarvis fixes are credited—not repeated. | 2–3 hours | IN PROGRESS — confirmed gaps fixed; CI pending |
 | 4 | One final verification and sign-off | Run the complete required security regression suite and relevant backend/frontend tests; verify production deployment settings and operational actions (including any required credential rotation); record only genuine residual risks and evidence. | 1–2 hours | PENDING |
 
 **Estimated remaining engineering effort: 7–11 focused hours**, assuming no newly discovered critical vulnerability, external credential-rotation delay, or deployment/provider access blocker. This estimate excludes the seven completed checks and excludes unrelated agent/integration feature work.
@@ -127,3 +127,35 @@ When the separate agent/integration work is merged, do not restart this audit. R
 - **C-14 — controlled legacy migration added:** added an explicit dry-run-first script for all OAuthAccount token fields and Integration credential rows. It aborts on unreadable/corrupt values and only persists changes with an explicit `--apply`; it has not been run against production data.
 
 - **C-13 — Kubernetes workload database URL wiring:** the backend and worker application containers previously received DB_HOST/DB_PASSWORD fields but not DATABASE_URL, which is the setting consumed by the SQLAlchemy database layer. Both now receive the DATABASE_URL key from the parwa-secrets Secret; this prevents an accidental SQLite default in those pods. A manifest regression test covers backend, worker, and MCP.
+
+
+## Stage 3 — High-impact remaining attack paths (2026-11-28)
+
+### Confirmed gaps fixed in this pass
+
+- **H-03 — email verification enforcement: FIXED for new production registrations.** Production registration no longer creates access/refresh tokens before email verification. Password login, refresh-token rotation, and the authoritative get_current_user dependency reject unverified accounts in production. Google OAuth linking marks the local account verified only after Google tokeninfo has confirmed email_verified=true. The Next.js registration proxy returns successful unverified registration without setting auth cookies. Development/test registration retains fixture behavior. Verification also deletes refresh sessions created before the email was verified. **Residual rollout note:** legacy access tokens minted by older versions for currently unverified accounts may remain usable for up to their existing access-token TTL after verification; account for that short window during rollout.
+- **H-21 — MFA rate-limit classification: FIXED.** The actual pre-auth routes /api/auth/mfa/verify and /api/auth/mfa/backup/verify previously fell through to the general POST bucket (100/min). Both the Rust classifier and Python fallback now map the complete /api/auth/mfa/ POST prefix to the strict auth_mfa category (10/min). Because the pre-auth request carries an opaque MFA challenge rather than an email, the Python category is scoped by client IP; per-user MFA lockout remains enforced by the MFA service.
+- **H-22 — workflow tenant IDOR: FIXED.** get_gsd_analytics accepted a path company_id and passed it into tenant-scoped state loading without binding it to the authenticated tenant. It now depends on the JWT-derived company ID and rejects mismatches with AuthorizationError, matching neighboring workflow endpoints.
+
+### Current-code verification credited (not reimplemented)
+
+- **H-01:** login/signup use the allowlisted safe-redirect helper; absolute, protocol-relative, encoded and non-allowlisted paths are rejected.
+- **H-02:** browser OTP routes proxy to the backend; phone OTP and business-email OTP compare hashed values with the shared constant-time comparator and enforce attempt/expiry limits.
+- **H-04 / H-05:** CSP is emitted by the security middleware; admin routes require platform-admin authorization and billing mutation routes require owner/admin roles.
+- **H-06:** middleware uses the shared client-IP resolver; checked ingress configuration appends the connecting peer address and Kubernetes NetworkPolicy limits backend ingress to frontend/ingress/monitoring pods. Production proxy topology still needs deployment confirmation.
+- **H-07 / H-08 / H-15:** webhook secret checks fail closed, timestamps are required and freshness-checked, and status/retry/list endpoints require platform-admin authorization.
+- **H-09 / H-12:** pricing signing key is settings-backed with production validation; Google ID tokens are sent to tokeninfo in a POST body, not a query string.
+- **H-13 / H-16 / H-17:** billing mutation roles are enforced; current notification templates HTML-escape user-controlled fields; channel-status requires authentication and returns configured booleans rather than API-key prefixes.
+- **H-14:** visitor/company validation and tenant protections are credited from the previously completed chat-widget checks; not repeated.
+- **H-18 / H-19:** chat requires authoritative backend-confirmed identity; backend rate-limit middleware applies to POST requests; cookie-auth state-changing requests receive Origin/Referer and double-submit CSRF validation.
+- **H-20:** the historical dashboard mock-login tree is absent from the current source snapshot; current src/app/api/auth login/register routes proxy to the backend and do not mint mock identities.
+- **H-11:** MD5 file-integrity usage is deferred unless a concrete security decision is shown to rely on collision resistance; it is not treated as a demonstrated high-impact production exploit in this focused pass.
+
+### Stage 3 regression evidence
+
+- Added backend/tests/unit/test_stage3_high_impact_security.py and included it in the required CI Security Regression Suite. **17 source-contract tests passed locally.**
+- Existing focused workflow IDOR and MFA rate-limit source-contract tests: **12 passed** (backend/tests/test_security_day2.py -k 'WorkflowIDORProtection or AuthMFARateLimitClassification').
+- py_compile passed for all changed Python modules.
+- The broader legacy security test files are stale in places (absolute old paths and assertions against removed dashboard/old route layouts); they were not used as proof of current security. Full backend pytest could not be collected in this local snapshot because structlog is absent; Rust tests could not be run locally because cargo is unavailable. The required CI run for the pushed commit remains the final code verification gate.
+
+**Stage 3 remains in progress until the exact pushed SHA passes CI and the remaining high-impact review is complete.**

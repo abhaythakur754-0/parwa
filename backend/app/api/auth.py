@@ -130,7 +130,8 @@ def register(
         industry=body.industry,
         unique_id=body.unique_id,
     )
-    _set_token_cookies(response, result.tokens)
+    if result.tokens:
+        _set_token_cookies(response, result.tokens)
     return result
 
 
@@ -154,7 +155,8 @@ async def login(
     )
     if isinstance(result, dict) and result.get("mfa_required"):
         return result
-    _set_token_cookies(response, result.tokens)
+    if result.tokens:
+        _set_token_cookies(response, result.tokens)
     return result
 
 
@@ -218,7 +220,8 @@ async def google_login(
         result = await google_auth(db=db, id_token=body.id_token)
         if isinstance(result, dict) and result.get("mfa_required"):
             return result
-        _set_token_cookies(response, result.tokens)
+        if result.tokens:
+            _set_token_cookies(response, result.tokens)
         return result
     except Exception as exc:
         # Ensure we ALWAYS return a structured JSON error, never plain text.

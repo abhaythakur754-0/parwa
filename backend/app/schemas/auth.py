@@ -182,7 +182,7 @@ class AuthResponse(BaseModel):
     """
 
     user: UserResponse
-    tokens: TokenResponse
+    tokens: Optional[TokenResponse] = None
     is_new_user: bool = False
 
 

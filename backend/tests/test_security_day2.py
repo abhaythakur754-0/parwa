@@ -355,6 +355,25 @@ class TestWebhookStatusRetryAuth:
 # ====================================================================
 
 
+class TestAuthMFARateLimitClassification:
+    """Pre-auth MFA verification routes must use the strict MFA limit."""
+
+    def test_python_fallback_classifies_mfa_verification_paths(self):
+        content = _read_backend_source("app/core/parwa_core_bridge.py")
+        assert 'path.startswith("/api/auth/mfa/")' in content
+        assert '"auth_mfa"' in content
+
+    def test_rust_classifier_covers_mfa_verification_paths(self):
+        content = _read_source("backend/parwa_core/src/lib.rs")
+        assert 'path.starts_with("/api/auth/mfa/")' in content
+
+    def test_mfa_rate_limit_is_ip_scoped(self):
+        content = _read_backend_source("app/core/parwa_core_bridge.py")
+        start = content.index('"auth_mfa": {')
+        block = content[start:content.index("    },", start)]
+        assert '"scope": "ip"' in block
+
+
 class TestWorkflowIDORProtection:
     """Verify workflow endpoints validate path company_id against JWT."""
 
@@ -413,6 +432,24 @@ class TestWorkflowIDORProtection:
             elif in_func and "jwt_company_id" in line:
                 found = True
         assert found, "get_gsd_transitions missing jwt_company_id check"
+
+    def test_gsd_analytics_has_idor_check(self):
+        """get_gsd_analytics must bind path company_id to the JWT tenant."""
+        content = _read_backend_source("app/api/workflow.py")
+        lines = content.split("\n")
+        in_func = False
+        found_dependency = False
+        found_comparison = False
+        for line in lines:
+            if "def get_gsd_analytics" in line:
+                in_func = True
+            elif in_func and line.startswith("def "):
+                break
+            elif in_func:
+                found_dependency = found_dependency or "jwt_company_id" in line
+                found_comparison = found_comparison or "company_id != jwt_company_id" in line
+        assert found_dependency, "get_gsd_analytics missing JWT tenant dependency"
+        assert found_comparison, "get_gsd_analytics missing cross-tenant rejection"
 
     def test_idor_error_message(self):
         """IDOR check should return a descriptive error message."""

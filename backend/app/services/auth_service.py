@@ -160,8 +160,10 @@ def register_user(
     db.add(user)
     db.flush()  # Get user.id
 
-    # Generate tokens
-    tokens = _create_token_pair(db, user, company)
+    # H-03: Do not issue a production session before email verification.
+    # Test/development keeps fixture-friendly registration behavior.
+    settings = get_settings()
+    tokens = None if settings.is_production else _create_token_pair(db, user, company)
 
     db.commit()
     db.refresh(user)
@@ -301,6 +303,12 @@ async def authenticate_user(
             message="Invalid email or password"
         )
 
+    # H-03: Email verification is required before production authentication.
+    if get_settings().is_production and not user.is_verified:
+        raise AuthenticationError(
+            message="Please verify your email before signing in."
+        )
+
     # L11: Progressive delay before success response
     attempt = user.failed_login_count or 0
     if attempt > 0 and attempt < len(_LOCKOUT_DELAYS):
@@ -398,6 +406,13 @@ def refresh_tokens(
             message="User not found or disabled"
         )
 
+    if get_settings().is_production and not user.is_verified:
+        _invalidate_all_tokens(db, stored.user_id)
+        db.commit()
+        raise AuthenticationError(
+            message="Email verification required"
+        )
+
     # Delete old token (rotation)
     db.delete(stored)
 
@@ -487,6 +502,8 @@ async def google_auth(
             User.id == oauth_account.user_id
         ).first()
         if user and user.is_active:
+            # Google tokeninfo verified the email claim before this branch.
+            user.is_verified = True
             company = db.query(Company).filter(
                 Company.id == user.company_id
             ).first()
@@ -726,7 +743,7 @@ def _create_token_pair(
 def _build_auth_response(
     user: User,
     company: Optional[Company],
-    tokens: TokenResponse,
+    tokens: Optional[TokenResponse],
     is_new_user: bool = False,
 ) -> AuthResponse:
     """Build a combined user + tokens response.
@@ -876,6 +893,8 @@ def _link_google_account(
         access_token: Optional OAuth access token (will be encrypted).
         refresh_token: Optional OAuth refresh token (will be encrypted).
     """
+    # _verify_google_token rejects unverified Google email claims first.
+    user.is_verified = True
     oauth = OAuthAccount(
         user_id=user.id,
         company_id=user.company_id,

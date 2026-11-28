@@ -409,6 +409,7 @@ jobs:
             tests/unit/test_jarvis_command_authorization.py \
             tests/unit/test_voice_call_recording_security.py \
             tests/unit/test_mfa_session_storage_security.py \
+            tests/unit/test_stage3_high_impact_security.py \
             -v --tb=short
           python -m pytest tests/test_day1_jarvis_cc_service.py -k GetCCSession -v --tb=short
 

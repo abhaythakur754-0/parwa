@@ -10,6 +10,8 @@ BC-011: JWT verification on every protected endpoint.
 
 from typing import Dict, Optional
 
+from app.config import get_settings
+
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
@@ -85,6 +87,12 @@ async def get_current_user(
     if not user.is_active:
         raise AuthenticationError(
             message="Account is disabled"
+        )
+
+    # H-03: Block legacy and current sessions for unverified production users.
+    if get_settings().is_production and not user.is_verified:
+        raise AuthenticationError(
+            message="Email verification required"
         )
 
     # Store user info for downstream dependencies

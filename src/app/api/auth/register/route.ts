@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         const tokensObj = authData.tokens || data.tokens;
         const isNewUser = authData.is_new_user ?? data.is_new_user ?? true;
 
-        if (userObj && tokensObj) {
+        if (userObj) {
           const userData = {
             id: userObj.id,
             email: userObj.email || normalizedEmail,
@@ -82,13 +82,15 @@ export async function POST(request: NextRequest) {
             is_new_user: isNewUser,
           });
 
-          setAuthCookies(
-            response,
-            tokensObj.access_token,
-            tokensObj.refresh_token,
-            userData,
-            tokensObj.expires_in,
-          );
+          if (tokensObj) {
+            setAuthCookies(
+              response,
+              tokensObj.access_token,
+              tokensObj.refresh_token,
+              userData,
+              tokensObj.expires_in,
+            );
+          }
 
           return response;
         }

@@ -23,6 +23,7 @@ from app.services.email_service import (
 from database.models.core import (
     User,
     VerificationToken,
+    RefreshToken,
 )
 
 logger = get_logger("verification_service")
@@ -161,6 +162,10 @@ def verify_email(
     ).first()
     if user:
         user.is_verified = True
+        # A session created before address verification must not survive it.
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id
+        ).delete(synchronize_session=False)
 
     # Invalidate all other unused tokens for user
     db.query(VerificationToken).filter(

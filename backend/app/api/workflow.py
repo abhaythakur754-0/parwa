@@ -1258,6 +1258,7 @@ def get_gsd_transitions(
 def get_gsd_analytics(
     company_id: str,
     ticket_id: str,
+    jwt_company_id: str = Depends(get_jwt_company_id),
     user: User = Depends(get_current_user),
 ) -> GSDAnalyticsResponse:
     """Get GSD analytics for a ticket.
@@ -1265,6 +1266,12 @@ def get_gsd_analytics(
     Provides transition reasoning, signal snapshots, loop counts,
     resolution time estimates, and state distribution analytics.
     """
+    if company_id != jwt_company_id:
+        raise AuthorizationError(
+            message="Cannot access another company's data",
+            details={"path_company_id": company_id},
+        )
+
     try:
         from app.core.state_serialization import StateSerializer
         from app.core.gsd_engine import GSDEngine

@@ -114,7 +114,9 @@ CATEGORY_CONFIG = {
         "backoff_seconds": [0, 2, 4, 8, 900], "lockout_duration": 900,
     },
     "auth_mfa": {
-        "limit": 10, "window": 60, "scope": "email",
+        # Pre-auth MFA requests carry a one-time session token, not an email.
+        # Scope by IP; the MFA service separately enforces per-user lockout.
+        "limit": 10, "window": 60, "scope": "ip",
         "backoff_seconds": [0, 2, 4, 8, 900], "lockout_duration": 900,
     },
     "auth_phone_send": {
@@ -235,6 +237,8 @@ class _RateLimiterBridge:
         if path == "/api/auth/register" and method == "POST":
             return "auth_register"
         if path == "/api/auth/mfa" and method == "POST":
+            return "auth_mfa"
+        if path.startswith("/api/auth/mfa/") and method == "POST":
             return "auth_mfa"
         if path == "/api/auth/phone/send" and method == "POST":
             return "auth_phone_send"

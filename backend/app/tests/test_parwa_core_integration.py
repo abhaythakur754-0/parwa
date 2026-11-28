@@ -76,6 +76,10 @@ class TestRateLimiterPathClassification:
     def test_classify_auth_mfa(self, rate_limiter):
         assert rate_limiter.classify_path("/api/auth/mfa", "POST") == "auth_mfa"
 
+    def test_classify_mfa_login_verification_routes(self, rate_limiter):
+        for path in ("/api/auth/mfa/verify", "/api/auth/mfa/backup/verify"):
+            assert rate_limiter.classify_path(path, "POST") == "auth_mfa"
+
     def test_classify_auth_phone_send(self, rate_limiter):
         assert rate_limiter.classify_path("/api/auth/phone/send", "POST") == "auth_phone_send"
 
