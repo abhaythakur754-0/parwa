@@ -79,13 +79,16 @@ jobs:
       - name: Create source archive and provenance
         run: |
           set -eu
-          printf 'commit=%s\\nbranch=%s\\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > BUILD_INFO.txt
           python - <<'PY'
+          import os
           import subprocess
           from zipfile import ZIP_DEFLATED, ZipFile
 
+          with open("BUILD_INFO.txt", "w", encoding="utf-8") as info:
+              info.write("commit=" + os.environ["GITHUB_SHA"] + chr(10))
+              info.write("branch=" + os.environ["GITHUB_REF_NAME"] + chr(10))
           excluded = {"venv", ".venv", "node_modules", ".next", "__pycache__", ".pytest_cache", "coverage", "dist", "build"}
-          tracked = subprocess.run(["git", "ls-files", "-z"], check=True, capture_output=True).stdout.split(b"\\0")
+          tracked = subprocess.run(["git", "ls-files", "-z"], check=True, capture_output=True).stdout.split(bytes([0]))
           with ZipFile("parwa-source.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
               for raw in tracked:
                   if not raw:
