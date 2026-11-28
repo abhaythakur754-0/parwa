@@ -6,20 +6,28 @@
 **Owner workflow:** direct work on `main`; no unnecessary branches.  
 **Handoff rule:** after every successful push to `main`, refresh the existing PARWA Library ZIP from that exact commit before continuing.
 
-## Audit schedule
+## Focused production-security schedule
 
-| Stage | Scope | Status |
-|---|---|---|
-| 1 | Audit baseline, prior-work inventory, scope and CI reconciliation | COMPLETE |
-| 2 | Critical findings: verify current exposure, fix confirmed open items, add regression tests | IN PROGRESS |
-| 3 | High findings: verify and remediate confirmed open items | NOT STARTED |
-| 4 | Medium findings: verify and remediate confirmed open items | NOT STARTED |
-| 5 | Low findings: verify and remediate confirmed open items | NOT STARTED |
-| 6 | Automated security regression coverage and CI enforcement | NOT STARTED |
-| 7 | Production security verification (configuration, infrastructure, secrets, operational controls) | NOT STARTED |
-| 8 | Final evidence-based audit report and sign-off | NOT STARTED |
+**Purpose:** complete only the security work necessary to establish a defensible production baseline. Do not spend time exhaustively re-auditing low-risk historical findings or repeating already completed checks. Historical findings are used as leads, not as a mandatory 93-item checklist.
 
-Stage completion means evidence is recorded. A historical finding is never treated as open merely because it appears in the old report, and is never treated as fixed merely because a related commit exists.
+| Stage | Essential scope | Estimate | Status |
+|---|---|---:|---|
+| 1 | Reconcile the seven user-confirmed completed checks and existing critical fixes; verify current baseline and identify genuine gaps | 1–2 hours | COMPLETE / carry-forward verification only |
+| 2 | Authentication, MFA, authorization, admin privilege boundaries and tenant isolation | 2–3 hours | IN PROGRESS |
+| 3 | Secrets, token/session protection, sensitive APIs and fail-closed production configuration | 2–3 hours | NOT STARTED |
+| 4 | Webhook authenticity/replay protection, integration permissions, rate limits and essential browser/API protections (including CSRF/CORS/security headers where applicable) | 2–3 hours | NOT STARTED |
+| 5 | Run required security regression tests; verify deployment/security settings; document unresolved risks and evidence-based sign-off | 2–3 hours | NOT STARTED |
+
+**Estimated focused engineering effort: 9–14 hours.** This is a planning estimate, not a completion guarantee; confirmed vulnerabilities, external provider dependencies, or CI/deployment failures may extend it.
+
+### Scope control
+
+- **Must fix before production:** cross-tenant access, authentication/MFA bypass, unauthorized actions or privilege escalation, exposed secrets, unprotected sensitive endpoints, forged/replayed webhooks, and unsafe integration permissions.
+- **Verify proportionately:** rate limiting, CSRF/CORS, security headers, TLS, Redis and other deployment controls according to the actual exposed deployment paths.
+- **Defer/document:** low-risk style or hardening observations that do not create a meaningful exploitable production risk, plus stale or non-applicable historical findings.
+- Do not count a historical report item as currently open without checking the current code and its callers. Do not mark an item fixed based only on a related commit.
+- The seven completed checks remain credited; do not repeat them unless a relevant code change or regression gives a concrete reason.
+- Stage 5 must include evidence from CI and production configuration review. A green CI run alone is not production sign-off.
 
 ## Stage 1 — Baseline and reconciliation
 
