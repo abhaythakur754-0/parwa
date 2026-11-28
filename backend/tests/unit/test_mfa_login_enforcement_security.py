@@ -50,7 +50,7 @@ def test_google_oauth_existing_mfa_accounts_also_require_challenge():
     assert len(mfa_branches) >= 2, "both linked Google and existing-email accounts must enforce MFA"
     assert all(_calls(branch, "create_mfa_session_token") for branch in mfa_branches)
     google_route = _function(AUTH_API, "google_login")
-    assert _calls(google_route, "google_auth") == []
+    assert len(_calls(google_route, "google_auth")) == 1
     assert any(isinstance(n, ast.Await) and isinstance(n.value, ast.Call) and ast.unparse(n.value.func) == "google_auth" for n in ast.walk(google_route))
     assert len(_calls(google_route, "_set_token_cookies")) == 1
 
