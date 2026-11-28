@@ -98,9 +98,10 @@ def decrypt_token(ciphertext: Optional[str]) -> Optional[str]:
         fernet = get_fernet()
         return fernet.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except (InvalidToken, UnicodeDecodeError, Exception) as exc:
+        # Standard logging.Logger does not accept arbitrary structured kwargs.
+        # Keep this fallback safe for legacy plaintext rows during migration.
         logger.warning(
-            "token_decryption_failed",
-            error=str(exc),
-            error_type=type(exc).__name__,
+            "token_decryption_failed error_type=%s",
+            type(exc).__name__,
         )
         return None
