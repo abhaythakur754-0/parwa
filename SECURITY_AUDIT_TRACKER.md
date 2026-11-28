@@ -73,7 +73,7 @@ These commits are inventory evidence, not automatic proof that every related his
 ## Stage 2 — Critical findings (in progress)
 
 - **MFA temporary-session storage outage behavior:** confirmed code contradicted its own comment: process-local fallback was used even in production if Redis storage or retrieval failed. Updated `backend/app/api/mfa.py` to fail closed with HTTP 503 when creating a pre-auth MFA session cannot be stored in Redis, and to reject retrieval during Redis failure in production. Non-production fallback remains available.
-- Added `backend/tests/unit/test_mfa_session_storage_security.py` with three regression guards for production store failure, production read failure, and non-production fallback preservation.
+- Added `backend/tests/unit/test_mfa_session_storage_security.py` with three regression guards for production store failure, production read failure, and non-production fallback preservation. Added it to the required CI Security Regression Suite so the focused checks cannot silently be skipped.
 - Local targeted test: `PYTHONPATH=backend python -m pytest backend/tests/unit/test_mfa_session_storage_security.py -q --tb=short --noconftest` — **3 passed** in the isolated source snapshot. The normal repository conftest path was not used because this container lacks the repository's full dependency environment; the focused tests themselves require only the installed pytest runtime.
 - Historical C-09 is not yet signed off: the code has a dedicated pre-auth temporary-session route, but the entire password → MFA challenge → token issuance path still needs end-to-end verification.
 
